@@ -24,7 +24,7 @@ The library encourages a powerful separation between the *what* (the orchestrati
 
 ### 🧩 Composable & Reusable Components
 
-Casai treats every piece of your AI workflow—from a simple text generator to a complex multi-step agent - as a modular, reusable component. Because you define logic as code, you can encapsulate functionality into distinct `TextGenerator/Streamer`, `ObjectGenerator/Streamer`, or `Script` and `Template` instances.
+Casai treats every piece of your AI workflow—from a simple text generator to a complex multi-step agent - as a modular, reusable component. Because you define logic as code, you can encapsulate functionality into distinct [`TextGenerator`](#textgenerator), [`TextStreamer`](#textstreamer), [`ObjectGenerator`](#objectgenerator), [`ObjectStreamer`](#objectstreamer), or [`Script`](#script) and [`Template`](#template) instances.
 
 These components are not just static definitions; they are callable functions that can be passed around, nested, and composed. You can expose one component from within another's script or template by simply adding it to the `context`. This allows you to build sophisticated systems from smaller, testable, and self-contained parts, promoting clean architecture and avoiding monolithic, hard-to-maintain agent definitions. For even more powerful composition, Cascada templates and scripts can also `include` files, `import` macros, and `extend` parent templates and scripts.
 
@@ -89,7 +89,7 @@ Check the [Vercel AI SDK Core documentation](https://sdk.vercel.ai/docs/ai-sdk-c
 
 This example demonstrates the core power of Casai by building a **self-improving content agent**. This agent orchestrates a multi-step workflow: it writes a draft, critiques its own work, and then iteratively revises the content until it meets a quality standard.
 
-Here’s how it works:
+Here's how it works:
 
 ```javascript
 import { openai } from '@ai-sdk/openai';
@@ -346,7 +346,7 @@ const component = create.TextGenerator.withTemplate({
 // The component inherits model, temperature, and context from baseConfig
 ```
 ### Property Inheritance Explained
-Properties in *Casai* flow through a chain of configurations - starting from initial `Config` object (or multiple configs in a parent hierarchy), passing through parent renderers, and ending at the renderer you’re crafting. Each level can tweak or extend what came before, but the rules differ
+Properties in *Casai* flow through a chain of configurations - starting from initial `Config` object (or multiple configs in a parent hierarchy), passing through parent renderers, and ending at the renderer you're crafting. Each level can tweak or extend what came before, but the rules differ
 A component's final configuration is determined by a chain of parents, with the child's properties taking ultimate precedence. Here is a breakdown of the merging strategies for different property types:
 
 | Property Type | Properties | Merging Strategy |
@@ -373,7 +373,7 @@ A component's final configuration is determined by a chain of parents, with the 
 
 #### Example in Action
 
-Here’s how these rules play out in practice:
+Here's how these rules play out in practice:
 
 ```typescript
 const rootConfig = create.Config({
@@ -417,7 +417,7 @@ console.log(childComponent.config);
 
 ### Your Toolkit for Every Task
 
-*Casai* offers a suite of components, each tailored to a specific job - whether it’s executing scripts, rendering templates, generating or streaming text and data. The LLM components (Generate/Stream Object/Text), built on the Vercel AI SDK, share a common foundation where each LLM component has a corresponding Vercel AI SDK Core function.
+*Casai* offers a suite of components, each tailored to a specific job - whether it's executing scripts, rendering templates, generating or streaming text and data. The LLM components (Generate/Stream Object/Text), built on the Vercel AI SDK, share a common foundation where each LLM component has a corresponding Vercel AI SDK Core function.
 
 Let's explore each component in detail.
 
@@ -560,7 +560,7 @@ const userOnboardingTool = create.Script.asTool({
 
 ### TextGenerator
 
-**What it does**: Generates text via LLMs using Vercel’s [`generateText` function](https://sdk.vercel.ai/docs/reference/ai-sdk-core/generate-text). It can operate on a single `prompt` or a full conversational `messages` history. The `prompt` for the LLM can be provided as static text, or generated dynamically via a template or a script. This component is ideal for use cases where you need the complete text before proceeding, such as summarizing a document or calling tools.
+**What it does**: Generates text via LLMs using Vercel's [`generateText` function](https://sdk.vercel.ai/docs/reference/ai-sdk-core/generate-text). It can operate on a single `prompt` or a full conversational `messages` history. The `prompt` for the LLM can be provided as static text, or generated dynamically via a template or a script. This component is ideal for use cases where you need the complete text before proceeding, such as summarizing a document or calling tools.
 
 #### How to Create It
 *   **Default (Plain Text)**: The `prompt` is a static string with no processing. You can also provide a `ModelMessage[]` array in the `prompt` property to define a multi-message prompt, which is possible only for text-only components, not as input to those created with `.withTemplate` or `.withScript`.
@@ -619,7 +619,7 @@ When you `await` a `TextGenerator` call, it returns a promise that resolves to a
 
 ### TextStreamer
 
-**What it does**: Streams LLM text in real time using Vercel’s [`streamText` function](https://sdk.vercel.ai/docs/ai-sdk-core/stream-text). It shares the same creation patterns and message handling capabilities as `TextGenerator`, making it ideal for interactive applications like chatbots.
+**What it does**: Streams LLM text in real time using Vercel's [`streamText` function](https://sdk.vercel.ai/docs/ai-sdk-core/stream-text). It shares the same creation patterns and message handling capabilities as `TextGenerator`, making it ideal for interactive applications like chatbots.
 
 > **Note**: Streaming components like `TextStreamer` cannot be exposed as tools to an LLM, as the tool-use protocol requires a single, resolved response, not a stream.
 
@@ -691,7 +691,7 @@ You can provide callbacks in the component's configuration to handle events as t
 ***
 
 ### ObjectGenerator
-**What it does**: Produces structured data with Vercel’s [`generateObject` function](https://sdk.vercel.ai/docs/reference/ai-sdk-core/generate-object), validated by a Zod schema. It follows the same creation and calling patterns as `TextGenerator`.
+**What it does**: Produces structured data with Vercel's [`generateObject` function](https://sdk.vercel.ai/docs/reference/ai-sdk-core/generate-object), validated by a Zod schema. It follows the same creation and calling patterns as `TextGenerator`.
 
 #### How to Create It
 Like `TextGenerator`, it can operate on a single `prompt` or be given a conversational history via the `messages` property, making it useful for extracting structured data from a dialogue.
@@ -768,7 +768,7 @@ When you `await` an `ObjectGenerator` call, it returns a promise that resolves t
 **Use it for**: Data extraction, structured responses, or enum-based classification. [See Vercel docs on object generation](https://sdk.vercel.ai/docs/ai-sdk-core/generating-objects#generateobject) for return details.
 
 ### ObjectStreamer
-**What it does**: Streams structured data incrementally via Vercel’s [`streamObject` function](https://sdk.vercel.ai/docs/ai-sdk-core/stream-object). It follows the same creation and calling patterns as `TextGenerator`.
+**What it does**: Streams structured data incrementally via Vercel's [`streamObject` function](https://sdk.vercel.ai/docs/ai-sdk-core/stream-object). It follows the same creation and calling patterns as `TextGenerator`.
 
 > **Note**: Streaming components like `ObjectStreamer` cannot be exposed as tools to an LLM, as the tool-use protocol requires a single, resolved response, not a stream.
 
@@ -807,7 +807,7 @@ Like `TextStreamer`, it can operate on a single `prompt` or be given a conversat
 **Output Strategies:**
 The `output` property in the configuration determines the structure of the streamed data:
 - **`object`** (default): Streams a single object. Use `partialObjectStream` to access incremental updates of the object.
-- **`array`**: Streams an array of objects. Use `elementStream` to access each element as it’s generated.
+- **`array`**: Streams an array of objects. Use `elementStream` to access each element as it's generated.
 - **`no-schema`**: Streams text data. Use `textStream` to access the streamed text.
 
 The `enum` strategy is not supported for streaming.
@@ -925,7 +925,7 @@ For components created with `.withTemplate`, `.withScript`, or their `.loads...`
 The same 'prompt' property that by default has the text-only prompt is now the heart of your component - the template or script that gets processed. Set it in the configuration object when creating the component.
 
 ### context
-Provides data and methods that can be accessed within templates and scripts. Both the data and method returns can be asynchronous (promises are automatically handled), keeping your logic clean and powerful.  Here’s what you can add to the `context` object:
+Provides data and methods that can be accessed within templates and scripts. Both the data and method returns can be asynchronous (promises are automatically handled), keeping your logic clean and powerful.  Here's what you can add to the `context` object:
 - **Static Values**: Simple strings, numbers, or objects (e.g., `'London'`, `42`, `{ key: 'value' }`).
 - **Synchronous Functions**: Basic logic or transformations (e.g., `(x) => x.toUpperCase()`).
 - **Asynchronous Functions**: API calls, database queries, or file reads (e.g., `async () => await fetch(...)`).
@@ -1153,7 +1153,7 @@ const getWeatherTool = create.Function.asTool({
 const weatherAgent = create.TextGenerator({
   model: openai('gpt-4o'),
   tools: { getWeather: getWeatherTool },
-  prompt: 'What’s the weather like in San Francisco?',
+  prompt: 'What's the weather like in San Francisco?',
 });
 
 (async () => {
@@ -1170,7 +1170,7 @@ const weatherAgent = create.TextGenerator({
 
 ## Using Components in Templates and Scripts
 
-Components in *Casai* can be embedded within scripts or templates by adding them to the `context` object, enabling seamless task chaining and orchestration. This approach leverages the engine’s power to coordinate multiple components, execute them when their inputs are ready, and process their outputs dynamically.
+Components in *Casai* can be embedded within scripts or templates by adding them to the `context` object, enabling seamless task chaining and orchestration. This approach leverages the engine's power to coordinate multiple components, execute them when their inputs are ready, and process their outputs dynamically.
 
 ### Example with `Script` for Data Orchestration
 
@@ -1418,7 +1418,7 @@ Using `.asTool` (on `create.Function`, `script`, `template` or LLM generator pro
 *Casai* seamlessly integrates vector embeddings from the Vercel AI SDK. By adding embedding functions to the `context` object, you can use them directly in scripts for tasks like semantic search, similarity comparisons, or retrieval-augmented generation (RAG).
 
 ### Example
-Here’s how to find the most similar document to a user query using a `Script` to orchestrate the embedding and comparison tasks in parallel.
+Here's how to find the most similar document to a user query using a `Script` to orchestrate the embedding and comparison tasks in parallel.
 
 ```typescript
 import { openai } from '@ai-sdk/openai';
@@ -1468,7 +1468,7 @@ const documentFinder = create.Script({
 
 ## RAG Integration
 
-*Casai*’s script-driven approach simplifies retrieval-augmented generation (RAG) workflows. By using `Script`, you can clearly define the steps of your RAG pipeline: searching an index, retrieving context, and generating a final answer. This leverages automatic concurrency for maximum efficiency.
+*Casai*'s script-driven approach simplifies retrieval-augmented generation (RAG) workflows. By using `Script`, you can clearly define the steps of your RAG pipeline: searching an index, retrieving context, and generating a final answer. This leverages automatic concurrency for maximum efficiency.
 
 ### Example
 **Summary**: This example loads 10 documents, builds a vector index with LlamaIndex, and uses a `Script` to orchestrate the retrieval of relevant snippets about machine learning for cancer detection and then summarizes them.
@@ -1523,7 +1523,7 @@ const ragOrchestrator = create.Script({
 ```
 
 ### Vercel AI Embedding Adapter
-To use Vercel AI SDK embeddings instead of LlamaIndex’s embeddings with LlamaIndex, create an adapter:
+To use Vercel AI SDK embeddings instead of LlamaIndex's embeddings with LlamaIndex, create an adapter:
 
 ```typescript
 import { BaseEmbedding } from 'llamaindex';
@@ -1620,7 +1620,7 @@ const result = await dataAggregator(); // result is guaranteed to match the sche
 
 ## Type Checking
 
-*Casai*’s TypeScript integration enforces strict configuration rules to catch errors at compile time, preventing runtime issues. Below are examples of common type violations and the required properties they enforce.
+*Casai*'s TypeScript integration enforces strict configuration rules to catch errors at compile time, preventing runtime issues. Below are examples of common type violations and the required properties they enforce.
 
 ### Examples
 ```typescript
