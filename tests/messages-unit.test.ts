@@ -1,6 +1,6 @@
 
 import 'dotenv/config';
-// Non-public API unit tests, do not import anything from the compiled cascador-ai
+// Non-public API unit tests, do not import anything from the compiled casai
 import {
 	extractCallArguments,
 	// The augment functions are tested through the public API, so direct import is not needed.

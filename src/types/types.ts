@@ -42,5 +42,5 @@ export type EmptyObject = Record<string, never>;
 export type CascadaFilters = Record<string, (input: any, ...args: any[]) => any>;
 
 export type CascadaLoaders = ILoaderAny | ILoaderAny[];
-export type CascadorAILoaders = ILoaderAny | RaceGroup | RaceLoader | (ILoaderAny | RaceGroup | RaceLoader)[];
+export type CasaiAILoaders = ILoaderAny | RaceGroup | RaceLoader | (ILoaderAny | RaceGroup | RaceLoader)[];
 

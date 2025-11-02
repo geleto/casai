@@ -1,5 +1,5 @@
 import 'dotenv/config';
-//do not import anything from the compiled cascador-ai in the unit tests
+//do not import anything from the compiled casai in the unit tests
 import { expect } from 'chai';
 import { mergeLoaders, processLoaders, race, RaceLoader, MERGED_GROUP_TAG } from '../src/loaders';
 import { timeout, StringLoader } from './common';
@@ -19,7 +19,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			// Should have 1 merged loader with both loaders
 			expect(result).to.have.length(1);
-			expect(result[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should handle multi-level inheritance correctly', () => {
@@ -38,7 +38,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			// Second merge: result + child (this tests the multi-level fix)
 			const finalResult = mergeLoaders(firstMerge, childLoaders);
 			expect(finalResult).to.have.length(1);
-			expect(finalResult[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(finalResult[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should preserve child precedence in race groups', () => {
@@ -54,7 +54,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			// Should have 1 merged loader
 			expect(result).to.have.length(1);
-			expect(result[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should handle anonymous race groups separately', () => {
@@ -106,7 +106,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const raceGroup = race([loader1, loader2], 'testGroup');
 
 			// Should have the race group tag
-			expect(raceGroup).to.have.property(Symbol.for('cascador-ai.raceGroup'), true);
+			expect(raceGroup).to.have.property(Symbol.for('casai.raceGroup'), true);
 			expect(raceGroup.groupName).to.equal('testGroup');
 			expect(raceGroup.loaders).to.have.length(2);
 		});
@@ -119,7 +119,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const raceGroup = race([loader1, loader2]);
 
 			// Should have the race group tag but no group name
-			expect(raceGroup).to.have.property(Symbol.for('cascador-ai.raceGroup'), true);
+			expect(raceGroup).to.have.property(Symbol.for('casai.raceGroup'), true);
 			expect(raceGroup.groupName).to.equal(null);
 			expect(raceGroup.loaders).to.have.length(2);
 		});
@@ -159,7 +159,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			// Should have 1 merged loader containing all three loaders
 			expect(finalMerge).to.have.length(1);
-			expect(finalMerge[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(finalMerge[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should verify merged groups contain all expected loaders', () => {
@@ -182,7 +182,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			// Should have 1 merged group
 			expect(merged).to.have.length(1);
-			expect(merged[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(merged[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 
 			// Verify the merged group is a proper RaceLoader
 			const raceLoader = merged[0] as unknown as RaceLoader;
@@ -203,7 +203,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const raceGroup = race([fastLoader, slowLoader], 'speedTest');
 
 			// Test that race group is properly structured
-			expect(raceGroup).to.have.property(Symbol.for('cascador-ai.raceGroup'), true);
+			expect(raceGroup).to.have.property(Symbol.for('casai.raceGroup'), true);
 			expect(raceGroup.groupName).to.equal('speedTest');
 			expect(raceGroup.loaders).to.have.length(2);
 		});
@@ -222,7 +222,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			// Should have 1 merged group
 			expect(merged).to.have.length(1);
-			expect(merged[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(merged[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 
 			// Test that the merged loader can actually load content
 			const raceLoader = merged[0] as unknown as RaceLoader;
@@ -375,7 +375,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			expect(merged).to.have.length(2);
 			// Child loaders come first, so regularLoader should be first
 			expect(merged[0]).to.equal(regularLoader);
-			expect(merged[1]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(merged[1]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should test anonymous race groups vs named race groups', () => {
@@ -427,7 +427,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			// Should have 1 merged race group
 			expect(merged).to.have.length(1);
-			expect(merged[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(merged[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should test complex multi-level inheritance with multiple race groups', () => {
@@ -463,7 +463,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			// Should have 1 merged race group with all 6 loaders
 			expect(finalMerge).to.have.length(1);
-			expect(finalMerge[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(finalMerge[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should test race groups with different template names', () => {
@@ -490,7 +490,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const emptyRace = race([], 'empty');
 
 			// Test that empty race group is properly structured
-			expect(emptyRace).to.have.property(Symbol.for('cascador-ai.raceGroup'), true);
+			expect(emptyRace).to.have.property(Symbol.for('casai.raceGroup'), true);
 			expect(emptyRace.groupName).to.equal('empty');
 			expect(emptyRace.loaders).to.have.length(0);
 		});
@@ -503,7 +503,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const singleRace = race([singleLoader], 'single');
 
 			// Test that single loader race group is properly structured
-			expect(singleRace).to.have.property(Symbol.for('cascador-ai.raceGroup'), true);
+			expect(singleRace).to.have.property(Symbol.for('casai.raceGroup'), true);
 			expect(singleRace.groupName).to.equal('single');
 			expect(singleRace.loaders).to.have.length(1);
 			expect(singleRace.loaders[0]).to.equal(singleLoader);
@@ -655,7 +655,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const result = mergeLoaders(parentLoaders, childLoaders);
 
 			expect(result).to.have.length(1);
-			expect(result[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 	});
 
@@ -695,7 +695,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			expect(result).to.have.length(2);
 			expect(result[0]).to.equal(loader1);
 			// The second item should be a race loader (not a race group)
-			expect(result[1]).to.not.have.property(Symbol.for('cascador-ai.raceGroup'));
+			expect(result[1]).to.not.have.property(Symbol.for('casai.raceGroup'));
 		});
 
 		it('should process single array with named race groups', () => {
@@ -707,7 +707,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const result = processLoaders(loaders);
 
 			expect(result).to.have.length(1);
-			expect(result[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should process single array with mixed content', () => {
@@ -728,8 +728,8 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			expect(result).to.have.length(4);
 			expect(result[0]).to.equal(loader1);
-			expect(result[1]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
-			expect(result[2]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[1]).to.have.property(Symbol.for('casai.mergedGroup'), true);
+			expect(result[2]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 			expect(result[3]).to.equal(loader5);
 		});
 
@@ -743,7 +743,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			expect(result).to.have.length(2);
 			expect(result[0]).to.equal(loader1);
-			expect(result[1]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[1]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should merge multiple merged groups with same name', () => {
@@ -757,7 +757,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const result = processLoaders(loaders);
 
 			expect(result).to.have.length(2);
-			expect(result[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 			expect(result[1]).to.equal(loader3);
 		});
 
@@ -776,8 +776,8 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			expect(result).to.have.length(2);
 			// Both should be converted to race loaders (not race groups)
-			expect(result[0]).to.not.have.property(Symbol.for('cascador-ai.raceGroup'));
-			expect(result[1]).to.not.have.property(Symbol.for('cascador-ai.raceGroup'));
+			expect(result[0]).to.not.have.property(Symbol.for('casai.raceGroup'));
+			expect(result[1]).to.not.have.property(Symbol.for('casai.raceGroup'));
 		});
 
 		it('should deduplicate loaders within named race groups', () => {
@@ -792,7 +792,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const result = processLoaders(loaders);
 
 			expect(result).to.have.length(1);
-			expect(result[0]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[0]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should deduplicate loaders within anonymous race groups', () => {
@@ -804,7 +804,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const result = processLoaders(loaders);
 
 			expect(result).to.have.length(1);
-			expect(result[0]).to.not.have.property(Symbol.for('cascador-ai.raceGroup'));
+			expect(result[0]).to.not.have.property(Symbol.for('casai.raceGroup'));
 		});
 
 		it('should deduplicate loaders across regular loaders and race groups', () => {
@@ -823,7 +823,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			expect(result).to.have.length(2); // <<< CORRECT
 			expect(result[0]).to.equal(loader1);
 			// The second item should be a real raceLoader, not a RaceGroup wrapper
-			expect(result[1]).to.not.have.property(Symbol.for('cascador-ai.raceGroup'));
+			expect(result[1]).to.not.have.property(Symbol.for('casai.raceGroup'));
 		});
 
 		it('should deduplicate complex scenario with mixed groups and regular loaders', () => {
@@ -843,8 +843,8 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 
 			expect(result).to.have.length(3);
 			expect(result[0]).to.equal(loader1);
-			expect(result[1]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
-			expect(result[2]).to.have.property(Symbol.for('cascador-ai.mergedGroup'), true);
+			expect(result[1]).to.have.property(Symbol.for('casai.mergedGroup'), true);
+			expect(result[2]).to.have.property(Symbol.for('casai.mergedGroup'), true);
 		});
 
 		it('should preserve order while deduplicating', () => {

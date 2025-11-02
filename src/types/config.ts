@@ -9,7 +9,7 @@ import {
 import { ConfigureOptions } from 'cascada-engine';
 import {
 	TemplatePromptType, ScriptPromptType, /*, LLMPromptType */
-	SchemaType, CascadaFilters, CascadorAILoaders,
+	SchemaType, CascadaFilters, CasaiAILoaders,
 	FunctionPromptType,
 	PromptFunction,
 	AnyPromptSource
@@ -44,13 +44,13 @@ export const ContextConfigKeys: (keyof ContextConfig)[] = ['context', 'debug'] a
 export interface CascadaConfig extends ContextConfig {
 	filters?: CascadaFilters;
 	options?: ConfigureOptions;
-	loader?: CascadorAILoaders;
+	loader?: CasaiAILoaders;
 }
 
 export const CascadaConfigKeys: (keyof CascadaConfig)[] = ['context', 'filters', 'options', 'loader', 'debug'] as const;
 
 export interface LoaderConfig {
-	loader: CascadorAILoaders;
+	loader: CasaiAILoaders;
 }
 
 // Only for use in Template

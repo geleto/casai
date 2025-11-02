@@ -1,2 +1,2 @@
-//export * from 'cascador-ai';
+//export * from 'casai';
 export * from '../src/index';

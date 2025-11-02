@@ -1,7 +1,7 @@
 import { ILoaderAny, raceLoaders, LoaderInterface, LoaderSource } from 'cascada-engine';
 
-export const RACE_GROUP_TAG = Symbol.for('cascador-ai.raceGroup');
-export const MERGED_GROUP_TAG = Symbol.for('cascador-ai.mergedGroup');
+export const RACE_GROUP_TAG = Symbol.for('casai.raceGroup');
+export const MERGED_GROUP_TAG = Symbol.for('casai.mergedGroup');
 
 export interface RaceGroup {
 	[RACE_GROUP_TAG]: true;
@@ -171,7 +171,7 @@ function _processAndDeduplicate(
 			processedChain[firstIndex] = new RaceLoader(deduplicatedLoaders, groupName);
 		} else if (process.env.NODE_ENV !== 'production') {
 			// IMPROVEMENT: Warn developers about silently dropped empty named groups.
-			console.warn(`Cascador-AI Loader: Named race group "${groupName}" was discarded because it became empty after deduplication.`);
+			console.warn(`Casai Loader: Named race group "${groupName}" was discarded because it became empty after deduplication.`);
 		}
 	}
 

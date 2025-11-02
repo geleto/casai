@@ -1,16 +1,16 @@
 {
-	"name": "cascador-ai",
+	"name": "casai",
 	"version": "0.2.1",
 	"description": "Orchestrate AI agent workflows with Nunjucks-style text templates that implicitly run async tasks in parallel",
 	"author": "Angel Popov<geleto@gmail.com>",
 	"license": "Apache-2.0",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/geleto/cascador-ai.git"
+		"url": "git+https://github.com/geleto/casai.git"
 	},
-	"homepage": "https://github.com/geleto/cascador-ai#readme",
+	"homepage": "https://github.com/geleto/casai#readme",
 	"bugs": {
-		"url": "https://github.com/geleto/cascador-ai/issues"
+		"url": "https://github.com/geleto/casai/issues"
 	},
 	"keywords": [
 		"ai",

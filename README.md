@@ -1,16 +1,16 @@
-# Cascador-AI: Efficient AI Orchestration Made Intuitive
+# Casai: Efficient AI Orchestration Made Intuitive
 
-## What is Cascador-AI?
+## What is Casai?
 
-Building sophisticated AI systems - from multi-step agents and RAG pipelines to complex tool-use chains - requires orchestrating numerous asynchronous tasks. **Cascador-AI is an AI orchestration library that makes this radically simpler and more intuitive.** Built on the [Vercel AI SDK Core](https://sdk.vercel.ai/docs/ai-sdk-core) and the powerful [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada), it allows you to define these workflows with clean, declarative, synchronous-style code and templates. The engine automatically parallelizes asynchronous operations, giving you the performance of concurrent execution without the complexity of managing it.
+Building sophisticated AI systems - from multi-step agents and RAG pipelines to complex tool-use chains - requires orchestrating numerous asynchronous tasks. **Casai is an AI orchestration library that makes this radically simpler and more intuitive.** Built on the [Vercel AI SDK Core](https://sdk.vercel.ai/docs/ai-sdk-core) and the powerful [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada), it allows you to define these workflows with clean, declarative, synchronous-style code and templates. The engine automatically parallelizes asynchronous operations, giving you the performance of concurrent execution without the complexity of managing it.
 
 ### 🔀 A Code-First Philosophy: Write Logic, Not Graphs
 
-Cascador-AI is built for developers who prefer expressing complex logic as **code, not as a graph of boilerplate nodes and edges**. Instead of forcing you to learn a rigid, declarative API to define nodes and edges, it lets you write your workflows using familiar patterns like variables, functions, loops, and conditionals. You write the logic; the engine handles the complex orchestration and parallel execution for you.
+Casai is built for developers who prefer expressing complex logic as **code, not as a graph of boilerplate nodes and edges**. Instead of forcing you to learn a rigid, declarative API to define nodes and edges, it lets you write your workflows using familiar patterns like variables, functions, loops, and conditionals. You write the logic; the engine handles the complex orchestration and parallel execution for you.
 
 ### ⚡ Parallel by Default, Data-Flow guided execution
 
-The core of Cascador-AI is a **data-flow execution model**. Instead of running line-by-line, operations run as soon as their data dependencies are met. This means independent LLM calls or API requests in your script automatically run in parallel without any extra effort. For stateful operations where order is critical (like database writes), you can easily enforce a strict sequential execution, giving you the best of both worlds. This powerful combination means that instead of wrestling with computation graphs, message queues, or async boilerplate, you just write the logic - the engine handles the rest.
+The core of Casai is a **data-flow execution model**. Instead of running line-by-line, operations run as soon as their data dependencies are met. This means independent LLM calls or API requests in your script automatically run in parallel without any extra effort. For stateful operations where order is critical (like database writes), you can easily enforce a strict sequential execution, giving you the best of both worlds. This powerful combination means that instead of wrestling with computation graphs, message queues, or async boilerplate, you just write the logic - the engine handles the rest.
 
 ### 💡 Logic vs. Capabilities: A Clear Separation of Concerns
 
@@ -20,17 +20,17 @@ The library encourages a powerful separation between the *what* (the orchestrati
     *   *Examples:* A script that first generates a draft, then sends it for critique, and finally revises it based on feedback; a template that fetches user data and product recommendations in parallel to render a personalized welcome email.
 
 *   **The Capabilities (The "How"):** These are the concrete tools, APIs and data sources your logic uses to get the job done. You provide them in the `context` object, making them available to your scripts and templates. The engine automatically handles resolving promises, allowing you to focus on your workflow logic without async boilerplate.
-    *   *Examples:* Seamlessly access asynchronous data and functionality - from static values (`{ qualityThreshold: 8 }`) and dynamic JavaScript functions (`(name) => name.toUpperCase()`) to external API calls (`fetchWeatherAPI(location)`), database queries (`db.getUser(id)`), custom service integrations, and other `Cascador-AI` components (`generateDraft(topic)`).
+    *   *Examples:* Seamlessly access asynchronous data and functionality - from static values (`{ qualityThreshold: 8 }`) and dynamic JavaScript functions (`(name) => name.toUpperCase()`) to external API calls (`fetchWeatherAPI(location)`), database queries (`db.getUser(id)`), custom service integrations, and other `Casai` components (`generateDraft(topic)`).
 
 ### 🧩 Composable & Reusable Components
 
-Cascador-AI treats every piece of your AI workflow—from a simple text generator to a complex multi-step agent - as a modular, reusable component. Because you define logic as code, you can encapsulate functionality into distinct `TextGenerator/Streamer`, `ObjectGenerator/Streamer`, or `Script` and `Template` instances.
+Casai treats every piece of your AI workflow—from a simple text generator to a complex multi-step agent - as a modular, reusable component. Because you define logic as code, you can encapsulate functionality into distinct `TextGenerator/Streamer`, `ObjectGenerator/Streamer`, or `Script` and `Template` instances.
 
 These components are not just static definitions; they are callable functions that can be passed around, nested, and composed. You can expose one component from within another's script or template by simply adding it to the `context`. This allows you to build sophisticated systems from smaller, testable, and self-contained parts, promoting clean architecture and avoiding monolithic, hard-to-maintain agent definitions. For even more powerful composition, Cascada templates and scripts can also `include` files, `import` macros, and `extend` parent templates and scripts.
 
 ### 🛠️ Full-Spectrum AI Functionality
 
-Cascador-AI combines its unique orchestration capabilities with the robust features of the [Vercel AI SDK Core](https://sdk.vercel.ai/docs/ai-sdk-core) to provide a complete toolkit for modern AI development.
+Casai combines its unique orchestration capabilities with the robust features of the [Vercel AI SDK Core](https://sdk.vercel.ai/docs/ai-sdk-core) to provide a complete toolkit for modern AI development.
 
 #### Powered by Cascada
 *   **Declarative Agent Orchestration:** Define sophisticated, multi-step agent logic using clean, readable scripts. The engine automatically parallelizes independent operations, data-flows and piepeline steps while transparently managing data dependencies, letting you focus on the "what" instead of the "how."
@@ -44,16 +44,16 @@ Cascador-AI combines its unique orchestration capabilities with the robust featu
 *   **Text Generation & Streaming:** Leverage powerful LLMs for both one-shot text generation and real-time streaming to create dynamic, interactive user experiences.
 
 **⚠️ Welcome to the Cutting Edge! ⚠️**
-Cascador-AI is a new project and is evolving quickly! This is exciting, but it also means things are in flux. You might run into bugs, and the documentation might not always align perfectly with the released code. It could be behind or have gaps. I am working hard to improve everything and welcome your contributions and feedback.
+Casai is a new project and is evolving quickly! This is exciting, but it also means things are in flux. You might run into bugs, and the documentation might not always align perfectly with the released code. It could be behind or have gaps. I am working hard to improve everything and welcome your contributions and feedback.
 
 # Table of Contents
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Understanding the Cascador-AI API](#understanding-the-cascador-ai-api)
+- [Understanding the Casai API](#understanding-the-casai-api)
 - [The `prompt` Property: Your Universal Input](#the-prompt-property-your-universal-input)
 - [Configuration Management](#configuration-management)
-- [The Cascador Components](#the-cascador-components)
+- [The Casai Components](#the-casai-components)
 - [Callable Component Objects](#callable-component-objects)
 - [Using Components as Tools](#using-components-as-tools)
 - [Template and Script Properties](#template-and-script-properties)
@@ -74,9 +74,9 @@ Install any Vercel AI SDK 5.x version
 npm install ai
 ```
 
-Install Cascador-ai
+Install Casai
 ```bash
-npm install cascador-ai
+npm install casai
 ```
 
 Install the specific LLM providers that you plan to use:
@@ -87,14 +87,14 @@ Check the [Vercel AI SDK Core documentation](https://sdk.vercel.ai/docs/ai-sdk-c
 
 ## Quick Start
 
-This example demonstrates the core power of Cascador-AI by building a **self-improving content agent**. This agent orchestrates a multi-step workflow: it writes a draft, critiques its own work, and then iteratively revises the content until it meets a quality standard.
+This example demonstrates the core power of Casai by building a **self-improving content agent**. This agent orchestrates a multi-step workflow: it writes a draft, critiques its own work, and then iteratively revises the content until it meets a quality standard.
 
 Here’s how it works:
 
 ```javascript
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { z } from 'zod';
 
 // Define a reusable base configuration
@@ -149,11 +149,11 @@ const contentAgent = create.Script({
 })().catch(console.error);
 ```
 
-# Understanding the Cascador-AI API
+# Understanding the Casai API
 
-## Components: The Heart of Cascador-AI
+## Components: The Heart of Casai
 
-At the core of *Cascador-AI* are **components** - versatile objects that transform inputs into outputs. They are the building blocks for your workflows, designed to be both powerful and easy to compose. Every component is created using the `create` factory and offers two ways to be invoked: a standard function call `()` for most use cases, and an advanced `.run()` method for runtime overrides.
+At the core of *Casai* are **components** - versatile objects that transform inputs into outputs. They are the building blocks for your workflows, designed to be both powerful and easy to compose. Every component is created using the `create` factory and offers two ways to be invoked: a standard function call `()` for most use cases, and an advanced `.run()` method for runtime overrides.
 
 ```typescript
 const result = await component({ topic: 'AI' });                    // Standard call
@@ -164,10 +164,10 @@ The standard call can only set optional arguments for `prompt`, `context`, and `
 
 All components can be considered **renderers**, as they all produce an output (rendering text, data, or a stream). However, `Script` and `Function` components can also act as powerful **orchestrators**, defining and coordinating complex, multi-step workflows.
 
-In Cascador-AI, you build workflows by making a **component** using the `create` factory for a specific task, like `TextGenerator`. You provide a configuration object with essential settings like the `model` to use and the `prompt` to send. To reuse settings, simply create a `Config` object and pass it as a second argument to have your component inherit from it. Or you can inherit the configuration of a component from another component.
+In Casai, you build workflows by making a **component** using the `create` factory for a specific task, like `TextGenerator`. You provide a configuration object with essential settings like the `model` to use and the `prompt` to send. To reuse settings, simply create a `Config` object and pass it as a second argument to have your component inherit from it. Or you can inherit the configuration of a component from another component.
 
 ```typescript
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { openai } from '@ai-sdk/openai';
 
 // Create a simple component with an inline configuration
@@ -259,7 +259,7 @@ console.log(result2.text); // "Hi Alice"
 Template and script prompts defined at creation are pre-compiled for efficiency, while prompts provided at runtime are compiled on-the-fly, offering flexibility for dynamic scenarios.
 
 #### Advanced Overrides with the `.run()` Method
-For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Cascador-AI provides the `.run()` method.
+For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Casai provides the `.run()` method.
 
 This method is available specifically on **LLM components** (`TextGenerator`, `TextStreamer`, `ObjectGenerator`, and `ObjectStreamer`). It accepts a single configuration object where you can override properties like `model`, `temperature`, `maxTokens`, or even provide a different set of `tools`.
 
@@ -308,7 +308,7 @@ Use the standard `()` call for simplicity in most cases. Use `.run()` when you n
 
 ## The `prompt` Property: Your Universal Input
 
-In Cascador-AI, the `prompt` property is the versatile heart of every LLM component. Its behavior is determined by the factory method you use to create the component. The modifier—like `.withTemplate` or `.withScript`—sets the "mode" for how the `prompt` content will be processed before being sent to the LLM.
+In Casai, the `prompt` property is the versatile heart of every LLM component. Its behavior is determined by the factory method you use to create the component. The modifier—like `.withTemplate` or `.withScript`—sets the "mode" for how the `prompt` content will be processed before being sent to the LLM.
 
 Here is a complete guide to its different modes:
 
@@ -323,10 +323,10 @@ By embracing this single-property pattern, you only need to remember one rule: *
 
 ## Configuration Management
 
-Cascador-AI allows you to define shared configuration through `Config` objects that can be inherited by other components:
+Casai allows you to define shared configuration through `Config` objects that can be inherited by other components:
 
 ```typescript
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { openai } from '@ai-sdk/openai';
 
 // Create a base configuration
@@ -346,7 +346,7 @@ const component = create.TextGenerator.withTemplate({
 // The component inherits model, temperature, and context from baseConfig
 ```
 ### Property Inheritance Explained
-Properties in *Cascador-AI* flow through a chain of configurations - starting from initial `Config` object (or multiple configs in a parent hierarchy), passing through parent renderers, and ending at the renderer you’re crafting. Each level can tweak or extend what came before, but the rules differ
+Properties in *Casai* flow through a chain of configurations - starting from initial `Config` object (or multiple configs in a parent hierarchy), passing through parent renderers, and ending at the renderer you’re crafting. Each level can tweak or extend what came before, but the rules differ
 A component's final configuration is determined by a chain of parents, with the child's properties taking ultimate precedence. Here is a breakdown of the merging strategies for different property types:
 
 | Property Type | Properties | Merging Strategy |
@@ -369,7 +369,7 @@ A component's final configuration is determined by a chain of parents, with the 
     The `loader` property has a sophisticated merging strategy to provide maximum flexibility:
     *   **Default Behavior (Prepending)**: By default, a child's loaders are placed *before* the parent's loaders in the final chain. This ensures the child's resources are found first, with the parent's serving as a fallback.
     *   **Named `race()` Group Merging**: If both the parent and child define loaders within a `race()` group of the same name (e.g., `race(..., 'cdn')`), the loaders from both are combined into a single, larger race group. This allows a child to *add* to a parent's concurrent loading strategy rather than replacing it.
-    *   **Deduplication**: Cascador-AI automatically removes duplicate loader instances from the final chain to ensure efficiency.
+    *   **Deduplication**: Casai automatically removes duplicate loader instances from the final chain to ensure efficiency.
 
 #### Example in Action
 
@@ -413,11 +413,11 @@ console.log(childComponent.config);
 // Outputs the fully resolved configuration object
 ```
 
-## The Cascador Components
+## The Casai Components
 
 ### Your Toolkit for Every Task
 
-*Cascador-AI* offers a suite of components, each tailored to a specific job - whether it’s executing scripts, rendering templates, generating or streaming text and data. The LLM components (Generate/Stream Object/Text), built on the Vercel AI SDK, share a common foundation where each LLM component has a corresponding Vercel AI SDK Core function.
+*Casai* offers a suite of components, each tailored to a specific job - whether it’s executing scripts, rendering templates, generating or streaming text and data. The LLM components (Generate/Stream Object/Text), built on the Vercel AI SDK, share a common foundation where each LLM component has a corresponding Vercel AI SDK Core function.
 
 Let's explore each component in detail.
 
@@ -428,7 +428,7 @@ Let's explore each component in detail.
 #### How to Create It
 *   **Providing the Template Directly**: This is the default behavior. The `template` property contains the template string.
     ```typescript
-    import { create } from 'cascador-ai';
+    import { create } from 'casai';
 
     const component = create.Template({
       template: 'Hi {{ name }}! Today is {{ currentDay }}.',
@@ -437,7 +437,7 @@ Let's explore each component in detail.
     ```
 *   **Loading from a resource with `.loadsTemplate`**: Use this modifier to load the template from an external source. This requires a `loader`, and the `template` property now specifies the *name* of the template to load (e.g., a filename).
     ```typescript
-    import { create, FileSystemLoader } from 'cascador-ai';
+    import { create, FileSystemLoader } from 'casai';
 
     const fileComponent = create.Template.loadsTemplate({
       loader: new FileSystemLoader('./templates'),
@@ -479,7 +479,7 @@ const reportTool = create.Template.asTool({
 #### How to Create It
 *   **Providing the Script Directly**: This is the default behavior. The `script` property contains the script string.
 ```typescript
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { z } from 'zod';
 
 const dealFinder = create.Script({
@@ -870,7 +870,7 @@ You can define the function's logic in two ways:
     ```
 
 ## Using Components as Tools
-A powerful feature of Cascador-AI is the ability to expose almost any component as a tool that an LLM can decide to call. This allows the model to trigger complex, multi-step, or even other LLM-driven actions to fulfill a user's request.
+A powerful feature of Casai is the ability to expose almost any component as a tool that an LLM can decide to call. This allows the model to trigger complex, multi-step, or even other LLM-driven actions to fulfill a user's request.
 
 **How it Works:**
 You can convert a component into a tool by appending the `.asTool` modifier to its factory call. This pattern applies to `TextGenerator`, `ObjectGenerator`, `Template`, `Script`, and `Function` components.
@@ -906,7 +906,7 @@ const loggingSummarizer = create.TextGenerator.withTemplate.asTool({
 const agent = create.TextGenerator({
   model: openai('gpt-4o'),
   tools: { summarize: loggingSummarizer },
-  prompt: "Please summarize this for me: 'Cascador-AI is an AI orchestration library...'",
+  prompt: "Please summarize this for me: 'Casai is an AI orchestration library...'",
 });
 
 // The LLM will decide whether to call the tool to fulfill the request
@@ -950,7 +950,7 @@ const component = create.TextGenerator.withTemplate({
 ### filters
 Transform data on the fly with custom functions, sync or async, using the `|` operator:
 ```typescript
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import translate from 'translate';
 
 const component = create.Template({
@@ -972,7 +972,7 @@ const component = create.Template({
 Provides a loader that retrieves templates or scripts by name from an external source, like the filesystem or a database. Loaders are essential when using modifiers like `.loadsTemplate` or `.loadsScript`, and they also power compositional features within your scripts and templates, such as `import`, `include`, and `extend`.
 
 ```typescript
-import { create, FileSystemLoader } from 'cascador-ai';
+import { create, FileSystemLoader } from 'casai';
 
 // Use the built-in FileSystemLoader to load from a local directory
 const component = create.Template.loadsTemplate({
@@ -981,7 +981,7 @@ const component = create.Template.loadsTemplate({
 });
 ```
 
-*Cascador-AI* offers several loading options:
+*Casai* offers several loading options:
 
 *   **Built-in Loaders**:
     *   **`FileSystemLoader`**: (Node.js only) Loads files from the local filesystem.
@@ -1050,7 +1050,7 @@ By default, child loaders are placed before parent loaders to create a sequentia
 When you give `race()` a name (e.g., `race(..., 'cdn')`), you create a **named race group**. All loaders in groups with the same name across parent and child configurations are automatically merged into a single, combined race. This allows a child to add loaders to a parent's concurrent loading strategy instead of simply prepending to it.
 
 ```typescript
-import { create, race, WebLoader, FileSystemLoader } from 'cascador-ai';
+import { create, race, WebLoader, FileSystemLoader } from 'casai';
 
 // Parent config defines a named race group for CDN loaders.
 const parentConfig = create.Config({
@@ -1085,7 +1085,7 @@ See [Nunjucks docs](https://mozilla.github.io/nunjucks/api.html#configure) for m
 
 ## Vercel AI Properties
 
-*Cascador-AI* components inherit a robust set of properties from the [Vercel AI SDK](https://sdk.vercel.ai/), enabling fine-tuned control over language model behavior. These properties are available across all LLM component types and can be set in a base `Config` object, during component creation, or, where applicable overridden in runtime calls.
+*Casai* components inherit a robust set of properties from the [Vercel AI SDK](https://sdk.vercel.ai/), enabling fine-tuned control over language model behavior. These properties are available across all LLM component types and can be set in a base `Config` object, during component creation, or, where applicable overridden in runtime calls.
 
 ### model
 **Purpose**: Specifies the language model to use for generation.
@@ -1119,7 +1119,7 @@ See [Nunjucks docs](https://mozilla.github.io/nunjucks/api.html#configure) for m
 **Example**:
 ```typescript
 import { openai } from '@ai-sdk/openai';
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 
 const component = create.TextGenerator({
   model: openai('gpt-4o'),
@@ -1139,7 +1139,7 @@ const component = create.TextGenerator({
 **Example**:
 ```typescript
 import { openai } from '@ai-sdk/openai';
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { z } from 'zod';
 
 // Define a tool using create.Function.asTool
@@ -1170,7 +1170,7 @@ const weatherAgent = create.TextGenerator({
 
 ## Using Components in Templates and Scripts
 
-Components in *Cascador-AI* can be embedded within scripts or templates by adding them to the `context` object, enabling seamless task chaining and orchestration. This approach leverages the engine’s power to coordinate multiple components, execute them when their inputs are ready, and process their outputs dynamically.
+Components in *Casai* can be embedded within scripts or templates by adding them to the `context` object, enabling seamless task chaining and orchestration. This approach leverages the engine’s power to coordinate multiple components, execute them when their inputs are ready, and process their outputs dynamically.
 
 ### Example with `Script` for Data Orchestration
 
@@ -1249,7 +1249,7 @@ const mainComponent = create.Template({
 
 ## Conversational AI: Managing Message History
 
-For building multi-turn chatbots and conversational agents, *Cascador-AI* provides robust message handling capabilities, specifically for the `TextGenerator` and `TextStreamer` components.
+For building multi-turn chatbots and conversational agents, *Casai* provides robust message handling capabilities, specifically for the `TextGenerator` and `TextStreamer` components.
 
 ### The `messages` Property: Static vs. Dynamic History
 
@@ -1332,7 +1332,7 @@ Putting it all together, here's how you can build a complete, interactive chat l
 
 ```javascript
 import { openai } from '@ai-sdk/openai';
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { read, write } from 'promise-streams-and-pipes';
 
 async function getUserInput(promptText) {
@@ -1380,7 +1380,7 @@ let dynamicHistory = [];
 
 ## Choosing Your Orchestration Strategy: Scripts, Templates, Context Methods, and Tools
 
-In *Cascador-AI*, you have several powerful mechanisms to build workflows. Choosing the right one depends on your goal and who is in control: are you building a structured data object, or are you rendering a final text document, as well as who should be in control: the developer or the AI model.
+In *Casai*, you have several powerful mechanisms to build workflows. Choosing the right one depends on your goal and who is in control: are you building a structured data object, or are you rendering a final text document, as well as who should be in control: the developer or the AI model.
 
 ### `Script` & `Template`: For Data and Presentation Layers
 -   **`Script`**: Use when the primary output is a structured data object (JSON). Ideal for data-layer logic, multi-step agents, and orchestrating various data sources. It is the backbone of your application's data layer.
@@ -1415,7 +1415,7 @@ Using `.asTool` (on `create.Function`, `script`, `template` or LLM generator pro
 
 ## Embedding Integration
 
-*Cascador-AI* seamlessly integrates vector embeddings from the Vercel AI SDK. By adding embedding functions to the `context` object, you can use them directly in scripts for tasks like semantic search, similarity comparisons, or retrieval-augmented generation (RAG).
+*Casai* seamlessly integrates vector embeddings from the Vercel AI SDK. By adding embedding functions to the `context` object, you can use them directly in scripts for tasks like semantic search, similarity comparisons, or retrieval-augmented generation (RAG).
 
 ### Example
 Here’s how to find the most similar document to a user query using a `Script` to orchestrate the embedding and comparison tasks in parallel.
@@ -1423,7 +1423,7 @@ Here’s how to find the most similar document to a user query using a `Script` 
 ```typescript
 import { openai } from '@ai-sdk/openai';
 import { embed, cosineSimilarity } from 'ai';
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import fs from 'fs/promises';
 
 const documentFinder = create.Script({
@@ -1468,13 +1468,13 @@ const documentFinder = create.Script({
 
 ## RAG Integration
 
-*Cascador-AI*’s script-driven approach simplifies retrieval-augmented generation (RAG) workflows. By using `Script`, you can clearly define the steps of your RAG pipeline: searching an index, retrieving context, and generating a final answer. This leverages automatic concurrency for maximum efficiency.
+*Casai*’s script-driven approach simplifies retrieval-augmented generation (RAG) workflows. By using `Script`, you can clearly define the steps of your RAG pipeline: searching an index, retrieving context, and generating a final answer. This leverages automatic concurrency for maximum efficiency.
 
 ### Example
 **Summary**: This example loads 10 documents, builds a vector index with LlamaIndex, and uses a `Script` to orchestrate the retrieval of relevant snippets about machine learning for cancer detection and then summarizes them.
 
 ```typescript
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { openai } from '@ai-sdk/openai';
 import { Document, VectorStoreIndex, OpenAIEmbedding } from 'llamaindex';
 import fs from 'fs/promises';
@@ -1553,7 +1553,7 @@ const vectorIndex = await VectorStoreIndex.fromDocuments(docs, {
 
 ## Input and Output Validation with Zod
 
-Cascador-AI integrates with Zod to provide automatic, runtime validation for both the data you provide to components and the data they produce, ensuring type safety throughout your workflows.
+Casai integrates with Zod to provide automatic, runtime validation for both the data you provide to components and the data they produce, ensuring type safety throughout your workflows.
 
 ### Ensuring Type-Safe Inputs with `inputSchema`
 
@@ -1620,11 +1620,11 @@ const result = await dataAggregator(); // result is guaranteed to match the sche
 
 ## Type Checking
 
-*Cascador-AI*’s TypeScript integration enforces strict configuration rules to catch errors at compile time, preventing runtime issues. Below are examples of common type violations and the required properties they enforce.
+*Casai*’s TypeScript integration enforces strict configuration rules to catch errors at compile time, preventing runtime issues. Below are examples of common type violations and the required properties they enforce.
 
 ### Examples
 ```typescript
-import { create } from 'cascador-ai';
+import { create } from 'casai';
 import { openai } from '@ai-sdk/openai';
 
 // Error: Missing required model
@@ -1653,7 +1653,7 @@ This type safety ensures robust, predictable workflows with early error detectio
 
 ## Roadmap
 
-*Cascador-AI* is evolving to enhance its capabilities and robustness. Here are the key features planned for future releases:
+*Casai* is evolving to enhance its capabilities and robustness. Here are the key features planned for future releases:
 
 - **OpenTelemetry/MLflow integration**: MLflow's tracing, which captures your app's entire execution, including prompts, retrievals, tool calls.
 - **Automated Prompt Optimization**: Go beyond manual prompt engineering with a built-in create.Optimizer. Inspired by frameworks like DSPy, this feature will allow you to attach an optimizer to any generator. It will use your existing Evaluator as a guide to programmatically test and evolve your prompts, automatically discovering the highest-performing version for your specific task. This creates a powerful feedback loop, using the same components that guard your production app to continuously improve its core logic with minimal effort.
