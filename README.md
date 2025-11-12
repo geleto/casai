@@ -1,4 +1,5 @@
 # Casai: Efficient AI Orchestration Made Intuitive
+**AI workflows you can understand at a glance: just clear logic that tells a story**
 
 ## What is Casai?
 
