@@ -44,8 +44,24 @@ Casai combines its unique orchestration capabilities with the robust features of
 *   **Model-Driven Tool Use:** Expose your own functions—like API calls or database queries—as tools that an LLM can decide to call based on its own reasoning to fulfill a user's request.
 *   **Text Generation & Streaming:** Leverage powerful LLMs for both one-shot text generation and real-time streaming to create dynamic, interactive user experiences.
 
-**⚠️ Welcome to the Cutting Edge! ⚠️**
-Casai is a new project and is evolving quickly! This is exciting, but it also means things are in flux. You might run into bugs, and the documentation might not always align perfectly with the released code. It could be behind or have gaps. I am working hard to improve everything and welcome your contributions and feedback.
+```markdown
+
+## Understanding Cascada (Casai's Foundation)
+
+Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - a parallel-first execution engine that provides both scripts and templates for async orchestration. While you can use Casai without deep Cascada knowledge, understanding the fundamentals will help you build more sophisticated workflows.
+
+**Learn the Concepts:**
+- [The Kitchen and The Chef](https://geleto.github.io/posts/cascada-kitchen-chef/) - Understand how Cascada works through a restaurant analogy - no technical jargon, just cooks, ingredients, and a brilliant manager who makes parallel execution and overcoming race conditions feel as natural as following a recipe
+- [Cascada Script Introduction](https://geleto.github.io/posts/cascada-script-intro/) - A comprehensive introduction to Cascada Script's syntax, features, and how it solves real async programming challenges
+
+**Documentation:**
+- [Cascada Script Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/script.md) - Complete reference for Cascada Script syntax, features, and API
+
+**Examples:**
+- [Casai Examples Repository](https://github.com/geleto/casai-examples) - Explore practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story (work in progress)
+```
+
+**⚠️ Heads up!** Casai is a new project and is evolving quickly! You might run into bugs, and the documentation is catching up with the code. Your feedback and contributions are welcome as we build the future of AI Agents.
 
 # Table of Contents
 - [Features](#features)
