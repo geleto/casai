@@ -34,7 +34,8 @@ Instead of forcing you into rigid graphs or `async/await` hell, Casai is built o
 
 Casai combines its unique orchestration engine with the robust features of modern AI tooling, giving you a complete toolkit.
 
-*   **Powered by the [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada)**, which provides the parallel-by-default execution, dynamic templating, and seamless integration of any asynchronous function.
+*   **Powered by the [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada)**, which provides parallel-by-default execution for scripts and templates, where async operations are handled implicitly - removing complexity and boilerplate code.
+
 *   **Powered by the [Vercel AI SDK Core](https://ai-sdk.dev/docs/ai-sdk-core):** Get best-in-class features out of the box, including provider flexibility (OpenAI, Anthropic, etc.), structured data generation with Zod, model-driven tool use, and text streaming.
 
 **⚠️ Heads up!** Casai is a new project and is evolving quickly! You might run into bugs, and the documentation is catching up with the code. Your feedback and contributions are welcome as we build the future of AI Agents.
