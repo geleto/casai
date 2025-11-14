@@ -1,65 +1,41 @@
-# Casai: Efficient AI Orchestration Made Intuitive
-**AI workflows you can understand at a glance: just clear logic that tells a story**
+# Casai: AI Orchestration That Writes Like a Story
 
-## What is Casai?
+Building sophisticated AI systems—from multi-step agents to RAG pipelines—means orchestrating countless asynchronous tasks. **Casai is an AI orchestration library that makes this radically simple by letting you write complex workflows as clean, synchronous-style code.**
 
-Building sophisticated AI systems - from multi-step agents and RAG pipelines to complex tool-use chains - requires orchestrating numerous asynchronous tasks. **Casai is an AI orchestration library that makes this radically simpler and more intuitive.** Built on the [Vercel AI SDK Core](https://sdk.vercel.ai/docs/ai-sdk-core) and the powerful [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada), it allows you to define these workflows with clean, declarative, synchronous-style code and templates. The engine automatically parallelizes asynchronous operations, giving you the performance of concurrent execution without the complexity of managing it.
+In the Cascada script below, `researcher`, `analyst`, and `writer` are distinct Casai components being orchestrated.
 
-### 🔀 A Code-First Philosophy: Write Logic, Not Graphs
+```javascript
+// 1. These two agents run in PARALLEL, automatically.
+// The engine sees 'researcher' and 'analyst' are independent and runs them concurrently.
+var background = researcher({ topic: topic }).text
+var analysis = analyst({ topic: topic }).object
 
-Casai is built for developers who prefer expressing complex logic as **code, not as a graph of boilerplate nodes and edges**. Instead of forcing you to learn a rigid, declarative API to define nodes and edges, it lets you write your workflows using familiar patterns like variables, functions, loops, and conditionals. You write the logic; the engine handles the complex orchestration and parallel execution for you.
-
-### ⚡ Parallel by Default, Data-Flow guided execution
-
-The core of Casai is a **data-flow execution model**. Instead of running line-by-line, operations run as soon as their data dependencies are met. This means independent LLM calls or API requests in your script automatically run in parallel without any extra effort. For stateful operations where order is critical (like database writes), you can easily enforce a strict sequential execution, giving you the best of both worlds. This powerful combination means that instead of wrestling with computation graphs, message queues, or async boilerplate, you just write the logic - the engine handles the rest.
-
-### 💡 Logic vs. Capabilities: A Clear Separation of Concerns
-
-The library encourages a powerful separation between the *what* (the orchestration plan) and the *how* (the underlying tools and functions):
-
-*   **The Logic (The "What"):** This is the high-level plan defined in a components that act as orchestrators. It's a readable, self-contained script or template that orchestrates the workflow, defining the steps and data flow.
-    *   *Examples:* A script that first generates a draft, then sends it for critique, and finally revises it based on feedback; a template that fetches user data and product recommendations in parallel to render a personalized welcome email.
-
-*   **The Capabilities (The "How"):** These are the concrete tools, APIs and data sources your logic uses to get the job done. You provide them in the `context` object, making them available to your scripts and templates. The engine automatically handles resolving promises, allowing you to focus on your workflow logic without async boilerplate.
-    *   *Examples:* Seamlessly access asynchronous data and functionality - from static values (`{ qualityThreshold: 8 }`) and dynamic JavaScript functions (`(name) => name.toUpperCase()`) to external API calls (`fetchWeatherAPI(location)`), database queries (`db.getUser(id)`), custom service integrations, and other `Casai` components (`generateDraft(topic)`).
-
-### 🧩 Composable & Reusable Components
-
-Casai treats every piece of your AI workflow—from a simple text generator to a complex multi-step agent - as a modular, reusable component. Because you define logic as code, you can encapsulate functionality into distinct [`TextGenerator`](#textgenerator), [`TextStreamer`](#textstreamer), [`ObjectGenerator`](#objectgenerator), [`ObjectStreamer`](#objectstreamer), or [`Script`](#script) and [`Template`](#template) instances.
-
-These components are not just static definitions; they are callable functions that can be passed around, nested, and composed. You can expose one component from within another's script or template by simply adding it to the `context`. This allows you to build sophisticated systems from smaller, testable, and self-contained parts, promoting clean architecture and avoiding monolithic, hard-to-maintain agent definitions. For even more powerful composition, Cascada templates and scripts can also `include` files, `import` macros, and `extend` parent templates and scripts.
-
-### 🛠️ Full-Spectrum AI Functionality
-
-Casai combines its unique orchestration capabilities with the robust features of the [Vercel AI SDK Core](https://sdk.vercel.ai/docs/ai-sdk-core) to provide a complete toolkit for modern AI development.
-
-#### Powered by Cascada
-*   **Declarative Agent Orchestration:** Define sophisticated, multi-step agent logic using clean, readable scripts. The engine automatically parallelizes independent operations, data-flows and piepeline steps while transparently managing data dependencies, letting you focus on the "what" instead of the "how."
-*   **Dynamic Prompt Engineering:** Craft powerful, adaptive prompts by composing templates and scripts, embedding the results from other LLM calls, and injecting data from asynchronous sources like APIs or databases, all within a single, coherent workflow.
-*   **Seamless Custom Integrations:** Easily plug any custom service, utility, or external API into your workflows. By adding them to the `context` object, they become available as simple function calls within your scripts and templates.
-
-#### Powered by the Vercel AI SDK Core
-*   **LLM Provider Flexibility:** Works with any major provider supported by the Vercel AI SDK Core, including OpenAI, Anthropic, Google, Cohere, and more. Swap models and providers with a single line of code.
-*   **Structured Data Generation:** Generate strongly-typed, validated JSON objects and arrays using Zod schemas, ensuring reliable and predictable outputs from your LLMs.
-*   **Model-Driven Tool Use:** Expose your own functions—like API calls or database queries—as tools that an LLM can decide to call based on its own reasoning to fulfill a user's request.
-*   **Text Generation & Streaming:** Leverage powerful LLMs for both one-shot text generation and real-time streaming to create dynamic, interactive user experiences.
-
-```markdown
-
-## Understanding Cascada (Casai's Foundation)
-
-Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - a parallel-first execution engine that provides both scripts and templates for async orchestration. While you can use Casai without deep Cascada knowledge, understanding the fundamentals will help you build more sophisticated workflows.
-
-**Learn the Concepts:**
-- [The Kitchen and The Chef](https://geleto.github.io/posts/cascada-kitchen-chef/) - Understand how Cascada works through a restaurant analogy - no technical jargon, just cooks, ingredients, and a brilliant manager who makes parallel execution and overcoming race conditions feel as natural as following a recipe
-- [Cascada Script Introduction](https://geleto.github.io/posts/cascada-script-intro/) - A comprehensive introduction to Cascada Script's syntax, features, and how it solves real async programming challenges
-
-**Documentation:**
-- [Cascada Script Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/script.md) - Complete reference for Cascada Script syntax, features, and API
-
-**Examples:**
-- [Casai Examples Repository](https://github.com/geleto/casai-examples) - Explore practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story (work in progress)
+// 2. This agent automatically WAITS for the parallel tasks to finish.
+// No 'await', no Promise.all. Just clean data-flow.
+var finalReport = writer({
+  background: background,
+  analysis: analysis
+}).text
 ```
+
+### The Casai Philosophy
+
+Instead of forcing you into rigid graphs or `async/await` hell, Casai is built on a few simple principles:
+
+*   **✍️ Write Logic, Not Graphs.** Express workflows as normal code—variables, functions, loops—not as a brittle graph of nodes and edges. You tell the story; the engine handles the orchestration.
+
+*   **⚡ Parallel by Default, Sequential by Exception.** Independent operations run in parallel automatically. The data-flow engine ensures dependent steps run in the correct order, eliminating race conditions by design. For stateful tasks where order is critical (like database writes), you can enforce a strict sequential chain on those specific operations, without affecting the rest of your workflow.
+
+*   **🧩 Compose with Components.** Build systems from small, reusable, and testable components. Every script, generator, or tool is a callable function that can be nested and passed around.
+
+*   **🎯 Clear Separation of Concerns.** Define the orchestration **logic** (the "what") in components that act as orchestrators—like a [`Script`](#script) orchestrating a multi-step workflow, a [`Template`](#template) composing a document, or a [`TextGenerator`](#textgenerator) executing a dynamic AI prompt. You provide the **capabilities** (the "how")—tools, APIs, and data sources—in a separate `context` object.
+
+### Built on a Solid Foundation
+
+Casai combines its unique orchestration engine with the robust features of modern AI tooling, giving you a complete toolkit.
+
+*   **Powered by the [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada)**, which provides the parallel-by-default execution, dynamic templating, and seamless integration of any asynchronous function.
+*   **Powered by the [Vercel AI SDK Core](https://ai-sdk.dev/docs/ai-sdk-core):** Get best-in-class features out of the box, including provider flexibility (OpenAI, Anthropic, etc.), structured data generation with Zod, model-driven tool use, and text streaming.
 
 **⚠️ Heads up!** Casai is a new project and is evolving quickly! You might run into bugs, and the documentation is catching up with the code. Your feedback and contributions are welcome as we build the future of AI Agents.
 
@@ -1667,6 +1643,21 @@ const invalidComponent = create.TextGenerator({
 - **Template/Script Properties**: `context`, `filters`, `loader`, and `options` are only allowed on components created with a Cascada modifier (`.withTemplate`, `.withScript`, or `.loads...`).
 
 This type safety ensures robust, predictable workflows with early error detection.
+
+## Understanding Cascada (Casai's Foundation)
+
+Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - a parallel-first execution engine that provides both scripts and templates for async orchestration. While you can use Casai without deep Cascada knowledge, understanding the fundamentals will help you build more sophisticated workflows.
+
+**Learn the Concepts:**
+- [The Kitchen and The Chef](https://geleto.github.io/posts/cascada-kitchen-chef/) - Understand how Cascada works through a restaurant analogy - no technical jargon, just cooks, ingredients, and a brilliant manager who makes parallel execution and overcoming race conditions feel as natural as following a recipe
+- [Cascada Script Introduction](https://geleto.github.io/posts/cascada-script-intro/) - A comprehensive introduction to Cascada Script's syntax, features, and how it solves real async programming challenges
+
+**Documentation:**
+- [Cascada Script Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/script.md) - Complete reference for Cascada Script syntax, features, and API
+
+**Examples:**
+- [Casai Examples Repository](https://github.com/geleto/casai-examples) - Explore practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story (work in progress)
+```
 
 ## Roadmap
 
