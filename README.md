@@ -1,6 +1,6 @@
 # Casai: AI Orchestration That Writes Like a Story
 
-Building sophisticated AI systems—from multi-step agents to RAG pipelines—means orchestrating countless asynchronous tasks. **Casai is an AI orchestration library that makes this radically simple by letting you write complex workflows as clean, synchronous-style code.**
+Building sophisticated AI systems - from multi-step agents to RAG pipelines - means orchestrating countless asynchronous tasks. **Casai is an AI orchestration library that makes this radically simple by letting you write complex workflows as clean, synchronous-style code.**
 
 In the Cascada script below, `researcher`, `analyst`, and `writer` are distinct Casai components being orchestrated.
 
@@ -22,13 +22,13 @@ var finalReport = writer({
 
 Instead of forcing you into rigid graphs or `async/await` hell, Casai is built on a few simple principles:
 
-*   **✍️ Write Logic, Not Graphs.** Express workflows as normal code—variables, functions, loops—not as a brittle graph of nodes and edges. You tell the story; the engine handles the orchestration.
+*   **✍️ Write Logic, Not Graphs.** Express workflows as normal code - variables, functions, loops - not as a brittle graph of nodes and edges. You tell the story; the engine handles the orchestration.
 
 *   **⚡ Parallel by Default, Sequential by Exception.** Independent operations run in parallel automatically. The data-flow engine ensures dependent steps run in the correct order, eliminating race conditions by design. For stateful tasks where order is critical (like database writes), you can enforce a strict sequential chain on those specific operations, without affecting the rest of your workflow.
 
 *   **🧩 Compose with Components.** Build systems from small, reusable, and testable components. Every script, generator, or tool is a callable function that can be nested and passed around.
 
-*   **🎯 Clear Separation of Concerns.** Define the orchestration **logic** (the "what") in components that act as orchestrators—like a [`Script`](#script) orchestrating a multi-step workflow, a [`Template`](#template) composing a document, or a [`TextGenerator`](#textgenerator) executing a dynamic AI prompt. You provide the **capabilities** (the "how")—tools, APIs, and data sources—in a separate `context` object.
+*   **🎯 Clear Separation of Concerns.** Define the orchestration **logic** (the "what") in components that act as orchestrators - like a [`Script`](#script) orchestrating a multi-step workflow, a [`Template`](#template) composing a document, or a [`TextGenerator`](#textgenerator) executing a dynamic AI prompt. You provide the **capabilities** (the "how") - tools, APIs, and data sources - in a separate `context` object.
 
 ### Built on a Solid Foundation
 
@@ -301,7 +301,7 @@ Use the standard `()` call for simplicity in most cases. Use `.run()` when you n
 
 ## The `prompt` Property: Your Universal Input
 
-In Casai, the `prompt` property is the versatile heart of every LLM component. Its behavior is determined by the factory method you use to create the component. The modifier—like `.withTemplate` or `.withScript`—sets the "mode" for how the `prompt` content will be processed before being sent to the LLM.
+In Casai, the `prompt` property is the versatile heart of every LLM component. Its behavior is determined by the factory method you use to create the component. The modifier - like `.withTemplate` or `.withScript` - sets the "mode" for how the `prompt` content will be processed before being sent to the LLM.
 
 Here is a complete guide to its different modes:
 
@@ -309,8 +309,8 @@ Here is a complete guide to its different modes:
 | :--- | :--- | :--- |
 | `create.TextGenerator(...)` | A static `string` or `ModelMessage[]` array. | The content is sent **directly** to the Vercel AI SDK with no processing. The user's runtime input is appended as the final `user` message. |
 | `create.TextGenerator.withTemplate(...)` | A `string` containing a Cascada **template**. | The template is **rendered** into a final `string`, which becomes the LLM prompt. It only renders text and thus cannot produce a `ModelMessage[]` array. |
-| `create.TextGenerator.withScript(...)` | A `string` containing a Cascada **script**. | The script is **executed**. Its return value—which can be a `string` or a `ModelMessage[]` array—becomes the LLM prompt. |
-| `create.TextGenerator.withFunction(...)` | A synchronous or asynchronous JavaScript **function**. | The function is **executed**. Its return value—which can be a `string` or a `ModelMessage[]` array—becomes the LLM prompt. |
+| `create.TextGenerator.withScript(...)` | A `string` containing a Cascada **script**. | The script is **executed**. Its return value - which can be a `string` or a `ModelMessage[]` array - becomes the LLM prompt. |
+| `create.TextGenerator.withFunction(...)` | A synchronous or asynchronous JavaScript **function**. | The function is **executed**. Its return value - which can be a `string` or a `ModelMessage[]` array - becomes the LLM prompt. |
 
 By embracing this single-property pattern, you only need to remember one rule: **the factory modifier defines the `prompt`'s behavior.**
 
@@ -1404,7 +1404,7 @@ Using `.asTool` (on `create.Function`, `script`, `template` or LLM generator pro
 
 **Use When:**
 -   **The workflow is unpredictable**: You can't know ahead of time what the user will ask. The LLM must infer intent and select the appropriate tool (e.g., `getWeather` vs. `sendEmail`).
--   **You are building a conversational agent**: The LLM can chain its own reasoning—calling a tool, getting a result, and using that result to decide its next step—all within a single, autonomous turn.
+-   **You are building a conversational agent**: The LLM can chain its own reasoning - calling a tool, getting a result, and using that result to decide its next step - all within a single, autonomous turn.
 
 ## Embedding Integration
 
