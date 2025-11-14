@@ -1,6 +1,6 @@
 # Casai: AI Orchestration That Writes Like a Story
 
-Building sophisticated AI systems - from multi-step agents to RAG pipelines - means orchestrating countless asynchronous tasks. **Casai is an AI orchestration library that makes this radically simple by letting you write complex workflows as clean, synchronous-style code.**
+Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is an AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically parallelizes independent operations, giving you the performance of concurrent execution without the complexity of managing it.
 
 In the Cascada script below, `researcher`, `analyst`, and `writer` are distinct Casai components being orchestrated.
 
@@ -22,13 +22,13 @@ var finalReport = writer({
 
 Instead of forcing you into rigid graphs or `async/await` hell, Casai is built on a few simple principles:
 
-*   **✍️ Write Logic, Not Graphs.** Express workflows as normal code - variables, functions, loops - not as a brittle graph of nodes and edges. You tell the story; the engine handles the orchestration.
+*   **✍️ Write Logic, Not Graphs.** Express workflows as normal code - variables, functions, loops - not as a brittle graph of nodes and edges. You tell the story, the engine handles the orchestration.
 
-*   **⚡ Parallel by Default, Sequential by Exception.** Independent operations run in parallel automatically. The data-flow engine ensures dependent steps run in the correct order, eliminating race conditions by design. For stateful tasks where order is critical (like database writes), you can enforce a strict sequential chain on those specific operations, without affecting the rest of your workflow.
+*   **⚡ Parallel by Default, Sequential by Exception.** Independent operations run in parallel automatically. The data-flow engine ensures dependent steps run in the correct order, eliminating race conditions by design. For stateful tasks where order is critical (like database writes), you can enforce a strict sequential chain on those specific operations, without affecting other dataflows.
 
-*   **🧩 Compose with Components.** Build systems from small, reusable, and testable components. Every script, generator, or tool is a callable function that can be nested and passed around.
+*   **🧩 Composable & Reusable Components.** Treat every piece of your AI workflow—from a simple generator to a multi-step agent—as a small, callable, and reusable component. This lets you build sophisticated systems from simple, testable parts, avoiding monolithic agent definitions.
 
-*   **🎯 Clear Separation of Concerns.** Define the orchestration **logic** (the "what") in components that act as orchestrators - like a [`Script`](#script) orchestrating a multi-step workflow, a [`Template`](#template) composing a document, or a [`TextGenerator`](#textgenerator) executing a dynamic AI prompt. You provide the **capabilities** (the "how") - tools, APIs, and data sources - in a separate `context` object.
+*   **💡 Logic vs. Capabilities: A Clear Separation of Concerns.** Define your high-level orchestration **logic** in a script or template. Provide the concrete **capabilities** it uses—like tools, APIs, and data sources—in a separate `context` object. This keeps your workflows clean, readable, and easy to maintain.
 
 ### Built on a Solid Foundation
 
