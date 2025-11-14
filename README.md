@@ -26,9 +26,9 @@ Instead of forcing you into rigid graphs or `async/await` hell, Casai is built o
 
 *   **⚡ Parallel by Default, Sequential by Exception.** Independent operations run in parallel automatically. The data-flow engine ensures dependent steps run in the correct order, eliminating race conditions by design. For stateful tasks where order is critical (like database writes), you can enforce a strict sequential chain on those specific operations, without affecting other dataflows.
 
-*   **🧩 Composable & Reusable Components.** Treat every piece of your AI workflow—from a simple generator to a multi-step agent—as a small, callable, and reusable component. This lets you build sophisticated systems from simple, testable parts, avoiding monolithic agent definitions.
+*   **🧩 Composable & Reusable Components.** Treat every piece of your AI workflow - from a simple generator to a multi-step agent - as a small, callable, and reusable component. This lets you build sophisticated systems from simple, testable parts, avoiding monolithic agent definitions.
 
-*   **💡 Logic vs. Capabilities: A Clear Separation of Concerns.** Define your high-level orchestration **logic** in a script or template. Provide the concrete **capabilities** it uses—like tools, APIs, and data sources—in a separate `context` object. This keeps your workflows clean, readable, and easy to maintain.
+*   **💡 Logic vs. Capabilities: A Clear Separation of Concerns.** Define your high-level orchestration **logic** in a script or template. Provide the concrete **capabilities** it uses - like tools, APIs, and data sources - in a separate `context` object. This keeps your workflows clean, readable, and easy to maintain.
 
 ### Built on a Solid Foundation
 
