@@ -40,7 +40,7 @@ Casai combines its unique orchestration engine with the robust features of moder
 
 ### Learn by Example
 
-The best way to see the power of Casai is to explore real-world code. In our [**Casai Examples Repository**](https://github.com/geleto/casai-examples), you'll find practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story. *(Work in progress)*
+The best way to see the power of Casai is to explore real-world code. In our [**Casai Examples Repository**](https://github.com/geleto/casai-examples), you'll find practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story. **(Work in progress)**
 
 **⚠️ Heads up!** Casai is a new project and is evolving quickly! You might run into bugs, and the documentation is catching up with the code. Your feedback and contributions are welcome as we build the future of AI Agents.
 
