@@ -38,6 +38,10 @@ Casai combines its unique orchestration engine with the robust features of moder
 
 *   **Powered by the [Vercel AI SDK Core](https://ai-sdk.dev/docs/ai-sdk-core):** Get best-in-class features out of the box, including provider flexibility (OpenAI, Anthropic, etc.), structured data generation with Zod, model-driven tool use, and text streaming.
 
+### Learn by Example
+
+The best way to see the power of Casai is to explore real-world code. In our [**Casai Examples Repository**](https://github.com/geleto/casai-examples), you'll find practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story. *(Work in progress)*
+
 **⚠️ Heads up!** Casai is a new project and is evolving quickly! You might run into bugs, and the documentation is catching up with the code. Your feedback and contributions are welcome as we build the future of AI Agents.
 
 # Table of Contents
@@ -1655,9 +1659,6 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 
 **Documentation:**
 - [Cascada Script Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/script.md) - Complete reference for Cascada Script syntax, features, and API
-
-**Examples:**
-- [Casai Examples Repository](https://github.com/geleto/casai-examples) - Explore practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story (work in progress)
 ```
 
 ## Roadmap
