@@ -1,6 +1,6 @@
 # Casai: AI Orchestration That Writes Like a Story
 
-Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is an AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically parallelizes independent operations, giving you the performance of concurrent execution without the complexity of managing it.
+Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is a TypeScript AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically parallelizes independent operations, giving you the performance of concurrent execution without the complexity of managing it.
 
 In the Cascada script below, `researcher`, `analyst`, and `writer` are distinct Casai components being orchestrated.
 
