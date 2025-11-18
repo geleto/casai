@@ -141,10 +141,8 @@ const contentAgent = create.Script({
 });
 
 // Run the agent
-(async () => {
-	const result = await contentAgent();
-	console.log(JSON.stringify(result, null, 2));
-})().catch(console.error);
+const result = await contentAgent();
+console.log(JSON.stringify(result, null, 2));
 ```
 
 # Understanding the Casai API
