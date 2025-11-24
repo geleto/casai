@@ -310,7 +310,7 @@ function _createTextStreamer<
 
 	return _createLLMComponent(
 		merged as configs.StreamTextConfig<ToolSet, Record<string, any>> & configs.OptionalPromptConfig,
-		streamText
+		streamText as (config: configs.StreamTextConfig<ToolSet, Record<string, any>> & configs.OptionalPromptConfig) => any
 	) as unknown as StreamTextPromiseReturn<TConfig, TOOLS, types.RequiredPromptType, string, CommonConfig>;
 }
 

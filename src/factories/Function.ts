@@ -97,13 +97,13 @@ function asTool<
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
+	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig> & configs.FunctionToolConfig<FINAL_INPUT, FINAL_OUTPUT>,
 >(
 	config: TConfig & ValidateConfig<TConfig, TFinalConfig, configs.FunctionToolConfig<INPUT, OUTPUT>>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<any, any>>> |
-		TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<any, any>>
+	parent: configs.ConfigProvider<TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<PARENT_INPUT, PARENT_OUTPUT>>> |
+		TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<PARENT_INPUT, PARENT_OUTPUT>>
 ): ToolCallSignature<TFinalConfig & configs.FunctionToolConfig<FINAL_INPUT, FINAL_OUTPUT>, FINAL_INPUT, FINAL_OUTPUT>;
 
 function asTool(config: configs.FunctionToolConfig<any, any>, parent?: configs.ConfigProvider<configs.FunctionToolConfig<any, any>> | ToolCallSignature<configs.FunctionToolConfig<any, any>, any, any>): any {

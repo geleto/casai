@@ -493,7 +493,7 @@ function _createTextGenerator<
 
 	return _createLLMComponent(
 		merged as configs.GenerateTextConfig<ToolSet, Record<string, any>> & configs.OptionalPromptConfig,
-		generateText
+		generateText as (config: configs.GenerateTextConfig<ToolSet, Record<string, any>> & configs.OptionalPromptConfig) => any
 	) as unknown as GenerateTextReturn<TConfig, TOOLS, types.RequiredPromptType, string, CommonConfig>;
 }
 
