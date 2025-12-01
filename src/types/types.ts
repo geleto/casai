@@ -1,8 +1,9 @@
-import { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnFinishCallback, ToolSet } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
+import { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnFinishCallback, ToolCallOptions, ToolSet } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
 import { z } from 'zod';
 import { InferParameters } from './utils';
 import { ILoaderAny } from 'cascada-engine';
 import { RaceGroup, RaceLoader } from '../loaders';
+import { BaseConfig } from './config';
 
 // Template types
 export type Context = Record<string, any>;
@@ -10,6 +11,23 @@ export type Filters = Record<string, (input: any, ...args: any[]) => any>;
 
 // export type SchemaType<T> = z.Schema<T, z.ZodTypeDef, any> | Schema<T>;
 export type SchemaType<T> = z.ZodType<T, z.ZodTypeDef, any> | Schema<T>;
+
+// Same as in the Vercel AI SDK
+export type ToolExecuteFunction<
+	TConfig extends BaseConfig & { context?: Record<string, any> },
+	INPUT extends Record<string, any>,
+	OUTPUT,
+	ExecuteArguments extends Record<string, any> = INPUT & TConfig['context'], //Input(schema) + context
+>
+	= (input: ExecuteArguments, options: ToolCallOptions) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
+
+// Like ToolExecuteFunction but without ToolCallOptions
+export type ExecuteFunction<
+	TConfig extends BaseConfig & { context?: Record<string, any> },
+	INPUT extends Record<string, any>,
+	OUTPUT,
+	ExecuteArguments extends Record<string, any> = INPUT & TConfig['context'], //Input(schema) + context
+> = (input: ExecuteArguments) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
 
 // Define the possible prompt types
 export type TemplatePromptType = 'template' | 'async-template' | 'template-name' | 'async-template-name';

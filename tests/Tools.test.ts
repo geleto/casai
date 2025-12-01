@@ -124,7 +124,7 @@ describe('asTool', function () {
 
 
 		describe('Structure: Vercel SDK Compatibility', () => {
-			it('should return a valid Vercel AI FunctionTool', () => {
+			it('should return a valid Vercel AI Tool', () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
 					temperature,

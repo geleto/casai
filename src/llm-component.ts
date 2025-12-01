@@ -165,7 +165,7 @@ export function _createLLMComponent<
 		// Dynamic Path - use Template/Script/Function to render the prompt
 		//let renderer: TemplateCallSignature<any, any> | ScriptCallSignature<any, any, any> | FunctionCallSignature<any, any, any>;
 		type ScriptAndFunctionOutput = string | ModelMessage[];
-		type FunctionComponent = FunctionCallSignature<configs.FunctionConfig<any, ScriptAndFunctionOutput> & { execute: (context: Context) => Promise<ScriptAndFunctionOutput> }, any, ScriptAndFunctionOutput>;
+		type FunctionComponent = FunctionCallSignature<configs.FunctionConfig<TConfig, any, ScriptAndFunctionOutput> & { execute: (context: Context) => Promise<ScriptAndFunctionOutput> }, any, ScriptAndFunctionOutput>;
 		type ScriptComponent = ScriptCallSignature<configs.ScriptConfig<any, ScriptAndFunctionOutput> & { script: string }, any, ScriptAndFunctionOutput>;
 		type TemplateComponent = TemplateCallSignature<configs.TemplateConfig<any> & { template: string }, any>;
 
@@ -193,7 +193,7 @@ export function _createLLMComponent<
 				...copyConfigProperties(config, configs.FunctionConfigKeys),
 				execute: config.prompt as (context: Context) => Promise<string | ModelMessage[]>
 			};
-			renderer = _createFunction(functionConfig as configs.FunctionConfig<any, any>) as FunctionComponent;
+			renderer = _createFunction(functionConfig as configs.FunctionConfig<TConfig, any, any>) as FunctionComponent;
 		} else {
 			throw new Error(`Unhandled prompt type: ${config.promptType}`);
 		}

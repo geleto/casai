@@ -1,18 +1,19 @@
 import {
 	generateText, generateObject, streamText, streamObject,
 	ToolSet,
-	ToolCallOptions,
 	StreamObjectOnFinishCallback,
 	ModelMessage,
-	Tool
+	Tool,
+	ToolCallOptions
 } from 'ai';
 import { ConfigureOptions } from 'cascada-engine';
 import {
 	TemplatePromptType, ScriptPromptType, /*, LLMPromptType */
 	SchemaType, CascadaFilters, CasaiAILoaders,
 	FunctionPromptType,
-	PromptFunction,
-	AnyPromptSource
+	PromptFunction, ToolExecuteFunction,
+	AnyPromptSource,
+	ExecuteFunction
 } from './types';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type
@@ -128,7 +129,7 @@ export type PromptConfig = TemplatePromptConfig | ScriptPromptConfig | FunctionP
 
 /**
  * The basic configuration required for a vercel function tool derived from a renderer
- * It is the vercel function tool without the execute function.
+ * This is the Tool config for all .asTool except for the Function.asTool
  */
 export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT> {
 	type?: 'function';
@@ -136,21 +137,6 @@ export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT> {
 	inputSchema: SchemaType<INPUT>;//the only required property
 	execute?: (args: INPUT, options: ToolCallOptions) => PromiseLike<OUTPUT>;
 }
-
-/**
- * The output of an .asTool() factory.
- * This is a complete, executable tool object that is compatible with the Vercel AI SDK's `ToolSet`.
- * @deprecated
- */
-export interface FunctionTool<INPUT extends Record<string, any>, OUTPUT> {
-	description?: string;
-	inputSchema: SchemaType<INPUT>;
-	execute: (args: INPUT, options: ToolCallOptions) => PromiseLike<OUTPUT>;
-	type: 'function';
-}
-
-// Utility types
-
 
 // Config types
 // All of them are partials because they can be requested in pieces,
@@ -269,16 +255,24 @@ export type StreamObjectNoSchemaConfig<
 	mode?: 'json';
 }
 
-export interface FunctionConfig<INPUT extends Record<string, any>, OUTPUT> extends ContextConfig {
-	execute: (context: INPUT) => PromiseLike<OUTPUT>;
+export const FunctionConfigKeys: (keyof FunctionConfig<BaseConfig, any, any>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
+
+// The config for Function, the execute method accepts both INPUT and context object properties
+export interface FunctionConfig<
+	TConfig extends BaseConfig & { context?: Record<string, any> },
+	INPUT extends Record<string, any>,
+	OUTPUT
+> extends ContextConfig {
+	execute: ExecuteFunction<TConfig, INPUT, OUTPUT>;
 	schema?: SchemaType<OUTPUT>;
 	inputSchema?: SchemaType<INPUT>;
 }
 
-export const FunctionConfigKeys: (keyof FunctionConfig<any, any>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
-
-export type FunctionToolConfig<INPUT extends Record<string, any>, OUTPUT> =
-	Tool<INPUT, OUTPUT> & BaseConfig
+// The config for Function.asTool, the execute method accepts both INPUT and context object properties
+export type FunctionToolConfig<TConfig extends BaseConfig & { context?: Record<string, any> }, INPUT extends Record<string, any>, OUTPUT> =
+	Omit<Tool<INPUT, OUTPUT>, 'execute'> & {
+		execute: ToolExecuteFunction<TConfig, INPUT, OUTPUT>;
+	}
 
 // For the .run argument - disallow all properties that ...
 export type RunConfigDisallowedProperties =
@@ -318,5 +312,5 @@ export type AnyConfig<
 		| ScriptConfig<INPUT, OUTPUT>
 		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	) & (LoaderConfig | {}))
-	| FunctionToolConfig<INPUT, OUTPUT>
-	| FunctionConfig<INPUT, OUTPUT>;
+	| FunctionToolConfig<BaseConfig, INPUT, OUTPUT>
+	| FunctionConfig<BaseConfig, INPUT, OUTPUT>;
