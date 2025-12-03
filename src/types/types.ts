@@ -3,31 +3,42 @@ import { z } from 'zod';
 import { InferParameters } from './utils';
 import { ILoaderAny } from 'cascada-engine';
 import { RaceGroup, RaceLoader } from '../loaders';
-import { BaseConfig } from './config';
 
 // Template types
 export type Context = Record<string, any>;
 export type Filters = Record<string, (input: any, ...args: any[]) => any>;
 
 // export type SchemaType<T> = z.Schema<T, z.ZodTypeDef, any> | Schema<T>;
-export type SchemaType<T> = z.ZodType<T, z.ZodTypeDef, any> | Schema<T>;
+export type SchemaType<T> =
+	| z.ZodType<T, any, any>
+	| Schema<T>;
+
+//@todo - see InferSchema in the Vercel AI SDK
+/*export type InferSchema<TSchema> =
+	TSchema extends z.ZodType<infer T, any, any>
+	? T
+	: TSchema extends Schema<infer O>
+	? O
+	: Record<string, any>;*/
+
+export type InferSchema<TSchema, TFallback = Record<string, any>> =
+	TSchema extends { _output: infer O } ? O : // Zod v3
+	TSchema extends { '~output': infer O } ? O : // Zod v4
+	TSchema extends { _type: infer O } ? O : // Vercel AI SDK Schema
+	TSchema extends () => { _type: infer T } ? T : // LazySchema - match function returning Schema
+	TFallback;
 
 // Same as in the Vercel AI SDK
 export type ToolExecuteFunction<
-	TConfig extends BaseConfig & { context?: Record<string, any> },
 	INPUT extends Record<string, any>,
-	OUTPUT,
-	ExecuteArguments extends Record<string, any> = INPUT & TConfig['context'], //Input(schema) + context
->
-	= (input: ExecuteArguments, options: ToolCallOptions) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
+	OUTPUT
+> = (input: INPUT, options: ToolCallOptions) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
 
 // Like ToolExecuteFunction but without ToolCallOptions
 export type ExecuteFunction<
-	TConfig extends BaseConfig & { context?: Record<string, any> },
 	INPUT extends Record<string, any>,
-	OUTPUT,
-	ExecuteArguments extends Record<string, any> = INPUT & TConfig['context'], //Input(schema) + context
-> = (input: ExecuteArguments) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
+	OUTPUT
+> = (input: INPUT) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
 
 // Define the possible prompt types
 export type TemplatePromptType = 'template' | 'async-template' | 'template-name' | 'async-template-name';

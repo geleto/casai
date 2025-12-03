@@ -839,7 +839,12 @@ describe('asTool', function () {
 		});
 
 		const calculatorFunction = create.Function({
-			execute: async (input: Record<string, any>) => {
+			inputSchema: z.object({
+				a: z.number(),
+				b: z.number(),
+				operation: z.enum(['add', 'subtract'])
+			}),
+			execute: async (input) => {
 				const { a, b, operation } = input as { a: number, b: number, operation: 'add' | 'subtract' };
 				await new Promise(resolve => setTimeout(resolve, 100));
 				if (operation === 'add') {
@@ -851,10 +856,10 @@ describe('asTool', function () {
 		// --- End Test Setup ---
 
 		it('should correctly execute the provided function with given arguments using .execute()', async () => {
-			const resultAdd = await calculatorTool.execute({ a: 10, b: 5, operation: 'add' });
+			const resultAdd = await calculatorTool.execute({ a: 10, b: 5, operation: 'add' }, toolCallOptions);
 			expect(resultAdd).to.deep.equal({ result: 15 });
 
-			const resultSubtract = await calculatorTool.execute({ a: 10, b: 5, operation: 'subtract' });
+			const resultSubtract = await calculatorTool.execute({ a: 10, b: 5, operation: 'subtract' }, toolCallOptions);
 			expect(resultSubtract).to.deep.equal({ result: 5 });
 
 			// Verify it has the correct type and execute property

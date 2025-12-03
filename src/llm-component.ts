@@ -1,4 +1,4 @@
-import { Context, ScriptPromptType, TemplatePromptType } from './types/types';
+import { Context, SchemaType, ScriptPromptType, TemplatePromptType } from './types/types';
 import * as configs from './types/config';
 import { validateLLMComponentCall } from './validate';
 import * as utils from './types/utils';
@@ -165,7 +165,8 @@ export function _createLLMComponent<
 		// Dynamic Path - use Template/Script/Function to render the prompt
 		//let renderer: TemplateCallSignature<any, any> | ScriptCallSignature<any, any, any> | FunctionCallSignature<any, any, any>;
 		type ScriptAndFunctionOutput = string | ModelMessage[];
-		type FunctionComponent = FunctionCallSignature<configs.FunctionConfig<TConfig, any, ScriptAndFunctionOutput> & { execute: (context: Context) => Promise<ScriptAndFunctionOutput> }, any, ScriptAndFunctionOutput>;
+		//type FunctionComponent = FunctionCallSignature<configs.FunctionConfig<any, ScriptAndFunctionOutput> & { execute: (context: Context) => Promise<ScriptAndFunctionOutput> }, any, ScriptAndFunctionOutput>;
+		type FunctionComponent = FunctionCallSignature<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any>;
 		type ScriptComponent = ScriptCallSignature<configs.ScriptConfig<any, ScriptAndFunctionOutput> & { script: string }, any, ScriptAndFunctionOutput>;
 		type TemplateComponent = TemplateCallSignature<configs.TemplateConfig<any> & { template: string }, any>;
 
@@ -193,7 +194,7 @@ export function _createLLMComponent<
 				...copyConfigProperties(config, configs.FunctionConfigKeys),
 				execute: config.prompt as (context: Context) => Promise<string | ModelMessage[]>
 			};
-			renderer = _createFunction(functionConfig as configs.FunctionConfig<TConfig, any, any>) as FunctionComponent;
+			renderer = _createFunction(functionConfig as configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>>) as FunctionComponent;
 		} else {
 			throw new Error(`Unhandled prompt type: ${config.promptType}`);
 		}
@@ -219,7 +220,7 @@ export function _createLLMComponent<
 				renderedPrompt = await (renderer as TemplateComponent | ScriptComponent)(configArg.prompt, runConfig.context) as string | ModelMessage[];
 			} else {
 				// the renderer has precompiled script/template or is a function, just give it the context
-				renderedPrompt = await renderer(runConfig.context) as string | ModelMessage[];
+				renderedPrompt = await renderer(runConfig.context as Record<string, any>) as string | ModelMessage[];
 			}
 
 			if (runConfig.debug) {

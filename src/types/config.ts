@@ -11,9 +11,10 @@ import {
 	TemplatePromptType, ScriptPromptType, /*, LLMPromptType */
 	SchemaType, CascadaFilters, CasaiAILoaders,
 	FunctionPromptType,
-	PromptFunction, ToolExecuteFunction,
+	PromptFunction,
 	AnyPromptSource,
-	ExecuteFunction
+	ExecuteFunction,
+	InferSchema
 } from './types';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type
@@ -255,24 +256,30 @@ export type StreamObjectNoSchemaConfig<
 	mode?: 'json';
 }
 
-export const FunctionConfigKeys: (keyof FunctionConfig<BaseConfig, any, any>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
+export const FunctionConfigKeys: (keyof FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
 
 // The config for Function, the execute method accepts both INPUT and context object properties
+//@todo - inputSchema and schema more in line with the Vercel AI SDK - using FlexibleSchema
 export interface FunctionConfig<
-	TConfig extends BaseConfig & { context?: Record<string, any> },
-	INPUT extends Record<string, any>,
-	OUTPUT
+	TInputSchema extends SchemaType<any> | undefined = undefined,
+	TOutputSchema extends SchemaType<any> | undefined = undefined,
+	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
+	OUTPUT = InferSchema<TOutputSchema, any>
 > extends ContextConfig {
-	execute: ExecuteFunction<TConfig, INPUT, OUTPUT>;
-	schema?: SchemaType<OUTPUT>;
-	inputSchema?: SchemaType<INPUT>;
+	inputSchema?: TInputSchema;
+	schema?: TOutputSchema;
+	execute: ExecuteFunction<INPUT, OUTPUT>;
 }
-
 // The config for Function.asTool, the execute method accepts both INPUT and context object properties
-export type FunctionToolConfig<TConfig extends BaseConfig & { context?: Record<string, any> }, INPUT extends Record<string, any>, OUTPUT> =
-	Omit<Tool<INPUT, OUTPUT>, 'execute'> & {
-		execute: ToolExecuteFunction<TConfig, INPUT, OUTPUT>;
-	}
+export type FunctionToolConfig<
+	TInputSchema extends SchemaType<any> | undefined,
+	TOutputSchema extends SchemaType<any> | undefined,
+	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
+	OUTPUT = InferSchema<TOutputSchema, any>
+> =
+	ContextConfig &
+	Omit<Tool, 'execute' | 'inputSchema' | 'schema'> &
+	FunctionConfig<TInputSchema, TOutputSchema, INPUT, OUTPUT>;
 
 // For the .run argument - disallow all properties that ...
 export type RunConfigDisallowedProperties =
@@ -312,5 +319,5 @@ export type AnyConfig<
 		| ScriptConfig<INPUT, OUTPUT>
 		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	) & (LoaderConfig | {}))
-	| FunctionToolConfig<BaseConfig, INPUT, OUTPUT>
-	| FunctionConfig<BaseConfig, INPUT, OUTPUT>;
+	| FunctionToolConfig<any, any>//switch to any as getting schema from input/output is not bulletproof
+	| FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>>;//@todo - use the schema for the whole thing
