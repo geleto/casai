@@ -839,11 +839,11 @@ describe('asTool', function () {
 		});
 
 		const calculatorFunction = create.Function({
-			inputSchema: z.object({
+			/*inputSchema: z.object({
 				a: z.number(),
 				b: z.number(),
 				operation: z.enum(['add', 'subtract'])
-			}),
+			}),*/
 			execute: async (input) => {
 				const { a, b, operation } = input as { a: number, b: number, operation: 'add' | 'subtract' };
 				await new Promise(resolve => setTimeout(resolve, 100));

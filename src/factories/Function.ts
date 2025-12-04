@@ -4,16 +4,29 @@ import { mergeConfigs, processConfig } from "../config-utils";
 import { validateFunctionConfig, validateScriptOrFunctionCall, validateAndParseOutput } from "../validate";
 import { ExecuteFunction, InferSchema, SchemaType, ToolExecuteFunction } from '../types/types';
 
-type ToolOrFunctionConfig<TInputSchema extends SchemaType<Record<string, any>> | undefined, TOutputSchema extends SchemaType<any> | undefined> =
-	configs.FunctionToolConfig<TInputSchema, TOutputSchema> | configs.FunctionConfig<TInputSchema, TOutputSchema>
+type ToolOrFunctionConfig<
+	TInputSchema extends SchemaType<Record<string, any>> | undefined,
+	TOutputSchema extends SchemaType<any> | undefined
+> = configs.FunctionConfig<TInputSchema, TOutputSchema> |
+	(TInputSchema extends SchemaType<Record<string, any>> // Tool requires inputSchema
+		? configs.FunctionToolConfig<TInputSchema, TOutputSchema>
+		: never
+	);
 
-//TODO:
 type FunctionParentConfig<
 	TInputSchema extends SchemaType<Record<string, any>> | undefined,
 	TOutputSchema extends SchemaType<any> | undefined
-> = configs.ConfigProvider<configs.FunctionConfig<TInputSchema, TOutputSchema>> | //has parent.config
-	FunctionCallSignature<TInputSchema, TOutputSchema, configs.FunctionConfig<TInputSchema, TOutputSchema>> | //parent is the config as well as a function
+> = configs.ConfigProvider<configs.FunctionConfig<TInputSchema, TOutputSchema>> |
+	FunctionCallSignature<TInputSchema, TOutputSchema, configs.FunctionConfig<TInputSchema, TOutputSchema>>;
+
+type FunctionToolParentConfig<
+	TInputSchema extends SchemaType<Record<string, any>>, //input schema is required
+	TOutputSchema extends SchemaType<any> | undefined
+> = configs.ConfigProvider<configs.FunctionToolConfig<TInputSchema, TOutputSchema>> |
 	ToolCallSignature<TInputSchema, TOutputSchema, configs.FunctionToolConfig<TInputSchema, TOutputSchema>>;
+
+// The full shape of a final, merged config object, including required properties. @todo why re-define execute?
+type FinalFunctionConfigShape = Partial<Omit<ToolOrFunctionConfig<any, any>, 'execute'> & { execute?: any }>;
 
 export type FunctionCallSignature<
 	TInputSchema extends SchemaType<Record<string, any>> | undefined,
@@ -30,11 +43,10 @@ export type FunctionCallSignature<
 		execute: ExecuteFunction<INPUT, OUTPUT>;
 	};
 
-type FinalTextConfigShape = Partial<ToolOrFunctionConfig<SchemaType<any> | undefined, SchemaType<any> | undefined>>;
 
 // type: function and execute are required by vercel ai
 export type ToolCallSignature<
-	TInputSchema extends SchemaType<Record<string, any>> | undefined,
+	TInputSchema extends SchemaType<Record<string, any>>,
 	TOutputSchema extends SchemaType<any> | undefined,
 	TConfig extends configs.FunctionToolConfig<TInputSchema, TOutputSchema>,
 	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
@@ -48,13 +60,14 @@ export type ToolCallSignature<
 		execute: ToolExecuteFunction<INPUT, OUTPUT>;
 	};
 
-type ValidateConfig<
+type ValidateFunctionConfig<
 	TConfig extends Partial<ToolOrFunctionConfig<SchemaType<any> | undefined, SchemaType<any> | undefined>>,
-	TFinalConfig extends FinalTextConfigShape,
-	TShape extends ToolOrFunctionConfig<SchemaType<any> | undefined, SchemaType<any> | undefined>,
-	TRequired =
-	& { inputSchema: SchemaType<any> | undefined, execute: ExecuteFunction<Record<string, any>, any> }
-	& (TShape extends { loader: any } ? { loader: any } : unknown)// `T & unknown` is just `T`
+	TFinalConfig extends FinalFunctionConfigShape,
+	TShape extends FinalFunctionConfigShape,
+	IsTool extends boolean,
+	TRequired = IsTool extends true
+	? { inputSchema: SchemaType<Record<string, any>>, execute: ToolExecuteFunction<Record<string, any>, any> }// Tools require inputSchema
+	: { execute: ExecuteFunction<Record<string, any>, any> },
 > = NoInfer<
 	// 1. Check for excess properties in TConfig that are not in TShape
 	keyof Omit<TConfig, keyof TShape> extends never
@@ -68,8 +81,8 @@ type ValidateConfig<
 >
 
 type ValidateParentConfig<
-	TParentConfig extends Partial<ToolOrFunctionConfig<SchemaType<any> | undefined, SchemaType<any> | undefined>>,
-	TShape extends ToolOrFunctionConfig<SchemaType<any> | undefined, SchemaType<any> | undefined>,
+	TParentConfig extends FinalFunctionConfigShape,
+	TShape extends FinalFunctionConfigShape,
 > = NoInfer<
 	// Check for excess properties in the parent, validated against the CHILD's factory type (PType).
 	keyof Omit<TParentConfig, keyof TShape> extends never
@@ -87,18 +100,18 @@ function asFunction<
 	config:
 		TConfig & // Ensures type is TConfig
 		configs.FunctionConfig<TInputSchema, TOutputSchema> & // provides inference for inputSchema and outputSchema
-		ValidateConfig<TConfig, TConfig, configs.FunctionConfig<TInputSchema, TOutputSchema>>
+		ValidateFunctionConfig<TConfig, TConfig, configs.FunctionConfig<TInputSchema, TOutputSchema>, false>
 ): FunctionCallSignature<TInputSchema, TOutputSchema, TConfig>;
 
 //with configs.ConfigProvider or Functionparent config
 function asFunction<
-	TInputSchema extends SchemaType<Record<string, any>> | undefined = undefined,
-	TOutputSchema extends SchemaType<any> | undefined = undefined,
-	TConfig extends Partial<configs.FunctionConfig<TInputSchema, TOutputSchema>> = Partial<configs.FunctionConfig<TInputSchema, TOutputSchema>>,
+	TInputSchema extends SchemaType<Record<string, any>> | undefined,
+	TOutputSchema extends SchemaType<any> | undefined,
+	TConfig extends Partial<configs.FunctionConfig<TInputSchema, TOutputSchema>>,
 
-	TParentInputSchema extends SchemaType<Record<string, any>> | undefined = undefined,
-	TParentOutputSchema extends SchemaType<any> | undefined = undefined,
-	TParentConfig extends Partial<configs.FunctionConfig<TParentInputSchema, TParentOutputSchema>> = Partial<configs.FunctionConfig<TParentInputSchema, TParentOutputSchema>>,
+	TParentInputSchema extends SchemaType<Record<string, any>> | undefined,
+	TParentOutputSchema extends SchemaType<any> | undefined,
+	TParentConfig extends Partial<configs.FunctionConfig<TParentInputSchema, TParentOutputSchema>>,
 
 	TFinalInputSchema extends SchemaType<Record<string, any>> | undefined = TConfig['inputSchema'] extends SchemaType<Record<string, any>>
 	? TConfig['inputSchema']
@@ -110,7 +123,7 @@ function asFunction<
 >(
 	config: TConfig &
 		configs.FunctionConfig<TInputSchema, TOutputSchema> &
-		ValidateConfig<TConfig, TParentConfig, configs.FunctionConfig<TInputSchema, TOutputSchema>>,
+		ValidateFunctionConfig<TConfig, TFinalConfig, configs.FunctionConfig<TInputSchema, TOutputSchema>, false>,
 	parent: TParentConfig &
 		configs.ConfigProvider<TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionConfig<TInputSchema, TOutputSchema>>> |
 		TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionConfig<TInputSchema, TOutputSchema>>
@@ -126,47 +139,48 @@ function asFunction(
 
 //function tool, no parent config
 function asTool<
-	TInputSchema extends SchemaType<Record<string, any>> | undefined,
+	TInputSchema extends SchemaType<Record<string, any>>,
 	TOutputSchema extends SchemaType<any> | undefined,
 	TConfig extends configs.FunctionToolConfig<TInputSchema, TOutputSchema>
 >(
 	config:
 		TConfig & // Ensures type is TConfig
 		configs.FunctionToolConfig<TInputSchema, TOutputSchema> & // provides inference for inputSchema and outputSchema
-		ValidateConfig<TConfig, TConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema>>
+		ValidateFunctionConfig<TConfig, TConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema>, true>
 ): ToolCallSignature<TInputSchema, TOutputSchema, TConfig>;
 
 
 //function tool with configs.ConfigProvider or Tool parent config
 function asTool<
-	TInputSchema extends SchemaType<Record<string, any>> | undefined = undefined,
-	TOutputSchema extends SchemaType<any> | undefined = undefined,
-	TConfig extends Partial<configs.FunctionToolConfig<TInputSchema, TOutputSchema>> = Partial<configs.FunctionToolConfig<TInputSchema, TOutputSchema>>,
+	TInputSchema extends SchemaType<Record<string, any>>, //required
+	TOutputSchema extends SchemaType<any> | undefined,
+	TConfig extends Partial<configs.FunctionToolConfig<TInputSchema, TOutputSchema>>,
 
-	TParentInputSchema extends SchemaType<Record<string, any>> | undefined = undefined,
-	TParentOutputSchema extends SchemaType<any> | undefined = undefined,
-	TParentConfig extends Partial<configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema>> = Partial<configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema>>,
+	TParentInputSchema extends SchemaType<Record<string, any>>,
+	TParentOutputSchema extends SchemaType<any> | undefined,
+	TParentConfig extends Partial<configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema>>,
 
-	TFinalInputSchema extends SchemaType<Record<string, any>> | undefined = TConfig['inputSchema'] extends SchemaType<Record<string, any>>
-	? TConfig['inputSchema']
-	: TParentConfig['inputSchema'],
-	TFinalOutputSchema extends SchemaType<any> | undefined = TConfig['schema'] extends SchemaType<any>
-	? TConfig['schema']
-	: TParentConfig['schema'],
-	TFinalConfig extends configs.FunctionToolConfig<TFinalInputSchema, TFinalOutputSchema> = utils.Override<TParentConfig, TConfig> & configs.FunctionToolConfig<TFinalInputSchema, TFinalOutputSchema>,
+	TFinalInputSchema extends SchemaType<Record<string, any>> | undefined
+	= TInputSchema extends SchemaType<Record<string, any>> ? TInputSchema : TParentInputSchema,
+
+	TFinalOutputSchema extends SchemaType<any> | undefined
+	= TOutputSchema extends SchemaType<any> ? TOutputSchema : TParentOutputSchema,
+
+	TFinalConfig extends configs.FunctionToolConfig<TFinalInputSchema & SchemaType<Record<string, any>>, TFinalOutputSchema>
+	= utils.Override<TParentConfig, TConfig> & configs.FunctionToolConfig<TFinalInputSchema & SchemaType<Record<string, any>>, TFinalOutputSchema>,
 >(
 	config: TConfig &
-		configs.FunctionToolConfig<TInputSchema, TOutputSchema> &
-		ValidateConfig<TConfig, TParentConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema>>,
+		configs.FunctionToolConfig<TInputSchema & SchemaType<Record<string, any>>, TOutputSchema> &
+		ValidateFunctionConfig<TConfig, TFinalConfig, configs.FunctionToolConfig<TInputSchema & SchemaType<Record<string, any>>, TOutputSchema>, true>,
 	parent: TParentConfig &
-		configs.ConfigProvider<TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema>>> |
-		TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema>>
-): ToolCallSignature<TFinalInputSchema, TFinalOutputSchema, TFinalConfig>;
+		configs.ConfigProvider<TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TInputSchema & SchemaType<Record<string, any>>, TOutputSchema>>> |
+		TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TInputSchema & SchemaType<Record<string, any>>, TOutputSchema>>
+): ToolCallSignature<TFinalInputSchema & SchemaType<Record<string, any>>, TFinalOutputSchema, TFinalConfig>;
 
 
 function asTool(
 	config: configs.FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
-	parent?: FunctionParentConfig<SchemaType<Record<string, any>>, SchemaType<any>>
+	parent?: FunctionToolParentConfig<SchemaType<Record<string, any>>, SchemaType<any>>
 ): ToolCallSignature<SchemaType<Record<string, any>>, SchemaType<any>, configs.FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any>>> {
 	return _createFunctionAsTool(config, parent);
 }
@@ -176,8 +190,8 @@ function asTool(
 }*/
 
 export function _createFunction(
-	config: configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
-	parent?: FunctionParentConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
+	config: configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>> | configs.FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
+	parent?: FunctionParentConfig<SchemaType<Record<string, any>>, SchemaType<any>> | FunctionToolParentConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
 	isTool = false
 ): FunctionCallSignature<SchemaType<Record<string, any>>, SchemaType<any>, configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>>> {
 
@@ -210,7 +224,7 @@ export function _createFunction(
 
 function _createFunctionAsTool(
 	config: configs.FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
-	parent?: FunctionParentConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
+	parent?: FunctionParentConfig<SchemaType<Record<string, any>>, SchemaType<any>> | FunctionToolParentConfig<SchemaType<Record<string, any>>, SchemaType<any>>,
 ): ToolCallSignature<SchemaType<Record<string, any>>, SchemaType<any>, configs.FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any>>> {
 	const renderer = _createFunction(config, parent, true) as unknown as
 		ToolCallSignature<SchemaType<Record<string, any>>, SchemaType<any>, configs.FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any>>>;

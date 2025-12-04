@@ -261,8 +261,8 @@ export const FunctionConfigKeys: (keyof FunctionConfig<SchemaType<Record<string,
 // The config for Function, the execute method accepts both INPUT and context object properties
 //@todo - inputSchema and schema more in line with the Vercel AI SDK - using FlexibleSchema
 export interface FunctionConfig<
-	TInputSchema extends SchemaType<any> | undefined = undefined,
-	TOutputSchema extends SchemaType<any> | undefined = undefined,
+	TInputSchema extends SchemaType<Record<string, any>> | undefined,
+	TOutputSchema extends SchemaType<any> | undefined,
 	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
 	OUTPUT = InferSchema<TOutputSchema, any>
 > extends ContextConfig {
@@ -272,7 +272,7 @@ export interface FunctionConfig<
 }
 // The config for Function.asTool, the execute method accepts both INPUT and context object properties
 export type FunctionToolConfig<
-	TInputSchema extends SchemaType<any> | undefined,
+	TInputSchema extends SchemaType<Record<string, any>>, // required for tools
 	TOutputSchema extends SchemaType<any> | undefined,
 	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
 	OUTPUT = InferSchema<TOutputSchema, any>
