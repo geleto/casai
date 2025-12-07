@@ -11,6 +11,8 @@ export type Override<A, B> = {
 	: K extends keyof A ? A[K] : never;
 };
 
+export type OverrideContext<A, B> = A extends undefined ? B : Override<A, B>;
+
 // Ensures T is an exact match of one of the union members in U
 // Prevents extra properties and mixing properties from different union types
 export type StrictUnionSubtype<T, U> = U extends any

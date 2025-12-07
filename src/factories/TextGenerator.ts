@@ -37,7 +37,7 @@ type GenerateTextWithParentReturn<
 	TFinalConfig extends configs.BaseConfig = utils.Override<TParentConfig, TConfig>,
 > = LLMCallSignature<TFinalConfig, Promise<results.GenerateTextResultAugmented<FINAL_TOOLS>>, PType, PROMPT, TConfigShape>;
 
-// The full shape of a final, merged config object, including required properties.
+// The full shape of a final, merged config object, including partial and required properties.
 type FinalTextConfigShape = Partial<configs.GenerateTextConfig<any, any, any> & { model: LanguageModel }>;
 
 // Generic validator for the `config` object passed to a factory function.

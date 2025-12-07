@@ -166,7 +166,7 @@ export function _createLLMComponent<
 		//let renderer: TemplateCallSignature<any, any> | ScriptCallSignature<any, any, any> | FunctionCallSignature<any, any, any>;
 		type ScriptAndFunctionOutput = string | ModelMessage[];
 		//type FunctionComponent = FunctionCallSignature<configs.FunctionConfig<any, ScriptAndFunctionOutput> & { execute: (context: Context) => Promise<ScriptAndFunctionOutput> }, any, ScriptAndFunctionOutput>;
-		type FunctionComponent = FunctionCallSignature<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any>;
+		type FunctionComponent = FunctionCallSignature<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any, configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any>>;
 		type ScriptComponent = ScriptCallSignature<configs.ScriptConfig<any, ScriptAndFunctionOutput> & { script: string }, any, ScriptAndFunctionOutput>;
 		type TemplateComponent = TemplateCallSignature<configs.TemplateConfig<any> & { template: string }, any>;
 
@@ -194,7 +194,7 @@ export function _createLLMComponent<
 				...copyConfigProperties(config, configs.FunctionConfigKeys),
 				execute: config.prompt as (context: Context) => Promise<string | ModelMessage[]>
 			};
-			renderer = _createFunction(functionConfig as configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>>) as FunctionComponent;
+			renderer = _createFunction(functionConfig as configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any>) as FunctionComponent;
 		} else {
 			throw new Error(`Unhandled prompt type: ${config.promptType}`);
 		}

@@ -256,30 +256,33 @@ export type StreamObjectNoSchemaConfig<
 	mode?: 'json';
 }
 
-export const FunctionConfigKeys: (keyof FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
+export const FunctionConfigKeys: (keyof FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>, Record<string, any> | undefined>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
 
 // The config for Function, the execute method accepts both INPUT and context object properties
 //@todo - inputSchema and schema more in line with the Vercel AI SDK - using FlexibleSchema
 export interface FunctionConfig<
 	TInputSchema extends SchemaType<Record<string, any>> | undefined,
 	TOutputSchema extends SchemaType<any> | undefined,
+	CONTEXT extends Record<string, any> | undefined,
 	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
-	OUTPUT = InferSchema<TOutputSchema, any>
+	OUTPUT = InferSchema<TOutputSchema, any>,
 > extends ContextConfig {
+	context?: CONTEXT;
 	inputSchema?: TInputSchema;
 	schema?: TOutputSchema;
-	execute: ExecuteFunction<INPUT, OUTPUT>;
+	execute: ExecuteFunction<INPUT, OUTPUT, CONTEXT>;
 }
 // The config for Function.asTool, the execute method accepts both INPUT and context object properties
 export type FunctionToolConfig<
 	TInputSchema extends SchemaType<Record<string, any>>, // required for tools
 	TOutputSchema extends SchemaType<any> | undefined,
+	CONTEXT extends Record<string, any> | undefined,
 	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
 	OUTPUT = InferSchema<TOutputSchema, any>
 > =
 	ContextConfig &
 	Omit<Tool, 'execute' | 'inputSchema' | 'schema'> &
-	FunctionConfig<TInputSchema, TOutputSchema, INPUT, OUTPUT>;
+	FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, INPUT, OUTPUT>;
 
 // For the .run argument - disallow all properties that ...
 export type RunConfigDisallowedProperties =
@@ -319,5 +322,5 @@ export type AnyConfig<
 		| ScriptConfig<INPUT, OUTPUT>
 		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	) & (LoaderConfig | {}))
-	| FunctionToolConfig<any, any>//switch to any as getting schema from input/output is not bulletproof
-	| FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>>;//@todo - use the schema for the whole thing
+	| FunctionToolConfig<any, any, Record<string, any> | undefined>//switch to any as getting schema from input/output is not bulletproof
+	| FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>, Record<string, any> | undefined>;//@todo - use the schema for the whole thing

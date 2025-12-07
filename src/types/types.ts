@@ -28,17 +28,19 @@ export type InferSchema<TSchema, TFallback = Record<string, any>> =
 	TSchema extends () => { _type: infer T } ? T : // LazySchema - match function returning Schema
 	TFallback;
 
-// Same as in the Vercel AI SDK
+// Same properties as in the Vercel AI SDK
 export type ToolExecuteFunction<
 	INPUT extends Record<string, any>,
-	OUTPUT
-> = (input: INPUT, options: ToolCallOptions) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
+	OUTPUT,
+	CONTEXT extends Record<string, any> | undefined
+> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT), options: ToolCallOptions) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
 
 // Like ToolExecuteFunction but without ToolCallOptions
 export type ExecuteFunction<
 	INPUT extends Record<string, any>,
-	OUTPUT
-> = (input: INPUT) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
+	OUTPUT,
+	CONTEXT extends Record<string, any> | undefined
+> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
 
 // Define the possible prompt types
 export type TemplatePromptType = 'template' | 'async-template' | 'template-name' | 'async-template-name';
