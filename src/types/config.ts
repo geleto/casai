@@ -264,8 +264,8 @@ export interface FunctionConfig<
 	TInputSchema extends SchemaType<Record<string, any>> | undefined,
 	TOutputSchema extends SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
-	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
-	OUTPUT = InferSchema<TOutputSchema, any>,
+	INPUT extends Record<string, any> = InferSchema<TInputSchema, Record<string, any>>,
+	OUTPUT = InferSchema<TOutputSchema>,
 > extends ContextConfig {
 	context?: CONTEXT;
 	inputSchema?: TInputSchema;

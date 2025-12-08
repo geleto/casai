@@ -21,7 +21,7 @@ export type SchemaType<T> =
 	? O
 	: Record<string, any>;*/
 
-export type InferSchema<TSchema, TFallback = Record<string, any>> =
+export type InferSchema<TSchema, TFallback = unknown> =
 	TSchema extends { _output: infer O } ? O : // Zod v3
 	TSchema extends { '~output': infer O } ? O : // Zod v4
 	TSchema extends { _type: infer O } ? O : // Vercel AI SDK Schema
@@ -33,14 +33,14 @@ export type ToolExecuteFunction<
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	CONTEXT extends Record<string, any> | undefined
-> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT), options: ToolCallOptions) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
+> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT), options: ToolCallOptions) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
 
 // Like ToolExecuteFunction but without ToolCallOptions
 export type ExecuteFunction<
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	CONTEXT extends Record<string, any> | undefined
-> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => AsyncIterable<OUTPUT> | PromiseLike<OUTPUT> | OUTPUT;
+> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
 
 // Define the possible prompt types
 export type TemplatePromptType = 'template' | 'async-template' | 'template-name' | 'async-template-name';
