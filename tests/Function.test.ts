@@ -9,7 +9,7 @@ import { ToolCallOptions } from 'ai';
 chai.use(chaiAsPromised);
 const { expect } = chai;
 
-describe.skip('create.Function', function () {
+describe('create.Function', function () {
 	this.timeout(timeout);
 
 	describe('Core Functionality', () => {
@@ -122,7 +122,7 @@ describe.skip('create.Function', function () {
 			expect(result).to.equal('hidden-42');
 
 			// Should fail validation if 'val' is missing
-			// @ts-ignore - testing invalid input
+			// @ts-expect-error - testing invalid input
 			await expect(fn({})).to.be.rejectedWith(/Input context validation failed/);
 		});
 
@@ -139,7 +139,7 @@ describe.skip('create.Function', function () {
 
 			const badFn = create.Function({
 				schema: z.object({ res: z.string() }),
-				// @ts-ignore - execute needs an {res: string} argument
+				// @ts-expect-error - execute needs an {res: string} argument
 				execute: async () => {
 					await new Promise(resolve => setTimeout(resolve, 1));
 					return { res: 123 };
@@ -168,8 +168,8 @@ describe.skip('create.Function', function () {
 		it('injects _toolCallOptions into context', async () => {
 			const tool = create.Function.asTool({
 				inputSchema: z.object({}),
-				execute: async (context: any) => {
-					return context._toolCallOptions.toolCallId;
+				execute: async (input, options) => {
+					return options.toolCallId;
 				}
 			});
 

@@ -30,14 +30,14 @@ export type InferSchema<TSchema, TFallback = unknown> =
 
 // Same properties as in the Vercel AI SDK
 export type ToolExecuteFunction<
-	INPUT extends Record<string, any>,
+	INPUT extends Record<string, any> | undefined,
 	OUTPUT,
 	CONTEXT extends Record<string, any> | undefined
 > = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT), options: ToolCallOptions) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
 
 // Like ToolExecuteFunction but without ToolCallOptions
 export type ExecuteFunction<
-	INPUT extends Record<string, any>,
+	INPUT extends Record<string, any> | undefined,
 	OUTPUT,
 	CONTEXT extends Record<string, any> | undefined
 > = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;

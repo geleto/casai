@@ -14,7 +14,8 @@ import {
 	PromptFunction,
 	AnyPromptSource,
 	ExecuteFunction,
-	InferSchema
+	InferSchema,
+	ToolExecuteFunction
 } from './types';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type
@@ -35,15 +36,15 @@ export interface ConfigProvider<T> {
 }
 
 // @todo - INPUT generic parameter for context
-export interface ContextConfig extends BaseConfig {
-	context?: Record<string, any>;
+export interface ContextConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends BaseConfig {
+	context?: CONTEXT;
 }
 
 export const ContextConfigKeys: (keyof ContextConfig)[] = ['context', 'debug'] as const;
 
 // Shared for scripts and
 // @todo - INPUT generic parameter for context
-export interface CascadaConfig extends ContextConfig {
+export interface CascadaConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends ContextConfig<CONTEXT> {
 	filters?: CascadaFilters;
 	options?: ConfigureOptions;
 	loader?: CasaiAILoaders;
@@ -266,8 +267,7 @@ export interface FunctionConfig<
 	CONTEXT extends Record<string, any> | undefined,
 	INPUT extends Record<string, any> = InferSchema<TInputSchema, Record<string, any>>,
 	OUTPUT = InferSchema<TOutputSchema>,
-> extends ContextConfig {
-	context?: CONTEXT;
+> extends ContextConfig<CONTEXT> {
 	inputSchema?: TInputSchema;
 	schema?: TOutputSchema;
 	execute: ExecuteFunction<INPUT, OUTPUT, CONTEXT>;
@@ -280,9 +280,12 @@ export type FunctionToolConfig<
 	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
 	OUTPUT = InferSchema<TOutputSchema, any>
 > =
-	ContextConfig &
+	ContextConfig<CONTEXT> &
 	Omit<Tool, 'execute' | 'inputSchema' | 'schema'> &
-	FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, INPUT, OUTPUT>;
+	Omit<FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, INPUT, OUTPUT>, 'execute' | 'inputSchema'> & {
+		execute: ToolExecuteFunction<INPUT, OUTPUT, CONTEXT>;
+		inputSchema: TInputSchema;
+	};
 
 // For the .run argument - disallow all properties that ...
 export type RunConfigDisallowedProperties =
