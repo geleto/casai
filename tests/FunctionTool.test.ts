@@ -14,7 +14,7 @@ describe('Function.asTool Updates', () => {
 			// inputSchema is required
 			expect(() => create.Function.asTool({
 				description: 'Test tool',
-				execute: async (input: { val: number }) => { return input.val; }
+				execute: (input: { val: number }) => { return input.val; }
 			} as any)).to.throw(ConfigError, /'inputSchema' is a required property/);
 		});
 
@@ -60,7 +60,7 @@ describe('Function.asTool Updates', () => {
 				}
 			});
 
-			const result = await tool.execute({ val: 5 }, { toolCallId: '1', messages: [] });
+			const result = await tool.execute({ val: 5, multiplier: 2 }, { toolCallId: '123', messages: [] });
 			expect(result).to.equal(10);
 		});
 

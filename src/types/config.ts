@@ -7,16 +7,7 @@ import {
 	ToolCallOptions
 } from 'ai';
 import { ConfigureOptions } from 'cascada-engine';
-import {
-	TemplatePromptType, ScriptPromptType, /*, LLMPromptType */
-	SchemaType, CascadaFilters, CasaiAILoaders,
-	FunctionPromptType,
-	PromptFunction,
-	AnyPromptSource,
-	ExecuteFunction,
-	InferSchema,
-	ToolExecuteFunction
-} from './types';
+import * as types from './types';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type
 // https://github.com/microsoft/TypeScript/issues/54223
@@ -45,15 +36,15 @@ export const ContextConfigKeys: (keyof ContextConfig)[] = ['context', 'debug'] a
 // Shared for scripts and
 // @todo - INPUT generic parameter for context
 export interface CascadaConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends ContextConfig<CONTEXT> {
-	filters?: CascadaFilters;
+	filters?: types.CascadaFilters;
 	options?: ConfigureOptions;
-	loader?: CasaiAILoaders;
+	loader?: types.CasaiAILoaders;
 }
 
 export const CascadaConfigKeys: (keyof CascadaConfig)[] = ['context', 'filters', 'options', 'loader', 'debug'] as const;
 
 export interface LoaderConfig {
-	loader: CasaiAILoaders;
+	loader: types.CasaiAILoaders;
 }
 
 // Only for use in Template
@@ -61,8 +52,8 @@ export interface TemplateConfig<
 	INPUT extends Record<string, any>,
 > extends CascadaConfig {
 	template: string;
-	inputSchema?: SchemaType<INPUT>;
-	promptType?: TemplatePromptType;
+	inputSchema?: types.SchemaType<INPUT>;
+	promptType?: types.TemplatePromptType;
 }
 
 export const TemplateConfigKeys = ['template', 'inputSchema', 'promptType', ...CascadaConfigKeys] as const;
@@ -71,7 +62,7 @@ export const TemplateConfigKeys = ['template', 'inputSchema', 'promptType', ...C
 export interface TemplateToolConfig<
 	INPUT extends Record<string, any>,
 > extends TemplateConfig<INPUT> {
-	inputSchema: SchemaType<INPUT>;//required
+	inputSchema: types.SchemaType<INPUT>;//required
 	description?: string;
 }
 
@@ -79,7 +70,7 @@ export interface TemplateToolConfig<
 export interface TemplatePromptConfig extends CascadaConfig {
 	prompt?: string;//the string containing the template, can be specified in the caller
 	messages?: ModelMessage[];
-	promptType?: TemplatePromptType;
+	promptType?: types.TemplatePromptType;
 }
 
 // Only for use in Script
@@ -88,9 +79,9 @@ export interface ScriptConfig<
 	OUTPUT
 > extends CascadaConfig {
 	script?: string;
-	schema?: SchemaType<OUTPUT>;
-	inputSchema?: SchemaType<INPUT>;
-	promptType?: ScriptPromptType;
+	schema?: types.SchemaType<OUTPUT>;
+	inputSchema?: types.SchemaType<INPUT>;
+	promptType?: types.ScriptPromptType;
 };
 
 export const ScriptConfigKeys = ['script', 'schema', 'inputSchema', 'promptType', ...CascadaConfigKeys] as const;
@@ -100,7 +91,7 @@ export interface ScriptToolConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT
 > extends ScriptConfig<INPUT, OUTPUT> {
-	inputSchema: SchemaType<INPUT>;//required
+	inputSchema: types.SchemaType<INPUT>;//required
 	description?: string;
 }
 
@@ -110,7 +101,7 @@ export type OptionalTemplatePromptConfig = TemplatePromptConfig | { promptType: 
 export interface ScriptPromptConfig extends CascadaConfig {
 	prompt?: string;//the string containing the script, can be specified in the caller
 	messages?: ModelMessage[];
-	promptType?: ScriptPromptType;
+	promptType?: types.ScriptPromptType;
 }
 
 export type OptionalScriptPromptConfig = ScriptPromptConfig | { promptType: 'text' | 'text-name' };
@@ -120,9 +111,9 @@ export type OptionalPromptConfig = OptionalTemplatePromptConfig | OptionalScript
 
 // Config for prompts that are rendered with functions (as part of the whole generate/stream Text/Object/Function config)
 export interface FunctionPromptConfig extends ContextConfig {
-	prompt: PromptFunction;//The prompt is a function that returns a string or ModelMessage[]
+	prompt: types.PromptFunction;//The prompt is a function that returns a string or ModelMessage[]
 	messages?: ModelMessage[];
-	promptType?: FunctionPromptType;
+	promptType?: types.FunctionPromptType;
 }
 
 export type OptionalFunctionPromptConfig = FunctionPromptConfig | { promptType: 'text' | 'text-name' };
@@ -136,7 +127,7 @@ export type PromptConfig = TemplatePromptConfig | ScriptPromptConfig | FunctionP
 export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT> {
 	type?: 'function';
 	description?: string;
-	inputSchema: SchemaType<INPUT>;//the only required property
+	inputSchema: types.SchemaType<INPUT>;//the only required property
 	execute?: (args: INPUT, options: ToolCallOptions) => PromiseLike<OUTPUT>;
 }
 
@@ -148,35 +139,35 @@ export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT> {
 export type GenerateTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
-	PROMPT extends AnyPromptSource = string,
+	PROMPT extends types.AnyPromptSource = string,
 > = Omit<Parameters<typeof generateText<TOOLS>>[0], 'prompt'>
 	& BaseConfig
-	& { prompt?: PROMPT, inputSchema?: SchemaType<INPUT> };
+	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
 
 // The first argument of streamText
 export type StreamTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
-	PROMPT extends AnyPromptSource = string,
+	PROMPT extends types.AnyPromptSource = string,
 > = Omit<Parameters<typeof streamText<TOOLS>>[0], 'prompt'>
 	& BaseConfig
-	& { prompt?: PROMPT, inputSchema?: SchemaType<INPUT> };
+	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
 
 // We get the last overload which is the no-schema overload and make it base by omitting the output and mode properties
 export type GenerateObjectBaseConfig<
 	INPUT extends Record<string, any>,
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = Omit<Parameters<typeof generateObject>[0], | 'output' | 'mode' | 'prompt'>
 	& BaseConfig
-	& { prompt?: PROMPT, inputSchema?: SchemaType<INPUT> };
+	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
 
 export type GenerateObjectObjectConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = GenerateObjectBaseConfig<INPUT, PROMPT> & {
 	output?: 'object' | undefined;
-	schema: SchemaType<OUTPUT>;
+	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
 	schemaDescription?: string;
 	mode?: 'auto' | 'json' | 'tool';
@@ -185,10 +176,10 @@ export type GenerateObjectObjectConfig<
 export type GenerateObjectArrayConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = GenerateObjectBaseConfig<INPUT, PROMPT> & {
 	output: 'array';
-	schema: SchemaType<OUTPUT>;
+	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
 	schemaDescription?: string;
 	mode?: 'auto' | 'json' | 'tool';
@@ -197,7 +188,7 @@ export type GenerateObjectArrayConfig<
 export type GenerateObjectEnumConfig<
 	INPUT extends Record<string, any>,
 	ENUM extends string = string,
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = GenerateObjectBaseConfig<INPUT, PROMPT> & {
 	output: 'enum';
 	enum: readonly ENUM[];
@@ -206,7 +197,7 @@ export type GenerateObjectEnumConfig<
 
 export type GenerateObjectNoSchemaConfig<
 	INPUT extends Record<string, any>,
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = GenerateObjectBaseConfig<INPUT, PROMPT> & {
 	output: 'no-schema';
 	mode?: 'json';
@@ -215,23 +206,23 @@ export type GenerateObjectNoSchemaConfig<
 // We get the last overload which is the no-schema overload and make it base by omitting the output and mode properties
 export type StreamObjectBaseConfig<
 	INPUT extends Record<string, any>,
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = Omit<Parameters<typeof streamObject>[0], | 'output' | 'mode' | 'prompt' | 'onFinish'>
 	& BaseConfig
 	& {
 		//Bring back the removed onFinish and prompt properties
 		prompt?: PROMPT;
 		onFinish?: StreamObjectOnFinishCallback<any>;//@todo - use proper specialization
-		inputSchema?: SchemaType<INPUT>;
+		inputSchema?: types.SchemaType<INPUT>;
 	};
 
 export type StreamObjectObjectConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = StreamObjectBaseConfig<INPUT, PROMPT> & {
 	output?: 'object' | undefined;
-	schema: SchemaType<OUTPUT>;
+	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
 	schemaDescription?: string;
 	mode?: 'auto' | 'json' | 'tool';
@@ -240,10 +231,10 @@ export type StreamObjectObjectConfig<
 export type StreamObjectArrayConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = StreamObjectBaseConfig<INPUT, PROMPT> & {
 	output: 'array';
-	schema: SchemaType<OUTPUT>;
+	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
 	schemaDescription?: string;
 	mode?: 'auto' | 'json' | 'tool';
@@ -251,40 +242,40 @@ export type StreamObjectArrayConfig<
 
 export type StreamObjectNoSchemaConfig<
 	INPUT extends Record<string, any>,
-	PROMPT extends AnyPromptSource = string
+	PROMPT extends types.AnyPromptSource = string
 > = StreamObjectBaseConfig<INPUT, PROMPT> & {
 	output: 'no-schema';
 	mode?: 'json';
 }
 
-export const FunctionConfigKeys: (keyof FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>, Record<string, any> | undefined>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
+export const FunctionConfigKeys: (keyof FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
 
 // The config for Function, the execute method accepts both INPUT and context object properties
 //@todo - inputSchema and schema more in line with the Vercel AI SDK - using FlexibleSchema
 export interface FunctionConfig<
-	TInputSchema extends SchemaType<Record<string, any>> | undefined,
-	TOutputSchema extends SchemaType<any> | undefined,
+	TInputSchema extends types.SchemaType<Record<string, any>> | undefined,
+	TOutputSchema extends types.SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
-	INPUT extends Record<string, any> = InferSchema<TInputSchema, Record<string, any>>,
-	OUTPUT = InferSchema<TOutputSchema>,
 > extends ContextConfig<CONTEXT> {
 	inputSchema?: TInputSchema;
 	schema?: TOutputSchema;
-	execute: ExecuteFunction<INPUT, OUTPUT, CONTEXT>;
+	execute: types.FunctionImplementation<
+		TInputSchema, TOutputSchema, CONTEXT,
+		(input: types.InferSchema<TInputSchema, Record<string, any>> & (CONTEXT extends undefined ? unknown : CONTEXT))
+			=> types.InferSchema<TOutputSchema, any>>;
 }
 // The config for Function.asTool, the execute method accepts both INPUT and context object properties
 export type FunctionToolConfig<
-	TInputSchema extends SchemaType<Record<string, any>>, // required for tools
-	TOutputSchema extends SchemaType<any> | undefined,
+	TInputSchema extends types.SchemaType<Record<string, any>>, // required for tools
+	TOutputSchema extends types.SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
-	INPUT extends Record<string, any> = InferSchema<TInputSchema>,
-	OUTPUT = InferSchema<TOutputSchema, any>
 > =
 	ContextConfig<CONTEXT> &
 	Omit<Tool, 'execute' | 'inputSchema' | 'schema'> &
-	Omit<FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, INPUT, OUTPUT>, 'execute' | 'inputSchema'> & {
-		execute: ToolExecuteFunction<INPUT, OUTPUT, CONTEXT>;
-		inputSchema: TInputSchema;
+	Omit<FunctionConfig<TInputSchema, TOutputSchema, CONTEXT>, 'execute' | 'inputSchema'>
+	& {
+		execute: types.FunctionToolImplementation<TInputSchema, TOutputSchema, CONTEXT>;
+		inputSchema: TInputSchema;//required
 	};
 
 // For the .run argument - disallow all properties that ...
@@ -298,7 +289,7 @@ export type AnyConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
 	ENUM extends string = string,
-	PROMPT extends AnyPromptSource = string | ModelMessage[]
+	PROMPT extends types.AnyPromptSource = string | ModelMessage[]
 > =
 	((// LLM Configs with template prompt
 		| GenerateTextConfig<TOOLS, INPUT, PROMPT>
@@ -326,4 +317,4 @@ export type AnyConfig<
 		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	) & (LoaderConfig | {}))
 	| FunctionToolConfig<any, any, Record<string, any> | undefined>//switch to any as getting schema from input/output is not bulletproof
-	| FunctionConfig<SchemaType<Record<string, any>>, SchemaType<any>, Record<string, any> | undefined>;//@todo - use the schema for the whole thing
+	| FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>;//@todo - use the schema for the whole thing

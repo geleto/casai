@@ -29,18 +29,73 @@ export type InferSchema<TSchema, TFallback = unknown> =
 	TFallback;
 
 // Same properties as in the Vercel AI SDK
-export type ToolExecuteFunction<
+/*export type ToolExecuteFunction<
 	INPUT extends Record<string, any> | undefined,
 	OUTPUT,
-	CONTEXT extends Record<string, any> | undefined
-> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT), options: ToolCallOptions) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
+	CONTEXT extends Record<string, any> | undefined*/
+//> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT), options: ToolCallOptions) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
 
 // Like ToolExecuteFunction but without ToolCallOptions
-export type ExecuteFunction<
+/*export type ExecuteFunction<
 	INPUT extends Record<string, any> | undefined,
 	OUTPUT,
-	CONTEXT extends Record<string, any> | undefined
-> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
+	CONTEXT extends Record<string, any> | undefined*/
+//> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
+
+// Type for the callable function (caller)
+// no context, only input as argumnent
+// if no output is specified, it is inferred from the execute function
+export type FunctionCaller<
+	InputSchema extends SchemaType<Record<string, any>> | undefined,
+	OutputSchema extends SchemaType<any> | undefined,
+	//TConfig extends configs.FunctionConfig<InputSchema, OutputSchema, Record<string, any> | undefined>,
+	ExecuteFunction extends (...args: any) => any,
+	FunctionOutput = OutputSchema extends SchemaType<any>
+	? OutputSchema
+	: ReturnType<ExecuteFunction>//the return type of the execute function
+> =
+	(input: InferSchema<InputSchema, Record<string, any>>)
+		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
+
+// Type for the implementation function - has input and context as arguments
+// if there is output schema - we use it as the return type
+export type FunctionImplementation<
+	InputSchema extends SchemaType<Record<string, any>> | undefined,
+	OutputSchema extends SchemaType<any> | undefined,
+	CONTEXT extends Record<string, any> | undefined,
+	ExecuteFunction extends (...args: any) => any = (...args: any) => any
+> =
+	(input: InferSchema<InputSchema, Record<string, any>> & (CONTEXT extends undefined ? unknown : CONTEXT))
+		=> OutputSchema extends SchemaType<Record<string, any>>
+		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
+		: ReturnType<ExecuteFunction>;//no output schema - infer from implementation or default to any
+
+export type FunctionToolCaller<
+	InputSchema extends SchemaType<Record<string, any>>,
+	OutputSchema extends SchemaType<any> | undefined,
+	//TConfig extends configs.FunctionToolConfig<InputSchema, OutputSchema, undefined>,
+	ExecuteFunction extends (...args: any) => any,
+	FunctionOutput = OutputSchema extends SchemaType<any>
+	? OutputSchema
+	: ReturnType<ExecuteFunction>//the return type of the execute function
+> =
+	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolCallOptions)
+		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
+
+// Type for the implementation function - has input and context as arguments
+// if there is output schema - we use it as the return type
+export type FunctionToolImplementation<
+	InputSchema extends SchemaType<Record<string, any>>,
+	OutputSchema extends SchemaType<any> | undefined,
+	CONTEXT extends Record<string, any> | undefined,
+> =
+	(
+		input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
+		options: ToolCallOptions
+	)
+		=> OutputSchema extends SchemaType<Record<string, any>>
+		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
+		: any;//no output schema - do not force a return type
 
 // Define the possible prompt types
 export type TemplatePromptType = 'template' | 'async-template' | 'template-name' | 'async-template-name';
