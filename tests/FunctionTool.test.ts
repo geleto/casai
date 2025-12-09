@@ -22,7 +22,10 @@ describe('Function.asTool Updates', () => {
 			expect(() => create.Function.asTool({
 				description: 'Test tool',
 				inputSchema: z.object({ val: z.number() }),
-				execute: async (input: { val: number }) => { return input.val; }
+				execute: async (input: { val: number }) => {
+					await new Promise(resolve => setTimeout(resolve, 0));
+					return input.val;
+				}
 			})).to.not.throw();
 		});
 	});
@@ -34,6 +37,7 @@ describe('Function.asTool Updates', () => {
 				description: 'Test tool',
 				inputSchema: z.object({ val: z.number() }),
 				execute: async (input: { val: number }, options: ToolCallOptions) => {
+					await new Promise(resolve => setTimeout(resolve, 0));
 					capturedOptions = options;
 					return input.val;
 				}
@@ -54,13 +58,14 @@ describe('Function.asTool Updates', () => {
 			const tool = create.Function.asTool({
 				description: 'Test tool',
 				context: { multiplier: 2 },
-				inputSchema: z.object({ val: z.number() }),
+				inputSchema: z.object({ val: z.number(), multiplier: z.number() }),
 				execute: async (input: { val: number } & { multiplier: number }) => {
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return input.val * input.multiplier;
 				}
 			});
 
-			const result = await tool.execute({ val: 5, multiplier: 2 }, { toolCallId: '123', messages: [] });
+			const result = await tool({ val: 5, multiplier: 2 }, { toolCallId: '123', messages: [] });
 			expect(result).to.equal(10);
 		});
 
@@ -71,6 +76,7 @@ describe('Function.asTool Updates', () => {
 				context: { multiplier: 3 },
 				inputSchema: z.object({ val: z.number() }),
 				execute: async (input: { val: number } & { multiplier: number }, options: ToolCallOptions) => {
+					await new Promise(resolve => setTimeout(resolve, 0));
 					capturedOptions = options;
 					return input.val * input.multiplier;
 				}
@@ -81,7 +87,7 @@ describe('Function.asTool Updates', () => {
 				messages: []
 			};
 
-			const result = await tool.execute({ val: 5 }, mockOptions);
+			const result = await tool({ val: 5 }, mockOptions);
 			expect(result).to.equal(15);
 			expect(capturedOptions).to.equal(mockOptions);
 		});

@@ -88,6 +88,7 @@ export type FunctionToolImplementation<
 	InputSchema extends SchemaType<Record<string, any>>,
 	OutputSchema extends SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
+	ExecuteFunction extends (...args: any) => any = (...args: any) => any
 > =
 	(
 		input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
@@ -95,7 +96,7 @@ export type FunctionToolImplementation<
 	)
 		=> OutputSchema extends SchemaType<Record<string, any>>
 		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
-		: any;//no output schema - do not force a return type
+		: ReturnType<ExecuteFunction>;
 
 // Define the possible prompt types
 export type TemplatePromptType = 'template' | 'async-template' | 'template-name' | 'async-template-name';

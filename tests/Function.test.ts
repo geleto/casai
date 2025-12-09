@@ -19,7 +19,7 @@ describe('create.Function', function () {
 					val: z.number()
 				}),
 				execute: async (input) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return input.val * 2;
 				}
 			});
@@ -34,7 +34,7 @@ describe('create.Function', function () {
 					val: z.number()
 				}),
 				execute: async (input) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return input.val * input.multiplier;
 				}
 			});
@@ -52,7 +52,7 @@ describe('create.Function', function () {
 					val: z.number()
 				}),
 				execute: async (input) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return input.val * input.multiplier;
 				}
 			}, parent);
@@ -67,7 +67,7 @@ describe('create.Function', function () {
 					c: z.number()
 				}),
 				execute: async (context) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return context.a + context.b + context.c;
 				}
 			});
@@ -82,7 +82,7 @@ describe('create.Function', function () {
 					a: z.number()
 				}),
 				execute: async (context) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return context.a + context.b;
 				}
 			});
@@ -97,7 +97,7 @@ describe('create.Function', function () {
 			});
 			const fn = create.Function({
 				execute: async (input) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return `Hello ${input.user}`;
 				}
 			}, parent);
@@ -112,7 +112,7 @@ describe('create.Function', function () {
 					val: z.number()
 				}),
 				execute: async (context) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return `${context.secret}-${context.val}`;
 				}
 			});
@@ -130,7 +130,7 @@ describe('create.Function', function () {
 			const fn = create.Function({
 				schema: z.object({ res: z.string() }),
 				execute: async () => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return { res: 'ok' };
 				}
 			});
@@ -141,7 +141,7 @@ describe('create.Function', function () {
 				schema: z.object({ res: z.string() }),
 				// @ts-expect-error - execute needs an {res: string} argument
 				execute: async () => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return { res: 123 };
 				}
 			});
@@ -155,13 +155,13 @@ describe('create.Function', function () {
 				context: { prefix: 'Tool:' },
 				inputSchema: z.object({ msg: z.string() }),
 				execute: async (context) => {
-					await new Promise(resolve => setTimeout(resolve, 1));
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return `${context.prefix} ${context.msg}`;
 				}
 			});
 
 			// Simulate tool call (usually done by AI SDK)
-			const result = await (tool.execute as any)({ msg: 'Hello' }, {} as ToolCallOptions);
+			const result = await tool.execute({ msg: 'Hello', prefix: 'Tool' }, {} as ToolCallOptions) as string;
 			expect(result).to.equal('Tool: Hello');
 		});
 
@@ -169,6 +169,7 @@ describe('create.Function', function () {
 			const tool = create.Function.asTool({
 				inputSchema: z.object({}),
 				execute: async (input, options) => {
+					await new Promise(resolve => setTimeout(resolve, 0));
 					return options.toolCallId;
 				}
 			});
@@ -177,7 +178,8 @@ describe('create.Function', function () {
 				toolCallId: 'call_123',
 				messages: []
 			};
-			const result = await (tool.execute as any)({}, options);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+			const result = await tool.execute({}, options);
 			expect(result).to.equal('call_123');
 		});
 
@@ -193,11 +195,14 @@ describe('create.Function', function () {
 
 			const tool = create.Function.asTool({
 				inputSchema: z.object({ req: z.string() }),
-				execute: async (context: any) => context.req
+				execute: async (input) => {
+					await new Promise(resolve => setTimeout(resolve, 0));
+					return input.req
+				}
 			});
 
 			// If we call it like a tool, internal validation is skipped (assuming SDK did it)
-			const result = await (tool.execute as any)({ req: 'valid' }, {} as ToolCallOptions);
+			const result = await tool({ req: 'valid' }, {} as ToolCallOptions);
 			expect(result).to.equal('valid');
 		});
 	});

@@ -9,7 +9,7 @@ import * as types from '../types/types';
 //@todo - document toolCallId handling
 
 // @todo - add FunctionToolCallSignature as parent and get rid of FunctionToolParentConfig
-type FunctionParentConfig<
+/*type FunctionParentConfig<
 	TInputSchema extends types.SchemaType<Record<string, any>> | undefined,
 	TOutputSchema extends types.SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
@@ -17,15 +17,7 @@ type FunctionParentConfig<
 	| configs.ContextConfig<CONTEXT>
 > = TConfig extends configs.FunctionConfig<TInputSchema, TOutputSchema, CONTEXT>
 	? FunctionCallSignature<TInputSchema, TOutputSchema, CONTEXT, TConfig>
-	: configs.ConfigProvider<TConfig>;
-
-type FunctionToolParentConfig<
-	TInputSchema extends types.SchemaType<Record<string, any>>, //input schema is required
-	TOutputSchema extends types.SchemaType<any> | undefined,
-	CONTEXT extends Record<string, any> | undefined
-> = configs.ConfigProvider<configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT>> |
-	ToolCallSignature<TInputSchema, TOutputSchema, CONTEXT, configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT>>;
-
+	: configs.ConfigProvider<TConfig>;*/
 
 // The full shape of a final, merged config object, including partial and required properties.
 // @todo - is this just configs.FunctionConfig?
@@ -40,28 +32,6 @@ type FinalFunctionToolConfigShape
 		execute: types.FunctionToolImplementation<types.SchemaType<any>, types.SchemaType<any> | undefined, any>
 		inputSchema: types.SchemaType<any>
 	};
-
-// Helper type to infer output from schema or execute function
-/*type InferFunctionOutput<
-	TOutputSchema extends types.SchemaType<any> | undefined,
-	TExecute
-> = types.InferSchema<TOutputSchema,
-	TExecute extends (...args: any) => any
-	? Awaited<ReturnType<TExecute>>
-	: any
->;*/
-
-
-
-//type FunctionImplementation<INPUT extends Record<string, any>, OUTPUT, CONTEXT extends Record<string, any> | undefined> =// ExecuteFunction<INPUT, OUTPUT, CONTEXT>;
-//	(input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
-
-// Type for the tool caller - no context
-//type ToolCaller<INPUT extends Record<string, any>, OUTPUT> = //ToolExecuteFunction<INPUT, OUTPUT, undefined>;
-//	(input: INPUT, options: ToolCallOptions) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
-
-// Type for the tool implementation - has context
-//type ToolImplementation<INPUT extends Record<string, any>, OUTPUT, CONTEXT extends Record<string, any> | undefined> = ToolExecuteFunction<INPUT, OUTPUT, CONTEXT>;
 
 
 // context is undefined as we call the function with only the input
@@ -207,10 +177,15 @@ function asFunction<
 
 function asFunction(
 	config: configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
-	parent?: configs.ConfigProvider<configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>>
+	parent?:
+		configs.ConfigProvider<
+			configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>
+		>
+		| configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>
 ): FunctionCallSignature<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>> {
 	return _createFunction(config, parent, false);
 }
+
 //2. The ToolExecuteFunction accepts options: ToolCallOptions argument
 //3. The FunctionToolConfig uses the AI SDK Tool as a base, with replaced execute
 // (that allows CONTEXT argument properties) - we want to use the Tool declaration as much as possible
@@ -237,15 +212,16 @@ function asTool<
 	TParentOutputSchema extends types.SchemaType<any> | undefined = undefined,
 	PARENT_CONTEXT extends Record<string, any> | undefined = undefined,
 
-	TConfig extends Partial<configs.FunctionToolConfig<NonNullable<TInputSchema>, NonNullable<TOutputSchema>, utils.OverrideContext<PARENT_CONTEXT, CONTEXT>>> = Partial<configs.FunctionToolConfig<TInputSchema, TOutputSchema, utils.OverrideContext<PARENT_CONTEXT, CONTEXT>>>,
-	TParentConfig extends Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, NonNullable<TParentOutputSchema>, PARENT_CONTEXT>> = Partial<configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>>,
+	TConfig extends Partial<configs.FunctionToolConfig<NonNullable<TInputSchema>, TOutputSchema, utils.OverrideContext<PARENT_CONTEXT, CONTEXT>>>
+	= Partial<configs.FunctionToolConfig<NonNullable<TInputSchema>, TOutputSchema, utils.OverrideContext<PARENT_CONTEXT, CONTEXT>>>,
+	TParentConfig extends Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>>
+	= Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>>,
 
 	FINAL_CONTEXT extends Record<string, any> | undefined = utils.OverrideContext<PARENT_CONTEXT, CONTEXT>,
-	TFinalInputSchema extends types.SchemaType<Record<string, any>> = (
-		TInputSchema extends types.SchemaType<Record<string, any>>
-		? TInputSchema
-		: TInputSchema extends types.SchemaType<Record<string, any>> ? TInputSchema : never
-	),
+	TFinalInputSchema extends types.SchemaType<Record<string, any>>
+	= TInputSchema extends undefined
+	? (TParentInputSchema extends undefined ? never : TParentInputSchema)
+	: TInputSchema,
 	TFinalOutputSchema extends types.SchemaType<any> | undefined = TOutputSchema extends undefined ? TParentOutputSchema : TOutputSchema,
 
 	TFinalExecute extends types.FunctionToolImplementation<any, any, any> = TConfig extends { execute: any }
@@ -264,21 +240,21 @@ function asTool<
 	config:
 		{ context?: CONTEXT, inputSchema?: TInputSchema, outputSchema?: TOutputSchema } & //infer
 		TConfig & // Ensures type is TConfig
-		Partial<configs.FunctionToolConfig<TInputSchema, TOutputSchema, FINAL_CONTEXT>> & // provides inference (schemas and CONTEXT)
-		ValidateFunctionToolConfig<TConfig, TFinalConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT>>,
+		Partial<configs.FunctionToolConfig<NonNullable<TInputSchema>, TOutputSchema, FINAL_CONTEXT>> & // provides inference (schemas and CONTEXT)
+		ValidateFunctionToolConfig<TConfig, TFinalConfig, configs.FunctionToolConfig<NonNullable<TInputSchema>, TOutputSchema, FINAL_CONTEXT>>,
 	parent:
 		configs.ConfigProvider<
 			// a create.Config parent
-			Partial<configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>> &
+			Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>> &
 			TParentConfig & // Ensures type is TParentConfig
-			ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>>
+			ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>>
 		> | (
 			// a create.Function.asTool parent
-			Partial<configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>> &
+			Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>> &
 			TParentConfig & // Ensures type is TParentConfig
-			ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>>
+			ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>>
 		),
-): FunctionToolCallSignature<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT, TFinalConfig>;
+): ToolCallSignature<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT, TFinalConfig>;
 
 /*function asTool<
 	TInputSchema extends types.SchemaType<Record<string, any>>, //required
@@ -317,7 +293,10 @@ function asTool<
 
 function asTool(
 	config: configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
-	parent?: FunctionParentConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, any> | FunctionToolParentConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
+	parent?: configs.ConfigProvider<
+		configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>
+	> |
+		configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>
 ): any {
 	return _createFunctionAsTool(config, parent);
 }
@@ -328,13 +307,14 @@ function asTool(
 
 export function _createFunction(
 	config: configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined> | configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
-	parent?: FunctionParentConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, any> | FunctionToolParentConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
+	parent?: configs.ConfigProvider<
+		configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>
+	> | configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
 	isTool = false
 ): FunctionCallSignature<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>> {
-
 	let merged;
 	if (parent) {
-		merged = mergeConfigs(('config' in parent ? (parent as configs.ConfigProvider<configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>>).config : parent), config);
+		merged = mergeConfigs(('config' in parent ? parent.config : parent), config);
 	} else {
 		merged = processConfig(config);
 	}
@@ -349,14 +329,12 @@ export function _createFunction(
 	const callableFunction = async (inputOrContext: Record<string, any>, options?: ToolCallOptions): Promise<any> => {
 		if (isTool) {
 			const toolConfig = merged as configs.FunctionToolConfig<any, any, any>;
-			const input = inputOrContext;
-			const mergedContext = { ...toolConfig.context ?? {}, ...input };
+			const mergedContext = { ...toolConfig.context ?? {}, ...inputOrContext } as Record<string, any>;
 			return validateAndParseOutput(toolConfig, await toolConfig.execute(mergedContext, options!));
 		}
 		const funcConfig = merged as configs.FunctionConfig<any, any, any>;
-		const context = inputOrContext;
-		validateScriptOrFunctionCall(funcConfig, 'Function', context);
-		const mergedContext = { ...funcConfig.context ?? {}, ...context };
+		validateScriptOrFunctionCall(funcConfig, 'Function', inputOrContext);
+		const mergedContext = { ...funcConfig.context ?? {}, ...inputOrContext } as Record<string, any>;
 		return validateAndParseOutput(funcConfig, await funcConfig.execute(mergedContext));
 	};
 
@@ -365,16 +343,20 @@ export function _createFunction(
 	const result = Object.assign(callableFunction, configWithoutExecute, { type: 'FunctionCall' });
 
 	// Attach the original execute function to the result to satisfy the signature
-	(result as any).execute = _execute;
+	(result as unknown as { execute: typeof _execute }).execute = _execute;
 
 	return result as unknown as FunctionCallSignature<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>>;
 }
 
 function _createFunctionAsTool(
 	config: configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
-	parent?: FunctionParentConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, any> | FunctionToolParentConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>,
+	parent?: configs.ConfigProvider<
+		configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>
+	> | configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>
 ): ToolCallSignature<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>> {
-	const renderer = _createFunction(config, parent, true) as any;
+	const renderer =
+		_createFunction(config, parent as configs.FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>, true) as
+		unknown as ToolCallSignature<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>>;
 	//the Tool properties are already in the renderer root (not in a config property)
 
 	// Add the execute property back for tools
