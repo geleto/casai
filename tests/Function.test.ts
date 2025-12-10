@@ -373,8 +373,8 @@ describe('create.Function', function () {
 				context: { value: 5 }
 			}, parentFn);
 
-			const result = await childFn({});
-			expect(result).to.equal(6);
+			const result = await childFn({ value: 4 });
+			expect(result).to.equal(5);
 		});
 
 		it('allows child to replace async parent execute with sync version', async () => {
@@ -445,11 +445,11 @@ describe('create.Function', function () {
 			});
 
 			// Should use context value
-			const result1 = await fn({});
+			const result1 = await fn({ required: 'req' });
 			expect(result1).to.equal('req-context-value');
 
 			// Should override with runtime value
-			const result2 = await fn({ optional: 'runtime-value' });
+			const result2 = await fn({ required: 'req', optional: 'runtime-value' });
 			expect(result2).to.equal('req-runtime-value');
 		});
 
@@ -464,7 +464,7 @@ describe('create.Function', function () {
 				}),
 				execute: async (input) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
-					return (input.a || 0) + (input.b || 0) + (input.c || 0) + (input.d || 0);
+					return (input.a || 0) + (input.b || 0) + (input.c || 0) + (input.d ?? 0);
 				}
 			});
 
@@ -477,7 +477,7 @@ describe('create.Function', function () {
 
 		it('property exists in context but not in inputSchema - should be accessible', async () => {
 			const fn = create.Function({
-				context: { secret: 'hidden', visible: 'shown' },
+				context: { secret: 'hidden', visible: 'not-shown' },
 				inputSchema: z.object({
 					visible: z.string()
 				}),
@@ -487,7 +487,7 @@ describe('create.Function', function () {
 				}
 			});
 
-			const result = await fn({});
+			const result = await fn({ visible: 'shown' });
 			expect(result).to.equal('shown-hidden');
 		});
 	});
@@ -513,7 +513,7 @@ describe('create.Function', function () {
 			console.log = originalLog;
 
 			// Should have debug output from parent
-			expect(logs.some(log => log.includes('[DEBUG]'))).to.be.true;
+			expect(logs.some(log => log.includes('[DEBUG]'))).to.equal(true);
 		});
 
 		it('child overrides parent debug flag', async () => {
@@ -536,7 +536,7 @@ describe('create.Function', function () {
 			console.log = originalLog;
 
 			// Should NOT have debug output
-			expect(logs.some(log => log.includes('[DEBUG]'))).to.be.false;
+			expect(logs.some(log => log.includes('[DEBUG]'))).to.equal(false);
 		});
 
 		it('merges multiple config properties', async () => {
@@ -567,7 +567,7 @@ describe('create.Function', function () {
 
 			const multiplyFn = create.Function({
 				inputSchema: z.object({ x: z.number(), y: z.number() }),
-				execute: (input) => {
+				execute: async (input) => {
 					const sum = await addFn({ a: input.x, b: input.y });
 					return sum * 2;
 				}
@@ -586,7 +586,7 @@ describe('create.Function', function () {
 
 			const wrapperFn = create.Function({
 				inputSchema: z.object({ value: z.number() }),
-				execute: (input) => {
+				execute: async (input) => {
 					const result1 = await baseFn({ val: input.value });
 					const result2 = await baseFn({ val: input.value + 1 });
 					return result1 + result2;
@@ -618,7 +618,7 @@ describe('create.Function', function () {
 
 			const pipeline = create.Function({
 				inputSchema: z.object({ input: z.string() }),
-				execute: (input) => {
+				execute: async (input) => {
 					const parsed = await parseNumber({ str: input.input });
 					const doubled = await doubleNumber({ num: parsed });
 					const formatted = await formatResult({ value: doubled });
@@ -741,7 +741,7 @@ describe('create.Function', function () {
 		it('execute function rejects promise - properly caught', async () => {
 			const fn = create.Function({
 				inputSchema: z.object({ val: z.number() }),
-				execute: (input) => {
+				execute: async (_input) => {
 					return Promise.reject(new Error('Async error'));
 				}
 			});
@@ -770,8 +770,8 @@ describe('create.Function', function () {
 					status: z.enum(['success', 'error']),
 					code: z.number()
 				}),
+				// @ts-expect-error - intentionally return wrong type
 				execute: () => {
-					// @ts-expect-error - intentionally return wrong type
 					return { status: 'invalid', code: '200' };
 				}
 			});
@@ -805,7 +805,7 @@ describe('create.Function', function () {
 
 			const outerFn = create.Function({
 				inputSchema: z.object({ value: z.number() }),
-				execute: (input) => {
+				execute: async (input) => {
 					return await innerFn({ x: input.value });
 				}
 			});
