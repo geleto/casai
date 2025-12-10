@@ -7,18 +7,6 @@ import { ToolCallOptions } from 'ai';
 import * as types from '../types/types';
 
 //@todo - document toolCallId handling
-
-// @todo - add FunctionToolCallSignature as parent and get rid of FunctionToolParentConfig
-/*type FunctionParentConfig<
-	TInputSchema extends types.SchemaType<Record<string, any>> | undefined,
-	TOutputSchema extends types.SchemaType<any> | undefined,
-	CONTEXT extends Record<string, any> | undefined,
-	TConfig extends configs.FunctionConfig<TInputSchema, TOutputSchema, CONTEXT>
-	| configs.ContextConfig<CONTEXT>
-> = TConfig extends configs.FunctionConfig<TInputSchema, TOutputSchema, CONTEXT>
-	? FunctionCallSignature<TInputSchema, TOutputSchema, CONTEXT, TConfig>
-	: configs.ConfigProvider<TConfig>;*/
-
 // The full shape of a final, merged config object, including partial and required properties.
 // @todo - is this just configs.FunctionConfig?
 type FinalFunctionConfigShape
@@ -49,7 +37,7 @@ export type FunctionCallSignature<
 	& {
 		type: 'FunctionCall';
 		//the implementation function receives both input and context
-		execute: types.FunctionImplementation<TInputSchema, TOutputSchema, CONTEXT, TConfig['execute']>;
+		execute: types.FunctionImplementation<TInputSchema, TOutputSchema, CONTEXT>;
 	};
 
 
@@ -148,7 +136,7 @@ function asFunction<
 	: (TParentConfig['execute'] extends { execute: any } ? TParentConfig['execute'] : never),
 
 	TFinalConfig extends configs.FunctionConfig<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT>
-	= utils.Override<TParentConfig, TConfig>
+	= Omit<utils.Override<TParentConfig, TConfig>, 'execute'>
 	& Omit<configs.FunctionConfig<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT>, 'execute'>
 	& {
 		execute: types.FunctionImplementation<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT,
@@ -164,14 +152,14 @@ function asFunction<
 	parent:
 		configs.ConfigProvider<
 			// a create.Config parent
-			Partial<configs.FunctionConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>> &
+			Partial<configs.FunctionConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>> & //inference for the execute and schemas
 			TParentConfig & // Ensures type is TParentConfig
 			ValidateParentConfig<TParentConfig, configs.FunctionConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>>
 		> | (
 			// a create.Function parent
 			Partial<configs.FunctionConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>> &
 			TParentConfig & // Ensures type is TParentConfig
-			ValidateParentConfig<TParentConfig, configs.FunctionConfig<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT>>
+			ValidateParentConfig<TParentConfig, FunctionCallSignature<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT, TParentConfig & { execute: any }>>
 		),
 ): FunctionCallSignature<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT, TFinalConfig>;
 
@@ -247,12 +235,12 @@ function asTool<
 			// a create.Config parent
 			Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>> &
 			TParentConfig & // Ensures type is TParentConfig
-			ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>>
+			ValidateParentConfig<TParentConfig, FunctionCallSignature<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT, TParentConfig>>
 		> | (
 			// a create.Function.asTool parent
 			Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>> &
 			TParentConfig & // Ensures type is TParentConfig
-			ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT>>
+			ValidateParentConfig<TParentConfig, FunctionCallSignature<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT, TParentConfig>>
 		),
 ): ToolCallSignature<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT, TFinalConfig>;
 

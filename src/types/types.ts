@@ -51,7 +51,7 @@ export type FunctionCaller<
 	//TConfig extends configs.FunctionConfig<InputSchema, OutputSchema, Record<string, any> | undefined>,
 	ExecuteFunction extends (...args: any) => any,
 	FunctionOutput = OutputSchema extends SchemaType<any>
-	? OutputSchema
+	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
 > =
 	(input: InferSchema<InputSchema, Record<string, any>>)
@@ -66,7 +66,7 @@ export type FunctionImplementation<
 	ExecuteFunction extends (...args: any) => any = (...args: any) => any
 > =
 	(input: InferSchema<InputSchema, Record<string, any>> & (CONTEXT extends undefined ? unknown : CONTEXT))
-		=> OutputSchema extends SchemaType<Record<string, any>>
+		=> OutputSchema extends SchemaType<any>
 		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
 		: ReturnType<ExecuteFunction>;//no output schema - infer from implementation or default to any
 
@@ -76,7 +76,7 @@ export type FunctionToolCaller<
 	//TConfig extends configs.FunctionToolConfig<InputSchema, OutputSchema, undefined>,
 	ExecuteFunction extends (...args: any) => any,
 	FunctionOutput = OutputSchema extends SchemaType<any>
-	? OutputSchema
+	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
 > =
 	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolCallOptions)
@@ -94,7 +94,7 @@ export type FunctionToolImplementation<
 		input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
 		options: ToolCallOptions
 	)
-		=> OutputSchema extends SchemaType<Record<string, any>>
+		=> OutputSchema extends SchemaType<any>
 		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
 		: ReturnType<ExecuteFunction>;
 
