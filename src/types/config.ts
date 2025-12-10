@@ -248,7 +248,7 @@ export type StreamObjectNoSchemaConfig<
 	mode?: 'json';
 }
 
-export const FunctionConfigKeys: (keyof FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
+export const FunctionConfigKeys: (keyof FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, Record<string, any> | undefined>)[] = ['execute', 'schema', 'inputSchema', ...ContextConfigKeys] as const;
 
 // The config for Function, the execute method accepts both INPUT and context object properties
 //@todo - inputSchema and schema more in line with the Vercel AI SDK - using FlexibleSchema
@@ -256,12 +256,13 @@ export interface FunctionConfig<
 	TInputSchema extends types.SchemaType<Record<string, any>> | undefined,
 	TOutputSchema extends types.SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
+	FINAL_CONTEXT extends Record<string, any> | undefined = CONTEXT,
 > extends ContextConfig<CONTEXT> {
 	inputSchema?: TInputSchema;
 	schema?: TOutputSchema;
 	execute: types.FunctionImplementation<
-		TInputSchema, TOutputSchema, CONTEXT,
-		(input: types.InferSchema<TInputSchema, Record<string, any>> & (CONTEXT extends undefined ? unknown : CONTEXT))
+		TInputSchema, TOutputSchema, FINAL_CONTEXT,
+		(input: types.InferSchema<TInputSchema, Record<string, any>> & (FINAL_CONTEXT extends undefined ? unknown : FINAL_CONTEXT))
 			=> types.InferSchema<TOutputSchema, any>>;
 }
 // The config for Function.asTool, the execute method accepts both INPUT and context object properties
@@ -269,12 +270,13 @@ export type FunctionToolConfig<
 	TInputSchema extends types.SchemaType<Record<string, any>>, // required for tools
 	TOutputSchema extends types.SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
+	FINAL_CONTEXT extends Record<string, any> | undefined = CONTEXT,
 > =
 	ContextConfig<CONTEXT> &
 	Omit<Tool, 'execute' | 'inputSchema' | 'schema'> &
-	Omit<FunctionConfig<TInputSchema, TOutputSchema, CONTEXT>, 'execute' | 'inputSchema'>
+	Omit<FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, FINAL_CONTEXT>, 'execute' | 'inputSchema'>
 	& {
-		execute: types.FunctionToolImplementation<TInputSchema, TOutputSchema, CONTEXT>;
+		execute: types.FunctionToolImplementation<TInputSchema, TOutputSchema, FINAL_CONTEXT>;
 		inputSchema: TInputSchema;//required
 	};
 
@@ -317,4 +319,4 @@ export type AnyConfig<
 		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	) & (LoaderConfig | {}))
 	| FunctionToolConfig<any, any, Record<string, any> | undefined>//switch to any as getting schema from input/output is not bulletproof
-	| FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined>;//@todo - use the schema for the whole thing
+	| FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, Record<string, any> | undefined>;//@todo - use the schema for the whole thing
