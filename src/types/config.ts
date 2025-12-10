@@ -266,19 +266,20 @@ export interface FunctionConfig<
 			=> types.InferSchema<TOutputSchema, any>>;
 }
 // The config for Function.asTool, the execute method accepts both INPUT and context object properties
-export type FunctionToolConfig<
+export interface FunctionToolConfig<
 	TInputSchema extends types.SchemaType<Record<string, any>>, // required for tools
 	TOutputSchema extends types.SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
 	FINAL_CONTEXT extends Record<string, any> | undefined = CONTEXT,
-> =
-	ContextConfig<CONTEXT> &
-	Omit<Tool, 'execute' | 'inputSchema' | 'schema'> &
-	Omit<FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, FINAL_CONTEXT>, 'execute' | 'inputSchema'>
-	& {
-		execute: types.FunctionToolImplementation<TInputSchema, TOutputSchema, FINAL_CONTEXT>;
-		inputSchema: TInputSchema;//required
-	};
+> extends ContextConfig<CONTEXT> {
+	inputSchema: TInputSchema;
+	schema?: TOutputSchema;
+	execute: types.FunctionToolImplementation<
+		TInputSchema, TOutputSchema, FINAL_CONTEXT,
+		(input: types.InferSchema<TInputSchema, Record<string, any>> & (FINAL_CONTEXT extends undefined ? unknown : FINAL_CONTEXT),
+			options: ToolCallOptions)
+			=> types.InferSchema<TOutputSchema, any>>;
+}
 
 // For the .run argument - disallow all properties that ...
 export type RunConfigDisallowedProperties =

@@ -217,7 +217,7 @@ function asTool<
 	: (TParentConfig['execute'] extends { execute: any } ? TParentConfig['execute'] : never),
 
 	TFinalConfig extends configs.FunctionToolConfig<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT, FINAL_CONTEXT>
-	= utils.Override<TParentConfig, TConfig>
+	= Omit<utils.Override<TParentConfig, TConfig>, 'execute'>
 	& Omit<configs.FunctionToolConfig<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT, FINAL_CONTEXT>, 'execute'>
 	& {
 		execute: types.FunctionToolImplementation<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT,
@@ -235,7 +235,7 @@ function asTool<
 			// a create.Config parent
 			Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT, PARENT_CONTEXT>> &
 			TParentConfig & // Ensures type is TParentConfig
-			ValidateParentConfig<TParentConfig, FunctionCallSignature<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT, TParentConfig & { execute: any }>>
+			ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT, PARENT_CONTEXT>>
 		> | (
 			// a create.Function.asTool parent
 			Partial<configs.FunctionToolConfig<NonNullable<TParentInputSchema>, TParentOutputSchema, PARENT_CONTEXT, PARENT_CONTEXT>> &
@@ -243,41 +243,6 @@ function asTool<
 			ValidateParentConfig<TParentConfig, FunctionCallSignature<TParentInputSchema, TParentOutputSchema, PARENT_CONTEXT, TParentConfig & { execute: any }>>
 		),
 ): ToolCallSignature<TFinalInputSchema, TFinalOutputSchema, FINAL_CONTEXT, TFinalConfig>;
-
-/*function asTool<
-	TInputSchema extends types.SchemaType<Record<string, any>>, //required
-	TOutputSchema extends types.SchemaType<any> | undefined,
-	CONTEXT extends Record<string, any> | undefined,
-	TConfig extends Partial<configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT>>,
-
-	TParentInputSchema extends types.SchemaType<Record<string, any>>,
-	TParentOutputSchema extends types.SchemaType<any> | undefined,
-	TParentConfig extends Partial<configs.FunctionToolConfig<TParentInputSchema, TParentOutputSchema, CONTEXT>>,
-
-	TFinalInputSchema extends types.SchemaType<Record<string, any>> | undefined
-	= TInputSchema extends types.SchemaType<Record<string, any>> ? TInputSchema : TParentInputSchema,
-
-	TFinalOutputSchema extends types.SchemaType<any> | undefined
-	= TOutputSchema extends types.SchemaType<any> ? TOutputSchema : TParentOutputSchema,
-
-	TFinalContext extends Record<string, any> | undefined =
-	utils.Override<TParentConfig, TConfig> extends { context?: infer C } ? (C extends Record<string, any> ? C : undefined) : undefined,
-
-	TFinalConfig extends configs.FunctionToolConfig<TFinalInputSchema & types.SchemaType<Record<string, any>>, TFinalOutputSchema, any>
-	= utils.Override<TParentConfig, TConfig>
-	& Omit<configs.FunctionToolConfig<TFinalInputSchema & types.SchemaType<Record<string, any>>, TFinalOutputSchema, any>, 'execute'>
-	& {
-		execute: types.FunctionToolImplementation<TFinalInputSchema & types.SchemaType<Record<string, any>>, TFinalOutputSchema, any>
-	}
->(
-	config: TConfig &
-		configs.FunctionToolConfig<TInputSchema & types.SchemaType<Record<string, any>>, TOutputSchema, TFinalContext> &
-		ValidateFunctionToolConfig<TConfig, TFinalConfig, configs.FunctionToolConfig<TInputSchema & types.SchemaType<Record<string, any>>, TOutputSchema, CONTEXT>>,
-	parent: TParentConfig &
-		configs.ConfigProvider<TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TInputSchema & types.SchemaType<Record<string, any>>, TOutputSchema, any>>> |
-		TParentConfig & ValidateParentConfig<TParentConfig, configs.FunctionToolConfig<TInputSchema & types.SchemaType<Record<string, any>>, TOutputSchema, any>>
-): ToolCallSignature<TFinalInputSchema & types.SchemaType<Record<string, any>>, TFinalOutputSchema, TFinalContext, TFinalConfig, types.InferSchema<TFinalInputSchema, Record<string, any>>, types.InferSchema<TFinalOutputSchema, any>>;
-*/
 
 function asTool(
 	config: configs.FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, Record<string, any> | undefined>,
