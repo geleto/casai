@@ -1000,16 +1000,21 @@ describe('create.Function', function () {
 			expect(result).to.equal('call_123');
 		});
 
+		it('validates input schema in Function(temp test to compare with asTool)', async () => {
+			const tool = create.Function({
+				inputSchema: z.object({ req: z.string() }),
+				execute: async (input) => {
+					await new Promise(resolve => setTimeout(resolve, 0));
+					return input.req
+				}
+			});
+
+			// If we call it like a tool, internal validation is skipped (assuming SDK did it)
+			const result = await tool({ req: 'valid' });
+			expect(result).to.equal('valid');
+		});
+
 		it('validates input schema via AI SDK flow (simulated)', async () => {
-			// When using asTool, the input validation is typically handled by the AI SDK before calling execute.
-			// However, our wrapper doesn't strictly enforce it again if called directly via execute,
-			// but we should ensure the underlying logic holds up.
-
-			// Note: The current implementation of _createFunctionAsTool wraps the execute method.
-			// The wrapper merges context and calls the internal renderer.
-			// The internal renderer calls validateScriptOrFunctionCall.
-			// validateScriptOrFunctionCall skips input validation if _toolCallOptions is present.
-
 			const tool = create.Function.asTool({
 				inputSchema: z.object({ req: z.string() }),
 				execute: async (input) => {
@@ -1033,7 +1038,7 @@ describe('create.Function', function () {
 				execute: (input) => input.val * input.multiplier
 			}, parent);
 
-			const result = await tool.execute({ val: 5 }, {} as ToolCallOptions);
+			const result = await tool({ val: 5 }, {} as ToolCallOptions);
 			expect(result).to.equal(50);
 		});
 
@@ -1048,7 +1053,7 @@ describe('create.Function', function () {
 				execute: (input) => input.y * 3
 			}, parentFn);
 
-			const result = await tool.execute({ y: 5 }, {} as ToolCallOptions);
+			const result = await tool({ y: 5 }, {} as ToolCallOptions);
 			expect(result).to.equal(15);
 		});
 
@@ -1065,7 +1070,7 @@ describe('create.Function', function () {
 				execute: (input) => ({ result: input.val })
 			}, parentFn);
 
-			const result = await tool.execute({}, {} as ToolCallOptions);
+			const result = await tool({}, {} as ToolCallOptions);
 			expect(result).to.deep.equal({ result: 10 });
 		});
 
@@ -1073,8 +1078,8 @@ describe('create.Function', function () {
 			const tool = create.Function.asTool({
 				inputSchema: z.object({}),
 				schema: z.object({ status: z.string() }),
+				// @ts-expect-error - intentionally wrong type
 				execute: () => {
-					// @ts-expect-error - intentionally wrong type
 					return { status: 123 };
 				}
 			});
@@ -1183,7 +1188,7 @@ describe('create.Function', function () {
 			// Combine into pipeline
 			const pipeline = create.Function({
 				inputSchema: z.object({ data: z.string() }),
-				execute: (input) => {
+				execute: async (input) => {
 					const parsed = await parser({ csv: input.data });
 					const adults = await filterAdults({ people: parsed });
 					const formatted = await formatter({ people: adults });
@@ -1219,7 +1224,7 @@ Diana,16`;
 			const processor = create.Function({
 				context: { multiplier: 2 },
 				inputSchema: z.object({ num: z.number() }),
-				execute: (input) => {
+				execute: async (input) => {
 					const validated = await validator({ value: input.num });
 					return validated * input.multiplier;
 				}
@@ -1237,7 +1242,7 @@ Diana,16`;
 
 			const workflow = create.Function({
 				inputSchema: z.object({ value: z.number() }),
-				execute: (input) => {
+				execute: async (input) => {
 					try {
 						const result = await processor({ num: input.value });
 						const log = await logger({ operation: 'multiply', result });
@@ -1249,12 +1254,12 @@ Diana,16`;
 			}, baseConfig);
 
 			const successResult = await workflow({ value: 10 });
-			expect(successResult.success).to.be.true;
+			expect(successResult.success).to.equal(true);
 			expect(successResult.result).to.equal(20);
 			expect(successResult.log).to.include('[API_KEY: secret-key]');
 
 			const errorResult = await workflow({ value: -5 });
-			expect(errorResult.success).to.be.false;
+			expect(errorResult.success).to.equal(false);
 			expect(errorResult.error).to.equal('Value must be non-negative');
 		});
 
@@ -1340,7 +1345,7 @@ Diana,16`;
 					currency: z.string(),
 					vendor: z.string()
 				}),
-				execute: async (input, options) => {
+				execute: async (input, _options) => {
 					const subtotal = input.items.reduce(
 						(sum, item) => sum + (item.price * item.quantity),
 						0
@@ -1358,7 +1363,7 @@ Diana,16`;
 				}
 			});
 
-			const result = await invoice.execute({
+			const result = await invoice({
 				items: [
 					{ name: 'Widget', price: 10, quantity: 2 },
 					{ name: 'Gadget', price: 15, quantity: 1 }
