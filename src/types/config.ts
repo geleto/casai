@@ -127,7 +127,7 @@ export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT> {
 	type?: 'function';
 	description?: string;
 	inputSchema: types.SchemaType<INPUT>;//the only required property
-	execute?: (args: INPUT, options?: ToolCallOptions) => PromiseLike<OUTPUT>;
+	execute?: (args: INPUT, options: ToolCallOptions) => PromiseLike<OUTPUT>;
 }
 
 // Config types

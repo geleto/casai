@@ -79,7 +79,7 @@ export type FunctionToolImplementation<
 > =
 	(
 		input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
-		options: ToolCallOptions
+		options?: ToolCallOptions
 	)
 		=> OutputSchema extends SchemaType<any>
 		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>

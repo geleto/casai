@@ -290,7 +290,7 @@ export function _createFunction(
 		if (isTool) {
 			const toolConfig = merged as configs.FunctionToolConfig<any, any, any, any>;
 			const mergedContext = { ...toolConfig.context ?? {}, ...inputOrContext } as Record<string, any>;
-			return validateAndParseOutput(toolConfig, await toolConfig.execute(mergedContext, options!));
+			return validateAndParseOutput(toolConfig, await toolConfig.execute(mergedContext, options));
 		}
 		const funcConfig = merged as configs.FunctionConfig<any, any, any, any>;
 		validateScriptOrFunctionCall(funcConfig, 'Function', inputOrContext);
