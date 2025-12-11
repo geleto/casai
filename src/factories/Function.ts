@@ -106,7 +106,8 @@ function asFunction<
 	TInputSchema extends types.SchemaType<Record<string, any>> | undefined = undefined,
 	TOutputSchema extends types.SchemaType<any> | undefined = undefined,
 	CONTEXT extends Record<string, any> | undefined = undefined,
-	TConfig extends configs.FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT> = configs.FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT>,
+	TConfig extends configs.FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT>
+	= configs.FunctionConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT>,
 >(
 	config:
 		TConfig & // Ensures type is TConfig
@@ -179,14 +180,15 @@ function asFunction(
 // (that allows CONTEXT argument properties) - we want to use the Tool declaration as much as possible
 function asTool<
 	TInputSchema extends types.SchemaType<Record<string, any>>,
-	TOutputSchema extends types.SchemaType<any> | undefined,
-	CONTEXT extends Record<string, any> | undefined,
+	TOutputSchema extends types.SchemaType<any> | undefined = undefined,
+	CONTEXT extends Record<string, any> | undefined = undefined,
 	TConfig extends configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT>
+	= configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT>,
 >(
 	config:
 		TConfig & // Ensures type is TConfig
-		configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT> & // provides inference for inputSchema and outputSchema
-		ValidateFunctionToolConfig<TConfig, TConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT> & { inputSchema: types.SchemaType<any> }>
+		configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT> & // provides inference (schemas and CONTEXT)
+		ValidateFunctionToolConfig<TConfig, TConfig, configs.FunctionToolConfig<TInputSchema, TOutputSchema, CONTEXT, CONTEXT>>
 ): ToolCallSignature<TInputSchema, TOutputSchema, CONTEXT, TConfig>;
 
 
