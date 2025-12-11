@@ -28,8 +28,13 @@ export function mergeConfigs<
 	parentConfig: TParent,
 	childConfig: TChild
 ): Override<TParent, TChild> {
-	// Debug output if either config has debug enabled
-	if (('debug' in parentConfig && parentConfig.debug) || ('debug' in childConfig && childConfig.debug)) {
+	// Evaluate debug logging using the most specific config (child overrides parent).
+	const childHasDebug = Object.prototype.hasOwnProperty.call(childConfig, 'debug');
+	const debugEnabled = childHasDebug
+		? Boolean(childConfig.debug)
+		: Boolean(parentConfig.debug);
+
+	if (debugEnabled) {
 		console.log('[DEBUG] mergeConfigs called with:', {
 			parentConfig: JSON.stringify(parentConfig, null, 2),
 			childConfig: JSON.stringify(childConfig, null, 2)
@@ -90,7 +95,7 @@ export function mergeConfigs<
 	}
 
 	// Debug output for merged result if debug is enabled
-	/* if (('debug' in parentConfig && parentConfig.debug) || ('debug' in childConfig && childConfig.debug)) {
+	/* if (debugEnabled) {
 		console.log('[DEBUG] mergeConfigs result:', JSON.stringify(merged, null, 2));
 	} */
 
