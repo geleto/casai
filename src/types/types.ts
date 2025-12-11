@@ -28,19 +28,6 @@ export type InferSchema<TSchema, TFallback = unknown> =
 	TSchema extends () => { _type: infer T } ? T : // LazySchema - match function returning Schema
 	TFallback;
 
-// Same properties as in the Vercel AI SDK
-/*export type ToolExecuteFunction<
-	INPUT extends Record<string, any> | undefined,
-	OUTPUT,
-	CONTEXT extends Record<string, any> | undefined*/
-//> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT), options: ToolCallOptions) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
-
-// Like ToolExecuteFunction but without ToolCallOptions
-/*export type ExecuteFunction<
-	INPUT extends Record<string, any> | undefined,
-	OUTPUT,
-	CONTEXT extends Record<string, any> | undefined*/
-//> = (input: INPUT & (CONTEXT extends undefined ? unknown : CONTEXT)) => /*AsyncIterable<OUTPUT> |*/ PromiseLike<OUTPUT> | OUTPUT;
 
 // Type for the callable function (caller)
 // no context, only input as argumnent
@@ -79,7 +66,7 @@ export type FunctionToolCaller<
 	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
 > =
-	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolCallOptions)
+	(input: InferSchema<InputSchema, Record<string, any>>, options?: ToolCallOptions)
 		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
 
 // Type for the implementation function - has input and context as arguments

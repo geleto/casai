@@ -3,7 +3,6 @@ import {
 	ToolSet,
 	StreamObjectOnFinishCallback,
 	ModelMessage,
-	Tool,
 	ToolCallOptions
 } from 'ai';
 import { ConfigureOptions } from 'cascada-engine';
@@ -128,7 +127,7 @@ export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT> {
 	type?: 'function';
 	description?: string;
 	inputSchema: types.SchemaType<INPUT>;//the only required property
-	execute?: (args: INPUT, options: ToolCallOptions) => PromiseLike<OUTPUT>;
+	execute?: (args: INPUT, options?: ToolCallOptions) => PromiseLike<OUTPUT>;
 }
 
 // Config types
@@ -277,7 +276,7 @@ export interface FunctionToolConfig<
 	execute: types.FunctionToolImplementation<
 		TInputSchema, TOutputSchema, FINAL_CONTEXT,
 		(input: types.InferSchema<TInputSchema, Record<string, any>> & (FINAL_CONTEXT extends undefined ? unknown : FINAL_CONTEXT),
-			options: ToolCallOptions)
+			options?: ToolCallOptions)
 			=> types.InferSchema<TOutputSchema, any>>;
 }
 
