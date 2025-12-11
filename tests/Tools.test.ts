@@ -856,10 +856,10 @@ describe('asTool', function () {
 		// --- End Test Setup ---
 
 		it('should correctly execute the provided function with given arguments using .execute()', async () => {
-			const resultAdd = await calculatorTool.execute({ a: 10, b: 5, operation: 'add' }, toolCallOptions);
+			const resultAdd = await calculatorTool({ a: 10, b: 5, operation: 'add' }, toolCallOptions);
 			expect(resultAdd).to.deep.equal({ result: 15 });
 
-			const resultSubtract = await calculatorTool.execute({ a: 10, b: 5, operation: 'subtract' }, toolCallOptions);
+			const resultSubtract = await calculatorTool({ a: 10, b: 5, operation: 'subtract' }, toolCallOptions);
 			expect(resultSubtract).to.deep.equal({ result: 5 });
 
 			// Verify it has the correct type and execute property
