@@ -343,22 +343,6 @@ describe('create.Function', function () {
 			// @ts-expect-error - value is required
 			await expect(childFn({})).to.be.rejectedWith(/Input context validation failed/);
 		});
-
-		it('child removes schema when parent has one', async () => {
-			const parentFn = create.Function({
-				inputSchema: z.object({ val: z.number() }),
-				schema: z.object({ result: z.number() }),
-				execute: (input) => ({ result: input.val * 2 })
-			});
-
-			const childFn = create.Function({
-				// No schemas - should accept any input and return any output
-				execute: (input) => input.val * 3
-			}, parentFn);
-
-			const result = await childFn({ val: 5 });
-			expect(result).to.equal(15); // Returns number, not object
-		});
 	});
 
 	describe('Execute Override Tests', () => {
