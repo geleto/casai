@@ -66,7 +66,7 @@ export type FunctionToolCaller<
 	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
 > =
-	(input: InferSchema<InputSchema, Record<string, any>>, options?: ToolCallOptions)
+	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolCallOptions)
 		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
 
 // Type for the implementation function - has input and context as arguments
@@ -79,7 +79,7 @@ export type FunctionToolImplementation<
 > =
 	(
 		input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
-		options?: ToolCallOptions
+		options: ToolCallOptions
 	)
 		=> OutputSchema extends SchemaType<any>
 		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>

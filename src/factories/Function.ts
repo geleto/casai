@@ -286,7 +286,7 @@ export function _createFunction(
 	}
 
 	// Create a callable function that delegates to the execute method
-	const callableFunction = async (inputOrContext: Record<string, any>, options?: ToolCallOptions): Promise<any> => {
+	const callableFunction = async (inputOrContext: Record<string, any>, options: ToolCallOptions): Promise<any> => {
 		if (isTool) {
 			const toolConfig = merged as configs.FunctionToolConfig<any, any, any, any>;
 			const mergedContext = { ...toolConfig.context ?? {}, ...inputOrContext } as Record<string, any>;

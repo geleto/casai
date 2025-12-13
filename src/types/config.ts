@@ -276,7 +276,7 @@ export interface FunctionToolConfig<
 	execute: types.FunctionToolImplementation<
 		TInputSchema, TOutputSchema, FINAL_CONTEXT,
 		(input: types.InferSchema<TInputSchema, Record<string, any>> & (FINAL_CONTEXT extends undefined ? unknown : FINAL_CONTEXT),
-			options?: ToolCallOptions)
+			options: ToolCallOptions)
 			=> types.InferSchema<TOutputSchema, any>>;
 }
 
