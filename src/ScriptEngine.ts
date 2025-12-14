@@ -48,16 +48,12 @@ export class ScriptEngine<
 
 		// Initialize appropriate environment based on promptType
 		try {
+			const options = { ...this.config.options, autoescape: false };
+			const loader = (this.config.loader as types.CascadaLoaders | undefined) ?? null;
 			if (this.config.promptType === 'script' || this.config.promptType === 'script-name') {
-				this.env = new cascada.Environment(
-					('loader' in this.config ? this.config.loader as types.CascadaLoaders | undefined : null) ?? null,
-					('options' in this.config ? this.config.options : undefined)
-				);
+				this.env = new cascada.Environment(loader, options);
 			} else {
-				this.env = new cascada.AsyncEnvironment(
-					('loader' in this.config ? this.config.loader as types.CascadaLoaders | undefined : null) ?? null,
-					('options' in this.config ? this.config.options : undefined)
-				);
+				this.env = new cascada.AsyncEnvironment(loader, options);
 			}
 
 			// Add filters if provided

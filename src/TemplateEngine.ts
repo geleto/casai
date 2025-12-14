@@ -44,10 +44,12 @@ export class TemplateEngine<
 
 		// Initialize appropriate environment based on promptType
 		try {
+			const options = { ...this.config.options, autoescape: false };
+			const loader = (this.config.loader as types.CascadaLoaders | undefined) ?? null;
 			if (this.config.promptType === 'template' || this.config.promptType === 'template-name') {
-				this.env = new cascada.Environment((this.config.loader as types.CascadaLoaders | undefined) ?? null, this.config.options);
+				this.env = new cascada.Environment(loader, options);
 			} else {
-				this.env = new cascada.AsyncEnvironment((this.config.loader as types.CascadaLoaders | undefined) ?? null, this.config.options);
+				this.env = new cascada.AsyncEnvironment(loader, options);
 			}
 
 			// Add filters if provided
