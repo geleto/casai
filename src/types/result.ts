@@ -8,12 +8,11 @@ import type {
 	ToolSet,
 	ModelMessage,
 } from 'ai';
-import { Output as AIOutputValues } from 'ai';
+
 import { SchemaType } from './types';
 
-// Extract the Output interface from the return type of the helper function
-// This avoids copy-pasting the interface definition
-export type AIOutput = ReturnType<typeof AIOutputValues.object>;
+import { AIOutput } from './types';
+export { AIOutput };
 
 // Result types
 export type {
