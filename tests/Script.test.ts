@@ -272,7 +272,7 @@ describe('create.Script', function () {
         `,
 			});
 			const result = await scriptRunner();// as { text: string };
-			expect(result.text).to.be.a('string');
+			expect((result as any).text).to.be.a('string');
 		});
 
 		it('reads from an ObjectGenerator and uses the result', async () => {
@@ -577,7 +577,7 @@ describe('create.Script', function () {
         `,
 			});
 			const result = await scriptRunner();
-			expect(result.results[2]).to.equal(6); // 1+2+3=6 sequentially
+			expect((result as any).results[2]).to.equal(6); // 1+2+3=6 sequentially
 		});
 	});
 });

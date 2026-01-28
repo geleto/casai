@@ -6,31 +6,38 @@ import type {
 	StreamTextResult,
 	ToolCallOptions,
 	ToolSet,
+	ModelMessage,
 } from 'ai';
+import { Output as AIOutputValues } from 'ai';
 import { SchemaType } from './types';
+
+// Extract the Output interface from the return type of the helper function
+// This avoids copy-pasting the interface definition
+export type AIOutput = ReturnType<typeof AIOutputValues.object>;
 
 // Result types
 export type {
 	// Keep object-related exports as-is
 	GenerateTextResult,
-	StreamTextResult
+	StreamTextResult,
 } from 'ai';
 
 export type ScriptResult = JSONValue;//@todo - remove, RESULT can be any type (union, etc...)
 
 // Augmented text result types with lazy messageHistory
-export type GenerateTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT = string> =
+// Augmented text result types with lazy messageHistory
+export type GenerateTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
 	GenerateTextResult<TOOLS, OUTPUT> & {
 		response: GenerateTextResult<TOOLS, OUTPUT>['response'] & {
-			messageHistory: GenerateTextResult<TOOLS, OUTPUT>['response']['messages'];
+			messageHistory: ModelMessage[];
 		};
 	};
 
-export type StreamTextResultAugmented<TOOLS extends ToolSet = ToolSet, PARTIAL = string> =
-	StreamTextResult<TOOLS, PARTIAL> & {
-		response: StreamTextResult<TOOLS, PARTIAL>['response'] extends Promise<infer R extends { messages: readonly unknown[] }>
-		? Promise<R & { messageHistory: R['messages'] }>
-		: StreamTextResult<TOOLS, PARTIAL>['response'];
+export type StreamTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
+	StreamTextResult<TOOLS, OUTPUT> & {
+		response: StreamTextResult<TOOLS, OUTPUT>['response'] extends PromiseLike<infer R>
+		? Promise<R & { messageHistory: ModelMessage[] }>
+		: StreamTextResult<TOOLS, OUTPUT>['response'];
 	};
 
 //these are returned in a Promise

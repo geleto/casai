@@ -1,6 +1,6 @@
 import { ModelMessage, ToolSet } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
-import type { GenerateTextResultAugmented, StreamTextResultAugmented } from './types/result';
+import type { GenerateTextResultAugmented, StreamTextResultAugmented, AIOutput } from './types/result';
 
 // Helper function to augment a response object with messages and messageHistory
 function augmentResponseObject(
@@ -38,7 +38,7 @@ function augmentResponseObject(
 	});
 }
 
-export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT = string>(
+export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
 	result: GenerateTextResult<TOOLS, OUTPUT>,
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
@@ -55,18 +55,16 @@ export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT = st
 	return result as GenerateTextResultAugmented<TOOLS, OUTPUT>;
 }
 
-export function augmentStreamText<TOOLS extends ToolSet = ToolSet, PARTIAL = string>(
-	result: StreamTextResult<TOOLS, PARTIAL>,
+export function augmentStreamText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
+	result: StreamTextResult<TOOLS, OUTPUT>,
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
-): StreamTextResultAugmented<TOOLS, PARTIAL> {
+): StreamTextResultAugmented<TOOLS, OUTPUT> {
 	// We need to modify the response when it becomes available
 	let cachedResponsePromise: Promise<ResponseWithMessages> | undefined;
 
 	// Helper type to extract the resolved response type from the promise that has messages
-	type ResponseWithMessages = StreamTextResult<TOOLS, PARTIAL>['response'] extends Promise<infer R>
-		? R
-		: never;
+	type ResponseWithMessages = { messages: ModelMessage[] } & Record<string, any>;
 
 	// Capture the original response promise before overriding the getter to avoid recursion
 	const originalResponsePromise = result.response as unknown as Promise<ResponseWithMessages>;
@@ -94,5 +92,5 @@ export function augmentStreamText<TOOLS extends ToolSet = ToolSet, PARTIAL = str
 		configurable: true
 	});
 
-	return result as StreamTextResultAugmented<TOOLS, PARTIAL>;
+	return result as StreamTextResultAugmented<TOOLS, OUTPUT>;
 }

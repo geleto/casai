@@ -1,8 +1,10 @@
-import { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnFinishCallback, ToolCallOptions, ToolSet } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
+import { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnFinishCallback, ToolCallOptions, ToolSet, Output as AIOutput } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
 import { z } from 'zod';
 import { InferParameters } from './utils';
 import { ILoaderAny } from 'cascada-engine';
 import { RaceGroup, RaceLoader } from '../loaders';
+
+export { AIOutput };
 
 // Template types
 export type Context = Record<string, any>;

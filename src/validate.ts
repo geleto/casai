@@ -74,7 +74,7 @@ export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, a
 	if (isObjectConfig) {
 		// We don't know if it will be a streamer, so we assume false.
 		// The final check in the ObjectStreamer factory will catch inconsistencies.
-		validateObjectLLMConfig(config, (config as Partial<configs.TemplateConfig<any>>).promptType, isTool, false);
+		validateObjectLLMConfig(config as any, (config as Partial<configs.TemplateConfig<any>>).promptType, isTool, false);
 	}
 	/*else if (isTextConfig) {
 		validateTextLLMConfig(config, (config as Partial<configs.TemplateConfig<any>>).promptType, isTool);

@@ -517,7 +517,7 @@ function _createTextGeneratorAsTool<
 	renderer.execute = async (args: INPUT, options: ToolCallOptions): Promise<string> => {
 		// Merge the _toolCallOptions into the context so templates can access it
 		const contextWithToolOptions = { ...args, _toolCallOptions: options };
-		return (await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolCallOptions }) => Promise<results.GenerateTextResult<TOOLS, string>>)(contextWithToolOptions)).text;
+		return (await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolCallOptions }) => Promise<results.GenerateTextResult<TOOLS, any>>)(contextWithToolOptions)).text;
 	};
 	return renderer;
 }

@@ -21,7 +21,7 @@ async function collectPartials<T>(stream: AsyncIterable<DeepPartial<T>>): Promis
 	return partials;
 }
 
-function mergePartials<T>(partials: DeepPartial<T>[]): T {
+function mergePartials<T extends object>(partials: DeepPartial<T>[]): T {
 	return partials.reduce((acc, partial) => {
 		return { ...acc, ...partial } as T;
 	}, {} as T);
@@ -102,7 +102,7 @@ describe('create.ObjectStreamer', function () {
 			const partials = await collectPartials(result.partialObjectStream);
 			// As a workaround, we use mergePartials to get the complete object from the stream.
 			expect(partials.length).to.be.greaterThan(0);
-			const finalObject = mergePartials(partials);
+			const finalObject = mergePartials(partials as DeepPartial<{ status: string; code: number }>[]);
 			expect(finalObject).to.deep.equal({ status: 'ok', code: 200 });
 		});
 
