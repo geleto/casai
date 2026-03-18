@@ -125,7 +125,7 @@ const contentAgent = create.Script({
 		topic: "the future of AI-powered development",
 		qualityThreshold: 8, maxRevisions: 3, minRevisions: 1
 	},
-	script: `:data
+	script: `
       var revisionCount = 0
       var currentDraft = draftGenerator({ topic: topic }).text
       var critique = critiqueGenerator({ draft: currentDraft }).object
@@ -137,7 +137,7 @@ const contentAgent = create.Script({
         critique = critiqueGenerator({ draft: currentDraft, suggestions: critique.suggestions }).object
       endwhile
 
-      @data = { finalDraft: currentDraft, finalScore: critique.score, revisionCount: revisionCount }`,
+      return { finalDraft: currentDraft, finalScore: critique.score, revisionCount: revisionCount }`,
 });
 
 // Run the agent
@@ -499,13 +499,14 @@ const dealFinder = create.Script({
     }),
   },
   script: `
-    :data
+    data out
     for productId in productIds
       for vendor in vendors
         var priceInfo = getPrice(productId, vendor)
-        @data[productId].push(priceInfo)
+        out[productId].push(priceInfo)
       endfor
     endfor
+    return out.snapshot()
   `,
 });
 ```
@@ -527,8 +528,7 @@ You can execute a new script dynamically by passing it as an argument.
 *   **With a one-off script string**:
     ```typescript
     const oneOffResult = await runner(`
-      :data
-      @data.id = "new-id"
+      return { id: "new-id" }
     `); // { id: "new-id" }
     ```
 *   **With a one-off script file** (if created with `.loadsScript`):
@@ -544,10 +544,9 @@ const userOnboardingTool = create.Script.asTool({
     inputSchema: z.object({ name: z.string(), email: z.string() }),
     context: { /* db, emailService, ... */ },
     script: `
-      :data
       var profile = db.createUser({ name: name, email: email })
       var emailStatus = emailService.sendWelcome(email)
-      @data = { userId: profile.id, emailSent: emailStatus.success }
+      return { userId: profile.id, emailSent: emailStatus.success }
     `
 });
 ```
@@ -572,8 +571,7 @@ const userOnboardingTool = create.Script.asTool({
     const scriptGenerator = create.TextGenerator.withScript({
       model: openai('gpt-4o'),
       prompt: `
-        :data
-        @data = "Summarize the key points from: " + article
+        return "Summarize the key points from: " + article
       `
     });
     ```
@@ -638,8 +636,7 @@ When you `await` a `TextGenerator` call, it returns a promise that resolves to a
     const scriptStreamer = create.TextStreamer.withScript({
       model: openai('gpt-4o'),
       prompt: `
-        :data
-        @data = "Write a story based on this premise: " + premise
+        return "Write a story based on this premise: " + premise
       `
     });
     ```
@@ -712,8 +709,7 @@ Like `TextGenerator`, it can operate on a single `prompt` or be given a conversa
       model: openai('gpt-4o'),
       schema: z.object({ ... }),
       prompt: `
-        :data
-        @data = "Extract key entities from: " + text
+        return "Extract key entities from: " + text
       `
     });
     ```
@@ -790,8 +786,7 @@ Like `TextStreamer`, it can operate on a single `prompt` or be given a conversat
       model: openai('gpt-4o'),
       schema: z.object({ ... }),
       prompt: `
-        :data
-        @data = "Generate characters based on: " + theme
+        return "Generate characters based on: " + theme
       `
     });
     ```
@@ -1184,17 +1179,13 @@ const mainOrchestrator = create.Script({
     topic: 'a lost astronaut'
   },
   script: `
-    :data
     // Step 1: Generate the character. This runs first.
     var character = (characterGenerator({ topic: topic })).object
     // Step 2: Generate the story using the character. This runs after character is ready.
     var story = (storyGenerator({ character: character, topic: topic })).text
     // Step 3: Critique the story. This runs after the story is ready.
     var critique = (critiqueGenerator({ story: story })).text
-    // Assemble the final data object.
-    @data.character = character
-    @data.story = story
-    @data.critique = critique
+    return { character: character, story: story, critique: critique }
   `
 });
 
@@ -1314,9 +1305,8 @@ const dynamicFewShotAgent = create.TextGenerator.withScript({
         ])
     },
     prompt: `
-        :data
         // The script's output is an array of messages
-        @data = getExamples(topic)
+        return getExamples(topic)
     `
 });
 ```
@@ -1434,7 +1424,7 @@ const documentFinder = create.Script({
     range: (n) => [...Array(n).keys()], // Helper to generate numbers for the loop
   },
   script: `
-    :data
+    data out
     // Get the query embedding once.
     var queryEmbedding = embedText(userQuery)
     // The 'for' loop in Cascada Script runs in parallel for each item.
@@ -1443,13 +1433,14 @@ const documentFinder = create.Script({
       var docPath = 'docs/document' + (i + 1) + '.txt'
       var docText = readFile(docPath)
       var docEmbedding = embedText(docText)
-      // The @data command is buffered, ensuring orderly assembly
+      // The data channel buffers writes, ensuring orderly assembly
       // after all parallel operations are complete.
-      @data.docs.push({
+      out.docs.push({
         filename: docPath,
         similarity: compareSimilarity(queryEmbedding, docEmbedding)
       })
     endfor
+    return out.snapshot()
   `
 });
 
@@ -1501,14 +1492,12 @@ const ragOrchestrator = create.Script({
     answerGenerator
   },
   script: `
-    :data
     // Step 1: Search the index to get relevant context
     var context = searchIndex(query)
     // Step 2: Use the context to generate a final answer
     var answer = (answerGenerator({ context: context })).text
     // Step 3: Assemble the final output object
-    @data.query = query
-    @data.answer = answer
+    return { query: query, answer: answer }
   `
 });
 
@@ -1570,8 +1559,7 @@ const userProcessor = create.Script({
     }),
   }),
   script: `
-    :data
-    @data = db.getUser(userId)
+    return db.getUser(userId)
   `
 });
 
@@ -1604,9 +1592,7 @@ const userExtractor = create.ObjectGenerator({
 const dataAggregator = create.Script({
   schema: z.object({ status: z.string(), count: z.number() }),
   script: `
-    :data
-    @data.status = "completed"
-    @data.count = 100
+    return { status: "completed", count: 100 }
   `
 });
 
