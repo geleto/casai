@@ -21,6 +21,8 @@ Add `-- --grep "pattern"` after the filename for a single test or group.
 
 `.mocharc.json` defines `tests/**/*.test.ts`, so plain `npx mocha tests/File.test.ts` is not a true single-file run.
 
+`inputSchema` validates call-time context; do not put required input-only fields only in configured `context`.
+
 ## Environment
 
 Tests load `dotenv/config`. Put local keys in project-root `.env`:
