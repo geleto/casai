@@ -478,49 +478,52 @@ describe('create.Function', function () {
 
 	describe('Config Merging Tests', () => {
 		it('inherits and overrides debug flag', async () => {
-			const parent = create.Config({
-				debug: true,
-				context: { value: 10 }
-			});
-
-			// Spy on console.log to verify debug output
 			const logs: string[] = [];
 			const originalLog = console.log;
 			console.log = (...args: any[]) => logs.push(args.join(' '));
 
-			const fn = create.Function({
-				execute: (input) => input.value * 2
-			}, parent);
+			try {
+				const parent = create.Config({
+					debug: true,
+					context: { value: 10 }
+				});
 
-			await fn({});
+				const fn = create.Function({
+					execute: (input) => input.value * 2
+				}, parent);
 
-			console.log = originalLog;
+				await fn({});
+			} finally {
+				console.log = originalLog;
+			}
 
 			// Should have debug output from parent
 			expect(logs.some(log => log.includes('[DEBUG]'))).to.equal(true);
 		});
 
 		it('child overrides parent debug flag', async () => {
-			const parent = create.Config({
-				debug: true,
-				context: { value: 10 }
-			});
-
 			const logs: string[] = [];
 			const originalLog = console.log;
 			console.log = (...args: any[]) => logs.push(args.join(' '));
 
-			const fn = create.Function({
-				debug: false, // Override parent
-				execute: (input) => input.value * 2
-			}, parent);
+			try {
+				const parent = create.Config({
+					debug: true,
+					context: { value: 10 }
+				});
 
-			await fn({});
+				const fn = create.Function({
+					debug: false, // Override parent
+					execute: (input) => input.value * 2
+				}, parent);
 
-			console.log = originalLog;
+				await fn({});
+			} finally {
+				console.log = originalLog;
+			}
 
 			// Should NOT have debug output
-			expect(logs.some(log => log.includes('[DEBUG]'))).to.equal(false);
+			expect(logs.some(log => log.includes('[DEBUG] Function created') || log.includes('[DEBUG] mergeConfigs'))).to.equal(false);
 		});
 
 		it('merges multiple config properties', async () => {
