@@ -9,9 +9,9 @@ import type {
 	ModelMessage,
 } from 'ai';
 
-import { SchemaType } from './types';
+import { SchemaType } from './types.js';
 
-import { AIOutput } from './types';
+import { AIOutput } from './types.js';
 export { AIOutput };
 
 // Result types

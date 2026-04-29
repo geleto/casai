@@ -1,10 +1,10 @@
-import * as configs from '../types/config';
-import * as utils from '../types/utils';
-import { mergeConfigs, processConfig } from "../config-utils";
-import { validateFunctionConfig, validateScriptOrFunctionCall, validateAndParseOutput } from "../validate";
-//import { ExecuteFunction, types.InferSchema, types.SchemaType, ToolExecuteFunction } from '../types/types';
+import * as configs from '../types/config.js';
+import * as utils from '../types/utils.js';
+import { mergeConfigs, processConfig } from "../config-utils.js";
+import { validateFunctionConfig, validateScriptOrFunctionCall, validateAndParseOutput } from "../validate.js";
+//import { ExecuteFunction, types.InferSchema, types.SchemaType, ToolExecuteFunction } from '../types/types.js';
 import type { ToolCallOptions } from 'ai';
-import * as types from '../types/types';
+import * as types from '../types/types.js';
 
 //@todo - document toolCallId handling
 // The full shape of a final, merged config object, including partial and required properties.

@@ -1,7 +1,7 @@
 import * as cascada from 'cascada-engine';
-import { Context } from './types/types';
-import { TemplateConfig } from './types/config';
-import * as types from './types/types';
+import { Context } from './types/types.js';
+import { TemplateConfig } from './types/config.js';
+import * as types from './types/types.js';
 
 export class TemplateError extends Error {
 	cause?: Error;

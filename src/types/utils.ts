@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SchemaType } from './types';
+import { SchemaType } from './types.js';
 import { Schema } from 'ai';
 
 //export type Override<A, B> = Omit<A, keyof B> & B;

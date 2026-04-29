@@ -1,10 +1,10 @@
-import { TemplateEngine } from '../TemplateEngine';
-import { mergeConfigs, processConfig } from '../config-utils';
-import { validateTemplateConfig, validateTemplateCall, ConfigError } from '../validate';
-import * as configs from '../types/config';
-import * as utils from '../types/utils';
-import * as results from '../types/result';
-import { Context, SchemaType, TemplatePromptType } from '../types/types';
+import { TemplateEngine } from '../TemplateEngine.js';
+import { mergeConfigs, processConfig } from '../config-utils.js';
+import { validateTemplateConfig, validateTemplateCall, ConfigError } from '../validate.js';
+import * as configs from '../types/config.js';
+import * as utils from '../types/utils.js';
+import * as results from '../types/result.js';
+import { Context, SchemaType, TemplatePromptType } from '../types/types.js';
 import type { ToolCallOptions } from 'ai';
 
 export type TemplateCallSignature<

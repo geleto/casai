@@ -1,6 +1,6 @@
 import type { ModelMessage, ToolSet } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
-import type { GenerateTextResultAugmented, StreamTextResultAugmented, AIOutput } from './types/result';
+import type { GenerateTextResultAugmented, StreamTextResultAugmented, AIOutput } from './types/result.js';
 
 // Helper function to augment a response object with messages and messageHistory
 function augmentResponseObject(

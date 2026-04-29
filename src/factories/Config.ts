@@ -1,8 +1,8 @@
-import { mergeConfigs, processConfig } from '../config-utils';
-import * as configs from '../types/config';
-import * as utils from '../types/utils';
+import { mergeConfigs, processConfig } from '../config-utils.js';
+import * as configs from '../types/config.js';
+import * as utils from '../types/utils.js';
 import { ToolSet } from 'ai';
-import { validateAnyConfig } from '../validate';
+import { validateAnyConfig } from '../validate.js';
 
 class ConfigData<ConfigType> implements configs.ConfigProvider<ConfigType> {
 	constructor(public readonly config: ConfigType) { }

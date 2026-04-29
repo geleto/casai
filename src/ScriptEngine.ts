@@ -1,9 +1,9 @@
 import * as cascada from 'cascada-engine';
 import { z } from 'zod';
-import { Context, SchemaType, ScriptPromptType } from './types/types';
-import { ScriptConfig } from './types/config';
-import * as results from './types/result';
-import * as types from './types/types';
+import { Context, SchemaType, ScriptPromptType } from './types/types.js';
+import { ScriptConfig } from './types/config.js';
+import * as results from './types/result.js';
+import * as types from './types/types.js';
 import { JSONValue } from 'ai';
 
 export class ScriptError extends Error {

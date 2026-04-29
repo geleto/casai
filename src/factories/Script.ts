@@ -1,10 +1,10 @@
-import { mergeConfigs, processConfig } from '../config-utils';
-import { validateScriptConfig, validateScriptOrFunctionCall, validateAndParseOutput, ConfigError } from '../validate';
-import { ScriptEngine } from '../ScriptEngine';
-import * as configs from '../types/config';
-import * as results from '../types/result';
-import * as utils from '../types/utils';
-import { SchemaType, ScriptPromptType } from '../types/types';
+import { mergeConfigs, processConfig } from '../config-utils.js';
+import { validateScriptConfig, validateScriptOrFunctionCall, validateAndParseOutput, ConfigError } from '../validate.js';
+import { ScriptEngine } from '../ScriptEngine.js';
+import * as configs from '../types/config.js';
+import * as results from '../types/result.js';
+import * as utils from '../types/utils.js';
+import { SchemaType, ScriptPromptType } from '../types/types.js';
 import type { ToolCallOptions } from 'ai';
 
 // The full shape of a final, merged Script config object, including required properties.

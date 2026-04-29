@@ -1,15 +1,15 @@
 // --- Core Factories ---
-export { Template } from './factories/Template';
-export { Script } from './factories/Script';
-export { Function } from './factories/Function'; // Added missing factory
-export { TextGenerator } from './factories/TextGenerator';
-export { TextStreamer } from './factories/TextStreamer';
-export { ObjectGenerator } from './factories/ObjectGenerator';
-export { ObjectStreamer } from './factories/ObjectStreamer';
-export { Config } from './factories/Config';
+export { Template } from './factories/Template.js';
+export { Script } from './factories/Script.js';
+export { Function } from './factories/Function.js'; // Added missing factory
+export { TextGenerator } from './factories/TextGenerator.js';
+export { TextStreamer } from './factories/TextStreamer.js';
+export { ObjectGenerator } from './factories/ObjectGenerator.js';
+export { ObjectStreamer } from './factories/ObjectStreamer.js';
+export { Config } from './factories/Config.js';
 
 // --- The 'create' Namespace  ---
-import * as factories from './factories/factories';
+import * as factories from './factories/factories.js';
 export const create = factories;
 
 // --- Third-Party Re-exports (For User Convenience) ---
@@ -41,7 +41,7 @@ export type {
 	// Other
 	ToolConfig,
 	ConfigProvider
-} from './types/config';
+} from './types/config.js';
 
 // --- Core Library Types ---
 export type {
@@ -52,8 +52,8 @@ export type {
 	FunctionPromptType,
 	StreamObjectOnFinishEvent,
 	StreamTextOnFinishEvent
-} from './types/types';
-export { ModelMessageSchema, PromptStringOrMessagesSchema } from './types/schemas';
+} from './types/types.js';
+export { ModelMessageSchema, PromptStringOrMessagesSchema } from './types/schemas.js';
 
 // --- Result Types ---
 export type {
@@ -72,13 +72,13 @@ export type {
 	StreamObjectObjectResult,
 	StreamObjectArrayResult,
 	StreamObjectNoSchemaResult
-} from './types/result';
+} from './types/result.js';
 
 // --- Error Types ---
-export { TemplateError } from './TemplateEngine';
-export { ScriptError } from './ScriptEngine';
-export { ConfigError } from './validate';
+export { TemplateError } from './TemplateEngine.js';
+export { ScriptError } from './ScriptEngine.js';
+export { ConfigError } from './validate.js';
 
 
 // --- Public Utilities & Associated Types ---
-export { race, type RaceGroup, type RaceLoader } from './loaders';
+export { race, type RaceGroup, type RaceLoader } from './loaders.js';

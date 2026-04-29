@@ -1,14 +1,14 @@
 import { generateObject } from "ai";
 import type { LanguageModel, ModelMessage, ToolCallOptions } from "ai";
 
-import * as results from '../types/result'
-import * as configs from '../types/config';
-import * as utils from '../types/utils';
-import * as types from '../types/types';
+import * as results from '../types/result.js'
+import * as configs from '../types/config.js';
+import * as utils from '../types/utils.js';
+import * as types from '../types/types.js';
 
-import { LLMCallSignature, _createLLMComponent } from "../llm-component";
-import { mergeConfigs, processConfig } from "../config-utils";
-import { validateObjectLLMConfig } from "../validate";
+import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
+import { mergeConfigs, processConfig } from "../config-utils.js";
+import { validateObjectLLMConfig } from "../validate.js";
 
 type GenerateObjectConfig<
 	INPUT extends Record<string, any>,

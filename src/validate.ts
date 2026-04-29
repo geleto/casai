@@ -1,9 +1,9 @@
 import type { ModelMessage } from "ai";
 import { z, ZodError } from 'zod';
-import * as types from './types/types';
-import * as configs from './types/config';
-import { extractCallArguments } from './llm-component';
-import { ModelMessageSchema } from "./types/schemas";
+import * as types from './types/types.js';
+import * as configs from './types/config.js';
+import { extractCallArguments } from './llm-component.js';
+import { ModelMessageSchema } from "./types/schemas.js";
 
 export class ConfigError extends Error {
 	cause?: Error;

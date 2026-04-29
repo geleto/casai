@@ -1,8 +1,8 @@
 import { Context } from 'mocha';
-import { Override } from './types/utils';
-import * as configs from './types/config';
+import { Override } from './types/utils.js';
+import * as configs from './types/config.js';
 import { ToolSet } from 'ai';
-import { mergeLoaders, processLoaders, RaceGroup, RaceLoader } from './loaders';
+import { mergeLoaders, processLoaders, RaceGroup, RaceLoader } from './loaders.js';
 import type { ILoaderAny } from 'cascada-engine';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(

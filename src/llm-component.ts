@@ -1,19 +1,19 @@
-import { Context, SchemaType, ScriptPromptType, TemplatePromptType } from './types/types';
-import * as configs from './types/config';
-import { validateLLMComponentCall } from './validate';
-import * as utils from './types/utils';
-import { _createTemplate, TemplateCallSignature } from './factories/Template';
-import { _createScript, ScriptCallSignature } from './factories/Script';
+import { Context, SchemaType, ScriptPromptType, TemplatePromptType } from './types/types.js';
+import * as configs from './types/config.js';
+import { validateLLMComponentCall } from './validate.js';
+import * as utils from './types/utils.js';
+import { _createTemplate, TemplateCallSignature } from './factories/Template.js';
+import { _createScript, ScriptCallSignature } from './factories/Script.js';
 import { generateObject, generateText, streamObject, streamText } from 'ai';
 import type { LanguageModel, ModelMessage } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
-import { PromptStringOrMessagesSchema } from './types/schemas';
-import { RequiredPromptType, AnyPromptSource } from './types/types';
+import { PromptStringOrMessagesSchema } from './types/schemas.js';
+import { RequiredPromptType, AnyPromptSource } from './types/types.js';
 import { loadString } from 'cascada-engine';
 import type { ILoaderAny } from 'cascada-engine';
-import { _createFunction, FunctionCallSignature } from './factories/Function';
-import { augmentGenerateText, augmentStreamText } from './messages';
-import { mergeConfigs } from './config-utils';
+import { _createFunction, FunctionCallSignature } from './factories/Function.js';
+import { augmentGenerateText, augmentStreamText } from './messages.js';
+import { mergeConfigs } from './config-utils.js';
 
 //@todo - INPUT like in template
 export type LLMCallSignature<
