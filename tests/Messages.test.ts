@@ -161,26 +161,26 @@ describe('Messages, Conversation & Integration', function () {
 					messages: simpleSystemMessage,
 				});
 				const result = await generator(
-					`return "Execute order " + order + ". Reply only with the number and nothing else."`,
-					{ order: '66' }
+					`return "Output exactly " + token + " and nothing else."`,
+					{ token: 'script-token-raven' }
 				);
 
-				expect(result.text).to.equal('66');
+				expect(result.text).to.equal('script-token-raven');
 				expect(result.response).to.have.property('messageHistory');
 				const history = result.response.messageHistory;
-				expect(history[0].content).to.equal('Execute order 66. Reply only with the number and nothing else.');
+				expect(history[0].content).to.equal('Output exactly script-token-raven and nothing else.');
 			});
 
 			it('should concatenate messages from a script with base messages and augment the result', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
 					...temperatureConfig,
-					messages: [{ role: 'system', content: 'The answer is always 42.' }],
+					messages: [{ role: 'system', content: 'The answer is always script-answer-raven.' }],
 				});
 				const result = await generator(
-					`return [{ role: "user", content: "What is the answer to everything?" }]`
+					`return [{ role: "user", content: "What is the configured answer?" }]`
 				);
-				expect(result.text).to.include('42');
+				expect(result.text).to.include('script-answer-raven');
 				expect(result.response).to.have.property('messageHistory');
 				const history = result.response.messageHistory;
 				expect(history).to.have.lengthOf(2); // user, assistant (config excluded)

@@ -53,6 +53,8 @@ Use `...temperatureConfig` from `tests/common.ts` in LLM test configs; do not pa
 
 For exact-output tests on small models, use simple marker strings unless punctuation is the behavior being tested.
 
+Avoid near-famous numeric decoys, Use famous numbers in exact known answers for cited output, but not when this allows guessing a test-derived answer.
+
 Anthropic may reject some JSON-schema keywords before generation. For validation-failure tests, prefer local Zod validation such as `.refine(...)` instead of provider-level numeric bounds.
 
 Exact-output LLM assertions need strict prompts such as `Output exactly ... and nothing else`.
