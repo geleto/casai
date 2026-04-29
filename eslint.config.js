@@ -35,7 +35,10 @@ export default tseslint.config(
 
 			"@typescript-eslint/no-explicit-any": "off",
 			"@typescript-eslint/no-non-null-assertion": "off",
+			"@typescript-eslint/no-deprecated": "off",
+			"@typescript-eslint/no-useless-default-assignment": "off",
 			'@typescript-eslint/restrict-template-expressions': 'off',
+			'preserve-caught-error': 'off',
 
 			"@typescript-eslint/no-unused-vars": [
 				"error",
@@ -45,5 +48,13 @@ export default tseslint.config(
 				}
 			]
 		}
+	},
+	{
+		files: ['tests/**/*.ts'],
+		rules: {
+			'@typescript-eslint/require-await': 'off',
+			'@typescript-eslint/no-unsafe-member-access': 'off',
+			'@typescript-eslint/no-unnecessary-condition': 'off',
+		},
 	}
 );

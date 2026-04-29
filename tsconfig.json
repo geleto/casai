@@ -10,6 +10,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"declaration": true,
 		"lib": ["ES2022", "DOM"],
+		"types": ["node"],
 		"exactOptionalPropertyTypes": false,
 		"noImplicitThis": true,
 		"noImplicitReturns": true,

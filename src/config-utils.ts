@@ -1,7 +1,6 @@
 import { Context } from 'mocha';
 import { Override } from './types/utils';
 import * as configs from './types/config';
-import * as types from './types/types';
 import { ToolSet } from 'ai';
 import { mergeLoaders, processLoaders, RaceGroup, RaceLoader } from './loaders';
 import type { ILoaderAny } from 'cascada-engine';
@@ -10,7 +9,7 @@ export function processConfig<T extends Partial<configs.LoaderConfig> & Record<s
 	config: T
 ): Omit<T, 'loader'> & { loader?: ReturnType<typeof processLoaders> } {
 	if ('loader' in config && config.loader) {
-		const loader = processLoaders(config.loader as ILoaderAny[]);
+		const loader = processLoaders(config.loader);
 		return { ...config, loader };
 	}
 	return config as Omit<T, 'loader'> & { loader?: ReturnType<typeof processLoaders> };
@@ -56,7 +55,7 @@ export function mergeConfigs<
 		merged.filters = {
 			...(parentConfig as unknown as configs.CascadaConfig).filters ?? {},
 			...(childConfig as unknown as configs.CascadaConfig).filters ?? {},
-		} as types.CascadaFilters;
+		};
 	}
 
 	const parentLoaders = ('loader' in parentConfig) ? (parentConfig.loader

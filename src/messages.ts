@@ -73,7 +73,7 @@ export function augmentStreamText<TOOLS extends ToolSet = ToolSet, OUTPUT extend
 		cachedResponsePromise ??= originalResponsePromise
 			.then((resolvedResponse: ResponseWithMessages) => {
 				// Store the original messages before we override them
-				const originalMessages = resolvedResponse.messages as unknown as ModelMessage[];
+				const originalMessages = resolvedResponse.messages;
 
 				// Augment the response object
 				augmentResponseObject(resolvedResponse, prefixForMessages, historyPrefix, originalMessages);

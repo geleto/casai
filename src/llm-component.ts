@@ -327,7 +327,7 @@ export function _createLLMComponent<
 				delete vercelConfig.prompt;//the rendered prompt was appended to the messages
 
 				// 3. Execute the underlying Vercel AI function.
-				const result = vercelFunc(vercelConfig as TFunctionConfig);
+				const result = vercelFunc(vercelConfig);
 
 				// 4. Augment the result for conversational history management.
 				if ((vercelFunc as unknown) === generateText) {

@@ -69,7 +69,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should throw when the third argument is not a context object', () => {
-				expect(() => extractCallArguments(prompt, messages, messages as unknown as Record<string, unknown>)).to.throw('Third argument (context) must be an object');
+				expect(() => extractCallArguments(prompt, messages, messages)).to.throw('Third argument (context) must be an object');
 			});
 		});
 	});

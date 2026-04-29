@@ -23,7 +23,7 @@ async function collectPartials<T>(stream: AsyncIterable<DeepPartial<T>>): Promis
 
 function mergePartials<T extends object>(partials: DeepPartial<T>[]): T {
 	return partials.reduce((acc, partial) => {
-		return { ...acc, ...partial } as T;
+		return { ...acc, ...partial };
 	}, {} as T);
 }
 

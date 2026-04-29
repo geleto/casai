@@ -823,7 +823,7 @@ describe('asTool', function () {
 				operation: z.enum(['add', 'subtract'])
 			}),
 			execute: async (input: { a: number, b: number, operation: 'add' | 'subtract' }) => {
-				const { a, b, operation } = input as { a: number, b: number, operation: 'add' | 'subtract' };
+				const { a, b, operation } = input;
 				await new Promise(resolve => setTimeout(resolve, 100));
 				if (operation === 'add') {
 					return { result: a + b };

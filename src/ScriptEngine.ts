@@ -30,7 +30,7 @@ export class ScriptEngine<
 		this.config = {
 			...config,
 			promptType: config.promptType ?? 'async-script'
-		} as TConfig;
+		};
 
 		// Debug output if config.debug is true
 		if ('debug' in this.config && this.config.debug) {
