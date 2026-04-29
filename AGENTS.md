@@ -17,6 +17,9 @@ Run one file with:
 npm run test:file -- tests/Script.test.ts
 ```
 
+`npm run test:file` uses the `casai-source` export condition and runs tests against `src`.
+`npm run test` builds first and runs the full suite against the package entrypoint in `dist`.
+
 Add `-- --grep "pattern"` after the filename for a single test or group.
 
 `.mocharc.json` defines `tests/**/*.test.ts`, so plain `npx mocha tests/File.test.ts` is not a true single-file run.

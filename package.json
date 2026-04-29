@@ -37,6 +37,7 @@
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
+			"casai-source": "./src/index.ts",
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"require": "./dist/index.js"
@@ -48,8 +49,8 @@
 		"clean": "rimraf dist",
 		"lint": "eslint src tests",
 		"typecheck": "tsc --noEmit",
-		"test": "mocha",
-		"test:file": "mocha --no-config --node-option loader=ts-node/esm --require dotenv/config",
+		"test": "npm run build && mocha",
+		"test:file": "mocha --no-config --node-option loader=ts-node/esm --node-option conditions=casai-source --require dotenv/config",
 		"test:watch": "mocha --watch",
 		"test-type": "eslint tests/type-safety",
 		"start": "tsx examples/story.ts"

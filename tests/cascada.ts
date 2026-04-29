@@ -1,2 +1,1 @@
-//export * from 'casai';
-export * from '../src/index';
+export * from 'casai';
