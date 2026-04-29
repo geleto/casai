@@ -4,8 +4,8 @@
 
 Use the installed `cascada-engine` docs:
 
-- Prefer `node_modules/cascada-engine/docs/cascada/cascada-agent.md` when present; it is the AI agent-friendly compressed script/template reference and saves tokens.
-- If the compressed document is missing, or if syntax or semantics are unclear or contradictory, check the source docs: `node_modules/cascada-engine/docs/cascada/script.md` and `node_modules/cascada-engine/docs/cascada/template.md`.
+- Prefer `node_modules/cascada-engine/dist/docs/cascada-agent.md` when present; it is the AI agent-friendly compressed script/template reference and saves tokens.
+- If the compressed document is missing, or if syntax or semantics are unclear or contradictory, check the source docs: `node_modules/cascada-engine/dist/docs/script.md` and `node_modules/cascada-engine/dist/docs/template.md`.
 
 ## Tests
 
