@@ -1,16 +1,16 @@
 # Casai: AI Orchestration That Writes Like a Story
 
-Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is a TypeScript AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically parallelizes independent operations, giving you the performance of concurrent execution without the complexity of managing it.
+Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is a TypeScript AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically runs independent operations concurrently, giving you the performance of concurrent execution without the complexity of managing it.
 
 In the Cascada script below, `researcher`, `analyst`, and `writer` are distinct Casai components being orchestrated.
 
 ```javascript
-// 1. These two agents run in PARALLEL, automatically.
+// 1. These two agents run CONCURRENTLY, automatically.
 // The engine sees 'researcher' and 'analyst' are independent and runs them concurrently.
 var background = researcher({ topic }).text
 var analysis = analyst({ topic }).object
 
-// 2. This agent automatically WAITS for the parallel tasks to finish.
+// 2. This agent automatically WAITS for the concurrent tasks to finish.
 // No 'await', no Promise.all. Just clean data-flow.
 var finalReport = writer({ background, analysis }).text
 ```
@@ -23,7 +23,7 @@ Instead of forcing you into rigid graphs or `async/await` hell, Casai is built o
 
 *   **✍️ Write Logic, Not Graphs.** Express workflows as normal code - variables, functions, loops - not as a brittle graph of nodes and edges. You tell the story, the engine handles the orchestration.
 
-*   **⚡ Parallel by Default, Sequential by Exception.** Independent operations run in parallel automatically. The data-flow engine ensures dependent steps run in the correct order, eliminating race conditions by design. For stateful tasks where order is critical (like database writes), you can enforce a strict sequential chain on those specific operations, without affecting other dataflows.
+*   **⚡ Parallel by Default, Sequential by Exception.** Independent operations run concurrently automatically. The data-flow engine ensures dependent steps run in the correct order, eliminating race conditions by design. For stateful tasks where order is critical (like database writes), you can enforce a strict sequential chain on those specific operations, without affecting other dataflows.
 
 *   **🧩 Composable & Reusable Components.** Treat every piece of your AI workflow - from a simple generator to a multi-step agent - as a small, callable, and reusable component. This lets you build sophisticated systems from simple, testable parts, avoiding monolithic agent definitions.
 
@@ -33,13 +33,13 @@ Instead of forcing you into rigid graphs or `async/await` hell, Casai is built o
 
 Casai combines its unique orchestration engine with the robust features of modern AI tooling, giving you a complete toolkit.
 
-*   **Powered by the [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada)**, which provides parallel-by-default execution for scripts and templates, where async operations are handled implicitly - removing complexity and boilerplate code.
+*   **Powered by the [Cascada Scripting and Templating Engine](https://github.com/geleto/cascada)**, which provides concurrency-first execution for scripts and templates, where async operations are handled implicitly - removing complexity and boilerplate code.
 
 *   **Powered by the [Vercel AI SDK Core](https://ai-sdk.dev/docs/ai-sdk-core):** Get best-in-class features out of the box, including provider flexibility (OpenAI, Anthropic, etc.), structured data generation with Zod, model-driven tool use, and text streaming.
 
 #### Understanding Cascada
 
-Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - a parallel-first execution engine that provides both scripts and templates for async orchestration. While you can use Casai without deep Cascada knowledge, understanding the fundamentals will help you build more sophisticated workflows.
+Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - a concurrency-first execution engine that provides both scripts and templates for async orchestration. While you can use Casai without deep Cascada knowledge, understanding the fundamentals will help you build more sophisticated workflows.
 
 **Learn the Concepts:**
 - [Cascada Script Introduction](https://geleto.github.io/posts/cascada-script-intro/) - A comprehensive introduction to Cascada Script's syntax, features, and how it solves real async programming challenges
@@ -1066,7 +1066,7 @@ const generator = create.TextGenerator.loadsText({
 }, parentConfig);
 
 // Result: The final generator has one loader that runs the WebLoader
-// and FileSystemLoader in parallel, using the first successful result.
+// and FileSystemLoader concurrently, using the first successful result.
 ```
 
 ### options
@@ -1233,7 +1233,7 @@ const mainComponent = create.Template({
 ```
 
 ### Key Points
-- **Parallel Execution**: The critique stream runs after the story, which depends on the character, optimizing the dependency chain.
+- **Concurrent Execution**: The critique stream runs after the story, which depends on the character, optimizing the dependency chain.
 - **Result Handling**: Access `.object` for structured data, `.text` for stories, and `.textStream` for live critiques.
 - **Dynamic Inputs**: Pass outputs (e.g., `character`) to subsequent components for cohesive workflows.
 - **Versatility**: Combine different component types - like `ObjectGenerator`, `TextGenerator`, and `TextStreamer` - to handle varied tasks in one workflow.
@@ -1407,7 +1407,7 @@ Using `.asTool` (on `create.Function`, `script`, `template` or LLM generator pro
 *Casai* seamlessly integrates vector embeddings from the Vercel AI SDK. By adding embedding functions to the `context` object, you can use them directly in scripts for tasks like semantic search, similarity comparisons, or retrieval-augmented generation (RAG).
 
 ### Example
-Here's how to find the most similar document to a user query using a `Script` to orchestrate the embedding and comparison tasks in parallel.
+Here's how to find the most similar document to a user query using a `Script` to orchestrate the embedding and comparison tasks concurrently.
 
 ```typescript
 import { openai } from '@ai-sdk/openai';
@@ -1428,7 +1428,7 @@ const documentFinder = create.Script({
   },
   script: `
     var queryEmbedding = embedText(userQuery)
-    // The for loop runs all 10 iterations in parallel — each document is fetched and embedded concurrently.
+    // Loop iterations can run concurrently, so documents are fetched and embedded as soon as possible.
     // The data channel collects the results in source-code order regardless of completion order.
     data result
     for i in range(10)

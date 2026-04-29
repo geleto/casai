@@ -1,7 +1,7 @@
 {
 	"name": "casai",
 	"version": "0.4.1",
-	"description": "Orchestrate AI agent workflows with Nunjucks-style text templates that implicitly run async tasks in parallel",
+	"description": "Orchestrate AI agent workflows with Nunjucks-style text templates that implicitly run async tasks concurrently",
 	"author": "Angel Popov<geleto@gmail.com>",
 	"license": "Apache-2.0",
 	"repository": {
@@ -18,7 +18,7 @@
 		"vercel",
 		"template",
 		"async",
-		"parallel",
+		"concurrent",
 		"concurrency",
 		"llm",
 		"orchestration",
