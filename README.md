@@ -145,7 +145,7 @@ const contentAgent = create.Script({
         critique = critiqueGenerator({ draft: currentDraft, suggestions: critique.suggestions }).object
       endwhile
 
-      return { finalDraft: currentDraft, finalScore: critique.score, revisionCount }`,
+      return { finalDraft: currentDraft, finalScore: critique.score, revisionCount: revisionCount }`,
 });
 
 // Run the agent
@@ -243,21 +243,20 @@ Every component can be invoked in two primary ways: the standard `()` call for m
 This is the most common and straightforward way to use a component. You can invoke it with optional arguments for `prompt`and `context` - which covers the majority of use cases. You can invoke it with a new prompt and/or context, or with no arguments to use its pre-configured settings. For conversational components (`TextGenerator` and `TextStreamer`), you can also pass a `messages` array to manage the chat history. See the [Conversational AI](#conversational-ai-managing-message-history) section for a detailed guide.
 
 ```typescript
-// Created with a templating modifier
-const dynamicComponent = create.TextGenerator.withTemplate({
-    model: openai('gpt-4o'),
-    prompt: 'Hello {{ name }}',
+// Created as a template component
+const dynamicComponent = create.Template({
+    template: 'Hello {{ name }}',
     context: { name: 'World' }
 });
 
-// 1. Using configured pre-compiled prompt and context
+// 1. Using configured pre-compiled template and context
 const result = await dynamicComponent();
-console.log(result.text); // "Hello World"
+console.log(result); // "Hello World"
 
-// 2. With a one-off prompt and context
-// The one-off prompt is also processed as a template
+// 2. With a one-off template and context
+// The one-off input is also processed as a template
 const result2 = await dynamicComponent('Hi {{ user }}', { user: 'Alice' });
-console.log(result2.text); // "Hi Alice"
+console.log(result2); // "Hi Alice"
 ```
 
 Template and script prompts defined at creation are pre-compiled for efficiency, while prompts provided at runtime are compiled on-the-fly, offering flexibility for dynamic scenarios.
@@ -265,14 +264,14 @@ Template and script prompts defined at creation are pre-compiled for efficiency,
 #### Advanced Overrides with the `.run()` Method
 For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Casai provides the `.run()` method.
 
-This method is available specifically on **LLM components** (`TextGenerator`, `TextStreamer`, `ObjectGenerator`, and `ObjectStreamer`). It accepts a single configuration object where you can override properties like `model`, `temperature`, `maxTokens`, or even provide a different set of `tools`.
+This method is available specifically on **LLM components** (`TextGenerator`, `TextStreamer`, `ObjectGenerator`, and `ObjectStreamer`). It accepts a single configuration object where you can override properties like `model`, `temperature`, `maxOutputTokens`, or even provide a different set of `tools`.
 
 **Overridable Properties**
 You can temporarily change any standard Vercel AI SDK property, such as:
 *   `model`
 *   `temperature`
-*   `maxTokens`
-*   `maxSteps`
+*   `maxOutputTokens`
+*   `stopWhen`
 *   `tools`
 *   `prompt`
 *   `messages`
@@ -304,7 +303,7 @@ const creativeStory = await storyWriter.run({
   prompt: 'Write a very creative story about {{ topic }}.',
   context: { topic: 'a mischievous dragon' },
   temperature: 0.9, // Overridden for this call only
-  maxTokens: 50,
+  maxOutputTokens: 50,
 });
 ```
 
@@ -355,7 +354,7 @@ A component's final configuration is determined by a chain of parents, with the 
 
 | Property Type | Properties | Merging Strategy |
 | :--- | :--- | :--- |
-| **Scalar Properties** | `model`, `prompt`, `template`, `script`, `temperature`, `maxTokens`, etc. | **Override**: The child's value completely replaces the parent's value. |
+| **Scalar Properties** | `model`, `prompt`, `template`, `script`, `temperature`, `maxOutputTokens`, etc. | **Override**: The child's value completely replaces the parent's value. |
 | **Object Properties** | `context`, `filters`, `options` | **Shallow Merge**: The objects are merged. If a key exists in both the child and parent, the child's value for that key is used. |
 | **Loader Property** | `loader` | **Advanced Merging**: Child loaders are prepended to the parent's loader chain, and named `race()` groups are intelligently combined. |
 
@@ -381,26 +380,26 @@ Here's how these rules play out in practice:
 
 ```typescript
 const rootConfig = create.Config({
-  prompt: 'Root {{ var }}',
+  prompt: 'Output exactly: Root {{ var }}',
   context: { var: 'root', theme: 'dark' }, // Initial context
   filters: { uppercase: (s) => s.toUpperCase() }
 });
 
 const midConfig = create.Config({
-  prompt: 'Mid {{ var }}', // Overrides root prompt
+  prompt: 'Output exactly: Mid {{ var }}', // Overrides root prompt
   context: { var: 'mid' }, // Overrides 'var', keeps 'theme' from root
   filters: { lowercase: (s) => s.toLowerCase() } // Merges with uppercase filter from root
 }, rootConfig);
 // Resulting context: { var: 'mid', theme: 'dark' }
 
 const parentComponent = create.TextGenerator.withTemplate({
-  prompt: 'Parent {{ var }}', // Overrides mid prompt
+  prompt: 'Output exactly: Parent {{ var }}', // Overrides mid prompt
   context: { user: 'guest' }, // Adds 'user', keeps 'var' and 'theme' from mid
 }, midConfig);
 // Resulting context: { var: 'mid', theme: 'dark', user: 'guest' }
 
 const childComponent = create.TextGenerator.withTemplate({
-  prompt: 'Child {{ var }} {{ user }}', // Overrides parent prompt
+  prompt: 'Output exactly: Child {{ var }} {{ user }}', // Overrides parent prompt
 }, parentComponent);
 // Final context: { var: 'mid', theme: 'dark', user: 'guest' }
 
@@ -1059,10 +1058,11 @@ const parentConfig = create.Config({
 });
 
 // Child generator ADDS a local loader to the 'cdn' race group.
-const generator = create.TextGenerator({
+const generator = create.TextGenerator.loadsText({
   loader: race([
     new FileSystemLoader('./local_prompts/')
-  ], 'cdn')
+  ], 'cdn'),
+  prompt: 'daily-summary.txt'
 }, parentConfig);
 
 // Result: The final generator has one loader that runs the WebLoader
@@ -1095,7 +1095,7 @@ See [Nunjucks docs](https://mozilla.github.io/nunjucks/api.html#configure) for m
 **Purpose**: Adjusts the randomness of the model's output.
 **Type**: `number` (0 to 1, default: 0.7).
 
-### maxTokens
+### maxOutputTokens
 **Purpose**: Limits the number of tokens generated to manage size and cost.
 **Type**: `number` (optional).
 
@@ -1111,7 +1111,7 @@ See [Nunjucks docs](https://mozilla.github.io/nunjucks/api.html#configure) for m
 **Purpose**: Reduces repetition based on token frequency. Higher values penalize frequent tokens; negative promote them.
 **Type**: `number` (-2.0 to 2.0, default: 0).
 
-### stop
+### stopSequences
 **Purpose**: Halts generation at specified sequences.
 **Type**: `string[]` (optional).
 **Details**: Stops before generating the sequence; useful for structured outputs.
@@ -1122,7 +1122,7 @@ import { create } from 'casai';
 
 const component = create.TextGenerator({
   model: openai('gpt-4o'),
-  stop: ['###', '\n\n'], // Stops at triple hash or double newline
+  stopSequences: ['###', '\n\n'], // Stops at triple hash or double newline
   prompt: 'List 3 facts about space:\n1.'
 });
 
@@ -1163,9 +1163,9 @@ const weatherAgent = create.TextGenerator({
 })();
 ```
 
-### maxSteps
-**Purpose**: Limits the number of model-driven tool-calling steps in a single turn. Works with the `tools` property in `TextGenerator` and `TextStreamer`.
-**Type**: `number` (default: 1, optional).
+### stopWhen
+**Purpose**: Controls when model-driven tool-calling stops. Works with the `tools` property in `TextGenerator` and `TextStreamer`.
+**Type**: Stop condition, such as `stepCountIs(2)` from `ai`.
 
 ## Using Components in Templates and Scripts
 
@@ -1190,7 +1190,7 @@ const mainOrchestrator = create.Script({
     var character = characterGenerator({ topic }).object
     var story = storyGenerator({ character, topic }).text
     var critique = critiqueGenerator({ story }).text
-    return { character, story, critique }
+    return { character: character, story: story, critique: critique }
   `
 });
 
@@ -1465,7 +1465,7 @@ import fs from 'fs/promises';
 
 const docs = await Promise.all(
   [...Array(10)].map(async (_, i) =>
-    new Document({ text: await fs.readFile(`document${i + 1}.txt`), id_: `doc${i + 1}` })
+    new Document({ text: await fs.readFile(`document${i + 1}.txt`, 'utf-8'), id_: `doc${i + 1}` })
   ));
 const vectorIndex = await VectorStoreIndex.fromDocuments(docs, {
   embedModel: new OpenAIEmbedding({ model: 'text-embedding-3-small' })
@@ -1491,7 +1491,7 @@ const ragOrchestrator = create.Script({
   script: `
     var context = searchIndex(query)
     var answer = answerGenerator({ context }).text
-    return { query, answer }
+    return { query: query, answer: answer }
   `
 });
 
@@ -1558,10 +1558,10 @@ const userProcessor = create.Script({
 });
 
 // This will succeed
-await userProcessor({ context: { userId: '123', db: { getUser: (id) => ({ id }) } } });
+await userProcessor({ userId: '123', db: { getUser: (id) => ({ id }) } });
 
 // This will throw a validation error at runtime
-await userProcessor({ context: { user_id: '123' } });
+await userProcessor({ user_id: '123' });
 ```
 
 ### Ensuring Type-Safe Outputs with `schema`
