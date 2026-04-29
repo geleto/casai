@@ -7,16 +7,15 @@ In the Cascada script below, `researcher`, `analyst`, and `writer` are distinct 
 ```javascript
 // 1. These two agents run in PARALLEL, automatically.
 // The engine sees 'researcher' and 'analyst' are independent and runs them concurrently.
-var background = researcher({ topic: topic }).text
-var analysis = analyst({ topic: topic }).object
+var background = researcher({ topic }).text
+var analysis = analyst({ topic }).object
 
 // 2. This agent automatically WAITS for the parallel tasks to finish.
 // No 'await', no Promise.all. Just clean data-flow.
-var finalReport = writer({
-  background: background,
-  analysis: analysis
-}).text
+var finalReport = writer({ background, analysis }).text
 ```
+
+**⚠️ Under active development:** Casai is evolving rapidly - bugs are possible. Issues and contributions are very welcome.
 
 ### The Casai Philosophy
 
@@ -38,11 +37,20 @@ Casai combines its unique orchestration engine with the robust features of moder
 
 *   **Powered by the [Vercel AI SDK Core](https://ai-sdk.dev/docs/ai-sdk-core):** Get best-in-class features out of the box, including provider flexibility (OpenAI, Anthropic, etc.), structured data generation with Zod, model-driven tool use, and text streaming.
 
+#### Understanding Cascada
+
+Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - a parallel-first execution engine that provides both scripts and templates for async orchestration. While you can use Casai without deep Cascada knowledge, understanding the fundamentals will help you build more sophisticated workflows.
+
+**Learn the Concepts:**
+- [Cascada Script Introduction](https://geleto.github.io/posts/cascada-script-intro/) - A comprehensive introduction to Cascada Script's syntax, features, and how it solves real async programming challenges
+
+**Documentation:**
+- [Cascada Script Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/script.md) - Complete reference for Cascada Script syntax, features, and API
+- [Cascada Template Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) - Complete reference for Cascada Template syntax and features
+
 ### Learn by Example
 
 The best way to see the power of Casai is to explore real-world code. In our [**Casai Examples Repository**](https://github.com/geleto/casai-examples), you'll find practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story. **(Work in progress)**
-
-**⚠️ Heads up!** Casai is a new project and is evolving quickly! You might run into bugs, and the documentation is catching up with the code. Your feedback and contributions are welcome as we build the future of AI Agents.
 
 # Table of Contents
 - [Features](#features)
@@ -67,7 +75,7 @@ The best way to see the power of Casai is to explore real-world code. In our [**
 
 ## Installation
 
-Install any Vercel AI SDK 5.x version
+Install any Vercel AI SDK 6.x version
 ```bash
 npm install ai
 ```
@@ -125,9 +133,9 @@ const contentAgent = create.Script({
 		topic: "the future of AI-powered development",
 		qualityThreshold: 8, maxRevisions: 3, minRevisions: 1
 	},
-	script: `:data
+	script: `
       var revisionCount = 0
-      var currentDraft = draftGenerator({ topic: topic }).text
+      var currentDraft = draftGenerator({ topic }).text
       var critique = critiqueGenerator({ draft: currentDraft }).object
 
       // Iteratively revise until the quality threshold or maxRevisions is met
@@ -137,7 +145,7 @@ const contentAgent = create.Script({
         critique = critiqueGenerator({ draft: currentDraft, suggestions: critique.suggestions }).object
       endwhile
 
-      @data = { finalDraft: currentDraft, finalScore: critique.score, revisionCount: revisionCount }`,
+      return { finalDraft: currentDraft, finalScore: critique.score, revisionCount }`,
 });
 
 // Run the agent
@@ -499,13 +507,14 @@ const dealFinder = create.Script({
     }),
   },
   script: `
-    :data
+    data result
     for productId in productIds
       for vendor in vendors
         var priceInfo = getPrice(productId, vendor)
-        @data[productId].push(priceInfo)
+        result[productId].push(priceInfo)
       endfor
     endfor
+    return result.snapshot()
   `,
 });
 ```
@@ -527,9 +536,8 @@ You can execute a new script dynamically by passing it as an argument.
 *   **With a one-off script string**:
     ```typescript
     const oneOffResult = await runner(`
-      :data
-      @data.id = "new-id"
-    `); // { id: "new-id" }
+      return "new-id"
+    `); // "new-id"
     ```
 *   **With a one-off script file** (if created with `.loadsScript`):
     ```typescript
@@ -544,10 +552,9 @@ const userOnboardingTool = create.Script.asTool({
     inputSchema: z.object({ name: z.string(), email: z.string() }),
     context: { /* db, emailService, ... */ },
     script: `
-      :data
-      var profile = db.createUser({ name: name, email: email })
+      var profile = db.createUser({ name, email })
       var emailStatus = emailService.sendWelcome(email)
-      @data = { userId: profile.id, emailSent: emailStatus.success }
+      return { userId: profile.id, emailSent: emailStatus.success }
     `
 });
 ```
@@ -572,8 +579,7 @@ const userOnboardingTool = create.Script.asTool({
     const scriptGenerator = create.TextGenerator.withScript({
       model: openai('gpt-4o'),
       prompt: `
-        :data
-        @data = "Summarize the key points from: " + article
+        return "Summarize the key points from: " + article
       `
     });
     ```
@@ -638,8 +644,7 @@ When you `await` a `TextGenerator` call, it returns a promise that resolves to a
     const scriptStreamer = create.TextStreamer.withScript({
       model: openai('gpt-4o'),
       prompt: `
-        :data
-        @data = "Write a story based on this premise: " + premise
+        return "Write a story based on this premise: " + premise
       `
     });
     ```
@@ -712,8 +717,7 @@ Like `TextGenerator`, it can operate on a single `prompt` or be given a conversa
       model: openai('gpt-4o'),
       schema: z.object({ ... }),
       prompt: `
-        :data
-        @data = "Extract key entities from: " + text
+        return "Extract key entities from: " + text
       `
     });
     ```
@@ -790,8 +794,7 @@ Like `TextStreamer`, it can operate on a single `prompt` or be given a conversat
       model: openai('gpt-4o'),
       schema: z.object({ ... }),
       prompt: `
-        :data
-        @data = "Generate characters based on: " + theme
+        return "Generate characters based on: " + theme
       `
     });
     ```
@@ -1184,17 +1187,10 @@ const mainOrchestrator = create.Script({
     topic: 'a lost astronaut'
   },
   script: `
-    :data
-    // Step 1: Generate the character. This runs first.
-    var character = (characterGenerator({ topic: topic })).object
-    // Step 2: Generate the story using the character. This runs after character is ready.
-    var story = (storyGenerator({ character: character, topic: topic })).text
-    // Step 3: Critique the story. This runs after the story is ready.
-    var critique = (critiqueGenerator({ story: story })).text
-    // Assemble the final data object.
-    @data.character = character
-    @data.story = story
-    @data.critique = critique
+    var character = characterGenerator({ topic }).object
+    var story = storyGenerator({ character, topic }).text
+    var critique = critiqueGenerator({ story }).text
+    return { character, story, critique }
   `
 });
 
@@ -1220,14 +1216,13 @@ const mainComponent = create.Template({
     topic: 'a lost astronaut'
   },
   template: `
-    {% set character = (characterGenerator({ topic })).object %}
+    {% set character = characterGenerator({ topic }).object %}
     Character: {{ character | json }}
 
-    {% set storyContent = (storyComponent({ character, topic })).text %}
+    {% set storyContent = storyComponent({ character, topic }).text %}
     Story: {{ storyContent }}
 
-    Live Critique: {% set stream = (critiqueStreamer({ story: storyContent })).textStream %}
-      {% for chunk in stream %}{{ chunk }}{% endfor %}
+    Live Critique: {% for chunk in critiqueStreamer({ story: storyContent }).textStream %}{{ chunk }}{% endfor %}
   `
 });
 
@@ -1314,9 +1309,7 @@ const dynamicFewShotAgent = create.TextGenerator.withScript({
         ])
     },
     prompt: `
-        :data
-        // The script's output is an array of messages
-        @data = getExamples(topic)
+        return getExamples(topic)
     `
 });
 ```
@@ -1434,31 +1427,26 @@ const documentFinder = create.Script({
     range: (n) => [...Array(n).keys()], // Helper to generate numbers for the loop
   },
   script: `
-    :data
-    // Get the query embedding once.
     var queryEmbedding = embedText(userQuery)
-    // The 'for' loop in Cascada Script runs in parallel for each item.
-    // This fetches, reads, and embeds all 10 documents concurrently.
+    // The for loop runs all 10 iterations in parallel — each document is fetched and embedded concurrently.
+    // The data channel collects the results in source-code order regardless of completion order.
+    data result
     for i in range(10)
       var docPath = 'docs/document' + (i + 1) + '.txt'
-      var docText = readFile(docPath)
-      var docEmbedding = embedText(docText)
-      // The @data command is buffered, ensuring orderly assembly
-      // after all parallel operations are complete.
-      @data.docs.push({
+      var docEmbedding = embedText(readFile(docPath))
+      result.docs.push({
         filename: docPath,
         similarity: compareSimilarity(queryEmbedding, docEmbedding)
       })
     endfor
+    return result.snapshot()
   `
 });
 
 (async () => {
-  const result = await documentFinder();
-  // Sort the results in JS after the script has run
-  const sortedDocs = result.docs.sort((a, b) => b.similarity - a.similarity);
-  console.log(`Most similar document to "${result.userQuery}":`);
-  console.log(sortedDocs[0]);
+  const { docs } = await documentFinder();
+  const sortedDocs = [...docs].sort((a, b) => b.similarity - a.similarity);
+  console.log('Most similar document:', sortedDocs[0]);
 })();
 ```
 
@@ -1501,14 +1489,9 @@ const ragOrchestrator = create.Script({
     answerGenerator
   },
   script: `
-    :data
-    // Step 1: Search the index to get relevant context
     var context = searchIndex(query)
-    // Step 2: Use the context to generate a final answer
-    var answer = (answerGenerator({ context: context })).text
-    // Step 3: Assemble the final output object
-    @data.query = query
-    @data.answer = answer
+    var answer = answerGenerator({ context }).text
+    return { query, answer }
   `
 });
 
@@ -1570,8 +1553,7 @@ const userProcessor = create.Script({
     }),
   }),
   script: `
-    :data
-    @data = db.getUser(userId)
+    return db.getUser(userId)
   `
 });
 
@@ -1604,9 +1586,7 @@ const userExtractor = create.ObjectGenerator({
 const dataAggregator = create.Script({
   schema: z.object({ status: z.string(), count: z.number() }),
   script: `
-    :data
-    @data.status = "completed"
-    @data.count = 100
+    return { status: "completed", count: 100 }
   `
 });
 
@@ -1646,18 +1626,6 @@ const invalidComponent = create.TextGenerator({
 - **Template/Script Properties**: `context`, `filters`, `loader`, and `options` are only allowed on components created with a Cascada modifier (`.withTemplate`, `.withScript`, or `.loads...`).
 
 This type safety ensures robust, predictable workflows with early error detection.
-
-## Understanding Cascada (Casai's Foundation)
-
-Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - a parallel-first execution engine that provides both scripts and templates for async orchestration. While you can use Casai without deep Cascada knowledge, understanding the fundamentals will help you build more sophisticated workflows.
-
-**Learn the Concepts:**
-- [The Kitchen and The Chef](https://geleto.github.io/posts/cascada-kitchen-chef/) - Understand how Cascada works through a restaurant analogy - no technical jargon, just cooks, ingredients, and a brilliant manager who makes parallel execution and overcoming race conditions feel as natural as following a recipe
-- [Cascada Script Introduction](https://geleto.github.io/posts/cascada-script-intro/) - A comprehensive introduction to Cascada Script's syntax, features, and how it solves real async programming challenges
-
-**Documentation:**
-- [Cascada Script Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/script.md) - Complete reference for Cascada Script syntax, features, and API
-```
 
 ## Roadmap
 
