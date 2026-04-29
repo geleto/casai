@@ -32,7 +32,10 @@ describe('create.Script', function () {
           var message = "Hello"
           text output
           output("Done")
-          return { data: { greeting: message }, text: output.snapshot() }
+          return {
+            data: { greeting: message },
+            text: output.snapshot()
+          }
         `,
 			});
 			const result = await scriptRunner();
@@ -88,7 +91,10 @@ describe('create.Script', function () {
 				script: `
           var user = fetchUser()
           var perms = fetchPermissions()
-          return { name: user.name, permissions: perms }
+          return {
+            name: user.name,
+            permissions: perms
+          }
         `,
 			});
 			const result = await scriptRunner();
@@ -212,7 +218,10 @@ describe('create.Script', function () {
             text2(chunk)
           endfor
 
-          return { a: text1.snapshot(), b: text2.snapshot() }
+          return {
+            a: text1.snapshot(),
+            b: text2.snapshot()
+          }
         `,
 			});
 			const result = await scriptRunner();
@@ -233,7 +242,10 @@ describe('create.Script', function () {
             output(chunk)
           endfor
           var num = output.snapshot() | int
-          return { original: num, doubled: num * 2 }
+          return {
+            original: num,
+            doubled: num * 2
+          }
         `,
 			});
 			const result = await scriptRunner();
