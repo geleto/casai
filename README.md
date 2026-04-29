@@ -494,12 +494,9 @@ const dealFinder = create.Script({
   // Validate the input context
   inputSchema: z.object({
     productIds: z.array(z.string()),
-    vendors: z.array(z.string()),
-    getPrice: z.function()
+    vendors: z.array(z.string())
   }),
   context: {
-    productIds: ['sku-a123', 'sku-b456'],
-    vendors: ['VendorX', 'VendorY'],
     getPrice: async (productId, vendor) => ({
       vendor,
       price: Math.floor(Math.random() * 101) + 100,
@@ -530,7 +527,10 @@ const dealFinder = create.Script({
 You can execute a new script dynamically by passing it as an argument.
 *   **With pre-configured input**:
     ```typescript
-    const result = await dealFinder();
+    const result = await dealFinder({
+      productIds: ['sku-a123', 'sku-b456'],
+      vendors: ['VendorX', 'VendorY']
+    });
     ```
 *   **With a one-off script string**:
     ```typescript
@@ -1216,10 +1216,10 @@ const mainComponent = create.Template({
     topic: 'a lost astronaut'
   },
   template: `
-    {% set character = characterGenerator({ topic }).object %}
-    Character: {{ character | json }}
+    {% set character = characterGenerator({ topic: topic }).object %}
+    Character: {{ character.name }}
 
-    {% set storyContent = storyComponent({ character, topic }).text %}
+    {% set storyContent = storyComponent({ character: character, topic: topic }).text %}
     Story: {{ storyContent }}
 
     Live Critique: {% for chunk in critiqueStreamer({ story: storyContent }).textStream %}{{ chunk }}{% endfor %}
