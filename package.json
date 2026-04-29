@@ -1,6 +1,6 @@
 {
 	"name": "casai",
-	"version": "0.4.1",
+	"version": "0.5.1",
 	"description": "Orchestrate AI agent workflows with Nunjucks-style text templates that implicitly run async tasks concurrently",
 	"author": "Angel Popov<geleto@gmail.com>",
 	"license": "Apache-2.0",
