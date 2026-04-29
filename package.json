@@ -55,9 +55,8 @@
 		"start": "tsx examples/story.ts"
 	},
 	"devDependencies": {
-		"@ai-sdk/anthropic": "^3.0.28",
-		"@ai-sdk/openai": "^3.0.21",
-		"ai": "^6.0.58",
+		"@ai-sdk/anthropic": "^3.0.72",
+		"@ai-sdk/openai": "^3.0.54",
 		"@babel/core": "^7.28.0",
 		"@babel/preset-env": "^7.28.0",
 		"@eslint/js": "^9.20.1",
@@ -67,6 +66,7 @@
 		"@types/node": "^22.13.4",
 		"@typescript-eslint/eslint-plugin": "^8.24.0",
 		"@typescript-eslint/parser": "^8.24.0",
+		"ai": "^6.0.169",
 		"chai": "^5.1.2",
 		"chai-as-promised": "^8.0.1",
 		"dotenv": "^16.4.5",
