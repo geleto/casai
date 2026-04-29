@@ -373,17 +373,22 @@ describe('Messages, Conversation & Integration', function () {
 
 		describe('Messaging with Tool Calls', () => {
 
-			const getWeatherTool = create.ObjectGenerator.withTemplate.asTool({
-				model,
-				...temperatureConfig,
-				schema: z.object({
-					city: z.string(),
-					tempF: z.number(),
-					conditions: z.string(),
-				}),
+			const weatherSchema = z.object({
+				city: z.string(),
+				tempF: z.number(),
+				conditions: z.string(),
+			});
+
+			const getWeatherTool = create.Function.asTool({
 				description: 'Get the weather for a city',
 				inputSchema: z.object({ city: z.string() }),
-				prompt: 'Return the weather for {{ city }}. If the city is San Francisco, return temp 75 and conditions "Sunny". Otherwise, return an error in the conditions field.'
+				schema: weatherSchema,
+				execute: ({ city }: { city: string }) => {
+					if (city === 'San Francisco') {
+						return { city, tempF: 75, conditions: 'Sunny' };
+					}
+					return { city, tempF: 0, conditions: 'Unknown city' };
+				}
 			});
 
 			it('should allow manual continuation of a conversation after a tool call', async () => {
@@ -467,7 +472,9 @@ describe('Messages, Conversation & Integration', function () {
 				expect(step2.text.toLowerCase()).to.include('75');
 			});*/
 
-			it('should handle a multi-turn conversation where one turn involves automated tool use', async () => {
+			it('should handle a multi-turn conversation where one turn involves automated tool use', async function () {
+				this.timeout(timeout * 2);
+
 				const agent = create.TextGenerator({
 					model,
 					...temperatureConfig,
@@ -527,6 +534,43 @@ describe('Messages, Conversation & Integration', function () {
 				expect(messageHistory[3].role).to.equal('assistant'); // Turn 2 Assistant (with tool call)
 				expect(messageHistory[4].role).to.equal('tool'); // Turn 2 Tool Result
 				expect(messageHistory[5].role).to.equal('assistant'); // Turn 2 Assistant (final synthesis)
+			});
+
+			it('should allow an agent-selected LLM-backed tool to execute from the tool call input', async function () {
+				this.timeout(timeout * 2);
+
+				const llmWeatherTool = create.ObjectGenerator.withTemplate.asTool({
+					model,
+					...temperatureConfig,
+					schema: weatherSchema,
+					description: 'Get the weather for a city',
+					inputSchema: z.object({ city: z.string() }),
+					prompt: 'Return exactly this weather object for {{ city }}: city "{{ city }}", tempF 75, conditions "Sunny".'
+				});
+
+				const agent = create.TextGenerator({
+					model,
+					...temperatureConfig,
+					tools: { getWeather: llmWeatherTool } as const,
+				} as const);
+
+				const result = await agent([{ role: 'user', content: 'Use getWeather for San Francisco.' }]);
+
+				expect(result.finishReason).to.equal('tool-calls');
+				expect(result.toolCalls).to.have.lengthOf(1);
+				expect(result.toolCalls[0].toolName).to.equal('getWeather');
+				expect(result.toolCalls[0].input).to.deep.equal({ city: 'San Francisco' });
+
+				const toolResult = await llmWeatherTool.execute(result.toolCalls[0].input, {
+					toolCallId: result.toolCalls[0].toolCallId,
+					messages: result.response.messageHistory,
+				});
+
+				expect(toolResult).to.deep.equal({
+					city: 'San Francisco',
+					tempF: 75,
+					conditions: 'Sunny',
+				});
 			});
 		});
 
