@@ -70,7 +70,7 @@ The best way to see the power of Casai is to explore real-world code. In our [**
 - [RAG Integration](#rag-integration)
 - [Input and Output Validation with Zod](#input-and-output-validation-with-zod)
 - [Type Checking](#type-checking)
-- [Roadmap](#roadmap)
+- [Project Status and Roadmap](#project-status-and-roadmap)
 
 
 ## Installation
@@ -1627,15 +1627,19 @@ const invalidComponent = create.TextGenerator({
 
 This type safety ensures robust, predictable workflows with early error detection.
 
-## Roadmap
+## Project Status and Roadmap
 
 *Casai* is evolving to enhance its capabilities and robustness. Here are the key features planned for future releases:
 
+### Coming Soon
+
+- **Streaming Support for templates and scripts**: Add `TemplateStreamer` and `ScriptStreamer` components with an API aligned with Casai's other streamers, plus optional out-of-order chunk delivery for concurrent Cascada workflows. Dependent on the future [Cascada streaming implementation](https://github.com/geleto/cascada/blob/master/docs/cascada/streaming.md).
+- **Improved Type Inference for AI SDK Configuration**: Better argument type inference for AI SDK functions passed through Casai configuration objects.
+
+### Longer-Term Roadmap
 - **OpenTelemetry/MLflow integration**: MLflow's tracing, which captures your app's entire execution, including prompts, retrievals, tool calls.
 - **Automated Prompt Optimization**: Go beyond manual prompt engineering with a built-in create.Optimizer. Inspired by frameworks like DSPy, this feature will allow you to attach an optimizer to any generator. It will use your existing Evaluator as a guide to programmatically test and evolve your prompts, automatically discovering the highest-performing version for your specific task. This creates a powerful feedback loop, using the same components that guard your production app to continuously improve its core logic with minimal effort.
 - **Execution Replay and Debugging**: A planned Cascada feature - creating an advanced logging system, via a dedicated output handler, to capture the entire execution trace. This will allow developers to replay and inspect the sequence of operations and variable states for complex debugging, and will integrate seamlessly with the Evaluator's trace history.
 - **Image Generation**: Add support for generating images from prompts using models like DALL-E.
 - **Versioned Templates and Scripts**: Enable loading versioned prompts with a loader that wraps unversioned loaders for better template management. Choose different versions depending on the model or validate old and new prompts during tests.
-- **Streaming Text/Data Output Support** - for Template and Script components, depends on the cascada-engine adding support for this.
-- **Text/Data Output Snapshot Support**: Request the template engine to return a snapshot of the currently rendered data. Due to the non-sequential nature of the rendering - regular streaming is not always practical. Useful for previews.
 - **More Integration Instructions**: Provide clear patterns and examples for integrating long-term memory, human-in-the-loop, etc...
