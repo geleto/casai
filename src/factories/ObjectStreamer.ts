@@ -1,4 +1,5 @@
-import { streamObject, LanguageModel, ModelMessage } from "ai";
+import { streamObject } from "ai";
+import type { LanguageModel, ModelMessage } from "ai";
 
 import * as results from '../types/result'
 import * as configs from '../types/config';

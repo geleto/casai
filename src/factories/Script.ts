@@ -5,7 +5,7 @@ import * as configs from '../types/config';
 import * as results from '../types/result';
 import * as utils from '../types/utils';
 import { SchemaType, ScriptPromptType } from '../types/types';
-import { ToolCallOptions } from 'ai';
+import type { ToolCallOptions } from 'ai';
 
 // The full shape of a final, merged Script config object, including required properties.
 type FinalScriptConfigShape = Partial<configs.ScriptConfig<any, any> & configs.ScriptToolConfig<any, any> & { loader?: any }>;

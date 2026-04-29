@@ -21,9 +21,9 @@ export class ScriptEngine<
 	INPUT extends Record<string, any>,
 	OUTPUT
 > {
-	protected env: cascada.Environment | cascada.AsyncEnvironment;
-	protected scriptPromise?: Promise<cascada.Script | cascada.AsyncScript>;
-	protected script?: cascada.Script | cascada.AsyncScript;
+	protected env: cascada.AsyncEnvironment;
+	protected scriptPromise?: Promise<cascada.Script>;
+	protected script?: cascada.Script;
 	protected config: TConfig;
 
 	constructor(config: TConfig) {
@@ -50,11 +50,7 @@ export class ScriptEngine<
 		try {
 			const options = { ...this.config.options, autoescape: false };
 			const loader = (this.config.loader as types.CascadaLoaders | undefined) ?? null;
-			if (this.config.promptType === 'script' || this.config.promptType === 'script-name') {
-				this.env = new cascada.Environment(loader, options);
-			} else {
-				this.env = new cascada.AsyncEnvironment(loader, options);
-			}
+			this.env = new cascada.AsyncEnvironment(loader, options);
 
 			// Add filters if provided
 			if ('filters' in this.config && this.config.filters) {
@@ -65,32 +61,8 @@ export class ScriptEngine<
 				}
 			}
 
-			// Initialize script if script provided
-			if ('script' in this.config && this.config.script) {
-				if (this.config.promptType === 'script') {
-					this.script = cascada.compileScript(this.config.script, this.env as cascada.Environment);
-				} else if (this.config.promptType === 'script-name') {
-					if (!this.config.script) {
-						throw new ScriptError('Script is required when promptType is "script-name"');
-					}
-					// the sync script API uses callback, promisify
-					this.scriptPromise = new Promise((resolve, reject) => {
-						(this.env as cascada.Environment).getScript(this.config.script!, (err: Error | null, script) => {
-							if (err) {
-								reject(err);
-							} else if (script) {
-								resolve(script);
-							} else {
-								reject(new ScriptError('getScript returned null script'));
-							}
-						});
-					});
-				} else if (this.config.promptType === 'async-script') {
-					this.script = cascada.compileScriptAsync(this.config.script, this.env as cascada.AsyncEnvironment);
-				} else if (this.config.promptType === 'async-script-name') {
-					this.scriptPromise = (this.env as cascada.AsyncEnvironment).getScript(this.config.script);
-				}
-			}
+			// Scripts are rendered through the environment at call time. This keeps
+			// inline and named scripts on the same current Cascada render path.
 		} catch (error) {
 			if (error instanceof Error) {
 				throw new ScriptError(`Script initialization failed: ${error.message}`, error);
@@ -126,74 +98,24 @@ export class ScriptEngine<
 
 			// If we have a script override, use renderScript[String] directly
 			if (scriptOverride) {
-				if (this.env instanceof cascada.AsyncEnvironment) {
-					const result = await this.env.renderScriptString(scriptOverride, mergedContext);
-					if ('debug' in this.config && this.config.debug) {
-						console.log('[DEBUG] ScriptEngine.run - async renderScriptString result:', result);
-					}
-					rawResult = result;
-				} else {
-					const result = await new Promise<Record<string, any> | string | null>((resolve, reject) => {
-						const env = this.env as cascada.Environment;
-						try {
-							env.renderScriptString(scriptOverride, mergedContext, (err: Error | null, res: string | Record<string, any> | null) => {
-								if (err) {
-									reject(err);
-								} else if (res !== null) {
-									resolve(res);
-								} else {
-									reject(new ScriptError('Script render returned null result'));
-								}
-							});
-						} catch (error) {
-							reject(new Error(error instanceof Error ? error.message : String(error)));
-						}
-					});
-					if ('debug' in this.config && this.config.debug) {
-						console.log('[DEBUG] ScriptEngine.run - sync renderScriptString result:', result);
-					}
-					rawResult = result;
+				const result = await this.env.renderScriptString(scriptOverride, mergedContext);
+				if ('debug' in this.config && this.config.debug) {
+					console.log('[DEBUG] ScriptEngine.run - renderScriptString result:', result);
 				}
+				rawResult = result;
 			} else {
-				// Otherwise use the compiled script
-				if (!this.script && this.scriptPromise) {
-					this.script = await this.scriptPromise;
-					this.scriptPromise = undefined;
-				}
-
-				if (!this.script) {
+				if (!('script' in this.config) || !this.config.script) {
 					throw new ScriptError('No script available to render');
 				}
 
-				if (this.script instanceof cascada.Script) {
-					const script = this.script;
-					const result = await new Promise<Record<string, any> | string | null>((resolve, reject) => {
-						try {
-							script.render(mergedContext, (err: Error | null, res: string | Record<string, any> | null) => {
-								if (err) {
-									reject(err);
-								} else if (res !== null) {
-									resolve(res);
-								} else {
-									reject(new ScriptError('Script render returned null result'));
-								}
-							});
-						} catch (error) {
-							reject(error instanceof Error ? error : new Error(String(error)));
-						}
-					});
-					if ('debug' in this.config && this.config.debug) {
-						console.log('[DEBUG] ScriptEngine.run - sync script result:', result);
-					}
-					rawResult = result;
-				} else {
-					//async script
-					const result = await this.script.render(mergedContext);
-					if ('debug' in this.config && this.config.debug) {
-						console.log('[DEBUG] ScriptEngine.run - async script result:', result);
-					}
-					rawResult = result;
+				const source = this.config.promptType === 'script-name' || this.config.promptType === 'async-script-name'
+					? await cascada.loadString(this.config.script, this.config.loader as types.CascadaLoaders)
+					: this.config.script;
+				const result = await this.env.renderScriptString(source, mergedContext);
+				if ('debug' in this.config && this.config.debug) {
+					console.log('[DEBUG] ScriptEngine.run - script result:', result);
 				}
+				rawResult = result;
 			}
 		} catch (error) {
 			if (error instanceof Error) {

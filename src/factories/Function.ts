@@ -3,7 +3,7 @@ import * as utils from '../types/utils';
 import { mergeConfigs, processConfig } from "../config-utils";
 import { validateFunctionConfig, validateScriptOrFunctionCall, validateAndParseOutput } from "../validate";
 //import { ExecuteFunction, types.InferSchema, types.SchemaType, ToolExecuteFunction } from '../types/types';
-import { ToolCallOptions } from 'ai';
+import type { ToolCallOptions } from 'ai';
 import * as types from '../types/types';
 
 //@todo - document toolCallId handling

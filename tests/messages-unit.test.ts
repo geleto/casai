@@ -7,7 +7,7 @@ import {
 	// augmentGenerateText,
 	// augmentStreamText,
 } from '../src/llm-component';
-import { ModelMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import { expect } from 'chai';
 import { timeout } from './common';
 

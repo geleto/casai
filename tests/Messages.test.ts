@@ -4,8 +4,9 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { z } from 'zod';
 import { create, TemplateError } from './cascada';
-import { model, temperature, timeout } from './common';
-import { ModelMessage, stepCountIs } from 'ai';
+import { model, temperatureConfig, timeout } from './common';
+import { stepCountIs } from 'ai';
+import type { ModelMessage } from 'ai';
 import { streamToString } from './TextStreamer.test';
 
 // Configure chai-as-promised
@@ -25,7 +26,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should augment generateText result with messageHistory', async () => {
 				const generator = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [systemMessage],
 				});
 
@@ -47,7 +48,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should augment streamText result with messageHistory', async () => {
 				const streamer = create.TextStreamer({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [systemMessage],
 				});
 
@@ -76,14 +77,14 @@ describe('Messages, Conversation & Integration', function () {
 
 		describe('Call-Time Validation & Precedence', () => {
 			it('should succeed in text mode with only messages', async () => {
-				const generator = create.TextGenerator({ model, temperature });
+				const generator = create.TextGenerator({ model, ...temperatureConfig });
 				const promise = generator(simpleUserMessage);
 				await expect(promise).to.not.be.rejected;
 				expect((await promise).text).to.equal('Acknowledged');
 			});
 
 			it('should fail in template mode with only messages and no configured prompt', async () => {
-				const generator = create.TextGenerator.withTemplate({ model, temperature });
+				const generator = create.TextGenerator.withTemplate({ model, ...temperatureConfig });
 				// The call is invalid because a prompt string is required for rendering
 				// @ts-expect-error - we want to test the error
 				const promise = generator(simpleUserMessage);
@@ -93,7 +94,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should use a one-off template string over a configured prompt', async () => {
 				const generator = create.TextGenerator.withTemplate({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Config: {{name}}',
 					context: { name: 'World' },
 				});
@@ -104,7 +105,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should merge runtime context with configured context', async () => {
 				const generator = create.TextGenerator.withTemplate({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Output only this, with spaces: {{a}} {{b}} {{c}}',
 					context: { a: 1, b: 2 },
 				});
@@ -117,7 +118,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should use call-time messages over configured messages', async () => {
 				const generator = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [{ role: 'system', content: 'Always answer in Spanish.' }],
 				});
 				// This system message should override the configured one.
@@ -126,7 +127,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should append a non-empty prompt as a user message and augment the result', async () => {
-				const generator = create.TextGenerator({ model, temperature, messages: simpleSystemMessage });
+				const generator = create.TextGenerator({ model, ...temperatureConfig, messages: simpleSystemMessage });
 				const result = await generator('Reply only with "OK".');
 
 				expect(result.text.trim()).to.match(/^ok\.?/i);
@@ -141,7 +142,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should append a rendered template string as a user message and augment the result', async () => {
 				const generator = create.TextGenerator.withTemplate({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: simpleSystemMessage,
 					prompt: 'The user instruction is: {{instruction}}. Reply only with "Confirmed", without any other text or punctuation, preserving the case.',
 				});
@@ -156,12 +157,11 @@ describe('Messages, Conversation & Integration', function () {
 			it('should append a rendered script string as a user message and augment the result', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: simpleSystemMessage,
 				});
 				const result = await generator(
-					`:data
-					@data = "Execute order " + order + ". Reply only with the number and nothing else." `,
+					`return "Execute order " + order + ". Reply only with the number and nothing else."`,
 					{ order: '66' }
 				);
 
@@ -174,12 +174,11 @@ describe('Messages, Conversation & Integration', function () {
 			it('should concatenate messages from a script with base messages and augment the result', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [{ role: 'system', content: 'The answer is always 42.' }],
 				});
 				const result = await generator(
-					`:data
-					@data = [{ role: "user", content: "What is the answer to everything?" }]`
+					`return [{ role: "user", content: "What is the answer to everything?" }]`
 				);
 				expect(result.text).to.include('42');
 				expect(result.response).to.have.property('messageHistory');
@@ -191,10 +190,9 @@ describe('Messages, Conversation & Integration', function () {
 			it('should use only the script-returned messages if no base messages exist and augment the result', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
-					temperature,
+					...temperatureConfig,
 				});
-				const result = await generator(`:data
-					@data = [{ role: "user", content: "Output only the number 2." }]`);
+				const result = await generator(`return [{ role: "user", content: "Output only the number 2." }]`);
 				expect(result.text).to.equal('2');
 				expect(result.response).to.have.property('messageHistory');
 				const history = result.response.messageHistory;
@@ -205,13 +203,12 @@ describe('Messages, Conversation & Integration', function () {
 			it('config messages + argument messages + script in argument that returns messages', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [{ role: 'system', content: 'Config system.' }],
 				});
 				const argMessages: ModelMessage[] = [{ role: 'user', content: 'Previous turn.' }];
 				const script = `
-					:data
-					@data = [{ role: "user", content: 'Say ONLY "PONG".' }]
+					return [{ role: "user", content: 'Say ONLY "PONG".' }]
 				`;
 				const result = await generator(script, argMessages);
 
@@ -230,11 +227,10 @@ describe('Messages, Conversation & Integration', function () {
 			it('config messages + argument messages; script in config returns messages; no prompt argument', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [{ role: 'system', content: 'Config system.' }],
 					prompt: `
-						:data
-						@data = [{ role: "user", content: "Return only 123" }]
+						return [{ role: "user", content: "Return only 123" }]
 					`,
 				});
 				const argMessages: ModelMessage[] = [{ role: 'user', content: 'Prev user.' }];
@@ -256,10 +252,10 @@ describe('Messages, Conversation & Integration', function () {
 			it('argument-only: messages + script in argument returns messages', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
-					temperature,
+					...temperatureConfig,
 				});
 				const argMessages: ModelMessage[] = [{ role: 'user', content: 'Prior user.' }];
-				const script = `:data\n\t@data = [{ role: "user", content: "Output only the number 7" }]`;
+				const script = `return [{ role: "user", content: "Output only the number 7" }]`;
 				const result = await generator(script, argMessages);
 
 				const history = result.response.messageHistory;
@@ -276,11 +272,10 @@ describe('Messages, Conversation & Integration', function () {
 			it('should throw ZodError if a script returns a malformed message object', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
-					temperature,
+					...temperatureConfig,
 				});
 				await expect(generator(
-					`:data
-					@data = [{ content: "This is invalid" }]`
+					`return [{ content: "This is invalid" }]`
 				)).to.be.rejectedWith('Script output validation failed');
 			});
 		});
@@ -291,7 +286,7 @@ describe('Messages, Conversation & Integration', function () {
 		describe('Multi-Turn Conversation Chaining', () => {
 			const agent = create.TextGenerator({
 				model,
-				temperature,
+				...temperatureConfig,
 				messages: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
 			});
 
@@ -323,7 +318,7 @@ describe('Messages, Conversation & Integration', function () {
 				// Build a conversation history up to two turns
 				const baseAgent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
 				});
 				const firstTurn = await baseAgent('count');
@@ -332,7 +327,7 @@ describe('Messages, Conversation & Integration', function () {
 
 				const agentWithMemory = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Based on our chat, what was the last number I asked you to count to?',
 				});
 				const result = await agentWithMemory(conversationHistory);
@@ -342,7 +337,7 @@ describe('Messages, Conversation & Integration', function () {
 
 			const streamAgent = create.TextStreamer({
 				model,
-				temperature,
+				...temperatureConfig,
 				messages: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
 			});
 
@@ -380,7 +375,7 @@ describe('Messages, Conversation & Integration', function () {
 
 			const getWeatherTool = create.ObjectGenerator.withTemplate.asTool({
 				model,
-				temperature,
+				...temperatureConfig,
 				schema: z.object({
 					city: z.string(),
 					tempF: z.number(),
@@ -394,7 +389,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should allow manual continuation of a conversation after a tool call', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: getWeatherTool } as const,
 					// NO stopWhen - we are doing this manually
 				} as const);
@@ -439,7 +434,7 @@ describe('Messages, Conversation & Integration', function () {
 			/*it('should automatically handle the tool-use loop with stopWhen', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
 					// This time, we automate the loop
 					stopWhen: stepCountIs(2),
@@ -475,7 +470,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should handle a multi-turn conversation where one turn involves automated tool use', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
 					stopWhen: stepCountIs(2), // Automate the tool-use loop when it occurs
 				});
@@ -539,7 +534,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should pass conversation history from a TextGenerator to an ObjectGenerator', async () => {
 				const chatAgent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					messages: [{ role: 'system', content: 'Acknowledge messages. Reply only with "OK".' }],
 				});
 

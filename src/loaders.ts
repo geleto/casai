@@ -1,4 +1,5 @@
-import { ILoaderAny, raceLoaders, LoaderInterface, LoaderSource } from 'cascada-engine';
+import { raceLoaders } from 'cascada-engine';
+import type { ILoaderAny, LoaderInterface, LoaderSource } from 'cascada-engine';
 
 export const RACE_GROUP_TAG = Symbol.for('casai.raceGroup');
 export const MERGED_GROUP_TAG = Symbol.for('casai.mergedGroup');

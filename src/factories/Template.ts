@@ -5,7 +5,7 @@ import * as configs from '../types/config';
 import * as utils from '../types/utils';
 import * as results from '../types/result';
 import { Context, SchemaType, TemplatePromptType } from '../types/types';
-import { ToolCallOptions } from 'ai';
+import type { ToolCallOptions } from 'ai';
 
 export type TemplateCallSignature<
 	TConfig extends configs.TemplateConfig<INPUT>,

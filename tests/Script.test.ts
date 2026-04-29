@@ -2,7 +2,7 @@ import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from './cascada';
-import { model, temperature, StringLoader, timeout } from './common';
+import { model, temperatureConfig, StringLoader, timeout } from './common';
 import { z } from 'zod';
 import { streamObject } from 'ai';
 
@@ -15,24 +15,24 @@ describe('create.Script', function () {
 	// --- CORE FUNCTIONALITY ---
 
 	describe('Core Functionality', () => {
-		it('executes a minimal script and saves tokens via @data', async () => {
+		it('executes a minimal script and returns a direct object', async () => {
 			const scriptRunner = create.Script({
 				script: `
-          :data
           var message = "Hello Script"
-          @data = { result: message }
+          return { result: message }
         `,
 			});
 			const result = await scriptRunner();
 			expect(result).to.deep.equal({ result: 'Hello Script' });
 		});
 
-		it('returns full output object if no :data directive (both @data and @text)', async () => {
+		it('returns combined structured data and text channels', async () => {
 			const scriptRunner = create.Script({
 				script: `
           var message = "Hello"
-          @data.greeting = message
-          @text("Done")
+          text output
+          output("Done")
+          return { data: { greeting: message }, text: output.snapshot() }
         `,
 			});
 			const result = await scriptRunner();
@@ -46,8 +46,7 @@ describe('create.Script', function () {
 			const scriptRunner = create.Script({
 				context: { user: 'Alice', greeting: 'Welcome' },
 				script: `
-          :data
-          @data.message = greeting + ", " + user + "!"
+          return { message: greeting + ", " + user + "!" }
         `,
 			});
 			const result = await scriptRunner();
@@ -57,8 +56,7 @@ describe('create.Script', function () {
 		it('merges and overrides context at runtime', async () => {
 			const scriptRunner = create.Script({
 				context: { user: 'Alice', role: 'admin' },
-				script: `:data
-				@data.message = "User: " + user + ", Role: " + role`
+				script: `return { message: "User: " + user + ", Role: " + role }`
 			});
 			const result = await scriptRunner({ user: 'Bob' });
 			expect(result).to.deep.equal({ message: 'User: Bob, Role: admin' });
@@ -67,11 +65,10 @@ describe('create.Script', function () {
 		it('accepts script string at runtime', async () => {
 			const scriptRunner = create.Script({
 				context: { val: 10 },
-				script: ':data @data.result = val * 2', // Add required script property
+				script: 'return { result: val * 2 }', // Add required script property
 			});
 			const result = await scriptRunner(
-				`:data
-				@data.result = val * 2`
+				`return { result: val * 2 }`
 			);
 			expect(result).to.deep.equal({ result: 20 });
 		});
@@ -89,11 +86,9 @@ describe('create.Script', function () {
 					},
 				},
 				script: `
-          :data
           var user = fetchUser()
           var perms = fetchPermissions()
-          @data.name = user.name
-          @data.permissions = perms
+          return { name: user.name, permissions: perms }
         `,
 			});
 			const result = await scriptRunner();
@@ -102,12 +97,12 @@ describe('create.Script', function () {
 
 		it('should have correct type property', () => {
 			const scriptRunner = create.Script({
-				script: ':data @data = "Hello"'
+				script: 'return "Hello"'
 			});
 
 			const scriptWithContext = create.Script({
 				context: { name: 'World' },
-				script: ':data @data = "Hello " + name'
+				script: 'return "Hello " + name'
 			});
 
 			// Check that Script instances have the correct type
@@ -125,7 +120,7 @@ describe('create.Script', function () {
 			});
 
 			const { elementStream } = streamObject({
-				model, temperature,
+				model, ...temperatureConfig,
 				output: 'array',
 				schema: characterSchema,
 				prompt: `Generate three short fantasy character descriptions.
@@ -159,23 +154,21 @@ describe('create.Script', function () {
 	// --- STREAMING AND INTEROP ---
 
 	describe('Stream and Component Interoperability', () => {
-		it('reads a stream from TextStreamer and collects text using @text', async () => {
+		it('reads a stream from TextStreamer and collects text using a text channel', async () => {
 			const textStreamer = create.TextStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				prompt: "Write only the word 'Hello'.",
 			});
 
 			const scriptRunner = create.Script({
 				context: { streamReader: textStreamer },
 				script: `
-          :data
-          var text = capture:text
-            var stream = (streamReader()).textStream
-            for chunk in stream
-              @text(chunk)
-            endfor
-          endcapture
-          @data.result = text
+          text output
+          var stream = (streamReader()).textStream
+          for chunk in stream
+            output(chunk)
+          endfor
+          return { result: output.snapshot() }
         `,
 			});
 
@@ -188,15 +181,13 @@ describe('create.Script', function () {
 			const scriptRunner = create.Script({
 				context: { streamReader: textStreamer, word: 'World' },
 				script: `
-          :data
-          var text = capture:text
-            var prompt = "Write only the word '" + word + "'."
-            var stream = (streamReader(prompt)).textStream
-            for chunk in stream
-              @text(chunk)
-            endfor
-          endcapture
-          @data.result = text
+          text output
+          var prompt = "Write only the word '" + word + "'."
+          var stream = (streamReader(prompt)).textStream
+          for chunk in stream
+            output(chunk)
+          endfor
+          return { result: output.snapshot() }
         `,
 			});
 			const result = await scriptRunner();
@@ -208,22 +199,20 @@ describe('create.Script', function () {
 			const scriptRunner = create.Script({
 				context: { streamReader: textStreamer },
 				script: `
-          :data
-          var text1 = capture:text
-            var s1 = (streamReader("Write only 'A'.")).textStream
-            for chunk in s1
-              @text(chunk)
-            endfor
-          endcapture
+          text text1
+          text text2
 
-          var text2 = capture:text
-            var s2 = (streamReader("Write only 'B'.")).textStream
-            for chunk in s2
-              @text(chunk)
-            endfor
-          endcapture
+          var s1 = (streamReader("Write only 'A'.")).textStream
+          for chunk in s1
+            text1(chunk)
+          endfor
 
-          @data = { a: text1, b: text2 }
+          var s2 = (streamReader("Write only 'B'.")).textStream
+          for chunk in s2
+            text2(chunk)
+          endfor
+
+          return { a: text1.snapshot(), b: text2.snapshot() }
         `,
 			});
 			const result = await scriptRunner();
@@ -232,22 +221,19 @@ describe('create.Script', function () {
 
 		it('collects and processes numbers from a stream', async () => {
 			const textStreamer = create.TextStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				prompt: "Write only the number 42.",
 			});
 			const scriptRunner = create.Script({
 				context: { streamReader: textStreamer },
 				script: `
-          :data
-          var text = capture:text
-            var stream = (streamReader()).textStream
-            for chunk in stream
-              @text(chunk)
-            endfor
-          endcapture
-          var num = text | int
-          @data.original = num
-          @data.doubled = num * 2
+          text output
+          var stream = (streamReader()).textStream
+          for chunk in stream
+            output(chunk)
+          endfor
+          var num = output.snapshot() | int
+          return { original: num, doubled: num * 2 }
         `,
 			});
 			const result = await scriptRunner();
@@ -256,19 +242,17 @@ describe('create.Script', function () {
 
 		it('stream error disables result, error test is only that result is empty', async () => {
 			// Streamer configured to fail (simulate with bad model/config or empty result)
-			const badStreamer = create.TextStreamer({ model, temperature, prompt: "INVALID" });
+			const badStreamer = create.TextStreamer({ model, ...temperatureConfig, prompt: "INVALID" });
 			const scriptRunner = create.Script({
 				schema: z.object({ text: z.string() }),
 				context: { streamReader: badStreamer },
 				script: `
-          :data
-          var text = capture:text
-            var stream = (streamReader()).textStream
-            for chunk in stream
-              @text(chunk)
-            endfor
-          endcapture
-          @data = { text: text }
+          text output
+          var stream = (streamReader()).textStream
+          for chunk in stream
+            output(chunk)
+          endfor
+          return { text: output.snapshot() }
         `,
 			});
 			const result = await scriptRunner();// as { text: string };
@@ -277,7 +261,7 @@ describe('create.Script', function () {
 
 		it('reads from an ObjectGenerator and uses the result', async () => {
 			const locationGen = create.ObjectGenerator.withTemplate({
-				model, temperature,
+				model, ...temperatureConfig,
 				schema: z.object({ city: z.string(), country: z.string() }),
 				prompt: `Generate a JSON object for the capital of {{ countryName }}.`,
 			});
@@ -285,9 +269,8 @@ describe('create.Script', function () {
 				schema: z.object({ result: z.string() }),
 				context: { getCapital: locationGen },
 				script: `
-          :data
           var loc = (getCapital({ countryName: "France" })).object
-          @data.result = loc.city
+          return { result: loc.city }
         `,
 			});
 			const result = await scriptRunner();
@@ -296,7 +279,7 @@ describe('create.Script', function () {
 
 		it('reads from object array stream', async () => {
 			const characterStreamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				schema: z.object({
 					name: z.string(),
 					description: z.string()
@@ -318,7 +301,7 @@ describe('create.Script', function () {
 
 		it('reads from an ObjectStreamer (array mode), no script', async () => {
 			const objectStreamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				output: 'array',
 				schema: z.object({ id: z.number() }),
 				prompt: `Generate a JSON array following these strict requirements:
@@ -338,7 +321,7 @@ describe('create.Script', function () {
 
 		it('reads from an ObjectStreamer (array mode), with script', async () => {
 			const objectStreamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				output: 'array',
 				schema: z.object({ id: z.number() }),
 				prompt: `Generate a JSON array following these strict requirements:
@@ -351,11 +334,12 @@ describe('create.Script', function () {
 			const scriptRunner = create.Script({
 				context: { streamer: objectStreamer },
 				script: `
-				:data
-				@data = []
+				data result
+				result = []
 				for item in (streamer()).elementStream
-					@data.push(item)
-				endfor`
+					result.push(item)
+				endfor
+				return result.snapshot()`
 			});
 			const result = await scriptRunner();
 			expect(result).to.eql([{ id: 1 }, { id: 2 }]);
@@ -363,7 +347,7 @@ describe('create.Script', function () {
 
 		it('reads from an ObjectStreamer (array mode) and collects element ids', async () => {
 			const objectStreamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				output: 'array',
 				schema: z.object({ id: z.number() }),
 				prompt: `Generate a JSON array following these strict requirements:
@@ -376,21 +360,25 @@ describe('create.Script', function () {
 			const scriptRunner = create.Script({
 				context: { streamer: objectStreamer },
 				script:
-					`:data
+					`
+					data ids
+					ids = []
 					var stream = (streamer()).elementStream
 					for item in stream
-						@data.ids.push(item.id | int)
+						ids.push(item.id | int)
 					endfor
-					var text = capture:text
-						var str = (streamer()).elementStream
-						for item in str
-						    @text(item.id)
-						endfor
-					endcapture
-					// Split, parse as numbers and push to ids array
-					for s in text.split('')
-						@data.ids.push(s | int)
-					endfor`,
+
+					text idText
+					var str = (streamer()).elementStream
+					for item in str
+						idText(item.id)
+					endfor
+
+					for s in idText.snapshot().split('')
+						ids.push(s | int)
+					endfor
+
+					return { ids: ids.snapshot() }`,
 			});
 			const result = await scriptRunner();
 			expect(result).to.deep.equal({ ids: [1, 2, 1, 2] });
@@ -406,8 +394,7 @@ describe('create.Script', function () {
 		it('inherits context and filters from parent Config', async () => {
 			const scriptRunner = create.Script({
 				script: `
-				:data
-				@data.result = base | prefix("p:")
+				return { result: base | prefix("p:") }
 				`
 			}, parentConfig);
 			const result = await scriptRunner();
@@ -417,12 +404,11 @@ describe('create.Script', function () {
 		it('inherits from another Script', async () => {
 			const parent = create.Script({
 				context: { inherited: 'ok' },
-				script: ':data @data.x = inherited' // Add required script property
+				script: 'return { x: inherited }' // Add required script property
 			});
 			const child = create.Script({
 				script:
-					`:data
-					@data.x = inherited`
+					`return { x: inherited }`
 			}, parent);
 			const result = await child();
 			expect(result).to.deep.equal({ x: 'ok' });
@@ -432,8 +418,7 @@ describe('create.Script', function () {
 			const child = create.Script({
 				context: { base: 'child' },
 				filters: { suffix: (s: string, x: string) => `${s}${x}` },
-				script: `:data
-				@data.out = (base | prefix("v")) | suffix("!")`,
+				script: `return { out: (base | prefix("v")) | suffix("!") }`,
 			}, parentConfig);
 			const result = await child();
 			expect(result).to.deep.equal({ out: 'vchild!' });
@@ -443,8 +428,7 @@ describe('create.Script', function () {
 			const scriptRunner = create.Script({
 				context: { base: 'child', newVal: 'n' },
 				script:
-					`:data
-					@data = { base: base, new: newVal, mult: mult }`
+					`return { base: base, new: newVal, mult: mult }`
 			}, parentConfig);
 			const result = await scriptRunner();
 			expect(result).to.deep.equal({ base: 'child', new: 'n', mult: 2 });
@@ -456,9 +440,8 @@ describe('create.Script', function () {
 	describe('Script Loader', () => {
 		const stringLoader = new StringLoader();
 		stringLoader.addString('s1', `
-			:data
 			var msg = greeting + " " + subject
-			@data.out = msg
+			return { out: msg }
 		`);
 
 		it('loads and executes a script using .loadsScript', async () => {
@@ -493,7 +476,7 @@ describe('create.Script', function () {
 			const scriptRunner = create.Script({
 				script: `
           var obj = none
-          @data.value = obj.prop
+          return obj.prop
         `,
 			});
 			await expect(scriptRunner()).to.be.rejected;
@@ -502,8 +485,7 @@ describe('create.Script', function () {
 		it('rejects if an async function in context rejects', async () => {
 			const scriptRunner = create.Script({
 				context: { badFetch: async () => Promise.reject(new Error('API Down')) },
-				script: `:data
-				@data.result = badFetch()`
+				script: `return { result: badFetch() }`
 			});
 			await expect(scriptRunner()).to.be.rejectedWith('API Down');
 		});
@@ -513,7 +495,7 @@ describe('create.Script', function () {
 				loader: new StringLoader(),
 				script: 'nope',
 			});
-			await expect(scriptRunner()).to.be.rejectedWith('Script not found');
+			await expect(scriptRunner()).to.be.rejectedWith(/not found/i);
 		});
 	});
 
@@ -530,19 +512,18 @@ describe('create.Script', function () {
 					}
 				},
 				script: `
-          :data
           var count = 0
           while next()
             count = count + 1
           endwhile
-          @data.times = count
+          return { times: count }
         `,
 			});
 			const result = await agent();
 			expect(result).to.deep.equal({ times: 2 });
 		});
 
-		it('runs a for loop in parallel and collects results using @data', async () => {
+		it('runs a for loop in parallel and collects results using a data channel', async () => {
 			const scriptRunner = create.Script({
 				schema: z.object({ out: z.array(z.number()) }),
 				context: {
@@ -550,11 +531,12 @@ describe('create.Script', function () {
 					double: (x: number) => x * 2,
 				},
 				script: `
-          :data
-          @data.out = []
+          data out
+          out = []
           for x in times
-            @data.out.push(double(x))
+            out.push(double(x))
           endfor
+          return { out: out.snapshot() }
         `,
 			});
 			const result = await scriptRunner();
@@ -569,11 +551,13 @@ describe('create.Script', function () {
 					vals: [1, 2, 3],
 					add: (x: number) => { sum += x; return sum; },
 				},
-				script: `:data
-          @data.results = []
+				script: `
+          data results
+          results = []
           each x in vals
-            @data.results.push(add(x))
+            results.push(add(x))
           endeach
+          return { results: results.snapshot() }
         `,
 			});
 			const result = await scriptRunner();

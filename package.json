@@ -49,6 +49,7 @@
 		"lint": "eslint src tests",
 		"typecheck": "tsc --noEmit",
 		"test": "mocha",
+		"test:file": "mocha --no-config --node-option loader=ts-node/esm --require dotenv/config",
 		"test:watch": "mocha --watch",
 		"test-type": "eslint tests/type-safety",
 		"start": "tsx examples/story.ts"

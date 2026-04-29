@@ -4,7 +4,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { create } from './cascada';
 import { timeout } from './common';
 import { z } from 'zod';
-import { ToolCallOptions } from 'ai';
+import type { ToolCallOptions } from 'ai';
 
 chai.use(chaiAsPromised);
 const { expect } = chai;

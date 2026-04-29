@@ -4,7 +4,7 @@ import * as configs from './types/config';
 import * as types from './types/types';
 import { ToolSet } from 'ai';
 import { mergeLoaders, processLoaders, RaceGroup, RaceLoader } from './loaders';
-import { ILoaderAny } from 'cascada-engine';
+import type { ILoaderAny } from 'cascada-engine';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(
 	config: T

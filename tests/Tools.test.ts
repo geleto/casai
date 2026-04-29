@@ -4,9 +4,10 @@ import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from './cascada';
-import { model, temperature, timeout } from './common';
+import { model, temperatureConfig, timeout } from './common';
 import { z } from 'zod';
-import { ModelMessage, stepCountIs, StreamTextResult } from 'ai';
+import { stepCountIs } from 'ai';
+import type { ModelMessage, StreamTextResult } from 'ai';
 
 // Helper function to consume a stream
 async function streamToPromise(stream: any) {
@@ -45,7 +46,7 @@ describe('asTool', function () {
 				//@ts-expect-error - missing inputSchema schema
 				expect(() => create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Hello world',
 					description: 'A test tool'
 					// Missing inputSchema
@@ -64,7 +65,7 @@ describe('asTool', function () {
 				// These should not throw errors
 				expect(() => create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Hello {{ name }}',
 					description: 'A test tool',
 					inputSchema: z.object({
@@ -74,7 +75,7 @@ describe('asTool', function () {
 
 				expect(() => create.ObjectGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Generate a person for {{ user }}',
 					schema: z.object({
 						name: z.string(),
@@ -91,13 +92,13 @@ describe('asTool', function () {
 				//@todo - this is not a tool test
 				const textGenerator = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Hello world'
 				});
 
 				const objectGenerator = create.ObjectGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Generate a person',
 					schema: z.object({
 						name: z.string(),
@@ -106,7 +107,7 @@ describe('asTool', function () {
 				});
 
 				const script = create.Script({
-					script: ':data @data = "Hello"'
+					script: 'return "Hello"'
 				});
 
 				const template = create.Template({
@@ -127,7 +128,7 @@ describe('asTool', function () {
 			it('should return a valid Vercel AI Tool', () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Hello {{ name }}',
 					description: 'A test tool',
 					inputSchema: z.object({
@@ -148,7 +149,7 @@ describe('asTool', function () {
 		// 	it('should throw error if inputSchema is not a z.object as our context can only be a z.object', () => {
 		// 		expect(() => create.TextGenerator.withTemplate.asTool({
 		// 			model,
-		// 			temperature,
+		// 			...temperatureConfig,
 		// 			prompt: 'Hello world',
 		// 			description: 'A test tool',
 		// 			//@ts-expect-error - inputSchema is not a z.object
@@ -169,8 +170,7 @@ describe('asTool', function () {
 						input: 'test'
 					},
 					script: `
-							:data
-							@data.result = "Processed: " + input
+							return { result: "Processed: " + input }
 						`,
 					description: 'A script tool',
 					inputSchema: z.object({
@@ -185,7 +185,7 @@ describe('asTool', function () {
 			it('should correctly identify and execute ObjectGenerator', async () => {
 				const tool = create.ObjectGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					schema: z.object({
 						capital: z.string(),
 						population: z.number()
@@ -208,7 +208,7 @@ describe('asTool', function () {
 			it('should correctly identify and execute TextGenerator', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
 					description: 'A text generator tool',
 					inputSchema: z.object({
@@ -224,7 +224,7 @@ describe('asTool', function () {
 			it('should correctly identify and execute TextGenerator with Template', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
 					description: 'A text generator tool with template',
 					inputSchema: z.object({
@@ -251,8 +251,7 @@ describe('asTool', function () {
 						}
 					},
 					script: `
-							:data
-							@data.result = failingFunction()
+							return { result: failingFunction() }
 						`,
 					description: 'A test tool',
 					inputSchema: z.object({
@@ -268,7 +267,7 @@ describe('asTool', function () {
 			it('should correctly pass Zod schema inputSchema to', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
 					description: 'A test tool',
 					inputSchema: z.object({
@@ -283,7 +282,7 @@ describe('asTool', function () {
 			it('should accept Vercel SDK native object schema format', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
 					description: 'A test tool',
 					inputSchema: z.object({
@@ -298,7 +297,7 @@ describe('asTool', function () {
 			it('should accept ToolCallOptions signature', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
 					description: 'A test tool',
 					inputSchema: z.object({
@@ -318,7 +317,7 @@ describe('asTool', function () {
 			it('should work with TextGenerator.withTemplate', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Translate "{{ text }}" to {{ language }}',
 					context: {
 						language: 'Spanish'
@@ -347,9 +346,8 @@ describe('asTool', function () {
 						}
 					},
 					script: `
-							:data
 							var rawData = fetchData(input)
-							@data.result = processData(rawData)
+							return { result: processData(rawData) }
 						`,
 					description: 'A data processing tool',
 					inputSchema: z.object({
@@ -364,7 +362,7 @@ describe('asTool', function () {
 			it('should work with TextGenerator.withTemplate for dynamic content', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Generate a {{ type }} story about {{ character }} in {{ setting }}. Keep it 3 sentences max, under 20 words.',
 					description: 'A story generator tool',
 					inputSchema: z.object({
@@ -389,10 +387,7 @@ describe('asTool', function () {
 			it('should work with Script for data processing', async () => {
 				const tool = create.Script.asTool({
 					script: `
-							:data
-							@data.processedText = "Processed: " + input.toUpperCase()
-							@data.wordCount = input.split(' ').length
-							@data.hasNumbers = r/[0-9]/.test(input)
+							return { processedText: "Processed: " + input.toUpperCase(), wordCount: input.split(' ').length, hasNumbers: r/[0-9]/.test(input) }
 						`,
 					description: 'A text processing tool',
 					inputSchema: z.object({
@@ -411,12 +406,11 @@ describe('asTool', function () {
 				// This parent component uses a script to process input before calling the LLM
 				const tool = create.ObjectGenerator.withScript.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					schema: z.object({ characterName: z.string(), summary: z.string() }),
 					prompt: `
-							:data
 							// The script constructs the final prompt for the LLM
-							@data = "Create a brief character: " + role + " from " + genre + " genre. Keep it short."
+							return "Create a brief character: " + role + " from " + genre + " genre. Keep it short."
 						`,
 					description: 'A character generator tool',
 					inputSchema: z.object({
@@ -441,7 +435,7 @@ describe('asTool', function () {
 				// Create a simple weather tool
 				const weatherTool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'The weather in {{ city }} is sunny and 22°C',
 					description: 'Get the current weather for a city',
 					inputSchema: z.object({
@@ -452,7 +446,7 @@ describe('asTool', function () {
 				// Create an agent with the tool
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { get_weather: weatherTool },
 					prompt: 'What is the weather like in London?'
 				});
@@ -469,7 +463,7 @@ describe('asTool', function () {
 			it('should allow LLM to extract multiple arguments from natural language', async () => {
 				const createUserTool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'Created user: {{ name }}, Age: {{ age }}, Email: {{ email }}',
 					description: 'Create a new user profile',
 					inputSchema: z.object({
@@ -481,7 +475,7 @@ describe('asTool', function () {
 
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { create_user: createUserTool },
 					prompt: 'Please create a user profile for Jane Doe, who is 29 years old with email jane.doe@example.com'
 				});
@@ -502,7 +496,7 @@ describe('asTool', function () {
 			it('should not call tool when prompt does not require it', async () => {
 				const weatherTool = create.TextGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					prompt: 'The weather in {{ city }} is sunny and 22°C',
 					description: 'Get the current weather for a city',
 					inputSchema: z.object({
@@ -512,7 +506,7 @@ describe('asTool', function () {
 
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { get_weather: weatherTool },
 					prompt: 'What is the capital of France?'
 				});
@@ -528,7 +522,7 @@ describe('asTool', function () {
 			it('should work with ObjectGenerator that uses LLM for structured output', async () => {
 				const sentimentTool = create.ObjectGenerator.withTemplate.asTool({
 					model,
-					temperature,
+					...temperatureConfig,
 					schema: z.object({
 						sentiment: z.enum(['positive', 'negative', 'neutral']),
 						confidence: z.number().min(0).max(1)
@@ -542,7 +536,7 @@ describe('asTool', function () {
 
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { analyze_sentiment: sentimentTool },
 					prompt: 'What is the sentiment of the text "I love this product, it\'s amazing!"?'
 				});
@@ -561,7 +555,7 @@ describe('asTool', function () {
 	describe('Suite 4: End-to-End Tool Use Conversation Loop', () => {
 		const getWeatherTool = create.ObjectGenerator.withTemplate.asTool({
 			model,
-			temperature,
+			...temperatureConfig,
 			schema: z.object({
 				city: z.string(),
 				tempF: z.number(),
@@ -576,7 +570,7 @@ describe('asTool', function () {
 			it('should allow manually continuing the conversation after a tool call', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
 					// NOTE: No `stopWhen` is configured. We do the loop ourselves.
 				});
@@ -617,7 +611,7 @@ describe('asTool', function () {
 			it('should automate the full tool-use loop in a single call', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
 					// NOTE: `stopWhen` automates the second turn for us
 					stopWhen: stepCountIs(2),
@@ -641,7 +635,7 @@ describe('asTool', function () {
 			it('should maintain chat history across turns, including a tool-use turn', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
 					stopWhen: stepCountIs(2),
 				});
@@ -684,7 +678,7 @@ describe('asTool', function () {
 
 		const loggingTool = create.TextGenerator.withTemplate.asTool({
 			model,
-			temperature,
+			...temperatureConfig,
 			prompt: `Only return this log entry, nothing else: [{{ level }}] Tool call {{ _toolCallOptions.toolCallId }} processed {{ _toolCallOptions.messages.length }} messages. Status: {{ status }}`,
 			description: 'A logging tool that includes call metadata',
 			inputSchema: z.object({
@@ -695,7 +689,7 @@ describe('asTool', function () {
 
 		const weatherTool = create.TextGenerator.withTemplate.asTool({
 			model,
-			temperature,
+			...temperatureConfig,
 			prompt: 'Weather in {{ city }} is good.',
 			description: 'Get the weather',
 			inputSchema: z.object({ city: z.string() })
@@ -706,7 +700,7 @@ describe('asTool', function () {
 			it('should allow an LLM to call a tool from a TextStreamer', async () => {
 				const agent = create.TextStreamer({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: weatherTool },
 				});
 
@@ -728,7 +722,7 @@ describe('asTool', function () {
 			it('should force a tool call when toolChoice is "required"', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: weatherTool },
 					toolChoice: 'required',
 				});
@@ -743,7 +737,7 @@ describe('asTool', function () {
 			it('should force a specific tool call when toolChoice specifies a tool name', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { getWeather: weatherTool, log: loggingTool },
 					toolChoice: { type: 'tool', toolName: 'log' },
 				});
@@ -763,7 +757,7 @@ describe('asTool', function () {
 			it('should handle tool execution errors gracefully and continue the conversation', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { errorTool: errorTool },
 					stopWhen: stepCountIs(2),
 				});
@@ -800,7 +794,7 @@ describe('asTool', function () {
 			it('should correctly inject _toolCallOptions into a tool called by an LLM', async () => {
 				const agent = create.TextGenerator({
 					model,
-					temperature,
+					...temperatureConfig,
 					tools: { loggingTool: loggingTool },
 					stopWhen: stepCountIs(2),
 				});
@@ -881,7 +875,7 @@ describe('asTool', function () {
 		it('should be callable by an LLM in an automated loop', async () => {
 			const agent = create.TextGenerator({
 				model,
-				temperature,
+				...temperatureConfig,
 				tools: { calculate: calculatorTool },
 				stopWhen: stepCountIs(2),
 			});

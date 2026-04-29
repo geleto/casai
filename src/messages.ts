@@ -1,4 +1,4 @@
-import { ModelMessage, ToolSet } from 'ai';
+import type { ModelMessage, ToolSet } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
 import type { GenerateTextResultAugmented, StreamTextResultAugmented, AIOutput } from './types/result';
 

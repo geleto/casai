@@ -3,7 +3,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from '../src/index'; // Adjust import path as needed
 import { z } from 'zod';
-import { ToolCallOptions } from 'ai';
+import type { ToolCallOptions } from 'ai';
 
 chai.use(chaiAsPromised);
 const { expect } = chai;

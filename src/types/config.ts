@@ -1,11 +1,13 @@
 import {
 	generateText, generateObject, streamText, streamObject,
+} from 'ai';
+import type {
 	ToolSet,
 	StreamObjectOnFinishCallback,
 	ModelMessage,
 	ToolCallOptions
 } from 'ai';
-import { ConfigureOptions } from 'cascada-engine';
+import type { ConfigureOptions } from 'cascada-engine';
 import * as types from './types';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type

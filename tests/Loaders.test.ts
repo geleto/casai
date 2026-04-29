@@ -3,7 +3,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, race } from './cascada';
 //unit test imports
-import { model, temperature, timeout, AsyncStringLoader } from './common';
+import { model, temperatureConfig, timeout, AsyncStringLoader } from './common';
 import { streamToString } from './TextStreamer.test';
 import { z } from 'zod';
 
@@ -96,7 +96,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 			const generator = create.TextGenerator.loadsTemplate(
 				{
 					model,
-					temperature,
+					...temperatureConfig,
 					loader: [race([fastLoader], 'templates')], // Child adds a faster loader
 					prompt: 'prompt.txt',
 				},
@@ -116,7 +116,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 			const generator = create.TextGenerator.loadsTemplate(
 				{
 					model,
-					temperature,
+					...temperatureConfig,
 					loader: [fastLoader], // Child loader
 					prompt: 'prompt.txt',
 				},
@@ -133,7 +133,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		it('[RACE] The fastest loader in a race group should win', async () => {
 			const streamer = create.TextStreamer.loadsTemplate({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: [race([slowLoader, fastLoader], 'templates')],
 				prompt: 'prompt.txt',
 			});
@@ -145,7 +145,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		it('[SEQUENTIAL] The first successful loader in a sequential chain should win', async () => {
 			const streamer = create.TextStreamer.loadsTemplate({
 				model,
-				temperature,
+				...temperatureConfig,
 				// No race wrapper, this is a standard sequential chain.
 				loader: [slowLoader, fastLoader],
 				prompt: 'prompt.txt',
@@ -159,7 +159,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		it('A race group should succeed even if one loader fails', async () => {
 			const generator = create.ObjectGenerator.loadsTemplate({
 				model,
-				temperature,
+				...temperatureConfig,
 				schema: z.object({ result: z.string() }),
 				loader: [race([failingLoader, mediumLoader], 'templates')],
 				prompt: 'prompt.txt',
@@ -211,7 +211,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		it('Component-to-renderer inheritance should merge race groups correctly', async () => {
 			const baseGenerator = create.TextGenerator.loadsTemplate({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: [race([slowLoader], 'prompts')],
 			});
 
@@ -231,17 +231,19 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		it('A script should correctly use a generator with raced loaders from its context', async () => {
 			const summaryGenerator = create.TextGenerator.loadsTemplate({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: [race([slowLoader, fastLoader], 'prompts')],
 				// The prompt is NOT set here, it will be provided by the script
 			});
 
 			const mainScript = create.Script({
 				context: { summaryGenerator },
-				script: `:text
+				script: `
+          text output
           // Call the generator from context, providing the template name to load
           var result = summaryGenerator.run({ prompt: 'prompt.txt' })
-          @text(result.text)`,
+          output(result.text)
+          return output.snapshot()`,
 			});
 
 			const result = await mainScript();

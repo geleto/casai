@@ -1,7 +1,7 @@
-import { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnFinishCallback, ToolCallOptions, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
+import type { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnFinishCallback, ToolCallOptions, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
 import { z } from 'zod';
 import { InferParameters } from './utils';
-import { ILoaderAny } from 'cascada-engine';
+import type { ILoaderAny } from 'cascada-engine';
 import { RaceGroup, RaceLoader } from '../loaders';
 
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;

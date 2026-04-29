@@ -1,21 +1,23 @@
 import 'dotenv/config';
-import { LoaderInterface } from 'cascada-engine';
-import { LanguageModel } from 'ai';
+import type { LoaderInterface } from 'cascada-engine';
+import type { LanguageModel } from 'ai';
 
-import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
-export const modelName = 'claude-3-5-haiku-latest';
-export const model: LanguageModel = anthropic(modelName);
-export const createProvider = createAnthropic;
-
-
-/*import { openai, createOpenAI, OpenAIProviderSettings } from '@ai-sdk/openai';
-export const modelName = 'gpt-5-nano';
+import { openai, createOpenAI } from '@ai-sdk/openai';
+export const providerName = 'openai';
+export const modelName = 'gpt-5.4-nano';
 export const createProvider = createOpenAI;
-export const model = openai(modelName);
-*/
+export const model: LanguageModel = openai(modelName);
+
+// import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
+// export const providerName = 'anthropic';
+// export const modelName = 'claude-haiku-4-5';
+// export const createProvider = createAnthropic;
+// export const model: LanguageModel = anthropic(modelName);
 
 export const timeout = 10000;
-export const temperature = 0.2;
+export const defaultTemperature = 0.2;
+export const temperature: number | null = providerName === 'openai' ? null : defaultTemperature;
+export const temperatureConfig: { temperature?: number } = temperature !== null ? { temperature } : {};
 
 /**
  * StringLoader class for testing purposes.

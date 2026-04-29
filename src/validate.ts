@@ -1,4 +1,4 @@
-import { ModelMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { z, ZodError } from 'zod';
 import * as types from './types/types';
 import * as configs from './types/config';

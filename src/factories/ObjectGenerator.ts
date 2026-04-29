@@ -1,4 +1,5 @@
-import { generateObject, LanguageModel, ModelMessage, ToolCallOptions } from "ai";
+import { generateObject } from "ai";
+import type { LanguageModel, ModelMessage, ToolCallOptions } from "ai";
 
 import * as results from '../types/result'
 import * as configs from '../types/config';

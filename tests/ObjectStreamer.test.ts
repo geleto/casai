@@ -3,7 +3,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from './cascada';
 import type { StreamObjectOnFinishEvent } from './cascada';
-import { model, temperature, StringLoader, AsyncStringLoader, timeout, modelName, createProvider } from './common';
+import { model, temperature, temperatureConfig, StringLoader, AsyncStringLoader, timeout, modelName, createProvider } from './common';
 import { z } from 'zod';
 import type { DeepPartial } from 'ai';
 
@@ -56,7 +56,7 @@ describe('create.ObjectStreamer', function () {
 	describe('Core Functionality by Output Type', () => {
 		it('should stream a single object with output: "object" (default) and provide partials', async () => {
 			const streamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				schema: simpleSchema,
 				prompt: 'Generate a JSON object for an item named "StreamTest" with a value of 99.',
 			});
@@ -73,7 +73,7 @@ describe('create.ObjectStreamer', function () {
 
 		it('should stream an array of objects with output: "array" and provide complete elements', async () => {
 			const streamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				output: 'array',
 				schema: arraySchema.element, // Pass the element schema for arrays
 				prompt: 'Generate a JSON array with two items: {id: 1, item: "A"} and {id: 2, item: "B"}.',
@@ -93,7 +93,7 @@ describe('create.ObjectStreamer', function () {
 		// Anthropic models do not support no-schema output streaming
 		it.skip('should stream a raw JSON object with output: "no-schema"', async () => {
 			const streamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				output: 'no-schema',
 				prompt: 'Generate a JSON object with a "status" key set to "ok" and "code" key set to 200: { status: "ok", code: 200 }.',
 			});
@@ -108,7 +108,7 @@ describe('create.ObjectStreamer', function () {
 
 		it('should stream an object when prompt is provided only at runtime', async () => {
 			const streamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				schema: simpleSchema,
 			});
 
@@ -121,21 +121,21 @@ describe('create.ObjectStreamer', function () {
 		it('should have correct type property', () => {
 			const objectStreamer = create.ObjectStreamer({
 				model,
-				temperature,
+				...temperatureConfig,
 				schema: simpleSchema,
 				prompt: 'Generate a test object'
 			});
 
 			const templateStreamer = create.ObjectStreamer.withTemplate({
 				model,
-				temperature,
+				...temperatureConfig,
 				schema: simpleSchema,
 				prompt: 'Generate {{ name }}'
 			});
 
 			const arrayStreamer = create.ObjectStreamer({
 				model,
-				temperature,
+				...temperatureConfig,
 				output: 'array',
 				schema: arraySchema.element,
 				prompt: 'Generate an array'
@@ -150,7 +150,7 @@ describe('create.ObjectStreamer', function () {
 
 	describe('Configuration & Inheritance', () => {
 		const parentConfig = create.Config({
-			model, temperature,
+			model, ...temperatureConfig,
 			context: {
 				entity: 'john',
 				defaultId: 456,
@@ -177,7 +177,7 @@ describe('create.ObjectStreamer', function () {
 
 		it('should inherit output type and schema from a parent streamer', async () => {
 			const parentStreamer = create.ObjectStreamer.withTemplate({
-				model, temperature,
+				model, ...temperatureConfig,
 				output: 'array',
 				schema: arraySchema.element,
 			});
@@ -202,13 +202,13 @@ describe('create.ObjectStreamer', function () {
 
 		it('should override parent properties (context, temperature)', async () => {
 			const streamer = create.ObjectStreamer.withTemplate({
-				temperature: 0.8,
+				...(temperature !== null ? { temperature: 0.8 } : {}),
 				schema: simpleSchema,
 				context: { entity: 'streamed_product' }, // Override entity
 				prompt: 'Generate an object for "{{ entity }}" and value {{ defaultId }}.',
 			}, parentConfig);
 
-			expect(streamer.config.temperature).to.equal(0.8);
+			expect(streamer.config.temperature).to.equal(temperature !== null ? 0.8 : undefined);
 			const result = await streamer();
 			const partials = await collectPartials(result.partialObjectStream);
 			const finalObject = mergePartials(partials);
@@ -253,7 +253,7 @@ describe('create.ObjectStreamer', function () {
 	describe('Template Engine Features', () => {
 		it('should resolve an asynchronous function from context', async () => {
 			const streamer = create.ObjectStreamer.withTemplate({
-				model, temperature,
+				model, ...temperatureConfig,
 				schema: simpleSchema,
 				context: {
 					fetchData: async () => ({ name: 'AsyncStream', value: await Promise.resolve(110) }),
@@ -269,7 +269,7 @@ describe('create.ObjectStreamer', function () {
 
 		it('should apply an asynchronous filter with arguments', async () => {
 			const streamer = create.ObjectStreamer.withTemplate({
-				model, temperature,
+				model, ...temperatureConfig,
 				schema: simpleSchema,
 				filters: {
 					createObject: async (name: string, val: number) => {
@@ -296,7 +296,7 @@ describe('create.ObjectStreamer', function () {
 
 			//x@ts-expect-error A TypeScript bug: https://github.com/microsoft/TypeScript/issues/62204
 			const streamer = create.ObjectStreamer({
-				model, temperature,
+				model, ...temperatureConfig,
 				schema: simpleSchema,
 				sss: 1,
 				prompt: 'Generate a JSON object for "FinishCallback" with value 123.',
@@ -323,7 +323,7 @@ describe('create.ObjectStreamer', function () {
 
 			const streamer = create.ObjectStreamer({
 				model: badModel,
-				temperature,
+				...temperatureConfig,
 				schema: simpleSchema,
 				prompt: 'This will fail.',
 			});
@@ -336,7 +336,7 @@ describe('create.ObjectStreamer', function () {
 				await collectPartials(result.partialObjectStream); // Consuming the stream triggers the error
 			} catch (e) {
 				expect(e).to.be.an.instanceOf(Error);
-				expect((e as Error).message).to.include('invalid x-api-key');
+				expect((e as Error).message).to.match(/invalid x-api-key|Incorrect API key/i);
 			}
 		});
 	});
@@ -350,7 +350,7 @@ describe('create.ObjectStreamer', function () {
 		});
 
 		it('should throw ConfigError if output is "array" but no schema is provided', () => {
-			expect(() => create.ObjectStreamer({ model, temperature, output: 'array' } as never)).to.throw(
+			expect(() => create.ObjectStreamer({ model, ...temperatureConfig, output: 'array' } as never)).to.throw(
 				ConfigError,
 				'An \'output\' of \'array\' requires a \'schema\' property',
 			);
@@ -361,7 +361,7 @@ describe('create.ObjectStreamer', function () {
 			// and I have not implemented alternative type checking yet
 			expect(() =>
 				create.ObjectStreamer({
-					model, temperature,
+					model, ...temperatureConfig,
 					// @ts-expect-error - Intentionally invalid
 					output: 'enum',
 					enum: ['A', 'B'],
@@ -373,7 +373,7 @@ describe('create.ObjectStreamer', function () {
 			// This validation is now handled at the TypeScript level, not runtime
 			expect(() =>
 				create.ObjectStreamer({
-					model, temperature,
+					model, ...temperatureConfig,
 					output: 'no-schema',
 					schema: simpleSchema,
 				} as never),
@@ -381,7 +381,7 @@ describe('create.ObjectStreamer', function () {
 		});
 
 		it('should reject promise at runtime if no prompt is provided in config or call', () => {
-			const streamer = create.ObjectStreamer({ model, temperature, schema: simpleSchema });
+			const streamer = create.ObjectStreamer({ model, ...temperatureConfig, schema: simpleSchema });
 			expect(() => streamer(undefined as unknown as string)).to.throw(
 				ConfigError,
 				'Either \'prompt\' (string or messages array) or \'messages\' must be provided',
@@ -397,7 +397,7 @@ describe('create.ObjectStreamer', function () {
 		it('should load and stream plain text from a loader', async () => {
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: stringLoader,
 				schema: simpleSchema,
 				prompt: 'simple.txt'
@@ -413,7 +413,7 @@ describe('create.ObjectStreamer', function () {
 		it('should load text at runtime with one-off prompt', async () => {
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: stringLoader,
 				schema: simpleSchema
 			});
@@ -434,7 +434,7 @@ describe('create.ObjectStreamer', function () {
 
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: [loader1, loader2],
 				schema: simpleSchema,
 				prompt: 'test2.txt'
@@ -452,7 +452,7 @@ describe('create.ObjectStreamer', function () {
 				// @ts-expect-error - no loader provided
 				create.ObjectStreamer.loadsText({
 					model,
-					temperature,
+					...temperatureConfig,
 					schema: simpleSchema,
 					prompt: 'file.txt'
 				})
@@ -466,7 +466,7 @@ describe('create.ObjectStreamer', function () {
 			expect(() => {
 				create.ObjectStreamer.loadsText({
 					model,
-					temperature,
+					...temperatureConfig,
 					loader: new StringLoader(),
 					schema: simpleSchema,
 					prompt: 'nonexistent.txt'
@@ -477,7 +477,7 @@ describe('create.ObjectStreamer', function () {
 		it('should throw if loader fails to find text at runtime', async () => {
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: new StringLoader(),
 				schema: simpleSchema
 			});
@@ -495,7 +495,7 @@ describe('create.ObjectStreamer', function () {
 		it('should load and stream plain text from an async loader', async () => {
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: asyncStringLoader,
 				schema: simpleSchema,
 				prompt: 'async-simple.txt'
@@ -511,7 +511,7 @@ describe('create.ObjectStreamer', function () {
 		it('should load text at runtime with one-off prompt using async loader', async () => {
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: asyncStringLoader,
 				schema: simpleSchema
 			});
@@ -532,7 +532,7 @@ describe('create.ObjectStreamer', function () {
 
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: [loader1, loader2],
 				schema: simpleSchema,
 				prompt: 'async-test2.txt'
@@ -548,7 +548,7 @@ describe('create.ObjectStreamer', function () {
 		it('should throw if async loader fails to find text at creation time', async () => {
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: new AsyncStringLoader(),
 				schema: simpleSchema,
 				prompt: 'nonexistent-async.txt'
@@ -561,7 +561,7 @@ describe('create.ObjectStreamer', function () {
 		it('should throw if async loader fails to find text at runtime', async () => {
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: new AsyncStringLoader(),
 				schema: simpleSchema
 			});
@@ -580,7 +580,7 @@ describe('create.ObjectStreamer', function () {
 
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: functionalAsyncLoader,
 				schema: simpleSchema,
 				prompt: 'async-func.txt'
@@ -603,7 +603,7 @@ describe('create.ObjectStreamer', function () {
 			// The sync loader shall have the answer first
 			const streamer = create.ObjectStreamer.loadsText({
 				model,
-				temperature,
+				...temperatureConfig,
 				loader: [asyncLoader, syncLoader],
 				schema: simpleSchema,
 				prompt: 'mixed.txt'
