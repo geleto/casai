@@ -50,7 +50,7 @@
 		"lint": "eslint src tests",
 		"typecheck": "tsc --noEmit",
 		"test": "npm run build && mocha",
-		"test:file": "mocha --no-config --node-option loader=ts-node/esm --node-option conditions=casai-source --require dotenv/config",
+		"test:file": "mocha --no-config --node-option import=tsx --node-option conditions=casai-source --require dotenv/config",
 		"test:watch": "mocha --watch",
 		"test-type": "eslint tests/type-safety",
 		"start": "tsx examples/story.ts"
