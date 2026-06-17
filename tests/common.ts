@@ -18,6 +18,7 @@ export const timeout = 10000;
 export const defaultTemperature = 0.2;
 export const temperature: number | null = providerName === 'openai' ? null : defaultTemperature;
 export const temperatureConfig: { temperature?: number } = temperature !== null ? { temperature } : {};
+export const commonConfig = { ...temperatureConfig, allowSystemInMessages: true };
 
 /**
  * StringLoader class for testing purposes.
