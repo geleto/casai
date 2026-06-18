@@ -539,12 +539,13 @@ describe('Messages, Conversation & Integration', function () {
 			it('should allow an agent-selected LLM-backed tool to execute from the tool call input', async function () {
 				this.timeout(timeout * 2);
 
+				const weatherInputSchema = z.object({ city: z.string() });
 				const llmWeatherTool = create.ObjectGenerator.withTemplate.asTool({
 					model,
 					...commonConfig,
 					schema: weatherSchema,
 					description: 'Get the weather for a city',
-					inputSchema: z.object({ city: z.string() }),
+					inputSchema: weatherInputSchema,
 					prompt: 'Return exactly this weather object for {{ city }}: city "{{ city }}", tempF 75, conditions "Sunny".'
 				});
 
@@ -559,9 +560,10 @@ describe('Messages, Conversation & Integration', function () {
 				expect(result.finishReason).to.equal('tool-calls');
 				expect(result.toolCalls).to.have.lengthOf(1);
 				expect(result.toolCalls[0].toolName).to.equal('getWeather');
-				expect(result.toolCalls[0].input).to.deep.equal({ city: 'San Francisco' });
+				const toolInput = weatherInputSchema.parse(result.toolCalls[0].input);
+				expect(toolInput).to.deep.equal({ city: 'San Francisco' });
 
-				const toolResult = await llmWeatherTool.execute(result.toolCalls[0].input, {
+				const toolResult = await llmWeatherTool.execute(toolInput, {
 					toolCallId: result.toolCalls[0].toolCallId,
 					messages: result.response.messageHistory,
 				});
