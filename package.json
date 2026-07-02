@@ -82,7 +82,7 @@
 		"npm": ">=9.0.0"
 	},
 	"dependencies": {
-		"cascada-engine": "^0.6.1",
+		"cascada-engine": "^0.6.2",
 		"ts-node": "^10.9.2",
 		"typescript": "^6.0.3"
 	},
