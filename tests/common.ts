@@ -1,12 +1,26 @@
 import 'dotenv/config';
 import type { LoaderInterface } from 'cascada-engine';
 import type { LanguageModel } from 'ai';
+import { defaultSettingsMiddleware, wrapLanguageModel } from 'ai';
 
 import { openai, createOpenAI } from '@ai-sdk/openai';
 export const providerName = 'openai';
-export const modelName = 'gpt-5.4-nano';
+export const modelName = 'gpt-6-luna';
 export const createProvider = createOpenAI;
-export const model: LanguageModel = openai(modelName);
+export const model: LanguageModel = wrapLanguageModel({
+	model: openai(modelName),
+	middleware: defaultSettingsMiddleware({
+		settings: {
+			providerOptions: {
+				openai: {
+					reasoningEffort: 'none',
+					// The installed provider does not yet recognize GPT-6 as a reasoning model.
+					forceReasoning: true,
+				},
+			},
+		},
+	}),
+});
 
 // import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
 // export const providerName = 'anthropic';
