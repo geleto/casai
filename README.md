@@ -50,7 +50,11 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 
 ### Learn by Example
 
-The best way to see the power of Casai is to explore real-world code. In our [**Casai Examples Repository**](https://github.com/geleto/casai-examples), you'll find practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story. **(Work in progress)**
+The best way to see the power of Casai is to explore real-world code.
+
+See [Smart DB Dashboard](https://github.com/geleto/smart-db-dashboard) and its article, [Cheap, Fast, Concurrent: AI Agents on a Budget](https://github.com/geleto/smart-db-dashboard/blob/main/article.md), for a practical example of building concurrent AI workflows with Casai and Cascada.
+
+ In our [**Casai Examples Repository**](https://github.com/geleto/casai-examples), you'll find practical examples showing AI workflows you can understand at a glance: just clear logic that tells a story. **(Work in progress)**
 
 # Table of Contents
 - [Features](#features)
