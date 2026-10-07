@@ -826,7 +826,7 @@ function withFunction<
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.FunctionPromptConfig,
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
-		configs.FunctionPromptConfig, PROMPT>,
+		configs.FunctionPromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.FunctionPromptConfig>>,
 
@@ -904,7 +904,7 @@ function withFunctionAsTool<
 ): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentTool<INPUT, OUTPUT> {
 	return _createObjectGeneratorAsTool(
 		config as GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.OptionalPromptConfig & results.ComponentTool<INPUT, OUTPUT>,
-		'async-script',
+		'function',
 		parent
 	) as unknown as GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentTool<INPUT, OUTPUT>;
 }

@@ -1,6 +1,6 @@
-import { Context, SchemaType, ScriptPromptType, TemplatePromptType } from './types/types.js';
+import type { Context, SchemaType, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
 import * as configs from './types/config.js';
-import { validateLLMComponentCall } from './validate.js';
+import { ConfigError, validateLLMComponentCall } from './validate.js';
 import * as utils from './types/utils.js';
 import { _createTemplate, TemplateCallSignature } from './factories/Template.js';
 import { _createScript, ScriptCallSignature } from './factories/Script.js';
@@ -136,6 +136,15 @@ function copyConfigProperties(config: Record<string, any>, keys: readonly string
 	return dst;
 }
 
+function createFunctionPromptRenderer(config: Record<string, any>, prompt: PromptFunction) {
+	return _createFunction({
+		...copyConfigProperties(config, configs.FunctionConfigKeys),
+		// Validate the prompt result, independently of the LLM's output schema.
+		schema: PromptStringOrMessagesSchema,
+		execute: prompt
+	});
+}
+
 //@todo - the promptComponent shall use a precompiled template/script when created with a template/script promptType
 export function _createLLMComponent<
 	TConfig extends configs.OptionalPromptConfig & Partial<TFunctionConfig> & { context?: Context }
@@ -159,7 +168,7 @@ export function _createLLMComponent<
 
 	let call;
 	let run: (
-		configArg: Partial<configs.BaseConfig> & { messages?: ModelMessage[], prompt?: string, context?: Context },
+		configArg: configs.LLMRunConfig,
 		calledFromCall: boolean
 	) => TFunctionResult | Promise<TFunctionResult>;
 
@@ -192,16 +201,12 @@ export function _createLLMComponent<
 			}
 			renderer = _createScript(scriptConfig, config.promptType as ScriptPromptType) as ScriptComponent;
 		} else if (isFunctionPrompt) {
-			const functionConfig = {
-				...copyConfigProperties(config, configs.FunctionConfigKeys),
-				execute: config.prompt as (context: Context) => Promise<string | ModelMessage[]>
-			};
-			renderer = _createFunction(functionConfig as configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any, any>) as FunctionComponent;
+			renderer = createFunctionPromptRenderer(config, config.prompt as PromptFunction);
 		} else {
 			throw new Error(`Unhandled prompt type: ${config.promptType}`);
 		}
 		run = async (
-			configArg: Partial<configs.BaseConfig> & { messages?: ModelMessage[], prompt?: string, context?: Context },
+			configArg: configs.LLMRunConfig,
 			calledFromCall = false
 		): Promise<TFunctionResult> => {
 			//  Merge configurations to get a complete view for this run.
@@ -212,12 +217,18 @@ export function _createLLMComponent<
 				if (config.debug) {
 					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
 				}
-				validateLLMComponentCall(config, config.promptType!, undefined);
+				validateLLMComponentCall(config, config.promptType!, isFunctionPrompt ? configArg.context : undefined);
 			}
 
 			// Render the prompt
 			let renderedPrompt: string | ModelMessage[];
-			if (configArg.prompt && !isFunctionPrompt) {
+			if (isFunctionPrompt && configArg.prompt !== undefined) {
+				if (typeof configArg.prompt !== 'function') {
+					throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
+				}
+				const runRenderer = createFunctionPromptRenderer(runConfig, configArg.prompt);
+				renderedPrompt = await runRenderer(runConfig.context) as string | ModelMessage[];
+			} else if (typeof configArg.prompt === 'string' && configArg.prompt && !isFunctionPrompt) {
 				//re-compile with the new prompt
 				renderedPrompt = await (renderer as TemplateComponent | ScriptComponent)(configArg.prompt, runConfig.context) as string | ModelMessage[];
 			} else {
@@ -229,17 +240,11 @@ export function _createLLMComponent<
 				console.log('[DEBUG] LLMComponent.run executed with:', { configArg, renderedPrompt });
 			}
 
-			// Directly translate the original `processMessages` check.
-			// We modify the `processMessages` variable from the parent closure, just like the original.
-			if (processMessages &&
-				!Array.isArray(renderedPrompt) && // The rendered prompt is a string
-				!runConfig.messages) // The merged config has no messages.
-			{
-				processMessages = false;
-			}
+			// A prompt function can return text on one call and messages on the next.
+			const shouldProcessMessages = processMessages && (Array.isArray(renderedPrompt) || !!runConfig.messages);
 
 			// Execute the appropriate path, mirroring the original if/else structure.
-			if (!processMessages) {
+			if (!shouldProcessMessages) {
 				// Path for simple, non-conversational prompts.
 				return await vercelFunc({ ...runConfig, prompt: renderedPrompt } as TFunctionConfig);
 			} else {
@@ -293,7 +298,7 @@ export function _createLLMComponent<
 	} else {
 		// Static Path - vanilla text prompt,promptType is 'text' or undefined
 		run = (
-			configArg: Partial<configs.BaseConfig> & { messages?: ModelMessage[], prompt?: string, context?: Context },
+			configArg: configs.LLMRunConfig,
 			calledFromCall = false
 		): TFunctionResult => {
 			if (!calledFromCall) {
@@ -365,7 +370,7 @@ export function _createLLMComponent<
 			//const messages: ModelMessage[] | undefined = config.messages;
 			const syncRun = run;
 			run = async (
-				configArg: Partial<configs.BaseConfig> & { messages?: ModelMessage[], prompt?: string, context?: Context, loader?: ILoaderAny | ILoaderAny[] },
+				configArg: configs.LLMRunConfig & { loader?: ILoaderAny | ILoaderAny[] },
 				calledFromCall = false
 			): Promise<TFunctionResult> => {
 				//let prompt: string | undefined;

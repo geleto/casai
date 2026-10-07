@@ -408,7 +408,7 @@ function withFunction<
 	TConfigShape = ShapeOf<TConfig> & configs.FunctionPromptConfig,
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
-		configs.FunctionPromptConfig, PROMPT>,
+		configs.FunctionPromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.FunctionPromptConfig>>,
 

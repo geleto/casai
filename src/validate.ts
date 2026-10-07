@@ -335,6 +335,16 @@ export function validateLLMComponentCall(
 
 	validateMessagesArray(callArgs.messages);
 
+	if (promptType === 'function') {
+		if (callArgs.prompt !== undefined || callArgs.messages !== undefined || args[1] !== undefined || args[2] !== undefined) {
+			throw new ConfigError('Function-prompt components only accept a context object.');
+		}
+		if (!isToolCall) {
+			validateInput(config, callArgs.context ?? {});
+		}
+		return;
+	}
+
 	if (promptType.includes('template') || promptType.includes('script')) {
 
 		if (!isToolCall) {

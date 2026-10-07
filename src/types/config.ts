@@ -282,6 +282,13 @@ export interface FunctionToolConfig<
 			=> types.InferSchema<TOutputSchema, any>>;
 }
 
+// Shared configuration fields used by the LLM run() implementation.
+export type LLMRunConfig = Partial<BaseConfig> & {
+	messages?: ModelMessage[];
+	prompt?: string | types.PromptFunction;
+	context?: types.Context;
+};
+
 // For the .run argument - disallow all properties that ...
 export type RunConfigDisallowedProperties =
 	| 'schema' | 'output' | 'enum' //... change the output type
