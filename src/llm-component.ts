@@ -1,17 +1,14 @@
-import type { Context, SchemaType, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
+import type { Context, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
 import * as configs from './types/config.js';
 import { ConfigError, validateLLMComponentCall } from './validate.js';
 import * as utils from './types/utils.js';
-import { _createTemplate, TemplateCallSignature } from './factories/Template.js';
-import { _createScript, ScriptCallSignature } from './factories/Script.js';
 import { generateObject, generateText, streamObject, streamText } from 'ai';
 import type { LanguageModel, ModelMessage } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
-import { PromptStringOrMessagesSchema } from './types/schemas.js';
 import { RequiredPromptType, AnyPromptSource } from './types/types.js';
 import { loadString } from 'cascada-engine';
 import type { ILoaderAny } from 'cascada-engine';
-import { _createFunction, FunctionCallSignature } from './factories/Function.js';
+import { createTemplatePromptRenderer, createScriptPromptRenderer, createFunctionPromptRenderer } from './prompt-renderers.js';
 import { augmentGenerateText, augmentStreamText } from './messages.js';
 import { mergeConfigs } from './config-utils.js';
 
@@ -126,25 +123,6 @@ export function extractCallArguments(promptOrMessageOrContext?: string | ModelMe
 	return { prompt: promptFromArgs, messages: messagesFromArgs, context: contextFromArgs };
 }
 
-function copyConfigProperties(config: Record<string, any>, keys: readonly string[]): Record<string, any> {
-	const dst = {} as Record<string, any>;
-	for (const key of keys) {
-		if (key in config) {
-			dst[key] = config[key] as unknown;
-		}
-	}
-	return dst;
-}
-
-function createFunctionPromptRenderer(config: Record<string, any>, prompt: PromptFunction) {
-	return _createFunction({
-		...copyConfigProperties(config, configs.FunctionConfigKeys),
-		// Validate the prompt result, independently of the LLM's output schema.
-		schema: PromptStringOrMessagesSchema,
-		execute: prompt
-	});
-}
-
 //@todo - the promptComponent shall use a precompiled template/script when created with a template/script promptType
 export function _createLLMComponent<
 	TConfig extends configs.OptionalPromptConfig & Partial<TFunctionConfig> & { context?: Context }
@@ -174,12 +152,9 @@ export function _createLLMComponent<
 
 	if (config.promptType !== 'text' && config.promptType !== 'text-name' && config.promptType !== undefined) {
 		// Dynamic Path - use Template/Script/Function to render the prompt
-		//let renderer: TemplateCallSignature<any, any> | ScriptCallSignature<any, any, any> | FunctionCallSignature<any, any, any>;
-		type ScriptAndFunctionOutput = string | ModelMessage[];
-		//type FunctionComponent = FunctionCallSignature<configs.FunctionConfig<any, ScriptAndFunctionOutput> & { execute: (context: Context) => Promise<ScriptAndFunctionOutput> }, any, ScriptAndFunctionOutput>;
-		type FunctionComponent = FunctionCallSignature<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any, configs.FunctionConfig<SchemaType<Record<string, any>>, SchemaType<Record<string, any>>, any, any>>;
-		type ScriptComponent = ScriptCallSignature<configs.ScriptConfig<any, ScriptAndFunctionOutput> & { script: string }, any, ScriptAndFunctionOutput>;
-		type TemplateComponent = TemplateCallSignature<configs.TemplateConfig<any> & { template: string }, any>;
+		type FunctionComponent = ReturnType<typeof createFunctionPromptRenderer>;
+		type ScriptComponent = ReturnType<typeof createScriptPromptRenderer>;
+		type TemplateComponent = ReturnType<typeof createTemplatePromptRenderer>;
 
 		let renderer: TemplateComponent | ScriptComponent | FunctionComponent;
 		const isTemplatePrompt = config.promptType === 'template' || config.promptType === 'template-name' || config.promptType === 'async-template' || config.promptType === 'async-template-name';
@@ -187,19 +162,9 @@ export function _createLLMComponent<
 		const isFunctionPrompt = config.promptType === 'function';
 
 		if (isTemplatePrompt) {
-			const templateConfig = {
-				...copyConfigProperties(config, configs.TemplateConfigKeys),
-				template: config.prompt
-			};
-			renderer = _createTemplate(templateConfig, config.promptType as TemplatePromptType) as TemplateComponent;
+			renderer = createTemplatePromptRenderer(config, config.prompt, config.promptType as TemplatePromptType);
 		} else if (isScriptPrompt) {
-			// The LLM renderer's 'prompt' becomes the 'script' for the Script factory.
-			const scriptConfig = {
-				...copyConfigProperties(config, configs.ScriptConfigKeys),
-				script: config.prompt,
-				schema: PromptStringOrMessagesSchema
-			}
-			renderer = _createScript(scriptConfig, config.promptType as ScriptPromptType) as ScriptComponent;
+			renderer = createScriptPromptRenderer(config, config.prompt, config.promptType as ScriptPromptType);
 		} else if (isFunctionPrompt) {
 			renderer = createFunctionPromptRenderer(config, config.prompt as PromptFunction);
 		} else {
@@ -227,13 +192,13 @@ export function _createLLMComponent<
 					throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
 				}
 				const runRenderer = createFunctionPromptRenderer(runConfig, configArg.prompt);
-				renderedPrompt = await runRenderer(runConfig.context) as string | ModelMessage[];
+				renderedPrompt = await runRenderer(runConfig.context);
 			} else if (typeof configArg.prompt === 'string' && configArg.prompt && !isFunctionPrompt) {
 				//re-compile with the new prompt
 				renderedPrompt = await (renderer as TemplateComponent | ScriptComponent)(configArg.prompt, runConfig.context) as string | ModelMessage[];
 			} else {
 				// the renderer has precompiled script/template or is a function, just give it the context
-				renderedPrompt = await renderer(runConfig.context as Record<string, any>) as string | ModelMessage[];
+				renderedPrompt = await renderer(runConfig.context) as string | ModelMessage[];
 			}
 
 			if (runConfig.debug) {
