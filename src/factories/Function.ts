@@ -3,7 +3,7 @@ import * as utils from '../types/utils.js';
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateFunctionConfig, validateScriptOrFunctionCall, validateAndParseOutput } from "../validate.js";
 //import { ExecuteFunction, types.InferSchema, types.SchemaType, ToolExecuteFunction } from '../types/types.js';
-import type { ToolCallOptions } from 'ai';
+import type { ToolExecutionOptions } from 'ai';
 import * as types from '../types/types.js';
 
 //@todo - document toolCallId handling
@@ -183,7 +183,7 @@ function asFunction(
 	return _createFunction(config, parent as configs.ConfigProvider<any>, false);
 }
 
-//2. The ToolExecuteFunction accepts options: ToolCallOptions argument
+//2. The ToolExecuteFunction accepts options: ToolExecutionOptions argument
 //3. The FunctionToolConfig uses the AI SDK Tool as a base, with replaced execute
 // (that allows CONTEXT argument properties) - we want to use the Tool declaration as much as possible
 function asTool<
@@ -286,7 +286,7 @@ export function _createFunction(
 	}
 
 	// Create a callable function that delegates to the execute method
-	const callableFunction = async (inputOrContext: Record<string, any>, options: ToolCallOptions): Promise<any> => {
+	const callableFunction = async (inputOrContext: Record<string, any>, options: ToolExecutionOptions<unknown>): Promise<any> => {
 		if (isTool) {
 			const toolConfig = merged as configs.FunctionToolConfig<any, any, any, any>;
 			const mergedContext = { ...toolConfig.context ?? {}, ...inputOrContext } as Record<string, any>;

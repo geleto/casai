@@ -3,7 +3,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from './cascada';
 import type { Context } from './cascada';
 import { z } from 'zod';
-import type { ModelMessage, ToolCallOptions } from 'ai';
+import type { ModelMessage, ToolExecutionOptions } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 
 chai.use(chaiAsPromised);
@@ -238,7 +238,7 @@ describe('withFunction prompts', () => {
 
 		it('should execute function prompts as text tools', async () => {
 			const model = mockModel('FN_TOOL');
-			const options: ToolCallOptions = { toolCallId: 'text-function', messages: [] };
+			const options: ToolExecutionOptions<unknown> = { toolCallId: 'text-function', messages: [], context: undefined };
 			const parent = create.Config({ model, context: { prefix: 'Configured' } });
 			const tool = create.TextGenerator.withFunction.asTool({
 				inputSchema: z.object({ marker: z.string() }),
@@ -364,7 +364,7 @@ describe('withFunction prompts', () => {
 
 		it('should execute function prompts as object tools', async () => {
 			const model = mockModel('{"name":"FnTool","value":13}');
-			const options: ToolCallOptions = { toolCallId: 'object-function', messages: [] };
+			const options: ToolExecutionOptions<unknown> = { toolCallId: 'object-function', messages: [], context: undefined };
 			const parent = create.Config({ model, context: { value: 13 } });
 			const tool = create.ObjectGenerator.withFunction.asTool({
 				schema: itemSchema,

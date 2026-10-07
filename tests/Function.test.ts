@@ -4,7 +4,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { create } from './cascada';
 import { timeout } from './common';
 import { z } from 'zod';
-import type { ToolCallOptions } from 'ai';
+import type { ToolExecutionOptions } from 'ai';
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
@@ -965,7 +965,7 @@ describe('create.Function', function () {
 			});
 
 			// Simulate tool call (usually done by AI SDK)
-			const result = await tool.execute({ msg: 'Hello', prefix: 'Tool:' }, {} as ToolCallOptions) as string;
+			const result = await tool.execute({ msg: 'Hello', prefix: 'Tool:' }, {} as ToolExecutionOptions<unknown>) as string;
 			expect(result).to.equal('Tool: Hello');
 		});
 
@@ -978,9 +978,10 @@ describe('create.Function', function () {
 				}
 			});
 
-			const options: ToolCallOptions = {
+			const options: ToolExecutionOptions<unknown> = {
 				toolCallId: 'call_123',
-				messages: []
+				messages: [],
+				context: undefined
 			};
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			const result = await tool.execute({}, options);
@@ -1011,7 +1012,7 @@ describe('create.Function', function () {
 			});
 
 			// If we call it like a tool, internal validation is skipped (assuming SDK did it)
-			const result = await tool({ req: 'valid' }, {} as ToolCallOptions);
+			const result = await tool({ req: 'valid' }, {} as ToolExecutionOptions<unknown>);
 			expect(result).to.equal('valid');
 		});
 
@@ -1025,7 +1026,7 @@ describe('create.Function', function () {
 				execute: (input) => input.val * input.multiplier
 			}, parent);
 
-			const result = await tool({ val: 5 }, {} as ToolCallOptions);
+			const result = await tool({ val: 5 }, {} as ToolExecutionOptions<unknown>);
 			expect(result).to.equal(50);
 		});
 
@@ -1040,7 +1041,7 @@ describe('create.Function', function () {
 				execute: (input) => input.y * 3
 			}, parentFn);
 
-			const result = await tool({ y: 5 }, {} as ToolCallOptions);
+			const result = await tool({ y: 5 }, {} as ToolExecutionOptions<unknown>);
 			expect(result).to.equal(15);
 		});
 
@@ -1057,7 +1058,7 @@ describe('create.Function', function () {
 				execute: (input) => ({ result: input.val })
 			}, parentFn);
 
-			const result = await tool({}, {} as ToolCallOptions);
+			const result = await tool({}, {} as ToolExecutionOptions<unknown>);
 			expect(result).to.deep.equal({ result: 10 });
 		});
 
@@ -1071,7 +1072,7 @@ describe('create.Function', function () {
 				}
 			});
 
-			await expect(tool.execute({}, {} as ToolCallOptions)).to.be.rejectedWith(/Output validation failed/);
+			await expect(tool.execute({}, {} as ToolExecutionOptions<unknown>)).to.be.rejectedWith(/Output validation failed/);
 		});
 
 		it('asTool with complex nested schemas', async () => {
@@ -1109,7 +1110,7 @@ describe('create.Function', function () {
 					user: { id: 1, name: 'Alice' },
 					data: [1, 2, 3, 4, 5]
 				}
-			}, {} as ToolCallOptions);
+			}, {} as ToolExecutionOptions<unknown>);
 
 			expect(result).to.deep.equal({
 				response: {
@@ -1355,7 +1356,7 @@ Diana,16`;
 					{ name: 'Widget', price: 10, quantity: 2 },
 					{ name: 'Gadget', price: 15, quantity: 1 }
 				]
-			}, { toolCallId: 'test', messages: [] });
+			}, { context: undefined, toolCallId: 'test', messages: [] });
 
 			expect(result).to.deep.equal({
 				subtotal: 35,

@@ -54,7 +54,7 @@ describe('Messages, Conversation & Integration', function () {
 
 				const result = await streamer('Reply with "OK".');
 				// consume stream to resolve the response promise
-				for await (const chunk of result.textStream) { void chunk; }
+				await result.consumeStream();
 
 				const response = await result.response;
 				expect(response).to.have.property('messageHistory');
@@ -564,6 +564,7 @@ describe('Messages, Conversation & Integration', function () {
 				expect(toolInput).to.deep.equal({ city: 'San Francisco' });
 
 				const toolResult = await llmWeatherTool.execute(toolInput, {
+					context: undefined,
 					toolCallId: result.toolCalls[0].toolCallId,
 					messages: result.response.messageHistory,
 				});

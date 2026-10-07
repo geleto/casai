@@ -3,7 +3,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from './cascada';
 import { z } from 'zod';
-import type { ToolCallOptions } from 'ai';
+import type { ToolExecutionOptions } from 'ai';
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
@@ -32,20 +32,21 @@ describe('Function.asTool Updates', () => {
 
 	describe('Execution with Options', () => {
 		it('should pass options to execute function', async () => {
-			let capturedOptions: ToolCallOptions | undefined;
+			let capturedOptions: ToolExecutionOptions<unknown> | undefined;
 			const tool = create.Function.asTool({
 				description: 'Test tool',
 				inputSchema: z.object({ val: z.number() }),
-				execute: async (input: { val: number }, options: ToolCallOptions) => {
+				execute: async (input: { val: number }, options: ToolExecutionOptions<unknown>) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
 					capturedOptions = options;
 					return input.val;
 				}
 			});
 
-			const mockOptions: ToolCallOptions = {
+			const mockOptions: ToolExecutionOptions<unknown> = {
 				toolCallId: '123',
-				messages: []
+				messages: [],
+				context: undefined
 			};
 
 			await tool.execute({ val: 10 }, mockOptions);
@@ -65,26 +66,27 @@ describe('Function.asTool Updates', () => {
 				}
 			});
 
-			const result = await tool({ val: 5, multiplier: 2 }, { toolCallId: '123', messages: [] });
+			const result = await tool({ val: 5, multiplier: 2 }, { toolCallId: '123', messages: [], context: undefined });
 			expect(result).to.equal(10);
 		});
 
 		it('should pass options and context', async () => {
-			let capturedOptions: ToolCallOptions | undefined;
+			let capturedOptions: ToolExecutionOptions<unknown> | undefined;
 			const tool = create.Function.asTool({
 				description: 'Test tool',
 				context: { multiplier: 3 },
 				inputSchema: z.object({ val: z.number() }),
-				execute: async (input: { val: number } & { multiplier: number }, options: ToolCallOptions) => {
+				execute: async (input: { val: number } & { multiplier: number }, options: ToolExecutionOptions<unknown>) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
 					capturedOptions = options;
 					return input.val * input.multiplier;
 				}
 			});
 
-			const mockOptions: ToolCallOptions = {
+			const mockOptions: ToolExecutionOptions<unknown> = {
 				toolCallId: '456',
-				messages: []
+				messages: [],
+				context: undefined
 			};
 
 			const result = await tool({ val: 5 }, mockOptions);

@@ -39,7 +39,7 @@ function augmentResponseObject(
 }
 
 export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
-	result: GenerateTextResult<TOOLS, OUTPUT>,
+	result: GenerateTextResult<TOOLS, any, OUTPUT>,
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
 ): GenerateTextResultAugmented<TOOLS, OUTPUT> {
@@ -56,7 +56,7 @@ export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT exte
 }
 
 export function augmentStreamText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
-	result: StreamTextResult<TOOLS, OUTPUT>,
+	result: StreamTextResult<TOOLS, any, OUTPUT>,
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
 ): StreamTextResultAugmented<TOOLS, OUTPUT> {

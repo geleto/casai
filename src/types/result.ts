@@ -4,7 +4,7 @@ import {
 import type {
 	GenerateTextResult,
 	StreamTextResult,
-	ToolCallOptions,
+	ToolExecutionOptions,
 	ToolSet,
 	ModelMessage,
 } from 'ai';
@@ -26,17 +26,17 @@ export type ScriptResult = JSONValue;//@todo - remove, RESULT can be any type (u
 // Augmented text result types with lazy messageHistory
 // Augmented text result types with lazy messageHistory
 export type GenerateTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
-	GenerateTextResult<TOOLS, OUTPUT> & {
-		response: GenerateTextResult<TOOLS, OUTPUT>['response'] & {
+	GenerateTextResult<TOOLS, any, OUTPUT> & {
+		response: GenerateTextResult<TOOLS, any, OUTPUT>['response'] & {
 			messageHistory: ModelMessage[];
 		};
 	};
 
 export type StreamTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
-	StreamTextResult<TOOLS, OUTPUT> & {
-		response: StreamTextResult<TOOLS, OUTPUT>['response'] extends PromiseLike<infer R>
+	StreamTextResult<TOOLS, any, OUTPUT> & {
+		response: StreamTextResult<TOOLS, any, OUTPUT>['response'] extends PromiseLike<infer R>
 		? Promise<R & { messageHistory: ModelMessage[] }>
-		: StreamTextResult<TOOLS, OUTPUT>['response'];
+		: StreamTextResult<TOOLS, any, OUTPUT>['response'];
 	};
 
 //these are returned in a Promise
@@ -70,6 +70,6 @@ type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>;
 export interface ComponentTool<INPUT, OUTPUT> {
 	description?: string;
 	inputSchema: SchemaType<INPUT>;
-	execute: (args: INPUT, options: ToolCallOptions) => PromiseLike<OUTPUT>;
+	execute: (args: INPUT, options: ToolExecutionOptions<unknown>) => PromiseLike<OUTPUT>;
 	type?: 'function';
 }

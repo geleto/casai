@@ -5,7 +5,7 @@ import type {
 	ToolSet,
 	StreamObjectOnFinishCallback,
 	ModelMessage,
-	ToolCallOptions
+	ToolExecutionOptions
 } from 'ai';
 import type { ConfigureOptions } from 'cascada-engine';
 import * as types from './types.js';
@@ -129,7 +129,7 @@ export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT> {
 	type?: 'function';
 	description?: string;
 	inputSchema: types.SchemaType<INPUT>;//the only required property
-	execute?: (args: INPUT, options: ToolCallOptions) => PromiseLike<OUTPUT>;
+	execute?: (args: INPUT, options: ToolExecutionOptions<unknown>) => PromiseLike<OUTPUT>;
 }
 
 // Config types
@@ -153,6 +153,12 @@ export type StreamTextConfig<
 > = Omit<Parameters<typeof streamText<TOOLS>>[0], 'prompt'>
 	& BaseConfig
 	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
+
+// Factory validation shapes cover any tool set, whose context type is not yet known.
+export type TextConfigShape<TConfig> = Omit<TConfig, 'toolsContext'> & { toolsContext?: unknown };
+
+// Key validation also applies to callbacks whose argument types depend on the tool set.
+export type ConfigShape<TConfig> = { [Property in keyof TConfig]?: unknown };
 
 // We get the last overload which is the no-schema overload and make it base by omitting the output and mode properties
 export type GenerateObjectBaseConfig<
@@ -278,7 +284,7 @@ export interface FunctionToolConfig<
 	execute: types.FunctionToolImplementation<
 		TInputSchema, TOutputSchema, FINAL_CONTEXT,
 		(input: types.InferSchema<TInputSchema, Record<string, any>> & (FINAL_CONTEXT extends undefined ? unknown : FINAL_CONTEXT),
-			options: ToolCallOptions)
+			options: ToolExecutionOptions<unknown>)
 			=> types.InferSchema<TOutputSchema, any>>;
 }
 
@@ -312,11 +318,9 @@ export type AnyConfig<
 		| StreamObjectObjectConfig<INPUT, OUTPUT, PROMPT>
 		| StreamObjectArrayConfig<INPUT, OUTPUT, PROMPT>
 		| StreamObjectNoSchemaConfig<INPUT, PROMPT>
-		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-	) & (ToolConfig<INPUT, OUTPUT> | {}) &
+	) & Partial<ToolConfig<INPUT, OUTPUT>> &
 		(
-			// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-			(LoaderConfig | {}) & (TemplatePromptConfig | ScriptPromptConfig | {})
+			Partial<LoaderConfig> & (TemplatePromptConfig | ScriptPromptConfig)
 		)
 		| FunctionPromptConfig
 	) |
@@ -325,7 +329,6 @@ export type AnyConfig<
 		| TemplateToolConfig<INPUT>
 		| ScriptToolConfig<INPUT, OUTPUT>
 		| ScriptConfig<INPUT, OUTPUT>
-		// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-	) & (LoaderConfig | {}))
+	) & Partial<LoaderConfig>)
 	| FunctionToolConfig<any, any, Record<string, any> | undefined>//switch to any as getting schema from input/output is not bulletproof
 	| FunctionConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any>, Record<string, any> | undefined, Record<string, any> | undefined>;//@todo - use the schema for the whole thing

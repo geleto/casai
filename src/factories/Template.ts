@@ -5,7 +5,7 @@ import * as configs from '../types/config.js';
 import * as utils from '../types/utils.js';
 import * as results from '../types/result.js';
 import { Context, SchemaType, TemplatePromptType } from '../types/types.js';
-import type { ToolCallOptions } from 'ai';
+import type { ToolExecutionOptions } from 'ai';
 
 export type TemplateCallSignature<
 	TConfig extends configs.TemplateConfig<INPUT>,
@@ -225,9 +225,9 @@ function _createTemplateAsTool<
 	toolComponent.inputSchema = renderer.config.inputSchema as unknown as SchemaType<FINAL_INPUT>;
 	toolComponent.type = 'function';
 
-	toolComponent.execute = async (args: FINAL_INPUT, options: ToolCallOptions): Promise<string> => {
+	toolComponent.execute = async (args: FINAL_INPUT, options: ToolExecutionOptions<unknown>): Promise<string> => {
 		const contextWithToolOptions = { ...args, _toolCallOptions: options };
-		return await (renderer as unknown as (context: FINAL_INPUT & { _toolCallOptions: ToolCallOptions }) => Promise<string>)(contextWithToolOptions);
+		return await (renderer as unknown as (context: FINAL_INPUT & { _toolCallOptions: ToolExecutionOptions<unknown> }) => Promise<string>)(contextWithToolOptions);
 	};
 
 	return renderer as TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT> & results.ComponentTool<FINAL_INPUT, string>;

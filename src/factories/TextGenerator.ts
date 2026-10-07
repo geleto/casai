@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import type { LanguageModel, ToolSet, ToolCallOptions, ModelMessage } from "ai";
+import type { LanguageModel, ToolSet, ToolExecutionOptions, ModelMessage } from "ai";
 
 import * as results from '../types/result.js';
 import * as configs from '../types/config.js';
@@ -10,7 +10,8 @@ import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateTextLLMConfig } from "../validate.js";
 
-type CommonConfig = configs.GenerateTextConfig<ToolSet, never, types.AnyPromptSource>;
+type CommonConfig = configs.TextConfigShape<configs.GenerateTextConfig<ToolSet, never, types.AnyPromptSource>>;
+type AnyTextConfig = configs.ConfigShape<configs.GenerateTextConfig<any, any, any>>;
 
 // The generic return type for a TextGenerator instance.
 // It correctly infers the TOOL and INPUT types from the final merged config.
@@ -39,13 +40,13 @@ type GenerateTextWithParentReturn<
 > = LLMCallSignature<TFinalConfig, Promise<results.GenerateTextResultAugmented<FINAL_TOOLS>>, PType, PROMPT, TConfigShape>;
 
 // The full shape of a final, merged config object, including partial and required properties.
-type FinalTextConfigShape = Partial<configs.GenerateTextConfig<any, any, any> & { model: LanguageModel }>;
+type FinalTextConfigShape = Partial<AnyTextConfig & { model: LanguageModel }>;
 
 // Generic validator for the `config` object passed to a factory function.
 type ValidateTextConfig<
-	TConfig extends Partial<configs.GenerateTextConfig<any, any, any>>,
+	TConfig extends Partial<AnyTextConfig>,
 	TFinalConfig extends FinalTextConfigShape,
-	TShape extends configs.GenerateTextConfig<any, any, any>,
+	TShape extends AnyTextConfig,
 	TRequired =
 	& (TShape extends { inputSchema: any } ? { inputSchema: any, model: LanguageModel } : { model: LanguageModel })
 	& (TShape extends { loader: any } ? { loader: any, model: LanguageModel } : { model: LanguageModel })
@@ -65,8 +66,8 @@ type ValidateTextConfig<
 
 // Generic validator for the `parent` config object.
 type ValidateTextParentConfig<
-	TParentConfig extends Partial<configs.GenerateTextConfig<any, any, any>>,
-	TShape extends configs.GenerateTextConfig<any, any, any>,
+	TParentConfig extends Partial<AnyTextConfig>,
+	TShape extends AnyTextConfig,
 > =
 	// Check for excess properties in the parent validated against TShape
 	keyof Omit<TParentConfig, keyof TShape> extends never
@@ -515,10 +516,10 @@ function _createTextGeneratorAsTool<
 	renderer.type = 'function'; // Overrides our type, maybe we shall rename our type to something else
 
 	//result is a caller, assign the execute function to it. Args is the context object, options contains _toolCallOptions
-	renderer.execute = async (args: INPUT, options: ToolCallOptions): Promise<string> => {
+	renderer.execute = async (args: INPUT, options: ToolExecutionOptions<unknown>): Promise<string> => {
 		// Merge the _toolCallOptions into the context so templates can access it
 		const contextWithToolOptions = { ...args, _toolCallOptions: options };
-		return (await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolCallOptions }) => Promise<results.GenerateTextResult<TOOLS, any>>)(contextWithToolOptions)).text;
+		return (await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolExecutionOptions<unknown> }) => Promise<results.GenerateTextResult<TOOLS, any, any>>)(contextWithToolOptions)).text;
 	};
 	return renderer;
 }

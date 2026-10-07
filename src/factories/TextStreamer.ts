@@ -10,7 +10,8 @@ import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateTextLLMConfig } from "../validate.js";
 
-type CommonConfig = configs.StreamTextConfig<ToolSet, never, types.AnyPromptSource>;
+type CommonConfig = configs.TextConfigShape<configs.StreamTextConfig<ToolSet, never, types.AnyPromptSource>>;
+type AnyTextConfig = configs.ConfigShape<configs.StreamTextConfig<any, any, any>>;
 
 // The generic return type for a TextStreamer instance.
 // It correctly infers the TOOL and INPUT types from the final merged config.
@@ -62,13 +63,13 @@ type StreamTextWithParentPromiseReturn<
 > = StreamTextWithParentReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, PType, PROMPT, TConfigShape, FINAL_TOOLS, TFinalConfig, true>;
 
 // The full shape of a final, merged config object, including required properties.
-type FinalTextConfigShape = Partial<configs.StreamTextConfig<any, any, any> & { model: LanguageModel }>;
+type FinalTextConfigShape = Partial<AnyTextConfig & { model: LanguageModel }>;
 
 // Generic validator for the `config` object passed to a factory function.
 type ValidateTextConfig<
-	TConfig extends Partial<configs.StreamTextConfig<any, any, any>>,
+	TConfig extends Partial<AnyTextConfig>,
 	TFinalConfig extends FinalTextConfigShape,
-	TShape extends configs.StreamTextConfig<any, any, any>,
+	TShape extends AnyTextConfig,
 	TRequired =
 	& (TShape extends { inputSchema: any } ? { inputSchema: any, model: LanguageModel } : { model: LanguageModel })
 	& (TShape extends { loader: any } ? { loader: any, model: LanguageModel } : { model: LanguageModel }),
@@ -87,8 +88,8 @@ type ValidateTextConfig<
 
 // Generic validator for the `parent` config object.
 type ValidateTextParentConfig<
-	TParentConfig extends Partial<configs.StreamTextConfig<any, any, any>>,
-	TShape extends configs.StreamTextConfig<any, any, any>,
+	TParentConfig extends Partial<AnyTextConfig>,
+	TShape extends AnyTextConfig,
 > =
 	// Check for excess properties in the parent validated against TShape
 	keyof Omit<TParentConfig, keyof TShape> extends never

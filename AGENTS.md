@@ -66,4 +66,4 @@ Exact-output LLM assertions need strict prompts such as `Output exactly ... and 
 
 ## API Imports
 
-With current ESM packages, type-only exports must use `import type`, for example `ToolCallOptions`, `ModelMessage`, `StreamTextResult`, `LoaderInterface`, and `ILoaderAny`.
+With current ESM packages, type-only exports must use `import type`, for example `ToolExecutionOptions`, `ModelMessage`, `StreamTextResult`, `LoaderInterface`, and `ILoaderAny`.

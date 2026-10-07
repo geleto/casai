@@ -1,4 +1,4 @@
-import type { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnFinishCallback, ToolCallOptions, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
+import type { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnEndCallback, ToolExecutionOptions, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
 import { z } from 'zod';
 import { InferParameters } from './utils.js';
 import type { ILoaderAny } from 'cascada-engine';
@@ -68,7 +68,7 @@ export type FunctionToolCaller<
 	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
 > =
-	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolCallOptions)
+	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolExecutionOptions<unknown>)
 		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
 
 // Type for the implementation function - has input and context as arguments
@@ -81,7 +81,7 @@ export type FunctionToolImplementation<
 > =
 	(
 		input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
-		options: ToolCallOptions
+		options: ToolExecutionOptions<unknown>
 	)
 		=> OutputSchema extends SchemaType<any>
 		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
@@ -111,7 +111,7 @@ export type StreamObjectOnFinishEvent<SCHEMA extends z.ZodTypeAny | Schema<any>>
 	Parameters<StreamObjectOnFinishCallback<InferParameters<SCHEMA>>>[0];
 
 export type StreamTextOnFinishEvent<TOOLS extends ToolSet = Record<string, never>> =
-	Parameters<StreamTextOnFinishCallback<TOOLS>>[0];
+	Parameters<StreamTextOnEndCallback<TOOLS>>[0];
 
 export type EmptyObject = Record<string, never>;
 

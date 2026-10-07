@@ -1,5 +1,5 @@
 import { generateObject } from "ai";
-import type { LanguageModel, ModelMessage, ToolCallOptions } from "ai";
+import type { LanguageModel, ModelMessage, ToolExecutionOptions } from "ai";
 
 import * as results from '../types/result.js'
 import * as configs from '../types/config.js';
@@ -121,7 +121,7 @@ type GetObjectGeneratordShape<TFinalConfig extends { output?: string }> =
 	configs.GenerateObjectObjectConfig<any, any>;
 
 export type ValidateObjectConfig<
-	TConfig extends Partial<configs.GenerateObjectBaseConfig<any, any> & { output?: string | undefined }>,
+	TConfig extends configs.ConfigShape<configs.GenerateObjectBaseConfig<any, any> & { output?: string | undefined }>,
 	TFinalConfig extends AllSpecializedProperties & Record<string, any>,
 	TShapeExtras = Record<string, never>, // extends { output?: string | undefined, inputSchema?: types.SchemaType<any>, loader?: any } = Record<string, never>,
 	TShape = GetObjectGeneratordShape<TFinalConfig> & TShapeExtras,
@@ -147,7 +147,7 @@ export type ValidateObjectConfig<
 	);
 
 export type ValidateObjectParentConfig<
-	TParentConfig extends Partial<GenerateObjectConfig<any, any, any, any> & { output?: string | undefined }>,
+	TParentConfig extends configs.ConfigShape<GenerateObjectConfig<any, any, any, any> & { output?: string | undefined }>,
 	TFinalConfig extends AllSpecializedProperties & Record<string, any>,
 	TShapeExtras /*extends { output?: string | undefined, inputSchema?: types.SchemaType<any>, loader?: any }*/ = Record<string, never>,
 	TShape = GetObjectGeneratordShape<TFinalConfig> & TShapeExtras,
@@ -946,7 +946,7 @@ function _createObjectGenerator<
 }
 
 function _createObjectGeneratorAsTool<
-	TConfig extends configs.StreamObjectBaseConfig<INPUT, PROMPT> & configs.OptionalPromptConfig,
+	TConfig extends configs.GenerateObjectBaseConfig<INPUT, PROMPT> & configs.OptionalPromptConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -965,10 +965,10 @@ function _createObjectGeneratorAsTool<
 	renderer.type = 'function';//Overrides our type, maybe we shall rename our type to something else
 
 	//result is a caller, assign the execute function to it. Args is the context object, options contains _toolCallOptions
-	renderer.execute = async (args: INPUT, options: ToolCallOptions): Promise<OUTPUT> => {
+	renderer.execute = async (args: INPUT, options: ToolExecutionOptions<unknown>): Promise<OUTPUT> => {
 		// Merge the _toolCallOptions into the context so templates can access it
 		const contextWithToolOptions = { ...args, _toolCallOptions: options };
-		return (await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolCallOptions }) => Promise<results.GenerateObjectObjectResult<OUTPUT>>)(contextWithToolOptions)).object;
+		return (await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolExecutionOptions<unknown> }) => Promise<results.GenerateObjectObjectResult<OUTPUT>>)(contextWithToolOptions)).object;
 	};
 	return renderer as (typeof renderer & GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, PROMPT, TConfigShape>);
 }

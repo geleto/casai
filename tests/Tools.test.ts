@@ -17,7 +17,7 @@ async function streamToPromise(stream: any) {
 	}
 }
 
-export async function streamToString(stream: StreamTextResult<any, any>['textStream']): Promise<string> {
+export async function streamToString(stream: StreamTextResult<any, any, any>['textStream']): Promise<string> {
 	let text = '';
 	for await (const delta of stream) {
 		text += delta;
@@ -36,6 +36,7 @@ describe('asTool', function () {
 	this.timeout(timeout); // Increase timeout for tests that call the real API
 
 	const toolCallOptions = {
+		context: undefined,
 		toolCallId: 'test-call-id',
 		messages: [{ role: 'user' as const, content: 'test' }]
 	}
@@ -294,7 +295,7 @@ describe('asTool', function () {
 				expect(result.toLowerCase().trim()).to.equal('madrid');
 			});
 
-			it('should accept ToolCallOptions signature', async () => {
+			it('should accept ToolExecutionOptions signature', async () => {
 				const tool = create.TextGenerator.withTemplate.asTool({
 					model,
 					...temperatureConfig,

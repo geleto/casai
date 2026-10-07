@@ -235,9 +235,9 @@ export function _createLLMComponent<
 
 				// 4. Augment the result for history management.
 				if ((vercelFunc as unknown) === generateText) {
-					return augmentGenerateText(result as GenerateTextResult<any, any>, newMessagesFromPrompt, configArg.messages ?? []) as Awaited<TFunctionResult>;
+					return augmentGenerateText(result as GenerateTextResult<any, any, any>, newMessagesFromPrompt, configArg.messages ?? []) as Awaited<TFunctionResult>;
 				} else if ((vercelFunc as unknown) === streamText) {
-					return augmentStreamText(result as StreamTextResult<any, any>, newMessagesFromPrompt, configArg.messages ?? []) as Awaited<TFunctionResult>;
+					return augmentStreamText(result as StreamTextResult<any, any, any>, newMessagesFromPrompt, configArg.messages ?? []) as Awaited<TFunctionResult>;
 				}
 				return result;
 			}
@@ -301,9 +301,9 @@ export function _createLLMComponent<
 
 				// 4. Augment the result for conversational history management.
 				if ((vercelFunc as unknown) === generateText) {
-					return (result as Promise<GenerateTextResult<any, any>>).then((r) => augmentGenerateText(r, newMessagesFromPrompt, configArg.messages)) as TFunctionResult;
+					return (result as Promise<GenerateTextResult<any, any, any>>).then((r) => augmentGenerateText(r, newMessagesFromPrompt, configArg.messages)) as TFunctionResult;
 				} else if ((vercelFunc as unknown) === streamText) {
-					return augmentStreamText(result as StreamTextResult<any, any>, newMessagesFromPrompt, configArg.messages) as TFunctionResult;
+					return augmentStreamText(result as StreamTextResult<any, any, any>, newMessagesFromPrompt, configArg.messages) as TFunctionResult;
 				}
 				return result;
 			}

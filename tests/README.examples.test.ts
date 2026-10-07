@@ -98,7 +98,7 @@ describe('README literal examples', function () {
 
 		const toolResult = await userOnboardingTool.execute(
 			{ name: 'Ada', email: 'ada@example.com' },
-			{ toolCallId: 'readme-example', messages: [] }
+			{ context: undefined, toolCallId: 'readme-example', messages: [] }
 		);
 		expect(toolResult).to.deep.equal({
 			userId: 'Ada:ada@example.com',

@@ -5,7 +5,7 @@ import * as configs from '../types/config.js';
 import * as results from '../types/result.js';
 import * as utils from '../types/utils.js';
 import { SchemaType, ScriptPromptType } from '../types/types.js';
-import type { ToolCallOptions } from 'ai';
+import type { ToolExecutionOptions } from 'ai';
 
 // The full shape of a final, merged Script config object, including required properties.
 type FinalScriptConfigShape = Partial<configs.ScriptConfig<any, any> & configs.ScriptToolConfig<any, any> & { loader?: any }>;
@@ -316,10 +316,10 @@ export function _createScriptAsTool<
 	renderer.type = 'function';//Overrides our type, maybe we shall rename our type to something else
 
 	//result is a caller, assign the execute function to it. Args is the context object, options contains _toolCallOptions
-	renderer.execute = async (args: INPUT, options: ToolCallOptions): Promise<OUTPUT> => {
+	renderer.execute = async (args: INPUT, options: ToolExecutionOptions<unknown>): Promise<OUTPUT> => {
 		// Merge the _toolCallOptions into the context so scripts can access it
 		const contextWithToolOptions = { ...args, _toolCallOptions: options };
-		return await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolCallOptions }) => Promise<OUTPUT>)(contextWithToolOptions);
+		return await (renderer as unknown as (context: INPUT & { _toolCallOptions: ToolExecutionOptions<unknown> }) => Promise<OUTPUT>)(contextWithToolOptions);
 	};
 	return renderer as ScriptCallSignatureWithParent<Partial<configs.ScriptToolConfig<INPUT, OUTPUT>>, Partial<configs.ScriptToolConfig<any, any>>, INPUT, OUTPUT, any, any>
 		& results.ComponentTool<INPUT, OUTPUT>;

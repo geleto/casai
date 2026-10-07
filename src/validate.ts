@@ -17,7 +17,7 @@ export class ConfigError extends Error {
 	}
 }
 
-type AnyTextConfig = configs.GenerateTextConfig<any, any, any> | configs.StreamTextConfig<any, any, any>;
+type AnyTextConfig = configs.ConfigShape<configs.GenerateTextConfig<any, any, any> | configs.StreamTextConfig<any, any, any>>;
 type AnyObjectConfig =
 	| configs.GenerateObjectObjectConfig<any, any, any> | configs.GenerateObjectArrayConfig<any, any, any> | configs.GenerateObjectEnumConfig<any, any, any> | configs.GenerateObjectNoSchemaConfig<any, any>
 	| configs.StreamObjectObjectConfig<any, any, any> | configs.StreamObjectArrayConfig<any, any, any> | configs.StreamObjectNoSchemaConfig<any, any>;
@@ -40,7 +40,7 @@ function validateMessagesArray(messages: unknown): void {
 	}
 }
 
-function universalSanityChecks(config?: Partial<configs.AnyConfig<any, any, any, any>>): void {
+function universalSanityChecks(config?: unknown): void {
 	if (!config || typeof config !== 'object') {
 		throw new ConfigError('Config must be an object.');
 	}

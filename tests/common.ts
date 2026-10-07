@@ -14,8 +14,6 @@ export const model: LanguageModel = wrapLanguageModel({
 			providerOptions: {
 				openai: {
 					reasoningEffort: 'none',
-					// The installed provider does not yet recognize GPT-6 as a reasoning model.
-					forceReasoning: true,
 				},
 			},
 		},
