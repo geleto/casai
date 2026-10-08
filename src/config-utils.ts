@@ -1,24 +1,22 @@
-import { Context } from 'mocha';
-import { Override } from './types/utils.js';
+import { configMapKeys } from './types/merge.js';
+import type { MergedConfig, ProcessedConfig } from './types/merge.js';
 import * as configs from './types/config.js';
-import { ToolSet } from 'ai';
+import type { ModelMessage } from 'ai';
 import { mergeLoaders, processLoaders, RaceGroup, RaceLoader } from './loaders.js';
 import type { ILoaderAny } from 'cascada-engine';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(
 	config: T
-): Omit<T, 'loader'> & { loader?: ReturnType<typeof processLoaders> } {
+): ProcessedConfig<T> {
 	if ('loader' in config && config.loader) {
 		const loader = processLoaders(config.loader);
 		return { ...config, loader };
 	}
-	return config as Omit<T, 'loader'> & { loader?: ReturnType<typeof processLoaders> };
+	return config;
 }
 
 /**
- * Merge two partial LLM configs into a single object.
- * The return type is exactly the union of P & C (with child overriding parent).
- * @todo - more universal merge handling (give it a list)
+ * Merge partial configs using the shared map, message and loader policies.
  */
 export function mergeConfigs<
 	TParent extends Record<string, any>,
@@ -26,7 +24,7 @@ export function mergeConfigs<
 >(
 	parentConfig: TParent,
 	childConfig: TChild
-): Override<TParent, TChild> {
+): MergedConfig<TParent, TChild> {
 	// Evaluate debug logging using the most specific config (child overrides parent).
 	const childHasDebug = Object.prototype.hasOwnProperty.call(childConfig, 'debug');
 	const debugEnabled = childHasDebug
@@ -41,21 +39,15 @@ export function mergeConfigs<
 	}
 
 	// Start shallow merge
-	const merged = { ...parentConfig, ...childConfig } as unknown as configs.CascadaConfig;
+	const merged: Record<string, unknown> = { ...parentConfig, ...childConfig };
 
 	// Now handle known deep merges:
-	if ('context' in parentConfig && 'context' in childConfig) {
-		merged.context = {
-			...parentConfig.context ?? {},
-			...childConfig.context ?? {},
-		} as Context;
-	}
-
-	if ('filters' in parentConfig && 'filters' in childConfig) {
-		merged.filters = {
-			...(parentConfig as unknown as configs.CascadaConfig).filters ?? {},
-			...(childConfig as unknown as configs.CascadaConfig).filters ?? {},
-		};
+	for (const key of configMapKeys) {
+		if (key in parentConfig && key in childConfig) {
+			const parentMap = parentConfig[key] as Record<string, unknown> | undefined;
+			const childMap = childConfig[key] as Record<string, unknown> | undefined;
+			merged[key] = { ...parentMap ?? {}, ...childMap ?? {} };
+		}
 	}
 
 	const parentLoaders = ('loader' in parentConfig) ? (parentConfig.loader
@@ -79,18 +71,12 @@ export function mergeConfigs<
 	}
 
 	if ('messages' in parentConfig && 'messages' in childConfig) {
-		const parentMessages = (parentConfig as unknown as configs.TemplatePromptConfig).messages ?? [];
-		const childMessages = (childConfig as unknown as configs.TemplatePromptConfig).messages ?? [];
-		(merged as configs.TemplatePromptConfig).messages = [
+		const parentMessages = (parentConfig as { messages?: ModelMessage[] }).messages ?? [];
+		const childMessages = (childConfig as { messages?: ModelMessage[] }).messages ?? [];
+		merged.messages = [
 			...parentMessages,
 			...childMessages,
 		];
-	}
-
-	if ('tools' in parentConfig && 'tools' in childConfig) {
-		const parentTools: ToolSet = ((parentConfig as unknown as { tools?: ToolSet }).tools) ?? {};
-		const childTools: ToolSet = ((childConfig as unknown as { tools?: ToolSet }).tools) ?? {};
-		(merged as unknown as { tools?: ToolSet }).tools = { ...parentTools, ...childTools };
 	}
 
 	// Debug output for merged result if debug is enabled
@@ -98,5 +84,5 @@ export function mergeConfigs<
 		console.log('[DEBUG] mergeConfigs result:', JSON.stringify(merged, null, 2));
 	} */
 
-	return merged as unknown as Override<TParent, TChild>;
+	return merged as MergedConfig<TParent, TChild>;
 }

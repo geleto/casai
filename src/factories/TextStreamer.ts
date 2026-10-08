@@ -1,17 +1,18 @@
 import { streamText } from "ai";
-import type { LanguageModel, ToolSet, ModelMessage } from "ai";
+import type { ToolSet, ModelMessage } from "ai";
 
 import * as results from '../types/result.js';
 import * as configs from '../types/config.js';
+import type { ValidateStreamTextConfig, ValidateStreamTextParentConfig } from '../types/config-validation.js';
 import * as utils from '../types/utils.js';
 import * as types from '../types/types.js';
 
 import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateTextLLMConfig } from "../validate.js";
+import type { Provisional } from '../types/provisional.js';
 
 type CommonConfig = configs.TextConfigShape<configs.StreamTextConfig<ToolSet, never, types.AnyPromptSource>>;
-type AnyTextConfig = configs.ConfigShape<configs.StreamTextConfig<any, any, any>>;
 
 // The generic return type for a TextStreamer instance.
 // It correctly infers the TOOL and INPUT types from the final merged config.
@@ -24,7 +25,7 @@ type StreamTextReturn<
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
 	IsAsync extends boolean = false
-> = LLMCallSignature<TConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<TOOLS>, IsAsync>, PType, PROMPT, TConfigShape>;
+> = LLMCallSignature<TConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<TOOLS>, IsAsync>, PType, PROMPT, configs.TextRunConfig<TConfigShape, configs.ToolsFromConfig<TConfig>>>;
 
 type StreamTextPromiseReturn<
 	TConfig extends configs.BaseConfig, // & configs.OptionalPromptConfig,
@@ -40,85 +41,47 @@ type StreamTextPromiseReturn<
 type StreamTextWithParentReturn<
 	TConfig extends Partial<configs.BaseConfig>, // configs.OptionalPromptConfig
 	TParentConfig extends Partial<configs.BaseConfig>, // configs.OptionalPromptConfig
-	TOOLS extends ToolSet, //@todo - merge tools
-	PARENT_TOOLS extends ToolSet, //@todo - merge tools
 	PType extends types.RequiredPromptType,
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
-	FINAL_TOOLS extends ToolSet = utils.Override<PARENT_TOOLS, TOOLS>,
-	TFinalConfig extends configs.BaseConfig = utils.Override<TParentConfig, TConfig>,
+	FINAL_TOOLS extends ToolSet = configs.MergedTools<TParentConfig, TConfig>,
+	TFinalConfig extends configs.BaseConfig = configs.MergedConfig<TParentConfig, TConfig>,
 	IsAsync extends boolean = false
-> = LLMCallSignature<TFinalConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<FINAL_TOOLS>, IsAsync>, PType, PROMPT, TConfigShape>;
+> = LLMCallSignature<TFinalConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<FINAL_TOOLS>, IsAsync>, PType, PROMPT, configs.TextRunConfig<TConfigShape, FINAL_TOOLS>>;
 
 type StreamTextWithParentPromiseReturn<
 	TConfig extends Partial<configs.BaseConfig>, // configs.OptionalPromptConfig
 	TParentConfig extends Partial<configs.BaseConfig>, // configs.OptionalPromptConfig
-	TOOLS extends ToolSet, //@todo - merge tools
-	PARENT_TOOLS extends ToolSet, //@todo - merge tools
 	PType extends types.RequiredPromptType,
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
-	FINAL_TOOLS extends ToolSet = utils.Override<PARENT_TOOLS, TOOLS>,
-	TFinalConfig extends configs.BaseConfig = utils.Override<TParentConfig, TConfig>
-> = StreamTextWithParentReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, PType, PROMPT, TConfigShape, FINAL_TOOLS, TFinalConfig, true>;
-
-// The full shape of a final, merged config object, including required properties.
-type FinalTextConfigShape = Partial<AnyTextConfig & { model: LanguageModel }>;
-
-// Generic validator for the `config` object passed to a factory function.
-type ValidateTextConfig<
-	TConfig extends Partial<AnyTextConfig>,
-	TFinalConfig extends FinalTextConfigShape,
-	TShape extends AnyTextConfig,
-	TRequired =
-	& (TShape extends { inputSchema: any } ? { inputSchema: any, model: LanguageModel } : { model: LanguageModel })
-	& (TShape extends { loader: any } ? { loader: any, model: LanguageModel } : { model: LanguageModel }),
-> =
-	// GATEKEEPER: Check for excess or missing properties
-	// 1. Check for excess properties in TConfig that are not in TShape
-	keyof Omit<TConfig, keyof TShape> extends never
-	? (
-		// 2. If no excess, check for required properties missing from the FINAL merged config.
-		keyof Omit<TRequired, keyof TFinalConfig> extends never
-		? TConfig // All checks passed.
-		: `Config Error: Missing required property '${keyof Omit<TRequired, keyof TFinalConfig> & string}' in the final configuration.`
-	)
-	: `Config Error: Unknown properties for this streamer type: '${keyof Omit<TConfig, keyof TShape> & string}'`;
-
-
-// Generic validator for the `parent` config object.
-type ValidateTextParentConfig<
-	TParentConfig extends Partial<AnyTextConfig>,
-	TShape extends AnyTextConfig,
-> =
-	// Check for excess properties in the parent validated against TShape
-	keyof Omit<TParentConfig, keyof TShape> extends never
-	? TParentConfig // The check has passed.
-	: `Parent Config Error: Parent has properties not allowed for the final streamer type: '${keyof Omit<TParentConfig, keyof TShape> & string}'`;
+	FINAL_TOOLS extends ToolSet = configs.MergedTools<TParentConfig, TConfig>,
+	TFinalConfig extends configs.BaseConfig = configs.MergedConfig<TParentConfig, TConfig>
+> = StreamTextWithParentReturn<TConfig, TParentConfig, PType, PROMPT, TConfigShape, FINAL_TOOLS, TFinalConfig, true>;
 
 function withText<
-	const TConfig extends configs.StreamTextConfig<TOOLS, never, PROMPT>,
+	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, never, PROMPT>>,
 	TOOLS extends ToolSet = ToolSet,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape extends CommonConfig = CommonConfig
 >(
-	config: TConfig & ValidateTextConfig<
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<
 		TConfig, TConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>
 	>
 ): StreamTextReturn<TConfig, TOOLS, 'text', PROMPT, TConfigShape>;
 
 function withText<
-	TConfig extends Partial<configs.StreamTextConfig<TOOLS, never, PROMPT>>,
+	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, never, PROMPT>>>>,
 	TParentConfig extends Partial<configs.StreamTextConfig<PARENT_TOOLS, never, PROMPT>>,
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape extends CommonConfig = CommonConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTextParentConfig<TParentConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>>
-): StreamTextWithParentReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, 'text', PROMPT, TConfigShape>;
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>,
+	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>>
+): StreamTextWithParentReturn<TConfig, TParentConfig, 'text', PROMPT, TConfigShape>;
 
 function withText(
 	config: any,
@@ -128,53 +91,53 @@ function withText(
 }
 
 function loadsText<
-	const TConfig extends configs.StreamTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig,
+	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape>;
 
 function loadsText<
-	TConfig extends Partial<configs.StreamTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>,
+	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, never, PROMPT>> & configs.LoaderConfig>>,
 	TParentConfig extends Partial<configs.StreamTextConfig<PARENT_TOOLS, never, PROMPT> & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTextParentConfig<TParentConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>>
-): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, 'text-name', PROMPT, TConfigShape>;
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
+	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>>
+): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'text-name', PROMPT, TConfigShape>;
 
 function loadsText(config: any, parent?: configs.ConfigProvider<any>) {
 	return _createTextStreamer(config, 'text-name', parent, false);
 }
 
 function withTemplate<
-	const TConfig extends configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig,
+	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'async-template', string, TConfigShape>
 
 function withTemplate<
-	const TConfig extends Partial<configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
+	const TConfig extends Provisional<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig>>,
 	const TParentConfig extends Partial<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTextParentConfig<TParentConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>>
-): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, 'async-template', string, TConfigShape>
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
+	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>>
+): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-template', string, TConfigShape>
 
 function withTemplate(
 	config: any,
@@ -184,108 +147,108 @@ function withTemplate(
 }
 
 function loadsTemplate<
-	const TConfig extends configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig,
+	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'async-template-name', string, CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig>;
 
 function loadsTemplate<
-	TConfig extends Partial<configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
 	TParentConfig extends Partial<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>
-): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, 'async-template-name', string, TConfigShape>;
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>
+): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-template-name', string, TConfigShape>;
 
 function loadsTemplate(config: any, parent?: configs.ConfigProvider<any>) {
 	return _createTextStreamer(config, 'async-template-name', parent, false);
 }
 
 function withScript<
-	const TConfig extends configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig,
+	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'async-script', string, CommonConfig & configs.ScriptPromptConfig>;
 
 function withScript<
-	TConfig extends Partial<configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
+	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig>>,
 	TParentConfig extends Partial<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>>
-): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, 'async-script', string, TConfigShape>;
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
+	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>>
+): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-script', string, TConfigShape>;
 
 function withScript(config: any, parent?: configs.ConfigProvider<any>) {
 	return _createTextStreamer(config, 'async-script', parent, false);
 }
 
 function loadsScript<
-	const TConfig extends configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig,
+	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'async-script-name', string, CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig>;
 
 function loadsScript<
-	TConfig extends Partial<configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
 	TParentConfig extends Partial<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>
-): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, 'async-script-name', string, TConfigShape>;
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>
+): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-script-name', string, TConfigShape>;
 
 function loadsScript(config: any, parent?: configs.ConfigProvider<any>) {
 	return _createTextStreamer(config, 'async-script-name', parent, false);
 }
 
 function withFunction<
-	const TConfig extends configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig,
+	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.PromptFunction = types.PromptFunction
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TConfig,
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TConfig,
 		configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig>;
 
 function withFunction<
-	TConfig extends Partial<configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>,
+	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>,
 	TParentConfig extends Partial<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
-	TFinalConfig extends FinalTextConfigShape = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TConfigShape extends CommonConfig = CommonConfig & configs.FunctionPromptConfig
 >(
-	config: TConfig & ValidateTextConfig<TConfig, TFinalConfig,
+	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig,
 		configs.StreamTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTextParentConfig<TParentConfig, configs.StreamTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>>
-): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, TOOLS, PARENT_TOOLS, 'function', PROMPT, TConfigShape>;
+	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>>
+): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape>;
 
 function withFunction(config: any, parent?: configs.ConfigProvider<any>) {
 	return _createTextStreamer(config, 'function', parent, false);

@@ -2,7 +2,7 @@ import type { ModelMessage } from "ai";
 import { z, ZodError } from 'zod';
 import * as types from './types/types.js';
 import * as configs from './types/config.js';
-import { extractCallArguments } from './llm-component.js';
+import { extractCallArguments } from './call-arguments.js';
 import { ModelMessageSchema } from "./types/schemas.js";
 
 export class ConfigError extends Error {
@@ -33,70 +33,109 @@ function formatZodError(error: ZodError): string {
 }
 
 function validateMessagesArray(messages: unknown): void {
-	if (!Array.isArray(messages)) return;
+	if (messages === undefined) return;
 	const result = z.array(ModelMessageSchema).safeParse(messages);
 	if (!result.success) {
 		throw new ConfigError(`'messages' array contains invalid message objects.\n${formatZodError(result.error)}`);
 	}
 }
 
-function universalSanityChecks(config?: unknown): void {
-	if (!config || typeof config !== 'object') {
+export function validateConfigBasics(config?: unknown): asserts config is Record<string, unknown> {
+	if (!config || typeof config !== 'object' || Array.isArray(config)) {
 		throw new ConfigError('Config must be an object.');
 	}
-	// Note: 'template' and 'script' properties are now on the 'prompt' field,
-	// but this check is kept for legacy safety if a user misconfigures.
 	if ('template' in config && 'script' in config) {
 		throw new ConfigError("Configuration cannot have both 'template' and 'script' properties.");
 	}
-	if ('messages' in config && config.messages) {
+	if ('messages' in config) {
 		validateMessagesArray(config.messages);
+	}
+}
+
+// Compatibility checks apply to both reusable fragments and completed components.
+// Required properties are checked separately by the concrete component validators.
+const forbiddenConfigProperties = {
+	Function: ['model', 'template', 'script', 'prompt', 'output', 'enum', 'mode', 'loader', 'filters', 'options', 'messages', 'promptType', 'tools', 'toolsContext'],
+	Template: ['model', 'script', 'execute', 'output', 'enum', 'mode', 'schema', 'prompt', 'messages', 'tools', 'toolsContext'],
+	Script: ['model', 'template', 'execute', 'output', 'enum', 'mode', 'prompt', 'messages', 'tools', 'toolsContext'],
+	Text: ['template', 'script', 'execute', 'schema', 'enum', 'output', 'mode'],
+	Object: ['template', 'script', 'execute', 'tools', 'toolsContext'],
+} as const;
+
+type ConfigKind = keyof typeof forbiddenConfigProperties;
+
+function validateConfigCompatibility(config: Record<string, unknown>, kind: ConfigKind): void {
+	for (const property of forbiddenConfigProperties[kind]) {
+		if (property in config) {
+			throw new ConfigError(`Property '${property}' is not applicable for a ${kind} configuration.`);
+		}
+	}
+}
+
+function identifyConfigKind(config: Record<string, unknown>): ConfigKind | undefined {
+	// Distinctive properties take precedence over schema, which is shared by several kinds.
+	if ('execute' in config) return 'Function';
+	if ('template' in config) return 'Template';
+	if ('script' in config) return 'Script';
+	if ('output' in config || 'enum' in config || 'mode' in config) return 'Object';
+	if ('model' in config) return 'schema' in config ? 'Object' : 'Text';
+	return undefined;
+}
+
+function validatePromptProperties(config: Record<string, unknown>, promptType?: types.PromptType, requireFunctionPrompt = false): void {
+	if (config.prompt === undefined && !requireFunctionPrompt) return;
+	if (promptType?.includes('template') || promptType?.includes('script')) {
+		if (Array.isArray(config.prompt)) {
+			throw new ConfigError("A 'prompt' with a message array is not allowed for template or script-based components. The 'prompt' must be a string containing the template or script.");
+		}
+	} else if (promptType?.includes('function') && typeof config.prompt !== 'function') {
+		throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
+	}
+	if (Array.isArray(config.prompt)) validateMessagesArray(config.prompt);
+}
+
+function validateRendererInputSchema(config: Record<string, unknown>, kind: 'Template' | 'Script'): void {
+	if (config.inputSchema !== undefined && !(config.inputSchema instanceof z.ZodObject)) {
+		throw new ConfigError(`For ${kind} components, 'inputSchema' must be a Zod object schema (z.object).`);
+	}
+}
+
+function validateObjectOutputProperties(config: Record<string, unknown>, isStreamer = false): 'object' | 'array' | 'enum' | 'no-schema' {
+	const output = config.output === undefined ? 'object' : config.output;
+	if (isStreamer && output === 'enum') {
+		throw new ConfigError('Object streamers do not support "enum" output.');
+	}
+	if (config.enum !== undefined && (!Array.isArray(config.enum) || !config.enum.every(value => typeof value === 'string'))) {
+		throw new ConfigError("The 'enum' property must be a string array.");
+	}
+	switch (output) {
+		case 'object': return 'object';
+		case 'array': return 'array';
+		case 'enum': return 'enum';
+		case 'no-schema': return 'no-schema';
+		default:
+			throw new ConfigError(`Invalid 'output' mode: '${typeof output === 'string' ? output : typeof output}'. Must be 'object', 'array', ${isStreamer ? '' : 'enum, '}or 'no-schema'.`);
 	}
 }
 
 // --- Configuration Validators (for Creation Time) ---
 
-/**
- * Validates a configuration for generic`create.Config()` calls by inferring its type.
- * This is the correct implementation that works with the new split validators.
- * @param config The configuration object.
- */
+/** Validate reusable config fragments; component factories validate their complete contracts. */
 export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, any, any>>): void {
-	universalSanityChecks(config);
-	if (!config) return;
-
-	// Infer intent for generic Config() calls
-	const isObjectConfig = 'output' in config || 'schema' in config || 'enum' in config;
-	//const isTextConfig = 'model' in config && !isObjectConfig;
-	//const isTool = inputSchema' in config; // Infer if it's a tool for context
-	const isTool = false;
-
-	if (isObjectConfig) {
-		// We don't know if it will be a streamer, so we assume false.
-		// The final check in the ObjectStreamer factory will catch inconsistencies.
-		validateObjectLLMConfig(config as Partial<AnyObjectConfig>, (config as Partial<configs.TemplateConfig<any>>).promptType, isTool, false);
+	validateConfigBasics(config);
+	const kind = identifyConfigKind(config);
+	if (kind) {
+		validateConfigCompatibility(config, kind);
+	} else if (!Object.values(forbiddenConfigProperties).some(properties => properties.every(property => !(property in config)))) {
+		// Shared properties need not identify one kind, but must still fit at least one.
+		throw new ConfigError('These properties do not belong to any single component configuration.');
 	}
-	/*else if (isTextConfig) {
-		validateTextLLMConfig(config, (config as Partial<configs.TemplateConfig<any>>).promptType, isTool);
-	}*/
-	else if ('template' in config) {
-		validateTemplateConfig(config as Partial<configs.TemplateConfig<any>>, config.promptType, isTool);
+	if ('execute' in config && config.execute !== undefined && typeof config.execute !== 'function') {
+		throw new ConfigError("The 'execute' property in a Function config must be a function.");
 	}
-	else if ('script' in config) {
-		validateScriptConfig(config as Partial<configs.ScriptConfig<any, any>>, config.promptType, isTool);
-	}
-	else if ('execute' in config) {
-		validateFunctionConfig(config, isTool);
-	} else {
-		// Handle any conflicting properties
-		if ('model' in config) {
-			// If 'model' is present, we treat and validate it as a TextConfig.
-			// The validateTextLLMConfig function is responsible for checking for
-			// conflicting properties like 'schema', 'output', 'enum', etc.,
-			// and will throw an error if they are found.
-			validateTextLLMConfig(config as Partial<AnyTextConfig>, (config as Partial<configs.TemplateConfig<any>>).promptType, isTool);
-		}
-	}
+	if (kind === 'Template' || kind === 'Script') validateRendererInputSchema(config, kind);
+	if (kind === 'Object') validateObjectOutputProperties(config);
+	validatePromptProperties(config, 'promptType' in config ? config.promptType : undefined);
 }
 
 /**
@@ -106,30 +145,10 @@ export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, a
  * @param isTool A flag indicating if the component is being created as a tool.
  */
 export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType?: types.PromptType, isTool = false): void {
-	universalSanityChecks(config);
-
-	// For template/script-based prompt types, disallow messages array as prompt
-	if (promptType?.includes('template') || promptType?.includes('script')) {
-		if (Array.isArray(config.prompt)) {
-			throw new ConfigError("A 'prompt' with a message array is not allowed for template or script-based components. The 'prompt' must be a string containing the template or script.");
-		}
-	} else if (promptType?.includes('function')) {
-		if (typeof config.prompt !== 'function') {
-			throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
-		}
-	}
+	validateConfigBasics(config);
+	validateConfigCompatibility(config, 'Text');
+	validatePromptProperties(config, promptType, true);
 	if (!('model' in config)) throw new ConfigError("Text generator configs require a 'model' property.");
-	if ('execute' in config) {
-		throw new ConfigError("Property 'execute' is not allowed in a Text generator config. Use create.Function for this purpose.");
-	}
-	if ('schema' in config || 'enum' in config || 'output' in config) {
-		throw new ConfigError("Properties 'schema', 'enum', and 'output' are only for Object generators.");
-	}
-
-	// Add validation for prompt property when it's an array
-	if (Array.isArray(config.prompt)) {
-		validateMessagesArray(config.prompt);
-	}
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
 	if (isLoaded && !('loader' in config)) {
@@ -153,36 +172,11 @@ export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType
  * @param isStreamer A flag indicating if the component is a streamer.
  */
 export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, promptType?: types.PromptType, isTool = false, isStreamer = false): void {
-	universalSanityChecks(config);
-	// For template/script-based prompt types, disallow messages array as prompt
-	if (promptType?.includes('template') || promptType?.includes('script')) {
-		if (Array.isArray(config.prompt)) {
-			throw new ConfigError("A 'prompt' with a message array is not allowed for template or script-based components. The 'prompt' must be a string containing the template or script.");
-		}
-	} else if (promptType?.includes('function')) {
-		if (typeof config.prompt !== 'function') {
-			throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
-		}
-	}
+	validateConfigBasics(config);
+	validateConfigCompatibility(config, 'Object');
+	validatePromptProperties(config, promptType, true);
 	if (!('model' in config)) throw new ConfigError("Object generator configs require a 'model' property.");
-	if ('execute' in config) {
-		throw new ConfigError("Property 'execute' is not allowed in an LLM generator config. Use create.Function for this purpose.");
-	}
-
-	// Add validation for prompt property when it's an array
-	if (Array.isArray(config.prompt)) {
-		validateMessagesArray(config.prompt);
-	}
-
-	const output = ('output' in config ? config.output : 'object') as string; // Vercel SDK defaults to 'object'
-
-	if (isStreamer && output === 'enum') {
-		throw new ConfigError('Object streamers do not support "enum" output.');
-	}
-
-	if ('tools' in config) {
-		throw new ConfigError(`Object components do not support "tools" property.`);
-	}
+	const output = validateObjectOutputProperties(config, isStreamer);
 
 	if (isTool) {
 		if (!('inputSchema' in config)) {
@@ -201,16 +195,11 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 			}
 			break;
 		case 'enum':
-			if (!('enum' in config && Array.isArray(config.enum))) {
+			if (!('enum' in config) || config.enum === undefined) {
 				throw new ConfigError("An 'output' of 'enum' requires an 'enum' property with a string array.");
-			}
-			if (isStreamer) {
-				throw new ConfigError('Object streamers do not support "enum" output.');
 			}
 			break;
 		case 'no-schema': break; // No extra properties needed
-		default:
-			throw new ConfigError(`Invalid 'output' mode: '${output}'. Must be 'object', 'array', ${isStreamer ? '' : 'enum'}, or 'no-schema'.`);
 	}
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
@@ -226,18 +215,9 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
  * @param isTool A flag indicating if the component is being created as a tool.
  */
 export function validateTemplateConfig(config: Partial<configs.TemplateConfig<any>>, templateType?: types.TemplatePromptType, isTool = false): void {
-	universalSanityChecks(config);
-
-	const forbiddenProps = ['model', 'script', 'execute', 'output', 'enum', 'mode'];
-	for (const prop of forbiddenProps) {
-		if (prop in config) {
-			throw new ConfigError(`Property '${prop}' is not applicable for a Template configuration.`);
-		}
-	}
-
-	if ('inputSchema' in config && config.inputSchema && !(config.inputSchema instanceof z.ZodObject)) {
-		throw new ConfigError("For Template components, 'inputSchema' must be a Zod object schema (z.object).");
-	}
+	validateConfigBasics(config);
+	validateConfigCompatibility(config, 'Template');
+	validateRendererInputSchema(config, 'Template');
 
 	const isLoaded = templateType?.endsWith('-name') ?? false;
 
@@ -269,18 +249,9 @@ export function validateTemplateConfig(config: Partial<configs.TemplateConfig<an
  * @param isTool A flag indicating if the component is being created as a tool.
  */
 export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, any>>, scriptType?: types.ScriptPromptType, isTool = false): void {
-	universalSanityChecks(config);
-
-	const forbiddenProps = ['model', 'template', 'execute', 'output', 'enum', 'mode'];
-	for (const prop of forbiddenProps) {
-		if (prop in config) {
-			throw new ConfigError(`Property '${prop}' is not applicable for a Script configuration.`);
-		}
-	}
-
-	if ('inputSchema' in config && config.inputSchema && !(config.inputSchema instanceof z.ZodObject)) {
-		throw new ConfigError("For Script components, 'inputSchema' must be a Zod object schema (z.object).");
-	}
+	validateConfigBasics(config);
+	validateConfigCompatibility(config, 'Script');
+	validateRendererInputSchema(config, 'Script');
 
 	const isLoaded = scriptType?.endsWith('-name') ?? false;
 
@@ -311,13 +282,10 @@ export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, a
  * @param isTool A flag indicating if the function is being created as a tool.
  */
 export function validateFunctionConfig(config: Record<string, any>, isTool = false): void {
-	universalSanityChecks(config);
+	validateConfigBasics(config);
+	validateConfigCompatibility(config, 'Function');
 	if (typeof config.execute !== 'function') {
 		throw new ConfigError("The 'execute' property in a Function config must be a function.");
-	}
-	const forbiddenProps = ['model', 'template', 'script', 'prompt', 'output', 'enum', 'mode', 'loader'];
-	for (const prop of forbiddenProps) {
-		if (prop in config) throw new ConfigError(`Property '${prop}' is not applicable for a Function configuration.`);
 	}
 	if (isTool && !('inputSchema' in config)) {
 		throw new ConfigError("'inputSchema' is a required property when creating a Function as a tool.");
@@ -370,7 +338,7 @@ export function validateLLMComponentCall(
 		if (!hasPromptString && !hasPromptMessages && !hasMessages) {
 			throw new ConfigError("Either 'prompt' (string or messages array) or 'messages' must be provided in the config or at call time.");
 		}
-		if (callArgs.context) throw new ConfigError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
+		if (callArgs.context && !isToolCall) throw new ConfigError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
 	}
 }
 

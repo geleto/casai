@@ -6,21 +6,12 @@ import * as configs from '../types/config.js';
 import * as utils from '../types/utils.js';
 import * as types from '../types/types.js';
 
-import { ValidateObjectConfig, ValidateObjectParentConfig } from "./ObjectGenerator.js";
+import type { ValidateObjectConfig, ValidateObjectParentConfig } from '../types/config-validation.js';
+import type { Provisional } from '../types/provisional.js';
 
 import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateObjectLLMConfig } from "../validate.js";
-
-type StreamObjectConfig<
-	INPUT extends Record<string, any>,
-	OUTPUT, //@out
-	PROMPT extends types.AnyPromptSource = string
-> =
-	configs.StreamObjectObjectConfig<INPUT, OUTPUT, PROMPT> |
-	configs.StreamObjectArrayConfig<INPUT, OUTPUT, PROMPT> |
-	configs.StreamObjectNoSchemaConfig<INPUT, PROMPT>;
-
 
 type CommonStreamObjectObjectConfig = configs.StreamObjectObjectConfig<Record<string, any>, any, types.AnyPromptSource>;
 type CommonStreamObjectArrayConfig = configs.StreamObjectArrayConfig<Record<string, any>, any, types.AnyPromptSource>;
@@ -74,7 +65,7 @@ type StreamObjectWithParentReturn<
 	PARENT_OUTPUT, //@out
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape,
-	TFinalConfig = utils.Override<TParentConfig, TConfig>,
+	TFinalConfig = configs.MergedConfig<TParentConfig, TConfig>,
 > =
 	StreamObjectReturn<
 		TFinalConfig & configs.BaseConfig, // & configs.OptionalPromptConfig,
@@ -92,7 +83,7 @@ type StreamObjectWithParentPromiseReturn<
 	PARENT_OUTPUT, //@out
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape,
-	TFinalConfig = utils.Override<TParentConfig, TConfig>
+	TFinalConfig = configs.MergedConfig<TParentConfig, TConfig>
 > =
 	StreamObjectPromiseReturn<
 		TFinalConfig & configs.BaseConfig, // & configs.OptionalPromptConfig,
@@ -102,21 +93,9 @@ type StreamObjectWithParentPromiseReturn<
 		TConfigShape
 	>
 
-// A mapping from the 'output' literal to its full, correct config type.
-interface ConfigShapeMap {
-	array: configs.StreamObjectArrayConfig<any, any>;
-	'no-schema': configs.StreamObjectNoSchemaConfig<any>;
-	object: configs.StreamObjectObjectConfig<any, any>;
-}
-
-interface AllSpecializedProperties { output?: ConfigOutput, schema?: types.SchemaType<any>, model?: LanguageModel }
-
-type ConfigOutput = keyof ConfigShapeMap | undefined;
-//type ConfigOutput = 'array' | 'no-schema' | 'object' | undefined;
-
 // A text-only prompt has no inputs
 function withText<
-	TConfig extends StreamObjectConfig<never, OUTPUT, PROMPT>,
+	TConfig extends Provisional<configs.StreamObjectConfig<never, OUTPUT, PROMPT>>,
 	OUTPUT, //@out
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape = ShapeOf<TConfig>,
@@ -126,14 +105,14 @@ function withText<
 
 // Overload 2: With parent parameter
 function withText<
-	TConfig extends Partial<StreamObjectConfig<never, OUTPUT, PROMPT>>,
-	TParentConfig extends Partial<StreamObjectConfig<never, PARENT_OUTPUT, PROMPT>>,
+	TConfig extends Provisional<Partial<configs.StreamObjectConfig<never, OUTPUT, PROMPT>>>,
+	TParentConfig extends Partial<configs.StreamObjectConfig<never, PARENT_OUTPUT, PROMPT>>,
 	OUTPUT,
 	PARENT_OUTPUT,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape = ShapeOf<TConfig>,
 
-	TFinalConfig extends AllSpecializedProperties = utils.Override<TParentConfig, TConfig>
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig>>,
@@ -142,8 +121,8 @@ function withText<
 
 // Implementation signature that handles both cases
 function withText<
-	TConfig extends StreamObjectConfig<never, OUTPUT>,
-	TParentConfig extends StreamObjectConfig<never, PARENT_OUTPUT>,
+	TConfig extends configs.StreamObjectConfig<never, OUTPUT>,
+	TParentConfig extends configs.StreamObjectConfig<never, PARENT_OUTPUT>,
 	OUTPUT,
 	PARENT_OUTPUT,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
@@ -152,13 +131,13 @@ function withText<
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
 ): StreamObjectReturn<TConfig, 'text', OUTPUT, PROMPT, TConfigShape> {
-	return _createObjectStreamer(config as StreamObjectConfig<never, OUTPUT> & configs.OptionalPromptConfig, 'text',
-		parent as configs.ConfigProvider<StreamObjectConfig<never, OUTPUT> & configs.OptionalPromptConfig>, false
+	return _createObjectStreamer(config as configs.StreamObjectConfig<never, OUTPUT> & configs.OptionalPromptConfig, 'text',
+		parent as configs.ConfigProvider<configs.StreamObjectConfig<never, OUTPUT> & configs.OptionalPromptConfig>, false
 	) as unknown as StreamObjectReturn<TConfig, 'text', OUTPUT, PROMPT, TConfigShape>
 }
 
 function loadsText<
-	const TConfig extends StreamObjectConfig<never, OUTPUT, PROMPT> & configs.LoaderConfig,
+	const TConfig extends Provisional<configs.StreamObjectConfig<never, OUTPUT, PROMPT> & configs.LoaderConfig>,
 	OUTPUT,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig,
@@ -170,14 +149,14 @@ function loadsText<
 // Overload 2: With parent parameter
 // @todo - does this check for loader?
 function loadsText<
-	TConfig extends Partial<StreamObjectConfig<never, OUTPUT, PROMPT> & configs.LoaderConfig>,
-	TParentConfig extends Partial<StreamObjectConfig<never, PARENT_OUTPUT, PROMPT> & configs.LoaderConfig>,
+	TConfig extends Provisional<Partial<configs.StreamObjectConfig<never, OUTPUT, PROMPT> & configs.LoaderConfig>>,
+	TParentConfig extends Partial<configs.StreamObjectConfig<never, PARENT_OUTPUT, PROMPT> & configs.LoaderConfig>,
 	OUTPUT,
 	PARENT_OUTPUT,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig,
 
-	TFinalConfig extends AllSpecializedProperties = utils.Override<TParentConfig, TConfig>//@todo we need just the correct output type
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>//@todo we need just the correct output type
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.LoaderConfig>,
@@ -189,8 +168,8 @@ function loadsText<
 
 // Implementation signature that handles both cases
 function loadsText<
-	TConfig extends StreamObjectConfig<never, OUTPUT, PROMPT> & configs.LoaderConfig,
-	TParentConfig extends StreamObjectConfig<never, PARENT_OUTPUT, PROMPT> & configs.LoaderConfig,
+	TConfig extends configs.StreamObjectConfig<never, OUTPUT, PROMPT> & configs.LoaderConfig,
+	TParentConfig extends configs.StreamObjectConfig<never, PARENT_OUTPUT, PROMPT> & configs.LoaderConfig,
 	OUTPUT,
 	PARENT_OUTPUT,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
@@ -202,12 +181,12 @@ function loadsText<
 	return _createObjectStreamer(
 		config,
 		'text-name',
-		parent as configs.ConfigProvider<StreamObjectConfig<never, OUTPUT> & configs.OptionalPromptConfig>, false
+		parent as configs.ConfigProvider<configs.StreamObjectConfig<never, OUTPUT> & configs.OptionalPromptConfig>, false
 	) as unknown as StreamObjectPromiseReturn<TConfig, 'text-name', OUTPUT, PROMPT, TConfigShape>;
 }
 
 function withTemplate<
-	const TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig,
+	const TConfig extends Provisional<configs.StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	TConfigShape = ShapeOf<TConfig> & configs.TemplatePromptConfig,
@@ -217,15 +196,15 @@ function withTemplate<
 
 // Overload 2: With parent parameter
 function withTemplate<
-	TConfig extends Partial<StreamObjectConfig<INPUT, OUTPUT>> & configs.TemplatePromptConfig,
-	TParentConfig extends Partial<StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT>> & configs.TemplatePromptConfig,
+	TConfig extends Provisional<Partial<configs.StreamObjectConfig<INPUT, OUTPUT>> & configs.TemplatePromptConfig>,
+	TParentConfig extends Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT>> & configs.TemplatePromptConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 
 	TConfigShape = ShapeOf<TConfig> & configs.TemplatePromptConfig,
-	TFinalConfig extends AllSpecializedProperties = utils.Override<TParentConfig, TConfig>//@todo we need just the correct output type
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>//@todo we need just the correct output type
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig>,
@@ -236,8 +215,8 @@ function withTemplate<
 
 // Implementation signature that handles both cases
 function withTemplate<
-	TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig,
-	TParentConfig extends StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.TemplatePromptConfig,
+	TConfig extends configs.StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig,
+	TParentConfig extends configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.TemplatePromptConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
@@ -251,7 +230,7 @@ function withTemplate<
 }
 
 function loadsTemplate<
-	const TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig,
+	const TConfig extends Provisional<configs.StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	TConfigShape = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.LoaderConfig,
@@ -262,15 +241,15 @@ function loadsTemplate<
 
 // Overload 2: With parent parameter
 function loadsTemplate<
-	TConfig extends Partial<StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
-	TParentConfig extends Partial<StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<Partial<configs.StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
+	TParentConfig extends Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 
 	TConfigShape = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.LoaderConfig,
-	TFinalConfig extends AllSpecializedProperties = utils.Override<TParentConfig, TConfig>//@todo we need just the correct output type
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>//@todo we need just the correct output type
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig>,
@@ -281,8 +260,8 @@ function loadsTemplate<
 
 // Implementation signature that handles both cases
 function loadsTemplate<
-	TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig,
-	TParentConfig extends StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig,
+	TConfig extends configs.StreamObjectConfig<INPUT, OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig,
+	TParentConfig extends configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.TemplatePromptConfig & configs.LoaderConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
@@ -296,7 +275,7 @@ function loadsTemplate<
 }
 
 function withScript<
-	const TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig,
+	const TConfig extends Provisional<configs.StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	TConfigShape = ShapeOf<TConfig> & configs.ScriptPromptConfig,
@@ -307,14 +286,14 @@ function withScript<
 
 // Overload 2: With parent parameter
 function withScript<
-	TConfig extends Partial<StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig>,
-	TParentConfig extends Partial<StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig>,
+	TConfig extends Provisional<Partial<configs.StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig>>,
+	TParentConfig extends Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 	TConfigShape = ShapeOf<TConfig> & configs.ScriptPromptConfig,
-	TFinalConfig extends AllSpecializedProperties = utils.Override<TParentConfig, TConfig>//@todo we need just the correct output type
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>//@todo we need just the correct output type
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig>,
@@ -325,8 +304,8 @@ function withScript<
 
 // Implementation signature that handles both cases
 function withScript<
-	TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig,
-	TParentConfig extends StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig,
+	TConfig extends configs.StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig,
+	TParentConfig extends configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
@@ -340,7 +319,7 @@ function withScript<
 }
 
 function loadsScript<
-	const TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig,
+	const TConfig extends Provisional<configs.StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	TConfigShape = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.LoaderConfig,
@@ -351,15 +330,15 @@ function loadsScript<
 
 // Overload 2: With parent parameter
 function loadsScript<
-	TConfig extends Partial<StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
-	TParentConfig extends Partial<StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<Partial<configs.StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
+	TParentConfig extends Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 
 	TConfigShape = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.LoaderConfig,
-	TFinalConfig extends AllSpecializedProperties = utils.Override<TParentConfig, TConfig>
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig>,
@@ -370,8 +349,8 @@ function loadsScript<
 
 // Implementation signature that handles both cases
 function loadsScript<
-	TConfig extends StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig,
-	TParentConfig extends StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig,
+	TConfig extends configs.StreamObjectConfig<INPUT, OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig,
+	TParentConfig extends configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.ScriptPromptConfig & configs.LoaderConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
@@ -385,7 +364,7 @@ function loadsScript<
 }
 
 function withFunction<
-	const TConfig extends StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig,
+	const TConfig extends Provisional<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
@@ -397,13 +376,13 @@ function withFunction<
 
 // Overload 2: With parent parameter
 function withFunction<
-	TConfig extends Partial<StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>,
-	TParentConfig extends Partial<StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PROMPT> & configs.FunctionPromptConfig>,
+	TConfig extends Provisional<Partial<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>>,
+	TParentConfig extends Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PROMPT> & configs.FunctionPromptConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
-	TFinalConfig extends AllSpecializedProperties = utils.Override<TParentConfig, TConfig>, //@todo we need just the correct output type
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TConfigShape = ShapeOf<TConfig> & configs.FunctionPromptConfig,
 >(
@@ -416,8 +395,8 @@ function withFunction<
 
 // Implementation signature that handles both cases
 function withFunction<
-	TConfig extends StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig,
-	TParentConfig extends StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PROMPT> & configs.FunctionPromptConfig,
+	TConfig extends configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig,
+	TParentConfig extends configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PROMPT> & configs.FunctionPromptConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,

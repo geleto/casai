@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -394,6 +395,82 @@ describe('create.Function', function () {
 
 			const result = await childFn({ value: 4 });
 			expect(result).to.equal(12);
+		});
+
+		it('keeps the implementation return type on execute', async () => {
+			const parentFn = create.Function({ inputSchema: z.object({ value: z.number() }), execute: ({ value }) => value.toFixed(1) });
+			const childFn = create.Function({ context: { unused: true } }, parentFn);
+			const raw: string = parentFn.execute({ value: 2 });
+			const inherited: string = await childFn({ value: 2 });
+			expect([raw, inherited]).to.deep.equal(['2.0', '2.0']);
+			if (false) {
+				// @ts-expect-error The raw implementation returns a string.
+				const _raw: number = parentFn.execute({ value: 2 });
+			}
+		});
+
+		it('checks an inherited execute against the final schemas and context', async () => {
+			const parentFn = create.Function({
+				context: { base: 1 }, inputSchema: z.object({ value: z.number() }), schema: z.number(),
+				execute: ({ value, base }) => value + base,
+			});
+			const childFn = create.Function({ context: { base: 2 }, schema: z.number().int() }, parentFn);
+			expect(await childFn({ value: 4 })).to.equal(6);
+			if (false) {
+				// @ts-expect-error The inherited implementation needs a numeric value.
+				create.Function({ inputSchema: z.object({ value: z.string() }) }, parentFn);
+				// @ts-expect-error The inherited implementation needs a numeric base.
+				create.Function({ context: { base: 'text' } }, parentFn);
+				// @ts-expect-error The inherited implementation returns a number, not a string.
+				create.Function({ schema: z.string() }, parentFn);
+			}
+		});
+
+		it('takes call input from execute when there is no input schema', async () => {
+			const doubled = create.Function({ execute: (input: { value: number }) => input.value * 2 });
+			const prefixed = create.Function({
+				context: { prefix: '#' }, execute: (input: { value: number, prefix: string }) => input.prefix + String(input.value),
+			});
+			const result: number = await doubled({ value: 2 });
+			expect([result, await prefixed({ value: 2 }), await prefixed({ value: 2, prefix: '>' })]).to.deep.equal([4, '#2', '>2']);
+			if (false) {
+				// @ts-expect-error execute needs value.
+				await doubled({});
+				// @ts-expect-error Configured fields are optional for callers, but value is not.
+				await prefixed({ prefix: '>' });
+				// @ts-expect-error The configured prefix contradicts what execute needs.
+				create.Function({ context: { prefix: 3 }, execute: (input: { value: number, prefix: string }) => input.prefix });
+			}
+		});
+
+		it('treats optional configured context as possibly absent', async () => {
+			const inputSchema = z.object({ value: z.number() });
+			const settings: { context?: { offset: number } } = {};
+			const fromParent = create.Function({ inputSchema, execute: ({ value, offset }) => value + (offset ?? 0) }, { config: settings });
+			const fromSpread = create.Function({
+				inputSchema, ...settings, execute: ({ value, offset }: { value: number, offset?: number }) => value + (offset ?? 0),
+			});
+			expect([await fromParent({ value: 2 }), await fromSpread({ value: 2 })]).to.deep.equal([2, 2]);
+			if (false) {
+				// @ts-expect-error offset may be absent at runtime.
+				create.Function({ inputSchema, execute: ({ offset }) => offset.toFixed() }, { config: settings });
+				// @ts-expect-error A spread config may lack context as well.
+				create.Function({ inputSchema, ...settings, execute: ({ offset }) => offset.toFixed() });
+			}
+		});
+
+		it('requires execute to accept what the input schema and configured context provide', async () => {
+			const inputSchema = z.object({ value: z.number() });
+			const withContext = create.Function({
+				inputSchema, context: { prefix: '#' }, execute: (input: { value: number, prefix: string }) => input.prefix + String(input.value),
+			});
+			expect(await withContext({ value: 1 })).to.equal('#1');
+			if (false) {
+				// @ts-expect-error Neither the schema nor configured context provides prefix.
+				create.Function({ inputSchema, execute: (input: { value: number, prefix: string }) => input.prefix });
+				// @ts-expect-error The same applies to tools.
+				create.Function.asTool({ inputSchema, execute: (input: { value: number, prefix: string }) => input.prefix });
+			}
 		});
 	});
 
@@ -965,7 +1042,7 @@ describe('create.Function', function () {
 			});
 
 			// Simulate tool call (usually done by AI SDK)
-			const result = await tool.execute({ msg: 'Hello', prefix: 'Tool:' }, {} as ToolExecutionOptions<unknown>) as string;
+			const result = await tool.execute({ msg: 'Hello', prefix: 'Tool:' }, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.equal('Tool: Hello');
 		});
 
@@ -978,12 +1055,11 @@ describe('create.Function', function () {
 				}
 			});
 
-			const options: ToolExecutionOptions<unknown> = {
+			const options: ToolExecutionOptions<undefined> = {
 				toolCallId: 'call_123',
 				messages: [],
 				context: undefined
 			};
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 			const result = await tool.execute({}, options);
 			expect(result).to.equal('call_123');
 		});
@@ -1012,7 +1088,7 @@ describe('create.Function', function () {
 			});
 
 			// If we call it like a tool, internal validation is skipped (assuming SDK did it)
-			const result = await tool({ req: 'valid' }, {} as ToolExecutionOptions<unknown>);
+			const result = await tool({ req: 'valid' }, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.equal('valid');
 		});
 
@@ -1026,7 +1102,7 @@ describe('create.Function', function () {
 				execute: (input) => input.val * input.multiplier
 			}, parent);
 
-			const result = await tool({ val: 5 }, {} as ToolExecutionOptions<unknown>);
+			const result = await tool({ val: 5 }, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.equal(50);
 		});
 
@@ -1041,7 +1117,7 @@ describe('create.Function', function () {
 				execute: (input) => input.y * 3
 			}, parentFn);
 
-			const result = await tool({ y: 5 }, {} as ToolExecutionOptions<unknown>);
+			const result = await tool({ y: 5 }, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.equal(15);
 		});
 
@@ -1058,7 +1134,7 @@ describe('create.Function', function () {
 				execute: (input) => ({ result: input.val })
 			}, parentFn);
 
-			const result = await tool({}, {} as ToolExecutionOptions<unknown>);
+			const result = await tool({}, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.deep.equal({ result: 10 });
 		});
 
@@ -1072,7 +1148,7 @@ describe('create.Function', function () {
 				}
 			});
 
-			await expect(tool.execute({}, {} as ToolExecutionOptions<unknown>)).to.be.rejectedWith(/Output validation failed/);
+			await expect(tool.execute({}, {} as ToolExecutionOptions<undefined>)).to.be.rejectedWith(/Output validation failed/);
 		});
 
 		it('asTool with complex nested schemas', async () => {
@@ -1110,7 +1186,7 @@ describe('create.Function', function () {
 					user: { id: 1, name: 'Alice' },
 					data: [1, 2, 3, 4, 5]
 				}
-			}, {} as ToolExecutionOptions<unknown>);
+			}, {} as ToolExecutionOptions<undefined>);
 
 			expect(result).to.deep.equal({
 				response: {

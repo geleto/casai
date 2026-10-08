@@ -622,7 +622,9 @@ describe('asTool', function () {
 
 				// Assert the final state after the automated loop
 				expect(result.finishReason).to.equal('stop');
-				expect(result.toolCalls.length).to.equal(0);
+				expect(result.finalStep.toolCalls).to.have.lengthOf(0);
+				expect(result.toolCalls).to.have.lengthOf(1);
+				expect(result.toolResults).to.have.lengthOf(1);
 				expect(result.text.toLowerCase()).to.include('75').and.to.include('sunny');
 
 				// We can also inspect the intermediate steps
@@ -654,6 +656,9 @@ describe('asTool', function () {
 				// --- TURN 2: Tool-using chat ---
 				const turn2Result = await agent('Weather in San Francisco?', messageHistory);
 				expect(turn2Result.finishReason).to.equal('stop');
+				expect(turn2Result.finalStep.toolCalls).to.have.lengthOf(0);
+				expect(turn2Result.toolCalls).to.have.lengthOf(1);
+				expect(turn2Result.toolResults).to.have.lengthOf(1);
 				expect(turn2Result.text.toLowerCase()).to.include('75').and.to.include('sunny');
 
 				// Update history again
@@ -792,17 +797,24 @@ describe('asTool', function () {
 		});
 
 		describe('Accessing _toolCallOptions in LLM Loops', () => {
-			it('should correctly inject _toolCallOptions into a tool called by an LLM', async () => {
+			it('should correctly inject _toolCallOptions into a tool called by an LLM', async function () {
+				this.timeout(timeout * 2); // Agent and LLM-backed tool make two serial model requests.
+
 				const agent = create.TextGenerator({
 					model,
 					...temperatureConfig,
 					tools: { loggingTool: loggingTool },
-					stopWhen: stepCountIs(2),
+					toolChoice: { type: 'tool', toolName: 'loggingTool' },
+					stopWhen: stepCountIs(1), // The tool result is sufficient to verify metadata injection.
 				});
 
-				const result = await agent('Only write the word: "HELLO" and run the loggingTool with level=INFO status=success. Do not explain, just execute.');
+				const result = await agent('Call loggingTool exactly once with level="INFO" and status="success".');
 
+				expect(result.steps).to.have.lengthOf(1);
 				const step1 = result.steps[0];
+				expect(step1.toolCalls).to.have.lengthOf(1);
+				expect(step1.toolCalls[0].input).to.deep.equal({ level: 'INFO', status: 'success' });
+				expect(step1.toolResults).to.have.lengthOf(1);
 				const toolCallId = step1.toolCalls[0].toolCallId;
 				const toolResultOutput = step1.toolResults[0].output as string;
 

@@ -18,7 +18,13 @@ npm run test:file -- tests/Script.test.ts
 ```
 
 `npm run test:file` uses the `casai-source` export condition and runs tests against `src`.
-`npm run test` builds first and runs the full suite against the package entrypoint in `dist`.
+`npm run test` runs the type tests, then the full suite against the package entrypoint in `dist`.
+
+Mocha strips types, so the `@ts-expect-error` type tests are checked only by the compiler, in `test:types`.
+
+- `npm run test:local` runs every test file that uses mock models only. Add new mock-only files to it.
+- `npm run test:types` type-checks the tests against `src` with TS7 and TS6, builds, then checks them against the `dist` declarations and runs the `exactOptionalPropertyTypes` checks in `tests/type-safety`.
+- `npm run check` runs `test:types`, `lint` and `test:local`: everything that needs no paid LLM calls.
 
 Add `-- --grep "pattern"` after the filename for a single test or group.
 

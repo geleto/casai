@@ -1,6 +1,6 @@
-import type { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnEndCallback, ToolExecutionOptions, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
+import type { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnEndCallback, ToolExecutionOptions, FlexibleSchema, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
 import { z } from 'zod';
-import { InferParameters } from './utils.js';
+import type { InferParameters } from './utils.js';
 import type { ILoaderAny } from 'cascada-engine';
 import { RaceGroup, RaceLoader } from '../loaders.js';
 
@@ -30,20 +30,20 @@ export type InferSchema<TSchema, TFallback = unknown> =
 	TSchema extends () => { _type: infer T } ? T : // LazySchema - match function returning Schema
 	TFallback;
 
+export type ContextFromSchema<TSchema> = TSchema extends FlexibleSchema<infer CONTEXT> ? CONTEXT : undefined;
 
 // Type for the callable function (caller)
 // no context, only input as argumnent
 // if no output is specified, it is inferred from the execute function
 export type FunctionCaller<
-	InputSchema extends SchemaType<Record<string, any>> | undefined,
+	INPUT,
 	OutputSchema extends SchemaType<any> | undefined,
-	//TConfig extends configs.FunctionConfig<InputSchema, OutputSchema, Record<string, any> | undefined>,
 	ExecuteFunction extends (...args: any) => any,
 	FunctionOutput = OutputSchema extends SchemaType<any>
 	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
 > =
-	(input: InferSchema<InputSchema, Record<string, any>>)
+	(input: INPUT)
 		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
 
 // Type for the implementation function - has input and context as arguments
@@ -64,12 +64,13 @@ export type FunctionToolCaller<
 	OutputSchema extends SchemaType<any> | undefined,
 	//TConfig extends configs.FunctionToolConfig<InputSchema, OutputSchema, undefined>,
 	ExecuteFunction extends (...args: any) => any,
+	TOOL_CONTEXT = undefined,
 	FunctionOutput = OutputSchema extends SchemaType<any>
 	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
 > =
-	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolExecutionOptions<unknown>)
-		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
+	(input: InferSchema<InputSchema, Record<string, any>>, options: ToolExecutionOptions<TOOL_CONTEXT>)
+		=> Promise<Awaited<FunctionOutput>>;
 
 // Type for the implementation function - has input and context as arguments
 // if there is output schema - we use it as the return type
@@ -77,14 +78,12 @@ export type FunctionToolImplementation<
 	InputSchema extends SchemaType<Record<string, any>>,
 	OutputSchema extends SchemaType<any> | undefined,
 	CONTEXT extends Record<string, any> | undefined,
-	ExecuteFunction extends (...args: any) => any = (...args: any) => any
+	ExecuteFunction extends (...args: any) => any = (...args: any) => any,
+	TOOL_CONTEXT = undefined,
 > =
-	(
-		input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
-		options: ToolExecutionOptions<unknown>
-	)
-		=> OutputSchema extends SchemaType<any>
-		? /*AsyncIterable<OUTPUT> |*/ PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
+	(input: InferSchema<InputSchema> & (CONTEXT extends undefined ? unknown : CONTEXT),
+		options: ToolExecutionOptions<NoInfer<TOOL_CONTEXT>>) => OutputSchema extends SchemaType<any>
+		? PromiseLike<InferSchema<OutputSchema, any>> | InferSchema<OutputSchema, any>
 		: ReturnType<ExecuteFunction>;
 
 // Define the possible prompt types

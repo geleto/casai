@@ -1,19 +1,20 @@
 import type { ModelMessage, ToolSet } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
-import type { GenerateTextResultAugmented, StreamTextResultAugmented, AIOutput } from './types/result.js';
+import type { AugmentedResponse, GenerateTextResultAugmented, StreamTextResultAugmented, AIOutput } from './types/result.js';
 
-// Helper function to augment a response object with messages and messageHistory
-function augmentResponseObject(
-	responseObject: any,
+function createAugmentedResponse<RESPONSE extends { messages: ModelMessage[] }>(
+	responseObject: RESPONSE,
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
 	originalMessages: ModelMessage[]
-): void {
+): AugmentedResponse<RESPONSE> {
+	// Preserve the SDK's step responses, which also supply responseMessages.
+	const response = { ...responseObject };
 	let cachedMessages: ModelMessage[] | undefined;
 	let cachedMessageHistory: ModelMessage[] | undefined;
 
 	// Override the messages property with a lazy, memoized getter
-	Object.defineProperty(responseObject, 'messages', {
+	Object.defineProperty(response, 'messages', {
 		get() {
 			if (cachedMessages !== undefined) return cachedMessages;
 			const head = prefixForMessages ?? [];
@@ -25,7 +26,7 @@ function augmentResponseObject(
 	});
 
 	// Add the messageHistory property
-	Object.defineProperty(responseObject, 'messageHistory', {
+	Object.defineProperty(response, 'messageHistory', {
 		get() {
 			if (cachedMessageHistory !== undefined) return cachedMessageHistory;
 			const historyHead = historyPrefix ?? [];
@@ -36,6 +37,7 @@ function augmentResponseObject(
 		enumerable: true,
 		configurable: true
 	});
+	return response as unknown as AugmentedResponse<RESPONSE>;
 }
 
 export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
@@ -43,14 +45,13 @@ export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT exte
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
 ): GenerateTextResultAugmented<TOOLS, OUTPUT> {
-	// Get the actual response object that the getter returns
-	const actualResponse = result.steps[result.steps.length - 1].response;
-
-	// Store the original messages before we override them
-	const originalMessages = actualResponse.messages;
-
-	// Augment the response object
-	augmentResponseObject(actualResponse, prefixForMessages, historyPrefix, originalMessages);
+	// response.messages is step-local in AI SDK 7; responseMessages spans the call.
+	const response = createAugmentedResponse(result.response, prefixForMessages, historyPrefix, result.responseMessages);
+	Object.defineProperty(result, 'response', {
+		value: response,
+		enumerable: true,
+		configurable: true
+	});
 
 	return result as GenerateTextResultAugmented<TOOLS, OUTPUT>;
 }
@@ -60,33 +61,16 @@ export function augmentStreamText<TOOLS extends ToolSet = ToolSet, OUTPUT extend
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
 ): StreamTextResultAugmented<TOOLS, OUTPUT> {
-	// We need to modify the response when it becomes available
-	let cachedResponsePromise: Promise<ResponseWithMessages> | undefined;
-
-	// Helper type to extract the resolved response type from the promise that has messages
-	type ResponseWithMessages = { messages: ModelMessage[] } & Record<string, any>;
-
-	// Capture the original response promise before overriding the getter to avoid recursion
-	const originalResponsePromise = result.response as unknown as Promise<ResponseWithMessages>;
-
-	const getAugmentedResponse = (): Promise<ResponseWithMessages> => {
-		cachedResponsePromise ??= originalResponsePromise
-			.then((resolvedResponse: ResponseWithMessages) => {
-				// Store the original messages before we override them
-				const originalMessages = resolvedResponse.messages;
-
-				// Augment the response object
-				augmentResponseObject(resolvedResponse, prefixForMessages, historyPrefix, originalMessages);
-
-				return resolvedResponse;
-			});
-		return cachedResponsePromise;
-	};
+	let cachedResponsePromise: StreamTextResultAugmented<TOOLS, OUTPUT>['response'] | undefined;
 
 	// Override the response getter to return our augmented promise
 	Object.defineProperty(result, 'response', {
 		get() {
-			return getAugmentedResponse();
+			// Reading SDK metadata creates promises that can reject on a failed stream.
+			// Keep them lazy, and use finalStep to avoid recursing into this getter.
+			cachedResponsePromise ??= Promise.all([result.finalStep, result.responseMessages])
+				.then(([step, messages]) => createAugmentedResponse(step.response, prefixForMessages, historyPrefix, messages));
+			return cachedResponsePromise;
 		},
 		enumerable: true,
 		configurable: true

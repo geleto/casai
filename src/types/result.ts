@@ -9,7 +9,8 @@ import type {
 	ModelMessage,
 } from 'ai';
 
-import { SchemaType } from './types.js';
+import type { InferSchema, SchemaType } from './types.js';
+import type { ContextSchemaConfig, DeclaredType, ToolContextFromConfig } from './config.js';
 
 import { AIOutput } from './types.js';
 export { AIOutput };
@@ -23,20 +24,20 @@ export type {
 
 export type ScriptResult = JSONValue;//@todo - remove, RESULT can be any type (union, etc...)
 
-// Augmented text result types with lazy messageHistory
-// Augmented text result types with lazy messageHistory
+export type AugmentedResponse<RESPONSE> = Omit<RESPONSE, 'messages'> & {
+	messages: ModelMessage[];
+	messageHistory: ModelMessage[];
+};
+
+// Augmented text result types with lazy messages and messageHistory.
 export type GenerateTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
-	GenerateTextResult<TOOLS, any, OUTPUT> & {
-		response: GenerateTextResult<TOOLS, any, OUTPUT>['response'] & {
-			messageHistory: ModelMessage[];
-		};
+	Omit<GenerateTextResult<TOOLS, any, OUTPUT>, 'response'> & {
+		response: AugmentedResponse<GenerateTextResult<TOOLS, any, OUTPUT>['response']>;
 	};
 
 export type StreamTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
-	StreamTextResult<TOOLS, any, OUTPUT> & {
-		response: StreamTextResult<TOOLS, any, OUTPUT>['response'] extends PromiseLike<infer R>
-		? Promise<R & { messageHistory: ModelMessage[] }>
-		: StreamTextResult<TOOLS, any, OUTPUT>['response'];
+	Omit<StreamTextResult<TOOLS, any, OUTPUT>, 'response'> & {
+		response: Promise<AugmentedResponse<Awaited<StreamTextResult<TOOLS, any, OUTPUT>['response']>>>;
 	};
 
 //these are returned in a Promise
@@ -67,9 +68,13 @@ export type StreamObjectNoSchemaResult = StreamObjectResult<JSONValue, JSONValue
 
 type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>;
 
-export interface ComponentTool<INPUT, OUTPUT> {
+// A tool's input follows its final input schema; INPUT is only the fallback for configs without one.
+export type ComponentToolFromConfig<INPUT, OUTPUT, TConfig> = ComponentTool<
+	InferSchema<DeclaredType<TConfig, 'inputSchema'>, INPUT>, OUTPUT, ToolContextFromConfig<TConfig>>;
+
+export interface ComponentTool<INPUT, OUTPUT, TOOL_CONTEXT = undefined> extends ContextSchemaConfig<TOOL_CONTEXT> {
 	description?: string;
 	inputSchema: SchemaType<INPUT>;
-	execute: (args: INPUT, options: ToolExecutionOptions<unknown>) => PromiseLike<OUTPUT>;
+	execute: (input: INPUT, options: ToolExecutionOptions<TOOL_CONTEXT>) => PromiseLike<OUTPUT>;
 	type?: 'function';
 }

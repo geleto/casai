@@ -1,8 +1,12 @@
 import { mergeConfigs, processConfig } from '../config-utils.js';
-import * as configs from '../types/config.js';
-import * as utils from '../types/utils.js';
-import { ToolSet } from 'ai';
-import { validateAnyConfig } from '../validate.js';
+import type * as configs from '../types/config.js';
+import type { ValidateConfigFragment } from '../types/config-validation.js';
+import type { FlexibleSchema, ToolSet } from 'ai';
+import type { EmptyMap, ProcessedConfig } from '../types/merge.js';
+import type { Provisional } from '../types/provisional.js';
+import type { ChildDefinition, DeclaredConfig, ToolExecuteContext } from '../types/function-config.js';
+import type * as types from '../types/types.js';
+import { validateAnyConfig, validateConfigBasics } from '../validate.js';
 
 class ConfigData<ConfigType> implements configs.ConfigProvider<ConfigType> {
 	constructor(public readonly config: ConfigType) { }
@@ -10,68 +14,54 @@ class ConfigData<ConfigType> implements configs.ConfigProvider<ConfigType> {
 
 // Single config overload
 export function Config<
-	TConfig extends Partial<configs.AnyConfig<TOOLS, INPUT, OUTPUT, ENUM>>,
+	TConfig extends Provisional<configs.ConfigFragmentShape<TOOLS, INPUT, OUTPUT, ENUM>>,
 	TOOLS extends ToolSet, //@todo - handle TOOLS similarly elsewhere
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
-	ENUM extends string = string
+	ENUM extends string = string,
+	TInputSchema extends types.SchemaType<Record<string, any>> | undefined = never,
+	TOutputSchema extends types.SchemaType<any> | undefined = never,
+	CONTEXT extends Record<string, any> | undefined = undefined,
+	TContextSchema extends FlexibleSchema | undefined = never,
 >(
-	config: utils.StrictUnionSubtype<TConfig, Partial<configs.AnyConfig<TOOLS, INPUT, OUTPUT, ENUM>>>,
-): configs.ConfigProvider<TConfig>;
+	config:
+		{ tools?: TOOLS, inputSchema?: TInputSchema, schema?: TOutputSchema, context?: CONTEXT, contextSchema?: TContextSchema } &
+		TConfig &
+		NoInfer<ToolExecuteContext<ChildDefinition<EmptyMap, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>> &
+		ValidateConfigFragment<TConfig, TConfig, Partial<configs.AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>>,
+): configs.ConfigProvider<ProcessedConfig<TConfig>>;
 
 // Config with parent overload
 export function Config<
-	TConfig extends Partial<configs.AnyConfig<TOOLS, INPUT, OUTPUT, ENUM>>,
-	TParentConfig extends Partial<configs.AnyConfig<TOOLS, INPUT, OUTPUT, ENUM>>,
+	TConfig extends Provisional<configs.ConfigFragmentShape<TOOLS, INPUT, OUTPUT, ENUM>>,
+	TParentConfig extends Partial<configs.AnyConfigShape<ToolSet, INPUT, OUTPUT, ENUM>>,
 	TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT, ENUM extends string = string,
-	TCombined = utils.StrictUnionSubtype<utils.Override<TParentConfig, TConfig>, Partial<configs.AnyConfig<TOOLS, INPUT, OUTPUT, ENUM>>>
+	TInputSchema extends types.SchemaType<Record<string, any>> | undefined = never,
+	TOutputSchema extends types.SchemaType<any> | undefined = never,
+	CONTEXT extends Record<string, any> | undefined = undefined,
+	TContextSchema extends FlexibleSchema | undefined = never,
 >(
-	config: TConfig,
-	parent: configs.ConfigProvider<
-		TCombined extends never ? never : TParentConfig
-	>
-): ConfigData<TCombined>;
+	config:
+		{ tools?: TOOLS, inputSchema?: TInputSchema, schema?: TOutputSchema, context?: CONTEXT, contextSchema?: TContextSchema } &
+		TConfig &
+		NoInfer<ToolExecuteContext<ChildDefinition<DeclaredConfig<TParentConfig>, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>> &
+		ValidateConfigFragment<TConfig, configs.MergedConfig<DeclaredConfig<TParentConfig>, TConfig>, Partial<configs.AnyConfigShape<ToolSet, INPUT, OUTPUT, ENUM>>>,
+	parent: configs.ConfigProvider<TParentConfig>
+): configs.ConfigProvider<configs.MergedConfig<TParentConfig, TConfig>>;
 
 // Implementation
-export function Config<
-	TConfig extends Partial<configs.AnyConfig<TOOLS, INPUT, OUTPUT, ENUM>>,
-	TParentConfig extends Partial<configs.AnyConfig<PARENT_TOOLS, PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM>>,
-
-	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>,
-	OUTPUT,
-	ENUM extends string,
-
-	PARENT_TOOLS extends ToolSet,
-	PARENT_INPUT extends Record<string, any>,
-	PARENT_OUTPUT,
-	PARENT_ENUM extends string,
-
-	FINAL_TOOLS extends ToolSet = utils.Override<PARENT_TOOLS, TOOLS>,
-	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
-	FINAL_ENUM extends string = ENUM extends never ? PARENT_ENUM : ENUM,
-
-	TFinalConfig = utils.Override<TParentConfig, TConfig>
->(
-	config: TConfig,
-	parent?: configs.ConfigProvider<TParentConfig>
-):
-	| ConfigData<TFinalConfig>
-	| ConfigData<utils.StrictUnionSubtype<TFinalConfig, Partial<configs.AnyConfig<FINAL_TOOLS, FINAL_INPUT, FINAL_OUTPUT, FINAL_ENUM>>>> {
-
-
+export function Config(
+	config: Partial<configs.AnyConfigShape<ToolSet, Record<string, any>, any, string>>,
+	parent?: configs.ConfigProvider<any>
+): configs.ConfigProvider<any> {
+	// Validate raw values before loader processing and merging can consume them.
+	validateConfigBasics(config);
 	// Debug output if config.debug is true
 	if ('debug' in config && config.debug) {
 		console.log('[DEBUG] Config function created with config:', JSON.stringify(config, null, 2));
 	}
 
-	if (parent) {
-		const merged = mergeConfigs(parent.config, config);
-		validateAnyConfig(merged as Partial<configs.AnyConfig<any, any, any, any>>);
-		// Runtime check would go here if needed
-		return new ConfigData(merged) as ConfigData<TFinalConfig>;
-	}
-
-	return new ConfigData(processConfig(config)) as unknown as ConfigData<TFinalConfig>;
+	const merged = parent ? mergeConfigs(parent.config, config) : processConfig(config);
+	validateAnyConfig(merged as Partial<configs.AnyConfig<any, any, any, any>>);
+	return new ConfigData(merged);
 }

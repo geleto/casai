@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import { SchemaType } from './types.js';
-import { Schema } from 'ai';
+import type { z } from 'zod';
+import type { SchemaType } from './types.js';
+import type { Schema } from 'ai';
+import type { MergedProperties } from './merge.js';
 
 //export type Override<A, B> = Omit<A, keyof B> & B;
 export type Override<A, B> = {
@@ -13,7 +14,7 @@ export type Override<A, B> = {
 
 export type OverrideContext<A, B> = [A] extends [undefined]
 	? ([B] extends [undefined] ? undefined : B)
-	: ([B] extends [undefined] ? A : Override<A, B>);
+	: ([B] extends [undefined] ? A : MergedProperties<A, B>);
 
 // Ensures T is an exact match of one of the union members in U
 // Prevents extra properties and mixing properties from different union types

@@ -268,22 +268,30 @@ Template and script prompts defined at creation are pre-compiled for efficiency,
 #### Advanced Overrides with the `.run()` Method
 For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Casai provides the `.run()` method.
 
-This method is available specifically on **LLM components** (`TextGenerator`, `TextStreamer`, `ObjectGenerator`, and `ObjectStreamer`). It accepts a single configuration object where you can override properties like `model`, `temperature`, `maxOutputTokens`, or even provide a different set of `tools`.
+This method is available specifically on **LLM components** (`TextGenerator`, `TextStreamer`, `ObjectGenerator`, and `ObjectStreamer`). It accepts a single configuration object where you can override properties like `model`, `temperature`, and `maxOutputTokens`, or replace configured tools with implementations that have compatible input, output, and SDK context types. Create a new component to add tools or change their contracts.
 
 **Overridable Properties**
-You can temporarily change any standard Vercel AI SDK property, such as:
+
+You can temporarily change supported generation settings and call inputs, depending on the component:
+
 *   `model`
 *   `temperature`
 *   `maxOutputTokens`
 *   `stopWhen`
 *   `tools`
+*   `toolsContext`
 *   `prompt`
 *   `messages`
 *   `context`
 
 **Immutable Properties**
+
 Properties that are fundamental to the component's setup, compilation, or return type are locked in at creation and cannot be overridden. This includes:
+
 *   `schema`
+*   `inputSchema`
+*   `contextSchema`
+*   `promptType`
 *   `output` (for `ObjectGenerator`/`Streamer`)
 *   `enum` (for `ObjectGenerator`)
 *   `filters`
@@ -352,31 +360,60 @@ const component = create.TextGenerator.withTemplate({
 
 // The component inherits model, temperature, and context from baseConfig
 ```
-### Property Inheritance Explained
-Properties in *Casai* flow through a chain of configurations - starting from initial `Config` object (or multiple configs in a parent hierarchy), passing through parent renderers, and ending at the renderer you're crafting. Each level can tweak or extend what came before, but the rules differ
-A component's final configuration is determined by a chain of parents, with the child's properties taking ultimate precedence. Here is a breakdown of the merging strategies for different property types:
 
-| Property Type | Properties | Merging Strategy |
-| :--- | :--- | :--- |
-| **Scalar Properties** | `model`, `prompt`, `template`, `script`, `temperature`, `maxOutputTokens`, etc. | **Override**: The child's value completely replaces the parent's value. |
-| **Object Properties** | `context`, `filters`, `options` | **Shallow Merge**: The objects are merged. If a key exists in both the child and parent, the child's value for that key is used. |
-| **Loader Property** | `loader` | **Advanced Merging**: Child loaders are prepended to the parent's loader chain, and named `race()` groups are intelligently combined. |
+`create.Config` accepts incomplete configurations so that children can supply required properties later. It checks supplied properties for compatibility after merging with its parent. For example, a `schema` can be shared by a Function, Script, or ObjectGenerator, but combining `template` with `execute` is rejected. Concrete component factories then check required properties such as `model` or `execute`.
+
+### Property Inheritance Explained
+
+A child configuration inherits properties it omits; supplied properties either replace inherited values or merge with them, according to the rules below. These rules apply to parent `Config` objects, component inheritance, and [allowed `.run()` overrides](#advanced-overrides-with-the-run-method). A `.run()` override applies only to that call.
+
+| Properties | Merging Strategy |
+| :--- | :--- |
+| All other properties, including `model`, `prompt`, `template`, `script`, `schema`, `inputSchema`, `contextSchema`, `execute`, `options`, and `providerOptions` | **Replace**: The child's entire value replaces the parent's, including when the value is an object. |
+| `context`, `filters`, `tools`, `toolsContext` | **Shallow merge by key**: Keep keys unique to the parent; the child replaces values at matching keys. |
+| `messages` | **Concatenate**: Parent messages come first, followed by child messages. |
+| `loader` | **Merge loader chains**: Child loaders take priority; named `race()` groups combine and duplicate loader instances are removed. |
 
 #### Detailed Merging Strategies
 
-1.  **Override (Scalar Properties)**
-    This is the simplest strategy. For any non-object property like `prompt` or `model`, the value defined in the child component is used, and the parent's value is ignored.
+1. **Replace other properties.** A child can replace a property with a new value. For example, a new `schema` replaces the inherited schema, and a new `options` object replaces the entire inherited options object. The resulting configuration must still satisfy the component's requirements.
 
-2.  **Shallow Merge (Object Properties)**
-    For properties like `context` and `filters`, the keys and values are combined.
-    *   **`context`**: The child's `context` is merged on top of the parent's. Any properties unique to the parent are kept. If the same property key exists in both, the child's value wins.
-    *   **`filters`** and **`options`**: These follow the same merging logic as `context`.
+2. **Merge maps by key.** `context` and `filters` retain inherited entries unless the child supplies the same key. `tools` and `toolsContext` follow the same rule, using tool names as keys. Each matching entry is replaced in full, including nested objects and each tool's context value. Values are not recursively merged.
 
-3.  **Advanced Merging (`loader`)**
-    The `loader` property has a sophisticated merging strategy to provide maximum flexibility:
-    *   **Default Behavior (Prepending)**: By default, a child's loaders are placed *before* the parent's loaders in the final chain. This ensures the child's resources are found first, with the parent's serving as a fallback.
-    *   **Named `race()` Group Merging**: If both the parent and child define loaders within a `race()` group of the same name (e.g., `race(..., 'cdn')`), the loaders from both are combined into a single, larger race group. This allows a child to *add* to a parent's concurrent loading strategy rather than replacing it.
-    *   **Deduplication**: Casai automatically removes duplicate loader instances from the final chain to ensure efficiency.
+3. **Append messages.** A child's `messages` array is appended to the inherited array. This preserves the order of configured conversation messages.
+
+4. **Merge loaders.** Child loaders are searched before parent loaders. Loaders in named `race()` groups with the same name are combined into one group, and duplicate loader instances are removed.
+
+#### Nested Context Values
+
+Context merging preserves top-level keys unique to the parent. A nested object at a matching key is replaced:
+
+```typescript
+const parent = create.Config({
+  context: { language: 'en', settings: { tone: 'formal', length: 'short' } }
+});
+const child = create.Config({
+  context: { name: 'Alice', settings: { tone: 'casual' } }
+}, parent);
+
+console.log(child.config.context);
+// { language: 'en', name: 'Alice', settings: { tone: 'casual' } }
+// language survives; settings.length is lost because settings is replaced.
+```
+
+#### Omitted Properties and Explicit `undefined`
+
+Omitting a property keeps its inherited value. Explicit `undefined` follows the property's merging rule:
+
+| Child setting | Effect on inherited configuration |
+| :--- | :--- |
+| An ordinary property set to `undefined`, such as `schema: undefined` | Replaces the inherited value with `undefined`. |
+| `context: undefined`, `filters: undefined`, `tools: undefined`, or `toolsContext: undefined` | Keeps the inherited map entries. An empty object also keeps them. |
+| An entry set to `undefined`, such as `context: { language: undefined }` | Replaces that entry's value with `undefined`; other entries survive. |
+| `messages: undefined` or `messages: []` | Keeps the inherited messages. |
+| `loader: undefined` or `loader: []` | Keeps the inherited loader chain. |
+
+Component requirements still apply. For example, replacing a required `model` or `execute` with `undefined` makes the configuration invalid.
 
 #### Example in Action
 
@@ -384,6 +421,7 @@ Here's how these rules play out in practice:
 
 ```typescript
 const rootConfig = create.Config({
+  model: openai('gpt-4o'),
   prompt: 'Output exactly: Root {{ var }}',
   context: { var: 'root', theme: 'dark' }, // Initial context
   filters: { uppercase: (s) => s.toUpperCase() }
@@ -612,8 +650,8 @@ const summarizeTool = create.TextGenerator.withTemplate.asTool({
 #### Return Value
 When you `await` a `TextGenerator` call, it returns a promise that resolves to a rich result object, identical to the one from the Vercel AI SDK's [`generateText`](https://sdk.vercel.ai/docs/ai-sdk-core/generating-text#generatetext) function. Key properties include:
 *   **`text`**: The generated text as a string.
-*   **`toolCalls`**: An array of tool calls the model decided to make.
-*   **`toolResults`**: An array of results from the executed tools.
+*   **`toolCalls`**: An array of tool calls from all generation steps.
+*   **`toolResults`**: An array of results from the executed tools across all generation steps.
 *   **`finishReason`**: The reason the model stopped generating (e.g., `'stop'`, `'tool-calls'`).
 *   **`usage`**: Token usage information for the generation.
 *   **`response`**: The raw response object, which contains:
@@ -871,6 +909,14 @@ You can define the function's logic in two ways:
     });
     ```
 
+With an `inputSchema` or output `schema`, `execute` must accept the schema input (plus configured `context`) and return the schema output. Without an `inputSchema`, callers pass what `execute` declares, with configured `context` fields optional; without an output `schema`, the result is `execute`'s return type.
+
+A `Function` or `Function.asTool` can inherit from a `Config` or another `Function`. A child can replace `inputSchema`, `schema`, or `execute`, and its configured `context` merges by key. `Function.asTool` can also replace `contextSchema`. TypeScript checks the final `execute`, inherited or supplied, against the final configuration: if a change no longer matches the inherited callback's input, configured context, SDK context, or return type, the child must supply a compatible `execute`.
+
+A `Config` can hold a partial `Function` configuration, including `execute`. Its callback is typed from the schemas and context that `Config` declares and must not contradict them; anything it leaves out is checked when a `Function` completes the configuration. Components that supply their own implementation, such as generators, templates, and their tools, reject `execute` in their own config and in a parent.
+
+Inline callbacks in a `Config`, such as `onStart`, are typed for every component the `Config` could configure: a fragment usable by both text and object generators receives either kind of event.
+
 ## Using Components as Tools
 A powerful feature of Casai is the ability to expose almost any component as a tool that an LLM can decide to call. This allows the model to trigger complex, multi-step, or even other LLM-driven actions to fulfill a user's request.
 
@@ -891,6 +937,7 @@ The `_toolCallOptions` object contains:
 - **`toolCallId`**: `string` - The unique ID for this specific tool call. Useful for logging or streaming updates.
 - **`messages`**: `ModelMessage[]` - The message history sent to the LLM that triggered this tool call. Does not include the system prompt or the assistant's response.
 - **`abortSignal`**: `AbortSignal` (optional) - A signal to gracefully cancel the operation if the overall request is aborted.
+- **`context`**: The tool-specific value described by `contextSchema`, or `undefined` when no tool context is configured.
 
 You can use this context within your tool's template or script to add logging or change its behavior.
 ```typescript
@@ -917,6 +964,47 @@ const agent = create.TextGenerator({
     console.log('Model-Driven Result:', chatResult.toolCalls);
 })();
 ```
+**Typed Tool Context:**
+Use `contextSchema` to declare data supplied to a tool through the generator's `toolsContext` map. Callback context, direct calls, and `.execute()` are inferred from the schema without explicit type arguments.
+
+```typescript
+const multiply = create.Function.asTool({
+    inputSchema: z.object({ value: z.number() }),
+    contextSchema: z.object({ factor: z.number() }),
+    execute: ({ value }, { context }) => value * context.factor
+});
+
+const generator = create.TextGenerator({
+    model,
+    tools: { multiply },
+    toolsContext: { multiply: { factor: 3 } },
+    prompt: 'Multiply 2 using the tool.'
+});
+```
+
+`contextSchema` is **not a schema for Casai's configured `context`**. It describes the separate SDK execution context supplied through `toolsContext`. Configured `context` enriches input and supplies template/script variables; `inputSchema` validates call-time input. `Function.asTool` callbacks receive SDK context as `options.context`; `Template`, `Script`, and generator tools expose it through `_toolCallOptions.context`.
+
+The AI SDK validates and parses tool context before execution. Calling a Casai tool directly or calling `.execute()` skips this context validation, so direct callers must supply an already valid value.
+
+A child keeps its parent's inferred SDK context unless it supplies `contextSchema`. For `Function.asTool`, an incompatible replacement also requires an `execute` callback that accepts the new context. `Template`, `Script`, and generator tools can replace the schema without a callback.
+
+`tools` and `toolsContext` both merge by tool name under parent configs and `.run()` overrides. Children can add one tool and its context without restating inherited entries. Each supplied context entry replaces that tool's entire value; its individual fields are not merged. The final context map must match the final tool set, including replacement tools.
+
+`Config` accepts partial fragments, including a context map before its tools are supplied. Creating a generator or streamer checks that the final merged map is complete. `.run()` can replace a configured tool with another implementation with compatible input, output, and SDK context types. Create a new component to add tools or change those types, so tool calls and results remain accurately typed.
+
+```typescript
+const child = create.TextGenerator({
+    tools: { anotherTool },
+    toolsContext: { anotherTool: { label: 'child' } },
+    prompt: 'Use the available tools.'
+}, create.Config(generator.config));
+
+// Retains anotherTool's context for this run:
+await child.run({ toolsContext: { multiply: { factor: 5 } } });
+```
+
+**Type migration:** Tools without `contextSchema` now infer `undefined` for SDK context. Use `ToolExecutionOptions<undefined>` for options passed to these tools. When forwarding options from a plain SDK `tool()` wrapper, pass `{ ...options, context: undefined }`. Tools that need execution context should declare a `contextSchema`.
+
 **Use it for**: Creating modular, reusable, and type-safe functions that empower an autonomous agent to decide which actions to take.
 
 ## Template and Script Properties
@@ -1275,7 +1363,7 @@ await chatAgent(newUserInput, chatHistory);
 
 To make chat loops easy, the response object from `TextGenerator` and `TextStreamer` separates the turn's new messages from the full, ready-to-use history.
 
-*   **`response.messages`**: The *delta* for the current turn. This includes the message generated from the input `prompt` and the `assistant`'s reply.
+*   **`response.messages`**: The *delta* for the current turn. This includes the message generated from the input `prompt` and every generated message, including tool calls, tool results, and the final assistant reply.
 *   **`response.messageHistory`**: The *complete* dynamic history (input messages + delta), **excluding** any static messages from the component's configuration. This is the state you use for the next API call.
 
 | Property                  | Purpose                               | What it Contains                                                         | Primary Use Case                                |
@@ -1284,6 +1372,8 @@ To make chat loops easy, the response object from `TextGenerator` and `TextStrea
 | `messages` (argument)     | Dynamic Input History                 | The `messageHistory` from the previous turn.                             | Continuing a conversation.                      |
 | `response.messages`       | Delta of the Current Turn             | The new prompt message + the LLM's reply message.                        | Logging or displaying the latest exchange.      |
 | `response.messageHistory` | Dynamic Output History (Next State)   | The input `messages` argument + `response.messages`. **Excludes config.** | Storing and feeding into the next API call.     |
+
+With AI SDK 7, `toolCalls` and `toolResults` include all steps, even after the agent produces its final answer. Use `finalStep.toolCalls` to inspect the final step. The SDK's `responseMessages` contains all generated messages without the input prompt, while `steps[i].response.messages` remains specific to that step. For `TextStreamer`, await these SDK properties.
 
 ### Advanced Message Composition
 You can achieve more complex message structures using these advanced patterns:

@@ -13,7 +13,8 @@ type PromptOutput = string | ModelMessage[];
 function copyConfigProperties<TConfig>(config: Record<string, unknown>, keys: readonly (keyof TConfig & string)[]): Partial<TConfig> {
 	const dst: Partial<TConfig> = {};
 	for (const key of keys) {
-		if (key in config) {
+		// The LLM component validates raw call-time input before rendering.
+		if (key !== 'inputSchema' && key in config) {
 			dst[key] = config[key] as TConfig[typeof key];
 		}
 	}

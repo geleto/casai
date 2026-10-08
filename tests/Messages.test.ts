@@ -452,7 +452,9 @@ describe('Messages, Conversation & Integration', function () {
 
 				// Assertions for the final result
 				expect(result.finishReason).to.equal('stop');
-				expect(result.toolCalls).to.be.empty;
+				expect(result.finalStep.toolCalls).to.be.empty;
+				expect(result.toolCalls).to.have.lengthOf(1);
+				expect(result.toolResults).to.have.lengthOf(1);
 				expect(result.text.toLowerCase()).to.include('75').and.to.include('sunny');
 
 				// We can also inspect the intermediate steps
@@ -512,7 +514,9 @@ describe('Messages, Conversation & Integration', function () {
 
 				// Assertions for the final result of the second turn
 				expect(turn2Result.finishReason).to.equal('stop');
-				expect(turn2Result.toolCalls).to.be.empty; // Final result has no pending tool calls
+				expect(turn2Result.finalStep.toolCalls).to.be.empty;
+				expect(turn2Result.toolCalls).to.have.lengthOf(1);
+				expect(turn2Result.toolResults).to.have.lengthOf(1);
 				expect(turn2Result.text.toLowerCase()).to.include('75').and.to.include('sunny');
 
 				// We can also inspect the intermediate steps for this turn

@@ -238,7 +238,7 @@ describe('withFunction prompts', () => {
 
 		it('should execute function prompts as text tools', async () => {
 			const model = mockModel('FN_TOOL');
-			const options: ToolExecutionOptions<unknown> = { toolCallId: 'text-function', messages: [], context: undefined };
+			const options: ToolExecutionOptions<undefined> = { toolCallId: 'text-function', messages: [], context: undefined };
 			const parent = create.Config({ model, context: { prefix: 'Configured' } });
 			const tool = create.TextGenerator.withFunction.asTool({
 				inputSchema: z.object({ marker: z.string() }),
@@ -364,7 +364,7 @@ describe('withFunction prompts', () => {
 
 		it('should execute function prompts as object tools', async () => {
 			const model = mockModel('{"name":"FnTool","value":13}');
-			const options: ToolExecutionOptions<unknown> = { toolCallId: 'object-function', messages: [], context: undefined };
+			const options: ToolExecutionOptions<undefined> = { toolCallId: 'object-function', messages: [], context: undefined };
 			const parent = create.Config({ model, context: { value: 13 } });
 			const tool = create.ObjectGenerator.withFunction.asTool({
 				schema: itemSchema,

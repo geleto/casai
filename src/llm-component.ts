@@ -1,6 +1,8 @@
 import type { Context, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
 import * as configs from './types/config.js';
+import type { ValidateRunConfig } from './types/config-validation.js';
 import { ConfigError, validateLLMComponentCall } from './validate.js';
+import { extractCallArguments } from './call-arguments.js';
 import * as utils from './types/utils.js';
 import { generateObject, generateText, streamObject, streamText } from 'ai';
 import type { LanguageModel, ModelMessage } from 'ai';
@@ -12,6 +14,12 @@ import { createTemplatePromptRenderer, createScriptPromptRenderer, createFunctio
 import { augmentGenerateText, augmentStreamText } from './messages.js';
 import { mergeConfigs } from './config-utils.js';
 
+interface LLMComponent<TConfig, TResult, TAllowedConfigShape> {
+	config: TConfig;
+	type: string;
+	run<const TRunConfig extends object>(config: TRunConfig & TAllowedConfigShape & ValidateRunConfig<TRunConfig, TConfig, TAllowedConfigShape>): utils.EnsurePromise<TResult>;
+}
+
 //@todo - INPUT like in template
 export type LLMCallSignature<
 	TConfig extends configs.BaseConfig, // & configs.OptionalPromptConfig,
@@ -21,7 +29,7 @@ export type LLMCallSignature<
 	TConfigShape = Record<string, any>, //temporary default value
 	TAllowedConfigShape = Omit<Partial<TConfigShape>, configs.RunConfigDisallowedProperties>
 //INPUT extends Record<string, any> = TConfig extends { inputSchema: SchemaType<any> } ? utils.InferParameters<TConfig['inputSchema']> : Record<string, any>,
-> = PType extends 'text' | 'text-name'
+> = LLMComponent<TConfig, TResult, TAllowedConfigShape> & (PType extends 'text' | 'text-name'
 	? (
 		// TConfig has no template, no context argument is needed
 		// We can have either a prompt or messages, but not both. No context as nothing is rendered.
@@ -30,29 +38,18 @@ export type LLMCallSignature<
 			// Optional prompt/messages
 			(prompt: string | ModelMessage[], messages?: ModelMessage[]): utils.EnsurePromise<TResult>;
 			(messages?: ModelMessage[]): utils.EnsurePromise<TResult>;
-			config: TConfig;
-			type: string;
-			run(config: TAllowedConfigShape): utils.EnsurePromise<TResult>;
 		}
 		: {
 			// Required a prompt or messages
 			(prompt: string | ModelMessage[], messages?: ModelMessage[]): utils.EnsurePromise<TResult>;
 			(messages: ModelMessage[]): utils.EnsurePromise<TResult>;
-			config: TConfig;
-			type: string;
-			run(config: TAllowedConfigShape): utils.EnsurePromise<TResult>;
 		}
 	)
 	: PType extends 'function'
 	? (
 		// Function-based renderers only accept a context object.
 		// Overriding the prompt function with a one-off string is ambiguous.
-		{
-			(context?: Context): utils.EnsurePromise<TResult>;
-			config: TConfig;
-			type: string;
-			run(config: TAllowedConfigShape): utils.EnsurePromise<TResult>;
-		}
+		(context?: Context) => utils.EnsurePromise<TResult>
 	)
 	: (
 		// TConfig has template or script or function; return type is always a promise
@@ -63,65 +60,13 @@ export type LLMCallSignature<
 			(prompt: PROMPT, messages: ModelMessage[], context?: Context): utils.EnsurePromise<TResult>;
 			(prompt: PROMPT, context?: Context): utils.EnsurePromise<TResult>;
 			(context?: Context): utils.EnsurePromise<TResult>;
-			config: TConfig;
-			type: string;
-			run(config: TAllowedConfigShape): utils.EnsurePromise<TResult>;
 		}
-		: {
+		: (
 			// Requires a prompt, optional messages, and optional context
 			//(prompt: string, message: ModelMessage[], context?: Context): utils.EnsurePromise<TResult>;
-			(prompt: PROMPT, context?: Context): utils.EnsurePromise<TResult>;
-			config: TConfig;
-			type: string;
-			run(config: TAllowedConfigShape): utils.EnsurePromise<TResult>;
-		}
-	);
-
-export function extractCallArguments(promptOrMessageOrContext?: string | ModelMessage[] | Context, contextOrMessages?: ModelMessage[] | Context, maybeContext?: Context): { prompt?: string, messages?: ModelMessage[], context?: Context } {
-	let promptFromArgs: string | undefined;
-	let messagesFromArgs: ModelMessage[] | undefined;
-	let contextFromArgs: Context | undefined;
-
-	// First argument
-	if (typeof promptOrMessageOrContext === 'string') {
-		promptFromArgs = promptOrMessageOrContext;
-	} else if (Array.isArray(promptOrMessageOrContext)) {
-		messagesFromArgs = promptOrMessageOrContext;
-	} else if (promptOrMessageOrContext && !Array.isArray(promptOrMessageOrContext)) {
-		contextFromArgs = promptOrMessageOrContext;
-	}
-
-	// Second argument
-	if (contextOrMessages !== undefined) {
-		if (Array.isArray(contextOrMessages)) {
-			if (messagesFromArgs !== undefined) {
-				throw new Error('Messages provided multiple times across arguments');
-			}
-			messagesFromArgs = contextOrMessages as ModelMessage[];
-		} else {
-			if (contextFromArgs !== undefined) {
-				throw new Error('Context provided multiple times across arguments');
-			}
-			contextFromArgs = contextOrMessages;
-		}
-	}
-
-	// Third argument
-	if (maybeContext !== undefined) {
-		if (!Array.isArray(contextOrMessages)) {
-			throw new Error('Third argument (context) is only allowed when the second argument is messages.');
-		}
-		if (Array.isArray(maybeContext)) {
-			throw new Error('Third argument (context) must be an object');
-		}
-		if (contextFromArgs !== undefined) {
-			throw new Error('Context provided multiple times');
-		}
-		contextFromArgs = maybeContext;
-	}
-
-	return { prompt: promptFromArgs, messages: messagesFromArgs, context: contextFromArgs };
-}
+			(prompt: PROMPT, context?: Context) => utils.EnsurePromise<TResult>
+		)
+	));
 
 //@todo - the promptComponent shall use a precompiled template/script when created with a template/script promptType
 export function _createLLMComponent<
@@ -141,8 +86,29 @@ export function _createLLMComponent<
 
 	// The Vercel AI SDK functions for text and object generation accept a 'messages' array as input
 	// to provide conversational context. This is crucial for building chat agents and multi-step workflows.
-	let processMessages: boolean = (vercelFunc as unknown) === generateText || (vercelFunc as unknown) === streamText ||
+	const processMessages: boolean = (vercelFunc as unknown) === generateText || (vercelFunc as unknown) === streamText ||
 		(vercelFunc as unknown) === generateObject || (vercelFunc as unknown) === streamObject;
+
+	// Use the same history contract for plain text and rendered/conversational prompts.
+	const executeLLM = (runConfig: TFunctionConfig, prompt: string | ModelMessage[] | undefined, historyPrefix: ModelMessage[] | undefined): TFunctionResult => {
+		const promptMessages: ModelMessage[] = prompt
+			? Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }]
+			: [];
+		const vercelConfig = { ...runConfig, prompt } as TFunctionConfig;
+		if (processMessages && (Array.isArray(prompt) || runConfig.messages)) {
+			vercelConfig.messages = [...runConfig.messages ?? [], ...promptMessages];
+			delete vercelConfig.prompt;
+		}
+		const result = vercelFunc(vercelConfig);
+		if ((vercelFunc as unknown) === generateText) {
+			return (result as Promise<GenerateTextResult<any, any, any>>)
+				.then(r => augmentGenerateText(r, promptMessages, historyPrefix)) as TFunctionResult;
+		}
+		if ((vercelFunc as unknown) === streamText) {
+			return augmentStreamText(result as StreamTextResult<any, any, any>, promptMessages, historyPrefix) as TFunctionResult;
+		}
+		return result;
+	};
 
 	let call;
 	let run: (
@@ -182,7 +148,7 @@ export function _createLLMComponent<
 				if (config.debug) {
 					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
 				}
-				validateLLMComponentCall(config, config.promptType!, isFunctionPrompt ? configArg.context : undefined);
+				validateLLMComponentCall(runConfig as Partial<configs.AnyConfig<any, any, any, any>>, config.promptType!, configArg.context);
 			}
 
 			// Render the prompt
@@ -205,42 +171,7 @@ export function _createLLMComponent<
 				console.log('[DEBUG] LLMComponent.run executed with:', { configArg, renderedPrompt });
 			}
 
-			// A prompt function can return text on one call and messages on the next.
-			const shouldProcessMessages = processMessages && (Array.isArray(renderedPrompt) || !!runConfig.messages);
-
-			// Execute the appropriate path, mirroring the original if/else structure.
-			if (!shouldProcessMessages) {
-				// Path for simple, non-conversational prompts.
-				return await vercelFunc({ ...runConfig, prompt: renderedPrompt } as TFunctionConfig);
-			} else {
-				// Path for conversations using the `messages` array.
-				// 1. Normalize the newly rendered prompt into a message array format.
-				const newMessagesFromPrompt: ModelMessage[] = renderedPrompt
-					? (Array.isArray(renderedPrompt) ? renderedPrompt : [{ role: 'user', content: renderedPrompt }])
-					: [];
-
-				// 2. Construct the final message list for the Vercel AI SDK.
-				const vercelConfig = {
-					...runConfig,
-					messages: [
-						// Note: Your mergeConfigs concatenates messages, so runConfig.messages already contains factory + call-time messages.
-						...(runConfig.messages ?? []),
-						...newMessagesFromPrompt
-					]
-				};
-				delete vercelConfig.prompt; // The prompt is now in `messages`, so remove the top-level property.
-
-				// 3. Execute the underlying Vercel AI function.
-				const result = await vercelFunc(vercelConfig as TFunctionConfig);
-
-				// 4. Augment the result for history management.
-				if ((vercelFunc as unknown) === generateText) {
-					return augmentGenerateText(result as GenerateTextResult<any, any, any>, newMessagesFromPrompt, configArg.messages ?? []) as Awaited<TFunctionResult>;
-				} else if ((vercelFunc as unknown) === streamText) {
-					return augmentStreamText(result as StreamTextResult<any, any, any>, newMessagesFromPrompt, configArg.messages ?? []) as Awaited<TFunctionResult>;
-				}
-				return result;
-			}
+			return await executeLLM(runConfig as TFunctionConfig, renderedPrompt, configArg.messages);
 		};
 		call = async (
 			promptOrMessageOrContext?: string | ModelMessage[] | Context,
@@ -266,47 +197,14 @@ export function _createLLMComponent<
 			configArg: configs.LLMRunConfig,
 			calledFromCall = false
 		): TFunctionResult => {
+			const runConfig = mergeConfigs(config, configArg) as TFunctionConfig;
 			if (!calledFromCall) {
 				if (config.debug) {
 					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
 				}
-				validateLLMComponentCall(config, config.promptType ?? 'text', undefined);
+				validateLLMComponentCall(runConfig, config.promptType ?? 'text', undefined);
 			}
-			const runConfig = mergeConfigs(config, configArg) as TFunctionConfig;
-			if (processMessages &&
-				!runConfig.messages &&
-				!Array.isArray(runConfig.prompt)) {
-				//no messages in config and call config and prompt is not messages, so we don't process messages
-				processMessages = false;
-			}
-
-			if (!processMessages) {
-				return vercelFunc({ ...config, prompt: runConfig.prompt } as TFunctionConfig);
-			} else {
-				// 1. Normalize the rendered prompt into a consistent message array format.
-				const newMessagesFromPrompt: ModelMessage[] = runConfig.prompt ? [{ role: 'user', content: runConfig.prompt }] : []; //create a single message array from the rendered string prompt
-
-				/// 2. Construct the final vercel config messages
-				const vercelConfig = {
-					...runConfig,
-					messages: [
-						...(runConfig.messages ?? []),
-						...newMessagesFromPrompt
-					]
-				};
-				delete vercelConfig.prompt;//the rendered prompt was appended to the messages
-
-				// 3. Execute the underlying Vercel AI function.
-				const result = vercelFunc(vercelConfig);
-
-				// 4. Augment the result for conversational history management.
-				if ((vercelFunc as unknown) === generateText) {
-					return (result as Promise<GenerateTextResult<any, any, any>>).then((r) => augmentGenerateText(r, newMessagesFromPrompt, configArg.messages)) as TFunctionResult;
-				} else if ((vercelFunc as unknown) === streamText) {
-					return augmentStreamText(result as StreamTextResult<any, any, any>, newMessagesFromPrompt, configArg.messages) as TFunctionResult;
-				}
-				return result;
-			}
+			return executeLLM(runConfig, runConfig.prompt, configArg.messages);
 		};
 		call = (promptOrMessages?: string | ModelMessage[], maybeMessages?: ModelMessage[]): TFunctionResult => {
 			if (config.debug) {

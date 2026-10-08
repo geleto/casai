@@ -1,12 +1,7 @@
 
 import 'dotenv/config';
 // Non-public API unit tests, do not import anything from the compiled casai
-import {
-	extractCallArguments,
-	// The augment functions are tested through the public API, so direct import is not needed.
-	// augmentGenerateText,
-	// augmentStreamText,
-} from '../src/llm-component';
+import { extractCallArguments } from '../src/call-arguments.js';
 import type { ModelMessage } from 'ai';
 import { expect } from 'chai';
 import { timeout } from './common';

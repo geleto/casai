@@ -21,7 +21,9 @@ export { z } from 'zod';
 export type {
 	// Standalone Component Configs
 	TemplateConfig, // Correctly exporting the main TemplateConfig
+	TemplateToolConfig,
 	ScriptConfig,
+	ScriptToolConfig,
 	FunctionConfig,
 	FunctionToolConfig,
 	// LLM Component Configs
@@ -40,6 +42,7 @@ export type {
 	FunctionPromptConfig,
 	// Other
 	ToolConfig,
+	ContextSchemaConfig,
 	ConfigProvider
 } from './types/config.js';
 
@@ -58,6 +61,7 @@ export { ModelMessageSchema, PromptStringOrMessagesSchema } from './types/schema
 // --- Result Types ---
 export type {
 	ScriptResult,
+	ComponentTool,
 	// Augmented results renamed for clean public API
 	GenerateTextResultAugmented as GenerateTextResult,
 	StreamTextResultAugmented as StreamTextResult,
