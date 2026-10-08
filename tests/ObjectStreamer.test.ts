@@ -355,13 +355,10 @@ describe('create.ObjectStreamer', function () {
 		});
 
 		it('should throw ConfigError for invalid output type like "enum"', () => {
-			// but this does not work now because of function property TS bug workaround that removes the shape
-			// and I have not implemented alternative type checking yet
 			expect(() =>
-				create.ObjectStreamer({
-					model, ...temperatureConfig,
-					// @ts-expect-error - Intentionally invalid
-					output: 'enum',
+				// @ts-expect-error Object streamers do not support enum output.
+				create.ObjectStreamer({ model, ...temperatureConfig, output: 'enum',
+					// @ts-expect-error Enum values are also invalid for an object streamer.
 					enum: ['A', 'B'],
 				})
 			).to.throw(ConfigError, 'Object streamers do not support "enum" output.');

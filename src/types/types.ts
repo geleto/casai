@@ -1,6 +1,5 @@
-import type { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnEndCallback, ToolExecutionOptions, FlexibleSchema, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
+import type { ModelMessage, Schema, GenerateObjectEndEvent, StreamTextOnEndCallback, ToolExecutionOptions, FlexibleSchema, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
 import { z } from 'zod';
-import type { InferParameters } from './utils.js';
 import type { ILoaderAny } from 'cascada-engine';
 import type { RaceGroup, RaceLoader } from '../loaders.js';
 import type { AugmentedResponse } from './result.js';
@@ -108,7 +107,7 @@ export type PromptFunction<PR extends string | ModelMessage[] = string | ModelMe
 
 // Utility types
 export type StreamObjectOnFinishEvent<SCHEMA extends z.ZodTypeAny | Schema<any>> =
-	Parameters<StreamObjectOnFinishCallback<InferParameters<SCHEMA>>>[0];
+	GenerateObjectEndEvent<InferSchema<SCHEMA>>;
 
 type SDKStreamTextOnFinishEvent<TOOLS extends ToolSet> = Parameters<StreamTextOnEndCallback<TOOLS>>[0];
 

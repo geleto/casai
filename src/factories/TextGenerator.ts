@@ -11,7 +11,9 @@ import * as types from '../types/types.js';
 import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateTextLLMConfig } from "../validate.js";
-import type { Provisional } from '../types/provisional.js';
+import type { Provisional, ResolvedConfig } from '../types/provisional.js';
+import type { EmptyMap } from '../types/merge.js';
+import type { CallbackConfigShape, TextCallbackInput, OutputFromConfig, RuntimeContextFromConfig } from '../types/callbacks.js';
 
 type CommonConfig = configs.TextConfigShape<configs.GenerateTextConfig<ToolSet, never, types.AnyPromptSource>>;
 
@@ -20,11 +22,11 @@ type CommonConfig = configs.TextConfigShape<configs.GenerateTextConfig<ToolSet, 
 // Parameterize by the concrete promptType literal used by the implementation.
 type GenerateTextReturn<
 	TConfig extends configs.BaseConfig, // & configs.OptionalPromptConfig,
-	TOOLS extends ToolSet,
+	_TOOLS extends ToolSet,
 	PType extends types.RequiredPromptType,
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
-> = LLMCallSignature<TConfig, Promise<results.GenerateTextResultAugmented<TOOLS>>, PType, PROMPT, configs.TextRunConfig<TConfigShape, configs.ToolsFromConfig<TConfig>>>;
+> = LLMCallSignature<TConfig, Promise<results.GenerateTextResultAugmented<configs.ToolsFromConfig<TConfig>, OutputFromConfig<TConfig>, RuntimeContextFromConfig<TConfig>>>, PType, PROMPT, configs.TextRunConfig<TConfigShape, configs.ToolsFromConfig<TConfig>, TConfig>>;
 
 // Version of the return type for when a parent config is present.
 // Ensure the final merged config reflects the concrete promptType at the type level.
@@ -35,32 +37,38 @@ type GenerateTextWithParentReturn<
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
 
-	FINAL_TOOLS extends ToolSet = configs.MergedTools<TParentConfig, TConfig>,
-	TFinalConfig extends configs.BaseConfig = configs.MergedConfig<TParentConfig, TConfig>,
-> = LLMCallSignature<TFinalConfig, Promise<results.GenerateTextResultAugmented<FINAL_TOOLS>>, PType, PROMPT, configs.TextRunConfig<TConfigShape, FINAL_TOOLS>>;
+	FINAL_TOOLS extends ToolSet = configs.MergedTools<TParentConfig, ResolvedConfig<TConfig>>,
+	TFinalConfig extends configs.BaseConfig = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>> & configs.BaseConfig,
+> = LLMCallSignature<TFinalConfig, Promise<results.GenerateTextResultAugmented<FINAL_TOOLS, OutputFromConfig<TFinalConfig>, RuntimeContextFromConfig<TFinalConfig>>>, PType, PROMPT, configs.TextRunConfig<TConfigShape, FINAL_TOOLS, TFinalConfig>>;
 
 function withText<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, never, PROMPT>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>>>,
 	TOOLS extends ToolSet = ToolSet,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig
+	TConfigShape extends CommonConfig = CommonConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<
 		TConfig, TConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT>
 	>
 ): GenerateTextReturn<TConfig, TOOLS, 'text', PROMPT, TConfigShape>;
 
 function withText<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT>>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT>>>>,
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig
+	TConfigShape extends CommonConfig = CommonConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT>>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT>>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'text', PROMPT, TConfigShape>;
 
 function withText(
@@ -71,18 +79,21 @@ function withText(
 }
 
 function withTextAsTool<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>>,
 	INPUT extends Record<string, any>,
 	TOOLS extends ToolSet = ToolSet,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.ToolConfig<Record<string, any>, string>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'text', PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function withTextAsTool<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.ToolConfig<INPUT, string>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>>>,
 	INPUT extends Record<string, any>,
 	PARENT_INPUT extends Record<string, any>,
 	TOOLS extends ToolSet,
@@ -90,10 +101,13 @@ function withTextAsTool<
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.ToolConfig<Record<string, any>, string>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.ToolConfig<PARENT_INPUT, string>>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.ToolConfig<PARENT_INPUT, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'text', PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 // Implementation
@@ -102,25 +116,33 @@ function withTextAsTool(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function loadsText<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>>,
 	TOOLS extends ToolSet,
 	PROMPT extends string = string,
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.NamedPromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
+ & configs.NamedPromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>
 ): GenerateTextReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape>;
 
 function loadsText<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>> & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT> & configs.LoaderConfig>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>> & configs.LoaderConfig>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT> & configs.LoaderConfig>>>,
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends string = string,
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.NamedPromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
+ & configs.NamedPromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, never, PROMPT> & configs.LoaderConfig>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, never, PROMPT> & configs.LoaderConfig>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'text-name', PROMPT, TConfigShape>;
 
 function loadsText(config: any, parent?: configs.ConfigProvider<any>) {
@@ -128,18 +150,22 @@ function loadsText(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function loadsTextAsTool<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
 	INPUT extends Record<string, any>,
 	TOOLS extends ToolSet,
 	PROMPT extends string = string,
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string> & configs.NamedPromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>
+ & configs.NamedPromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function loadsTextAsTool<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
 	INPUT extends Record<string, any>,
 	TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
@@ -147,10 +173,14 @@ function loadsTextAsTool<
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends string = string,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string> & configs.NamedPromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>
+ & configs.NamedPromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'text-name', PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 //Implementation
@@ -159,26 +189,32 @@ function loadsTextAsTool(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function withTemplate<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template', string, TConfigShape>
 
 function withTemplate<
-	const TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig>>,
-	const TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig>,
+	const TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig>>>,
+	const TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-template', string, TConfigShape>
 
 function withTemplate(
@@ -189,26 +225,32 @@ function withTemplate(
 }
 
 function withTemplateAsTool<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template', string, CommonConfig & configs.TemplatePromptConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function withTemplateAsTool<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, string>>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig & configs.ToolConfig<Record<string, any>, string>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<any, string>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<any, string>>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<any, string>>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-template', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 function withTemplateAsTool(
@@ -218,25 +260,31 @@ function withTemplateAsTool(
 }
 
 function loadsTemplate<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
 	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>
+	INPUT extends Record<string, any>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template-name', string, CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig>;
 
 function loadsTemplate<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-template-name', string, TConfigShape>;
 
 function loadsTemplate(config: any, parent?: configs.ConfigProvider<any>) {
@@ -244,26 +292,32 @@ function loadsTemplate(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function loadsTemplateAsTool<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
 	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>
+	INPUT extends Record<string, any>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template-name', string, CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function loadsTemplateAsTool<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-template-name', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 function loadsTemplateAsTool(
@@ -273,25 +327,31 @@ function loadsTemplateAsTool(
 }
 
 function withScript<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>>,
 	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>
+	INPUT extends Record<string, any>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script', string, CommonConfig & configs.ScriptPromptConfig>;
 
 function withScript<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-script', string, TConfigShape>;
 
 function withScript(config: any, parent?: configs.ConfigProvider<any>) {
@@ -299,26 +359,32 @@ function withScript(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function withScriptAsTool<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>>,
 	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>
+	INPUT extends Record<string, any>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script', string, CommonConfig & configs.ScriptPromptConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function withScriptAsTool<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig & configs.ToolConfig<Record<string, any>, string>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<any, string>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<any, string>>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<any, string>>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-script', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 function withScriptAsTool(config: any, parent?: configs.ConfigProvider<any>) {
@@ -326,25 +392,31 @@ function withScriptAsTool(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function loadsScript<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
 	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>
+	INPUT extends Record<string, any>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script-name', string, CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig>;
 
 function loadsScript<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-script-name', string, TConfigShape>;
 
 function loadsScript(config: any, parent?: configs.ConfigProvider<any>) {
@@ -352,26 +424,32 @@ function loadsScript(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function loadsScriptAsTool<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
 	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>
+	INPUT extends Record<string, any>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script-name', string, CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function loadsScriptAsTool<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>>
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-script-name', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 function loadsScriptAsTool(config: any, parent?: configs.ConfigProvider<any>) {
@@ -379,29 +457,35 @@ function loadsScriptAsTool(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function withFunction<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
-	PROMPT extends types.PromptFunction = types.PromptFunction
+	PROMPT extends types.PromptFunction = types.PromptFunction,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig,
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
 		configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>
 ): GenerateTextReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig>;
 
 function withFunction<
-	TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>,
+	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
-	TConfigShape extends CommonConfig = CommonConfig & configs.FunctionPromptConfig
+	TConfigShape extends CommonConfig = CommonConfig & configs.FunctionPromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig,
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
 		configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>>
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape>;
 
 function withFunction(config: any, parent?: configs.ConfigProvider<any>) {
@@ -409,18 +493,21 @@ function withFunction(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function withFunctionAsTool<
-	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
-	PROMPT extends types.PromptFunction = types.PromptFunction
+	PROMPT extends types.PromptFunction = types.PromptFunction,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig,
+	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
 		configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function withFunctionAsTool<
-	const TConfig extends Provisional<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>,
-	TParentConfig extends Partial<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>,
+	const TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -428,12 +515,15 @@ function withFunctionAsTool<
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
-	TConfigShape extends CommonConfig = CommonConfig & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, string>,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
 	// Infer the callback before validating the inherited config; const preserves its schema type.
-	config: { tools?: TOOLS, prompt?: PROMPT } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig,
+	config: { tools?: TOOLS, prompt?: PROMPT } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
 		configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<any, string>>,
-	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<any, string>>>
+	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 function withFunctionAsTool(config: any, parent?: configs.ConfigProvider<any>) {

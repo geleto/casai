@@ -2,6 +2,7 @@
 import { expect } from 'chai';
 import { create, z } from './cascada';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
+import { Output } from 'ai';
 
 function mockModel(text: string): MockLanguageModelV3 {
 	const finishReason = { unified: 'stop', raw: 'stop' } as const;
@@ -38,6 +39,48 @@ function userPrompt(model: MockLanguageModelV3, streaming = false): unknown {
 describe('Factory inference with inline callbacks', () => {
 	const schema = z.object({ answer: z.number() });
 	const answer = '{"answer":4}';
+
+	it('should pass schema-typed completion events through object generators, streamers and run overrides', async () => {
+		const completed: number[] = [];
+		const parent = create.Config({ model: mockModel(answer), schema });
+		const generator = create.ObjectGenerator({ prompt: 'Answer.', onFinish: event => {
+			if (event.object) completed.push(event.object.answer);
+		} }, parent);
+		const streamer = create.ObjectStreamer({ prompt: 'Answer.', onFinish: event => {
+			if (event.object) completed.push(event.object.answer);
+		} }, parent);
+		expect((await generator()).object.answer).to.equal(4);
+		expect(await streamedObject(streamer())).to.deep.equal({ answer: 4 });
+		expect(await streamedObject(streamer.run({ onFinish: event => {
+			if (event.object) completed.push(event.object.answer * 2);
+		} }))).to.deep.equal({ answer: 4 });
+		expect(completed).to.deep.equal([4, 4, 8]);
+	});
+
+	it('should retain structured text output and runtime context in callbacks and result methods', async () => {
+		const finished: number[] = [];
+		const parent = create.Config({ model: mockModel(answer), output: Output.object({ schema }), runtimeContext: { requestId: 'request' } });
+		const generator = create.TextGenerator({ prompt: 'Answer.', onStepEnd: event => {
+			expect(event.runtimeContext.requestId).to.equal('request');
+		} }, parent);
+		const streamer = create.TextStreamer({ prompt: 'Answer.', onEnd: event => {
+			if (event.output) finished.push(event.output.answer);
+			expect(event.runtimeContext.requestId).to.equal('request');
+		} }, parent);
+		expect((await generator()).output.answer).to.equal(4);
+		const result = streamer();
+		expect((await result.output).answer).to.equal(4);
+		expect((await result.finalStep).runtimeContext.requestId).to.equal('request');
+		expect(finished).to.deep.equal([4]);
+		const uiResult = streamer.run({ onEnd: event => {
+			if (event.output) finished.push(event.output.answer * 2);
+		} });
+		const uiResponse = uiResult.toUIMessageStreamResponse({ onEnd: event => {
+			expect(event.responseMessage.role).to.equal('assistant');
+		}, messageMetadata: () => ({ requestId: 'request' }) });
+		expect(await uiResponse.text()).to.include('request');
+		expect(finished).to.deep.equal([4, 8]);
+	});
 
 	it('should infer object generator configs with inline callbacks under a parent', async () => {
 		const generator = create.ObjectGenerator({

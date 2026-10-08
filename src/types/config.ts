@@ -4,17 +4,19 @@ import {
 import type {
 	ToolSet,
 	LanguageModel,
-	StreamObjectOnFinishCallback,
 	ModelMessage,
 	ToolExecutionOptions,
 	Tool,
 	InferToolInput,
-	InferToolOutput
+	InferToolOutput,
+	GenerateObjectEndEvent,
+	JSONValue
 } from 'ai';
 import type { ConfigureOptions } from 'cascada-engine';
 import type * as types from './types.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
 import type { AugmentedResponse } from './result.js';
+import type { ConfigCallbackKeys, TextCallbacks, RuntimeContextFromConfig, ObjectFinishCallback } from './callbacks.js';
 export type { MergedConfig } from './merge.js';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type
@@ -174,7 +176,7 @@ export type GenerateTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof generateText<TOOLS>>[0], 'prompt'>
+> = Omit<Parameters<typeof generateText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt'>
 	& BaseConfig
 	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
 
@@ -189,13 +191,13 @@ export type StreamTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof streamText<TOOLS>>[0], 'prompt' | 'onFinish' | 'onEnd'>
+> = Omit<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'onFinish' | 'onEnd'>
 	& BaseConfig
 	& {
 		prompt?: PROMPT;
 		inputSchema?: types.SchemaType<INPUT>;
-		onFinish?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS>>[0]['onFinish']>;
-		onEnd?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS>>[0]['onEnd']>;
+		onFinish?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0]['onFinish']>;
+		onEnd?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0]['onEnd']>;
 	};
 
 export type FinalGenerateTextConfigShape = Partial<ConfigShape<GenerateTextConfig<any, any, any>> & { model: LanguageModel }>;
@@ -212,7 +214,9 @@ type RunToolContext<TOOLS extends ToolSet, K extends keyof TOOLS,
 	Contexts = NonNullable<ToolsContextConfig<TOOLS>['toolsContext']>> = K extends keyof Contexts ? Contexts[K] : undefined;
 
 // A run can replace implementations while preserving its tool input, output and context types.
-export type TextRunConfig<TShape, TOOLS extends ToolSet> = Omit<TShape, 'tools' | 'toolsContext'> & {
+export type TextRunConfig<TShape, TOOLS extends ToolSet, TConfig = { tools: TOOLS }, Streaming extends boolean = false> =
+	Omit<TShape, 'tools' | 'toolsContext' | 'runtimeContext' | ConfigCallbackKeys> & TextCallbacks<TConfig, TOOLS, Streaming> & {
+	runtimeContext?: RuntimeContextFromConfig<TConfig>;
 	tools?: { [K in keyof TOOLS]?: Tool<InferToolInput<TOOLS[K]>, InferToolOutput<TOOLS[K]>, RunToolContext<TOOLS, K>> | TOOLS[K] };
 	toolsContext?: Partial<NonNullable<ToolsContextConfig<TOOLS>['toolsContext']>>;
 };
@@ -223,16 +227,17 @@ export type ConfigShape<TConfig> = { [Property in keyof TConfig]?: unknown };
 // We get the last overload which is the no-schema overload and make it base by omitting the output and mode properties
 export type GenerateObjectBaseConfig<
 	INPUT extends Record<string, any>,
-	PROMPT extends types.AnyPromptSource = string
-> = Omit<Parameters<typeof generateObject>[0], | 'output' | 'mode' | 'prompt'>
+	PROMPT extends types.AnyPromptSource = string,
+	RESULT = unknown,
+> = Omit<Parameters<typeof generateObject>[0], 'output' | 'mode' | 'prompt' | 'onFinish'>
 	& BaseConfig
-	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
+	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT>, onFinish?: (event: GenerateObjectEndEvent<RESULT>) => void | PromiseLike<void> };
 
 export type GenerateObjectObjectConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
 	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT> & {
+> = GenerateObjectBaseConfig<INPUT, PROMPT, OUTPUT> & {
 	output?: 'object' | undefined;
 	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
@@ -244,7 +249,7 @@ export type GenerateObjectArrayConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
 	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT> & {
+> = GenerateObjectBaseConfig<INPUT, PROMPT, OUTPUT[]> & {
 	output: 'array';
 	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
@@ -256,7 +261,7 @@ export type GenerateObjectEnumConfig<
 	INPUT extends Record<string, any>,
 	ENUM extends string = string,
 	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT> & {
+> = GenerateObjectBaseConfig<INPUT, PROMPT, ENUM> & {
 	output: 'enum';
 	enum: readonly ENUM[];
 	mode?: 'auto' | 'json' | 'tool';
@@ -265,7 +270,7 @@ export type GenerateObjectEnumConfig<
 export type GenerateObjectNoSchemaConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT> & {
+> = GenerateObjectBaseConfig<INPUT, PROMPT, JSONValue> & {
 	output: 'no-schema';
 	mode?: 'json';
 }
@@ -291,13 +296,14 @@ export interface FinalGenerateObjectConfigShape {
 // We get the last overload which is the no-schema overload and make it base by omitting the output and mode properties
 export type StreamObjectBaseConfig<
 	INPUT extends Record<string, any>,
-	PROMPT extends types.AnyPromptSource = string
-> = Omit<Parameters<typeof streamObject>[0], | 'output' | 'mode' | 'prompt' | 'onFinish'>
+	PROMPT extends types.AnyPromptSource = string,
+	RESULT = unknown,
+> = Omit<Parameters<typeof streamObject>[0], 'output' | 'mode' | 'prompt' | 'onFinish'>
 	& BaseConfig
 	& {
 		//Bring back the removed onFinish and prompt properties
 		prompt?: PROMPT;
-		onFinish?: StreamObjectOnFinishCallback<any>;//@todo - use proper specialization
+		onFinish?: ObjectFinishCallback<RESULT, true>;
 		inputSchema?: types.SchemaType<INPUT>;
 	};
 
@@ -305,7 +311,7 @@ export type StreamObjectObjectConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
 	PROMPT extends types.AnyPromptSource = string
-> = StreamObjectBaseConfig<INPUT, PROMPT> & {
+> = StreamObjectBaseConfig<INPUT, PROMPT, OUTPUT> & {
 	output?: 'object' | undefined;
 	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
@@ -317,7 +323,7 @@ export type StreamObjectArrayConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
 	PROMPT extends types.AnyPromptSource = string
-> = StreamObjectBaseConfig<INPUT, PROMPT> & {
+> = StreamObjectBaseConfig<INPUT, PROMPT, OUTPUT[]> & {
 	output: 'array';
 	schema: types.SchemaType<OUTPUT>;
 	schemaName?: string;
@@ -328,7 +334,7 @@ export type StreamObjectArrayConfig<
 export type StreamObjectNoSchemaConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string
-> = StreamObjectBaseConfig<INPUT, PROMPT> & {
+> = StreamObjectBaseConfig<INPUT, PROMPT, JSONValue> & {
 	output: 'no-schema';
 	mode?: 'json';
 }
@@ -437,19 +443,6 @@ export type AnyConfigShape<TOOLS extends ToolSet, INPUT extends Record<string, a
 	? 'toolsContext' extends keyof TShape ? TextConfigShape<TShape> : TShape
 	: never;
 
-type Callback = (...args: any) => any;
-type MemberCallbacks<TShape, K extends PropertyKey> = TShape extends unknown
-	? K extends keyof TShape ? Extract<NonNullable<TShape[K]>, Callback> : never
-	: never;
-
-// One signature for a callback that components type differently: it accepts what any of them passes.
-type CombinedCallback<F extends Callback> = { callback(...args: Parameters<F>): ReturnType<F> }['callback'];
-
-// A fragment does not say which component will use it, so an inline callback is typed for every component it fits.
-type ContextualConfigShape<TShape, TMember = TShape> = TMember extends unknown ? {
-	[K in keyof TMember]: [MemberCallbacks<TShape, K>] extends [never] ? TMember[K]
-		: Exclude<TMember[K], Callback> | CombinedCallback<MemberCallbacks<TShape, K>>
-} : never;
-
+// Config supplies callback context after independently inferring schemas and tools.
 export type ConfigFragmentShape<TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT, ENUM extends string> =
-	Partial<ContextualConfigShape<AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>>;
+	Partial<AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>;

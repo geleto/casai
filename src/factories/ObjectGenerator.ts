@@ -10,7 +10,9 @@ import * as types from '../types/types.js';
 import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateObjectLLMConfig } from "../validate.js";
-import type { Provisional } from '../types/provisional.js';
+import type { Provisional, ResolvedConfig } from '../types/provisional.js';
+import type { EmptyMap } from '../types/merge.js';
+import type { ObjectCallbackShape, ObjectCallbackInput, ObjectRunConfig } from '../types/callbacks.js';
 import type { ValidateObjectConfig, ValidateObjectParentConfig } from '../types/config-validation.js';
 
 type CommonGenerateObjectObjectConfig = configs.GenerateObjectObjectConfig<Record<string, any>, any, types.AnyPromptSource>;
@@ -38,17 +40,17 @@ type GenerateObjectReturn<
 //TConfigShape extends CommonGenerateObjectConfig = CommonGenerateObjectConfig//temp assignment
 > =
 	TConfig extends { output: 'array', schema: types.SchemaType<OUTPUT> }
-	? LLMCallSignature<TConfig, Promise<results.GenerateObjectArrayResult<utils.InferParameters<TConfig['schema']>>>, PType, PROMPT, TConfigShape>
+	? LLMCallSignature<TConfig, Promise<results.GenerateObjectArrayResult<utils.InferParameters<TConfig['schema']>>>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, false>>
 	: TConfig extends { output: 'array' }
 	? `Config Error: Array output requires a schema`
 	: TConfig extends { output: 'enum', enum: readonly (ENUM)[] }
-	? LLMCallSignature<TConfig, Promise<results.GenerateObjectEnumResult<TConfig["enum"][number]>>, PType, PROMPT, TConfigShape>
+	? LLMCallSignature<TConfig, Promise<results.GenerateObjectEnumResult<TConfig["enum"][number]>>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, false>>
 	: TConfig extends { output: 'enum' }
 	? `Config Error: Enum output requires an enum`
 	: TConfig extends { output: 'no-schema' }
-	? LLMCallSignature<TConfig, Promise<results.GenerateObjectNoSchemaResult>, PType, PROMPT, TConfigShape>
+	? LLMCallSignature<TConfig, Promise<results.GenerateObjectNoSchemaResult>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, false>>
 	: TConfig extends { output?: 'object' | undefined, schema: types.SchemaType<OUTPUT> }
-	? LLMCallSignature<TConfig, Promise<results.GenerateObjectObjectResult<utils.InferParameters<TConfig['schema']>>>, PType, PROMPT, TConfigShape>
+	? LLMCallSignature<TConfig, Promise<results.GenerateObjectObjectResult<utils.InferParameters<TConfig['schema']>>>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, false>>
 	: `Config Error: Object output requires a schema`;
 
 // With parent
@@ -62,7 +64,7 @@ type GenerateObjectWithParentReturn<
 	PARENT_ENUM extends string,
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape, // = Record<string, any>, //temp assignment
-	TFinalConfig = configs.MergedConfig<TParentConfig, TConfig>,
+	TFinalConfig = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
 
 //TConfigShape extends CommonGenerateObjectConfig
 > =
@@ -77,27 +79,33 @@ type GenerateObjectWithParentReturn<
 
 // A text-only prompt has no inputs
 function withText<
-	TConfig extends Provisional<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT>>,
+	TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT>>>,
 	OUTPUT, //@out
 	ENUM extends string,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig>,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig>,
 ): GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, ShapeOf<TConfig>>;
 
 // Overload 2: With parent parameter
 function withText<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<never, PARENT_OUTPUT, PARENT_ENUM, PROMPT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<never, PARENT_OUTPUT, PARENT_ENUM, PROMPT>>>,
 	OUTPUT,
 	ENUM extends string,
 	PARENT_OUTPUT,
 	PARENT_ENUM extends string,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 
-	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>
+	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig>,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig>>,
 ): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'text',
 	OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, ShapeOf<TConfig>>
@@ -121,20 +129,23 @@ function withText<
 }
 
 function withTextAsTool<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.ToolConfig<INPUT, OUTPUT>>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.ToolConfig<INPUT, OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ToolConfig<INPUT, OUTPUT>
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ToolConfig<INPUT, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
 
 function withTextAsTool<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.ToolConfig<INPUT, OUTPUT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.ToolConfig<INPUT, OUTPUT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -147,9 +158,12 @@ function withTextAsTool<
 	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ToolConfig<INPUT, OUTPUT>
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ToolConfig<INPUT, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.ToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
@@ -181,21 +195,24 @@ function withTextAsTool<
 }
 
 function loadsText<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig>>,
 	OUTPUT,
 	ENUM extends string,
 	PROMPT extends string = string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.LoaderConfig>,
 ): GenerateObjectReturn<TConfig, 'text-name', OUTPUT, ENUM, PROMPT, TConfigShape>;
 
 // Overload 2: With parent parameter
 // @todo - does this check for loader?
 function loadsText<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<never, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.LoaderConfig>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<never, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.LoaderConfig>>,
 	OUTPUT,
 	ENUM extends string,
 	PARENT_OUTPUT,
@@ -204,8 +221,11 @@ function loadsText<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.LoaderConfig>>,
@@ -235,21 +255,24 @@ function loadsText<
 }
 
 function loadsTextAsTool<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	PROMPT extends string = string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT> & configs.NamedPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'text-name', OUTPUT, ENUM, PROMPT, TConfigShape>
 	& results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
 
 function loadsTextAsTool<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -263,8 +286,11 @@ function loadsTextAsTool<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT> & configs.NamedPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
@@ -298,19 +324,22 @@ function loadsTextAsTool<
 }
 
 function withTemplate<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig, configs.TemplatePromptConfig>,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig, configs.TemplatePromptConfig>,
 ): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape>;
 
 // Overload 2: With parent parameter
 function withTemplate<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM>> & configs.TemplatePromptConfig>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM>> & configs.TemplatePromptConfig,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM>> & configs.TemplatePromptConfig>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM>> & configs.TemplatePromptConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -320,8 +349,11 @@ function withTemplate<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig>>
@@ -347,19 +379,22 @@ function withTemplate<
 }
 
 function withTemplateAsTool<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
 
 function withTemplateAsTool<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -371,8 +406,11 @@ function withTemplateAsTool<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
@@ -401,20 +439,23 @@ function withTemplateAsTool<
 }
 
 function loadsTemplate<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.LoaderConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig>,
 ): GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape>;
 
 // Overload 2: With parent parameter
 function loadsTemplate<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -424,8 +465,11 @@ function loadsTemplate<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.LoaderConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig>>
@@ -451,19 +495,22 @@ function loadsTemplate<
 }
 
 function loadsTemplateAsTool<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
 
 function loadsTemplateAsTool<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -476,8 +523,11 @@ function loadsTemplateAsTool<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
@@ -506,20 +556,23 @@ function loadsTemplateAsTool<
 }
 
 function withScript<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig>,
 ): GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape>;
 
 // Overload 2: With parent parameter
 function withScript<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -529,8 +582,11 @@ function withScript<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig>>
@@ -556,19 +612,22 @@ function withScript<
 }
 
 function withScriptAsTool<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
 
 function withScriptAsTool<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -581,8 +640,11 @@ function withScriptAsTool<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
@@ -611,20 +673,23 @@ function withScriptAsTool<
 }
 
 function loadsScript<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.LoaderConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig>,
 ): GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape>;
 
 // Overload 2: With parent parameter
 function loadsScript<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -634,8 +699,11 @@ function loadsScript<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.LoaderConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig>>
@@ -661,19 +729,22 @@ function loadsScript<
 }
 
 function loadsScriptAsTool<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
 
 function loadsScriptAsTool<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -686,8 +757,11 @@ function loadsScriptAsTool<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
@@ -716,21 +790,24 @@ function loadsScriptAsTool<
 }
 
 function withFunction<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.FunctionPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.FunctionPromptConfig>,
 ): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape>;
 
 // Overload 2: With parent parameter
 function withFunction<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.FunctionPromptConfig>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.FunctionPromptConfig>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -740,8 +817,11 @@ function withFunction<
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.FunctionPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.FunctionPromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.FunctionPromptConfig>>,
@@ -768,20 +848,23 @@ function withFunction<
 }
 
 function withFunctionAsTool<
-	const TConfig extends Provisional<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
+	const TConfig extends Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
 
 function withFunctionAsTool<
-	TConfig extends Provisional<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>,
-	TParentConfig extends Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>,
+	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
+	TParentConfig extends ObjectCallbackShape<Partial<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -795,8 +878,11 @@ function withFunctionAsTool<
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
@@ -827,7 +913,7 @@ function withFunctionAsTool<
 
 //common function for the specialized from/loads Template/Script/Text
 function _createObjectGenerator<
-	TConfig extends configs.GenerateObjectBaseConfig<INPUT, PROMPT>,
+	TConfig extends configs.GenerateObjectBaseConfig<INPUT, PROMPT, any>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
@@ -862,7 +948,7 @@ function _createObjectGenerator<
 }
 
 function _createObjectGeneratorAsTool<
-	TConfig extends configs.GenerateObjectBaseConfig<INPUT, PROMPT> & configs.OptionalPromptConfig & configs.ContextSchemaConfig,
+	TConfig extends configs.GenerateObjectBaseConfig<INPUT, PROMPT, any> & configs.OptionalPromptConfig & configs.ContextSchemaConfig,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,

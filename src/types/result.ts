@@ -30,14 +30,14 @@ export type AugmentedResponse<RESPONSE> = Omit<RESPONSE, 'messages'> & {
 };
 
 // Augmented text result types with lazy messages and messageHistory.
-export type GenerateTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
-	Omit<GenerateTextResult<TOOLS, any, OUTPUT>, 'response'> & {
-		response: AugmentedResponse<GenerateTextResult<TOOLS, any, OUTPUT>['response']>;
+export type GenerateTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
+	Omit<GenerateTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>, 'response'> & {
+		response: AugmentedResponse<GenerateTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>['response']>;
 	};
 
-export type StreamTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput> =
-	Omit<StreamTextResult<TOOLS, any, OUTPUT>, 'response'> & {
-		response: Promise<AugmentedResponse<Awaited<StreamTextResult<TOOLS, any, OUTPUT>['response']>>>;
+export type StreamTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
+	Omit<StreamTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>, 'response'> & {
+		response: Promise<AugmentedResponse<Awaited<StreamTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>['response']>>>;
 	};
 
 //these are returned in a Promise

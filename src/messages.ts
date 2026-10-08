@@ -51,11 +51,11 @@ export function augmentTextFinishEvent<EVENT extends { response: { messages: Mod
 	};
 }
 
-export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
-	result: GenerateTextResult<TOOLS, any, OUTPUT>,
+export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>>(
+	result: GenerateTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>,
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
-): GenerateTextResultAugmented<TOOLS, OUTPUT> {
+): GenerateTextResultAugmented<TOOLS, OUTPUT, RUNTIME_CONTEXT> {
 	// response.messages is step-local in AI SDK 7; responseMessages spans the call.
 	const response = createAugmentedResponse(result.response, prefixForMessages, historyPrefix, result.responseMessages);
 	Object.defineProperty(result, 'response', {
@@ -64,15 +64,15 @@ export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT exte
 		configurable: true
 	});
 
-	return result as GenerateTextResultAugmented<TOOLS, OUTPUT>;
+	return result as GenerateTextResultAugmented<TOOLS, OUTPUT, RUNTIME_CONTEXT>;
 }
 
-export function augmentStreamText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
-	result: StreamTextResult<TOOLS, any, OUTPUT>,
+export function augmentStreamText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>>(
+	result: StreamTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>,
 	prefixForMessages: ModelMessage[] | undefined,
 	historyPrefix: ModelMessage[] | undefined,
-): StreamTextResultAugmented<TOOLS, OUTPUT> {
-	let cachedResponsePromise: StreamTextResultAugmented<TOOLS, OUTPUT>['response'] | undefined;
+): StreamTextResultAugmented<TOOLS, OUTPUT, RUNTIME_CONTEXT> {
+	let cachedResponsePromise: StreamTextResultAugmented<TOOLS, OUTPUT, RUNTIME_CONTEXT>['response'] | undefined;
 
 	// Override the response getter to return our augmented promise
 	Object.defineProperty(result, 'response', {
@@ -87,5 +87,5 @@ export function augmentStreamText<TOOLS extends ToolSet = ToolSet, OUTPUT extend
 		configurable: true
 	});
 
-	return result as StreamTextResultAugmented<TOOLS, OUTPUT>;
+	return result as StreamTextResultAugmented<TOOLS, OUTPUT, RUNTIME_CONTEXT>;
 }

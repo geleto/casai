@@ -3,7 +3,8 @@ import type * as configs from '../types/config.js';
 import type { ValidateConfigFragment } from '../types/config-validation.js';
 import type { FlexibleSchema, ToolSet } from 'ai';
 import type { EmptyMap, ProcessedConfig } from '../types/merge.js';
-import type { Provisional } from '../types/provisional.js';
+import type { Provisional, ResolvedConfig } from '../types/provisional.js';
+import type { CallbackConfigShape, FragmentCallbackInput } from '../types/callbacks.js';
 import type { ChildDefinition, DeclaredConfig, ToolExecuteContext } from '../types/function-config.js';
 import type * as types from '../types/types.js';
 import { validateAnyConfig, validateConfigBasics } from '../validate.js';
@@ -14,7 +15,7 @@ class ConfigData<ConfigType> implements configs.ConfigProvider<ConfigType> {
 
 // Single config overload
 export function Config<
-	TConfig extends Provisional<configs.ConfigFragmentShape<TOOLS, INPUT, OUTPUT, ENUM>>,
+	TConfig extends Provisional<CallbackConfigShape<configs.ConfigFragmentShape<TOOLS, INPUT, OUTPUT, ENUM>>>,
 	TOOLS extends ToolSet, //@todo - handle TOOLS similarly elsewhere
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
@@ -23,31 +24,41 @@ export function Config<
 	TOutputSchema extends types.SchemaType<any> | undefined = never,
 	CONTEXT extends Record<string, any> | undefined = undefined,
 	TContextSchema extends FlexibleSchema | undefined = never,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
 	config:
 		{ tools?: TOOLS, inputSchema?: TInputSchema, schema?: TOutputSchema, context?: CONTEXT, contextSchema?: TContextSchema } &
 		TConfig &
+		FragmentCallbackInput<TConfig, EmptyMap, TCallbackTools, TOutputSchema, TCallbackRuntime, TCallbackOutput, TCallbackEnum> &
 		NoInfer<ToolExecuteContext<ChildDefinition<EmptyMap, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>> &
 		ValidateConfigFragment<TConfig, TConfig, Partial<configs.AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>>,
-): configs.ConfigProvider<ProcessedConfig<TConfig>>;
+): configs.ConfigProvider<ProcessedConfig<ResolvedConfig<TConfig>>>;
 
 // Config with parent overload
 export function Config<
-	TConfig extends Provisional<configs.ConfigFragmentShape<TOOLS, INPUT, OUTPUT, ENUM>>,
-	TParentConfig extends Partial<configs.AnyConfigShape<ToolSet, INPUT, OUTPUT, ENUM>>,
+	TConfig extends Provisional<CallbackConfigShape<configs.ConfigFragmentShape<TOOLS, INPUT, OUTPUT, ENUM>>>,
+	TParentConfig extends CallbackConfigShape<Partial<configs.AnyConfigShape<ToolSet, INPUT, OUTPUT, ENUM>>>,
 	TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT, ENUM extends string = string,
 	TInputSchema extends types.SchemaType<Record<string, any>> | undefined = never,
 	TOutputSchema extends types.SchemaType<any> | undefined = never,
 	CONTEXT extends Record<string, any> | undefined = undefined,
 	TContextSchema extends FlexibleSchema | undefined = never,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
 >(
 	config:
 		{ tools?: TOOLS, inputSchema?: TInputSchema, schema?: TOutputSchema, context?: CONTEXT, contextSchema?: TContextSchema } &
 		TConfig &
+		FragmentCallbackInput<TConfig, DeclaredConfig<TParentConfig>, TCallbackTools, TOutputSchema, TCallbackRuntime, TCallbackOutput, TCallbackEnum> &
 		NoInfer<ToolExecuteContext<ChildDefinition<DeclaredConfig<TParentConfig>, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>> &
 		ValidateConfigFragment<TConfig, configs.MergedConfig<DeclaredConfig<TParentConfig>, TConfig>, Partial<configs.AnyConfigShape<ToolSet, INPUT, OUTPUT, ENUM>>>,
 	parent: configs.ConfigProvider<TParentConfig>
-): configs.ConfigProvider<configs.MergedConfig<TParentConfig, TConfig>>;
+): configs.ConfigProvider<configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>>;
 
 // Implementation
 export function Config(

@@ -60,13 +60,16 @@ const forbiddenConfigProperties = {
 	Function: ['model', 'template', 'script', 'prompt', 'output', 'enum', 'mode', 'loader', 'filters', 'options', 'messages', 'promptType', 'tools', 'toolsContext'],
 	Template: ['model', 'script', 'execute', 'output', 'enum', 'mode', 'schema', 'prompt', 'messages', 'tools', 'toolsContext'],
 	Script: ['model', 'template', 'execute', 'output', 'enum', 'mode', 'prompt', 'messages', 'tools', 'toolsContext'],
-	Text: ['template', 'script', 'execute', 'schema', 'enum', 'output', 'mode'],
+	Text: ['template', 'script', 'execute', 'schema', 'enum', 'mode'],
 	Object: ['template', 'script', 'execute', 'tools', 'toolsContext'],
 } as const;
 
 type ConfigKind = keyof typeof forbiddenConfigProperties;
 
 function validateConfigCompatibility(config: Record<string, unknown>, kind: ConfigKind): void {
+	if (kind === 'Text' && config.output !== undefined && (typeof config.output !== 'object' || config.output === null)) {
+		throw new ConfigError("Property 'output' is not applicable for a Text configuration unless it is an AI SDK output specification.");
+	}
 	for (const property of forbiddenConfigProperties[kind]) {
 		if (property in config) {
 			throw new ConfigError(`Property '${property}' is not applicable for a ${kind} configuration.`);
@@ -79,6 +82,7 @@ function identifyConfigKind(config: Record<string, unknown>): ConfigKind | undef
 	if ('execute' in config) return 'Function';
 	if ('template' in config) return 'Template';
 	if ('script' in config) return 'Script';
+	if (typeof config.output === 'object' && config.output !== null) return 'Text';
 	if ('output' in config || 'enum' in config || 'mode' in config) return 'Object';
 	if ('model' in config) return 'schema' in config ? 'Object' : 'Text';
 	return undefined;

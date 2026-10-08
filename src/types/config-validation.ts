@@ -6,6 +6,7 @@ import type { DeclaredExecute } from './function-config.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
 import type { ValidateResolved } from './provisional.js';
 import type { StrictUnionSubtype } from './utils.js';
+import type { CallbackConfigShape } from './callbacks.js';
 
 type ContextMapFromConfig<TConfig> = 'toolsContext' extends keyof TConfig
 	? [NonNullable<TConfig['toolsContext']>] extends [never] ? EmptyMap : NonNullable<TConfig['toolsContext']>
@@ -41,7 +42,7 @@ export type ValidateRunConfig<TRunConfig, TConfig, TShape> = NoInfer<
 // A fragment may be incomplete, but it must fit one component's config, and an execute must match the
 // schemas and context the fragment declares. Its context map must match the tools it knows about.
 export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateResolved<TConfig,
-	[StrictUnionSubtype<TFinalConfig, TShape>] extends [never]
+	[StrictUnionSubtype<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]
 	? 'Config Error: These properties do not belong to any single component configuration.'
 	: Pick<TFinalConfig, 'execute' & keyof TFinalConfig> extends { execute?: DeclaredExecute<TFinalConfig> }
 	? ValidateToolsContext<TConfig, TFinalConfig, true>
