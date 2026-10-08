@@ -525,16 +525,16 @@ describe('create.ObjectGenerator', function () {
 			);
 		});
 
-		it('should throw if loader fails to find text at creation time', () => {
-			expect(() => {
-				create.ObjectGenerator.loadsText({
-					model,
-					...temperatureConfig,
-					loader: new StringLoader(),
-					schema: simpleSchema,
-					prompt: 'nonexistent.txt'
-				});
-			}).to.throw(/not found/);
+		it('should reject when a configured text prompt is missing', async () => {
+			// Named text loads when the component is called, as named templates and scripts do.
+			const generator = create.ObjectGenerator.loadsText({
+				model,
+				...temperatureConfig,
+				loader: new StringLoader(),
+				schema: simpleSchema,
+				prompt: 'nonexistent.txt'
+			});
+			await expect(generator()).to.be.rejectedWith(/not found/);
 		});
 
 		it('should throw if loader fails to find text at runtime', async () => {

@@ -1,6 +1,6 @@
 import { attachRendererTool } from '../renderer-tool.js';
 import { mergeConfigs, processConfig } from '../config-utils.js';
-import { validateScriptConfig, validateScriptOrFunctionCall, ConfigError } from '../validate.js';
+import { validateScriptConfig, validateScriptOrFunctionCall } from '../validate.js';
 import { ScriptEngine } from '../ScriptEngine.js';
 import * as configs from '../types/config.js';
 import * as results from '../types/result.js';
@@ -220,17 +220,6 @@ export function _createScript<
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
 		console.log('[DEBUG] Script created with config:', merged);
-	}
-
-	if ((merged.promptType === 'script-name' || merged.promptType === 'async-script-name') && !('loader' in merged)) {
-		throw new ConfigError('Script name types require a loader');
-	}
-
-	if ((merged.promptType === 'script-name' ||
-		merged.promptType === 'async-script-name') &&
-		!merged.loader
-	) {
-		throw new Error('A loader is required when scriptType is "script-name" or "async-script-name".');
 	}
 
 	const runner = new ScriptEngine(merged);

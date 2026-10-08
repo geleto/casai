@@ -7,13 +7,21 @@ import { promisify } from 'node:util';
 import { create, ConfigError, ScriptError, TemplateError, z } from './cascada';
 import { _createTemplate } from '../src/factories/Template';
 import { createFunctionPromptRenderer, createScriptPromptRenderer, createTemplatePromptRenderer } from '../src/prompt-renderers';
-import type { LoaderInterface, LoaderSource } from 'cascada-engine';
+import { Loader, Script as CascadaScript, type LoaderInterface, type LoaderSource } from 'cascada-engine';
 import { jsonSchema } from 'ai';
 
 const execFileAsync = promisify(execFile);
 
 function memoryLoader(sources: Record<string, string>): LoaderInterface {
 	return { load: (name: string) => sources[name] ?? null };
+}
+
+class UpdatingLoader extends Loader {
+	constructor(readonly sources: Record<string, string>) { super(); }
+	load(name: string): LoaderSource | null {
+		const src = this.sources[name];
+		return src === undefined ? null : { src, path: name, noCache: false };
+	}
 }
 
 describe('Template and Script deterministic coverage', () => {
@@ -43,9 +51,17 @@ describe('Template and Script deterministic coverage', () => {
 			expect(render.config.context).to.deep.equal({ greeting: 'Hi', name: 'Original' });
 		});
 
-		it('preserves HTML and ampersands in prompts even when autoescape is requested', async () => {
+		it('honors autoescape when explicitly enabled for standalone templates', async () => {
 			const render = create.Template({ template: '{{ value }}', context: { value: '<tag a="b"> & text' }, options: { autoescape: true } });
-			expect(await render()).to.equal('<tag a="b"> & text');
+			expect(await render()).to.equal('&lt;tag a=&quot;b&quot;&gt; &amp; text');
+			expect(await render('{{ value }}')).to.equal('&lt;tag a=&quot;b&quot;&gt; &amp; text');
+		});
+
+		it('defaults autoescape to false for standalone templates', async () => {
+			const render = create.Template({ template: '{{ value }}', context: { value: '<tag> & text' } });
+			expect(await render()).to.equal('<tag> & text');
+			const undefinedOption = create.Template({ template: '{{ value }}', context: { value: '<tag> & text' }, options: { autoescape: undefined } });
+			expect(await undefinedOption()).to.equal('<tag> & text');
 		});
 
 		it('forwards whitespace options to the Cascada environment', async () => {
@@ -78,6 +94,24 @@ describe('Template and Script deterministic coverage', () => {
 			expect(await render('greeting', { name: 'Ada' })).to.equal('Hello Ada');
 		});
 
+		it('honors noCache when a named template changes between calls', async () => {
+			let source = 'First';
+			const loader: LoaderInterface = { load: name => ({ src: source, path: name, noCache: true }) };
+			const render = create.Template.loadsTemplate({ template: 'value.njk', loader });
+			expect(await render()).to.equal('First');
+			source = 'Second';
+			expect(await render()).to.equal('Second');
+		});
+
+		it('observes loader updates to a configured named template', async () => {
+			const loader = new UpdatingLoader({ 'value.njk': 'First' });
+			const render = create.Template.loadsTemplate({ template: 'value.njk', loader });
+			expect(await render()).to.equal('First');
+			loader.sources['value.njk'] = 'Second';
+			loader.emit('update', 'value.njk');
+			expect(await render()).to.equal('Second');
+		});
+
 		it('forwards the loader to composition inside an inline template', async () => {
 			const render = create.Template({
 				loader: memoryLoader({ fragment: '{{ greeting }} {{ name }}' }),
@@ -86,31 +120,6 @@ describe('Template and Script deterministic coverage', () => {
 			});
 			expect(await render()).to.equal('Before Hi Ada after');
 		});
-
-		for (const promptType of ['template', 'template-name'] as const) {
-			it(`renders configured and one-off ${promptType} through the synchronous adapter`, async () => {
-				const config = promptType === 'template'
-					? { template: 'Hi {{ name }}', context: { name: 'Ada' } }
-					: { template: 'initial', context: { name: 'Ada' }, loader: memoryLoader({ initial: 'Hi {{ name }}', alternate: 'Bye {{ name }}' }) };
-				const render = _createTemplate(config, promptType);
-				expect(await render()).to.equal('Hi Ada');
-				expect(await render(promptType === 'template' ? 'Bye {{ name }}' : 'alternate', { name: 'Bob' })).to.equal('Bye Bob');
-			});
-
-			it(`renders one-off ${promptType} with debug output enabled`, async () => {
-				const originalLog = console.log;
-				console.log = () => undefined;
-				try {
-					const config = promptType === 'template'
-						? { template: 'Configured', debug: true }
-						: { template: 'initial', debug: true, loader: memoryLoader({ initial: 'Configured', alternate: 'Override' }) };
-					const render = _createTemplate(config, promptType);
-					expect(await render(promptType === 'template' ? 'Override' : 'alternate')).to.equal('Override');
-				} finally {
-					console.log = originalLog;
-				}
-			});
-		}
 
 		it('preserves the original cause when a context function fails', async () => {
 			const render = create.Template({ template: '{{ fail() }}', context: { fail: () => { throw new Error('Context unavailable'); } } });
@@ -162,6 +171,39 @@ describe('Template and Script deterministic coverage', () => {
 	});
 
 	describe('Script execution', () => {
+		it('compiles configured inline scripts once across concurrent calls and keeps overrides local', async () => {
+			// eslint-disable-next-line @typescript-eslint/unbound-method -- Called with the compiled script receiver below.
+			const originalCompile = CascadaScript.prototype.compileSource;
+			let compilations = 0;
+			CascadaScript.prototype.compileSource = function () {
+				compilations++;
+				return originalCompile.call(this);
+			};
+			try {
+				const run = create.Script({ script: 'var result = awaitValue(value)\nreturn result', context: { awaitValue: async (value: number) => value } });
+				expect(await Promise.all([run({ value: 1 }), run({ value: 2 }), run({ value: 3 })])).to.deep.equal([1, 2, 3]);
+				expect(compilations).to.equal(1);
+				expect(await run('return value + 10', { value: 4 })).to.equal(14);
+				expect(compilations).to.equal(2);
+				expect(await run({ value: 5 })).to.equal(5);
+				expect(compilations).to.equal(2);
+			} finally {
+				CascadaScript.prototype.compileSource = originalCompile;
+			}
+		});
+
+		it('keeps asynchronous failures local to a cached script invocation', async () => {
+			const run = create.Script({ script: 'return resolveValue(value)', context: { resolveValue: async (value: number) => { if (value < 0) throw new Error('Invalid value'); return value; } } });
+			const [failed, succeeded] = await Promise.allSettled([run({ value: -1 }), run({ value: 2 })]);
+			expect(failed.status).to.equal('rejected');
+			if (failed.status === 'rejected') {
+				expect(failed.reason).to.be.instanceOf(ScriptError);
+				expect(failed.reason.message).to.include('Invalid value');
+			}
+			expect(succeeded).to.deep.equal({ status: 'fulfilled', value: 2 });
+			expect(await run({ value: 3 })).to.equal(3);
+		});
+
 		it('runs an explicitly configured empty script and returns null', async () => {
 			expect(await create.Script({ script: '' })()).to.equal(null);
 		});
@@ -197,6 +239,24 @@ describe('Template and Script deterministic coverage', () => {
 		it('loads a named script supplied only at call time', async () => {
 			const run = create.Script.loadsScript({ loader: memoryLoader({ 'only.casc': 'return "Hello " ~ name' }) });
 			expect(await run('only.casc', { name: 'Ada' })).to.equal('Hello Ada');
+		});
+
+		it('honors noCache when a named script changes between calls', async () => {
+			let source = 'return 1';
+			const loader: LoaderInterface = { load: name => ({ src: source, path: name, noCache: true }) };
+			const run = create.Script.loadsScript({ script: 'value.casc', loader });
+			expect(await run()).to.equal(1);
+			source = 'return 2';
+			expect(await run()).to.equal(2);
+		});
+
+		it('observes loader updates to a configured named script', async () => {
+			const loader = new UpdatingLoader({ 'value.casc': 'return 1' });
+			const run = create.Script.loadsScript({ script: 'value.casc', loader });
+			expect(await run()).to.equal(1);
+			loader.sources['value.casc'] = 'return 2';
+			loader.emit('update', 'value.casc');
+			expect(await run()).to.equal(2);
 		});
 
 		it('forwards the loader to imports inside an inline script', async () => {
@@ -237,11 +297,12 @@ describe('Template and Script deterministic coverage', () => {
 			expect(await run('return 5')).to.equal(6);
 		});
 
-		it('reports schema failures as ScriptError with their validation cause', async () => {
+		it('reports schema failures as ConfigError with their validation cause', async () => {
 			const run = create.Script({ script: 'return { count: "invalid" }', schema: z.object({ count: z.number() }) });
 			await rejects(() => run(), (error: unknown) => {
-				expect(error).to.be.instanceOf(ScriptError);
-				expect((error as ScriptError).cause).to.be.instanceOf(z.ZodError);
+				expect(error).to.be.instanceOf(ConfigError);
+				expect((error as ConfigError).message).to.include('Output validation failed');
+				expect((error as ConfigError).cause).to.be.instanceOf(z.ZodError);
 				return true;
 			});
 		});
@@ -259,8 +320,8 @@ describe('Template and Script deterministic coverage', () => {
 			const failure = new Error('Expected a number');
 			const schema = jsonSchema<number>({ type: 'number' }, { validate: () => ({ success: false, error: failure }) });
 			await rejects(() => create.Script({ script: 'return "invalid"', schema })(), (error: unknown) => {
-				expect(error).to.be.instanceOf(ScriptError);
-				expect((error as ScriptError).cause).to.equal(failure);
+				expect(error).to.be.instanceOf(ConfigError);
+				expect((error as ConfigError).cause).to.equal(failure);
 				return true;
 			});
 		});
@@ -270,14 +331,33 @@ describe('Template and Script deterministic coverage', () => {
 			expect(await create.Script({ script: 'return 5', schema })()).to.equal(9);
 		});
 
-		it('preserves the cause when an asynchronous AI SDK validator rejects', async () => {
+		it('preserves an unexpected asynchronous AI SDK validator rejection', async () => {
 			const failure = new Error('Validation service unavailable');
 			const schema = jsonSchema<number>({ type: 'number' }, { validate: async () => { throw failure; } });
-			await rejects(() => create.Script({ script: 'return 5', schema })(), (error: unknown) => {
-				expect(error).to.be.instanceOf(ScriptError);
-				expect((error as ScriptError).cause).to.equal(failure);
-				return true;
-			});
+			await rejects(() => create.Script({ script: 'return 5', schema })(), error => error === failure);
+		});
+
+		it('reports the same output validation contract for Scripts and Functions', async () => {
+			const failure = new Error('Validation unavailable');
+			const schema = jsonSchema<number>({ type: 'number' }, { validate: async () => ({ success: false, error: failure }) });
+			const calls = [create.Script({ script: 'return 1', schema }), create.Function({ execute: () => 1, schema })];
+			for (const call of calls) {
+				await rejects(async () => { await call({}); }, (error: unknown) => {
+					expect(error).to.be.instanceOf(ConfigError);
+					expect((error as ConfigError).message).to.equal('Output validation failed.\nValidation unavailable');
+					expect((error as ConfigError).cause).to.equal(failure);
+					return true;
+				});
+			}
+		});
+
+		it('preserves unexpected exceptions thrown by Zod output transforms', async () => {
+			const failure = new Error('Transform unavailable');
+			const schema = z.number().transform((): number => { throw failure; });
+			const calls = [create.Script({ script: 'return 1', schema }), create.Function({ execute: () => 1, schema })];
+			for (const call of calls) {
+				await rejects(async () => { await call({}); }, error => error === failure);
+			}
 		});
 
 		it('validates raw call-time context before evaluating a script', async () => {
@@ -361,9 +441,26 @@ describe('Template and Script deterministic coverage', () => {
 			});
 			expect(await render('Hello {{ name }}')).to.equal('Hello Ada');
 		});
+
+		it('reports syntax errors in a configured script when called and still runs overrides', async () => {
+			const run = create.Script({ script: 'return missing(', context: { name: 'Ada' } });
+			await rejects(() => run(), ScriptError);
+			expect(await run('return "Hello " ~ name')).to.equal('Hello Ada');
+		});
 	});
 
 	describe('Prompt renderer contracts', () => {
+		it('preserves HTML in template prompts even when autoescape is requested', async () => {
+			const render = createTemplatePromptRenderer({ context: { value: '<tag a="b"> & text' }, options: { autoescape: true } }, '{{ value }}', 'async-template');
+			expect(await render()).to.equal('<tag a="b"> & text');
+			expect(await render('{{ value }}')).to.equal('<tag a="b"> & text');
+		});
+
+		it('preserves HTML in script text prompts even when autoescape is requested', async () => {
+			const render = createScriptPromptRenderer({ context: { value: '<tag> & text' }, options: { autoescape: true } }, 'text body\nbody(value)\nreturn body.snapshot()', 'async-script');
+			expect(await render()).to.equal('<tag> & text');
+		});
+
 		it('loads a one-off named script prompt and retains the configured prompt', async () => {
 			const run = createScriptPromptRenderer({
 				loader: memoryLoader({ initial: 'return "Initial " ~ name', alternate: 'return "Alternate " ~ name' }),

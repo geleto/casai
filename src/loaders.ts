@@ -1,5 +1,5 @@
 import { raceLoaders } from 'cascada-engine';
-import type { ILoaderAny, ILoader, ILoaderAsync, LoaderInterface, LoaderSource } from 'cascada-engine';
+import type { ILoaderAny, LoaderInterface } from 'cascada-engine';
 
 export const RACE_GROUP_TAG = Symbol.for('casai.raceGroup');
 export const MERGED_GROUP_TAG = Symbol.for('casai.mergedGroup');
@@ -14,111 +14,26 @@ interface NamedGroup {
 	collectedLoaders: ILoaderAny[];
 }
 
+// A named race group is Cascada's race loader, which resolves relative paths through the member that
+// loaded each source, tagged so later merges can combine groups with the same name.
+export type RaceLoader = LoaderInterface & {
+	[MERGED_GROUP_TAG]: true;
+	groupName: string;
+	loaders: ILoaderAny[];
+};
+
+export function createRaceLoader(loaders: ILoaderAny[], groupName: string): RaceLoader {
+	if (!groupName.trim()) {
+		throw new Error('RaceLoader groupName must be a non-empty string.');
+	}
+	return Object.assign(raceLoaders(loaders), { [MERGED_GROUP_TAG]: true as const, groupName, loaders });
+}
+
 function isRaceGroup(obj: any): obj is RaceGroup {
 	return typeof obj === 'object' && obj !== null && RACE_GROUP_TAG in obj;
 }
 function isRaceLoader(obj: any): obj is RaceLoader {
 	return typeof obj === 'object' && obj !== null && MERGED_GROUP_TAG in obj;
-}
-
-export class RaceLoader implements LoaderInterface {
-	[MERGED_GROUP_TAG] = true;
-	groupName: string;
-	loaders: ILoaderAny[];
-
-	constructor(loaders: ILoaderAny[], groupName: string) {
-		// This check is correct and more robust than optional chaining here.
-		if (!groupName.trim()) {
-			throw new Error('RaceLoader groupName must be a non-empty string.');
-		}
-		this.loaders = loaders;
-		this.groupName = groupName;
-	}
-
-	// CHANGE: Return first non-null as early as possible (no AbortSignal).
-	// We iteratively Promise.race() the wrapped results; when we see a non-null
-	// fulfillment, we return immediately. The remaining loaders continue in the background.
-	async load(name: string): Promise<LoaderSource | null> {
-		if (this.loaders.length === 0) {
-			return null;
-		}
-
-		// Kick off all loads immediately.
-		const rawPromises = this.loaders.map(loader => loadSource(loader, name));
-
-		// REVERT: Use a discriminated union for the Settled type. It is more type-safe
-		// and idiomatic, allowing TypeScript to perform powerful type narrowing.
-		type Settled =
-			| { i: number; status: 'fulfilled'; value: LoaderSource | string | null }
-			| { i: number; status: 'rejected'; reason: unknown };
-
-		const pending: Promise<Settled>[] = (rawPromises).map((p, i: number) =>
-			p.then(
-				v => ({ i, status: 'fulfilled', value: v } as const),
-				(e: unknown) => ({ i, status: 'rejected', reason: e } as const)
-			)
-		);
-
-		// A never-resolving promise used to remove winners/losers from subsequent races.
-		const NEVER = new Promise<Settled>(() => { }); // eslint-disable-line @typescript-eslint/no-empty-function
-
-		let settledCount = 0;
-		let firstError: Error | null = null;
-
-		while (settledCount < pending.length) {
-			// Race currently pending items.
-			const r = await Promise.race(pending);
-
-			// Prevent the same item from winning the race again.
-			pending[r.i] = NEVER;
-			settledCount++;
-
-			if (r.status === 'fulfilled') {
-				// Normalize string results to LoaderSource objects.
-				const value =
-					typeof r.value === 'string'
-						? { src: r.value, path: name, noCache: false }
-						: r.value;
-
-				if (value !== null) {
-					// EARLY RETURN: first non-null wins. No "!" needed due to type safety.
-					return value;
-				}
-				// else: null -> keep racing others
-			} else {
-				// Capture the first error encountered, in case all loaders fail.
-				firstError =
-					firstError ??
-					(r.reason instanceof Error ? r.reason : new Error(String(r.reason)));
-			}
-		}
-
-		// If we saw any errors and *no* non-null successes, rethrow the first.
-		if (firstError) {
-			throw firstError;
-		}
-
-		// All loaders settled successfully but returned null.
-		return null;
-	}
-}
-
-// Reads a source from any form of loader. The invocation is deferred, so a synchronous failure becomes a
-// rejection and cannot prevent other loaders from starting.
-export function loadSource(loader: ILoaderAny, name: string): Promise<LoaderSource | string | null> {
-	return Promise.resolve().then(() => {
-		if (typeof loader === 'function') return loader(name);
-		if ('load' in loader && typeof loader.load === 'function') return loader.load(name);
-		if ('async' in loader && loader.async) {
-			return new Promise<LoaderSource | null>((resolve, reject) => {
-				(loader as ILoaderAsync).getSource(name, (error, source) => {
-					if (error) reject(error);
-					else resolve(source);
-				});
-			});
-		}
-		return (loader as ILoader).getSource(name);
-	});
 }
 
 export function race(loaders: ILoaderAny | ILoaderAny[], groupName?: string): RaceGroup {
@@ -159,7 +74,7 @@ function _processAndDeduplicate(
 				processedChain.push(loader);
 			}
 		} else if (isRaceLoader(loader)) {
-			// RaceLoader is always named and valid due to constructor guard.
+			// A RaceLoader is always named; createRaceLoader rejects blank names.
 			const groupName = loader.groupName;
 			const existingGroup = namedGroups.get(groupName);
 			if (!existingGroup) {
@@ -183,8 +98,8 @@ function _processAndDeduplicate(
 		const deduplicatedLoaders = collectedLoaders.filter((loader, index, array) => array.indexOf(loader) === index);
 
 		if (deduplicatedLoaders.length > 0) {
-			processedChain[firstIndex] = new RaceLoader(deduplicatedLoaders, groupName);
-		} else if (process.env.NODE_ENV !== 'production') {
+			processedChain[firstIndex] = createRaceLoader(deduplicatedLoaders, groupName);
+		} else if ((typeof process === 'undefined' || process.env.NODE_ENV !== 'production')) {
 			// IMPROVEMENT: Warn developers about silently dropped empty named groups.
 			console.warn(`Casai Loader: Named race group "${groupName}" was discarded because it became empty after deduplication.`);
 		}
@@ -206,7 +121,7 @@ function _processAndDeduplicate(
 					const finalRaceLoader =
 						uniqueConstituents.length === item.loaders.length
 							? item
-							: new RaceLoader(uniqueConstituents, item.groupName);
+							: createRaceLoader(uniqueConstituents, item.groupName);
 					finalResult.push(finalRaceLoader);
 					uniqueConstituents.forEach(l => seen.add(l));
 				}

@@ -6,14 +6,11 @@ import { extractCallArguments } from './call-arguments.js';
 import { ModelMessageSchema } from "./types/schemas.js";
 
 export class ConfigError extends Error {
-	cause?: Error;
+	declare cause?: Error;
 	name: string;
 	constructor(message: string, cause?: Error) {
-		super(message);
+		super(message, { cause });
 		this.name = 'ConfigError';
-		if (cause) {
-			this.cause = cause;
-		}
 	}
 }
 
@@ -102,7 +99,7 @@ function validatePromptProperties(config: Record<string, unknown>, promptType?: 
 }
 
 // A loaded text prompt is identified by name.
-export function validateLoadedTextPrompt(prompt: unknown): void {
+export function validateLoadedTextPrompt(prompt: unknown): asserts prompt is string | undefined {
 	if (prompt !== undefined && typeof prompt !== 'string') {
 		throw new ConfigError("The 'prompt' of a loadsText component must be the name of the prompt to load.");
 	}
@@ -430,7 +427,7 @@ export function validateAndParseOutput<T>(config: Partial<configs.AnyConfig<any,
 		if ('safeParse' in schema) {
 			const validationResult = schema.safeParse(result);
 			if (!validationResult.success) {
-				throw new ConfigError(`Output validation failed.\n${formatZodError(validationResult.error)}`);
+				throw new ConfigError(`Output validation failed.\n${formatZodError(validationResult.error)}`, validationResult.error);
 			}
 			return validationResult.data as T;
 		} else if (schema.validate) {

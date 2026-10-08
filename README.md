@@ -1169,6 +1169,9 @@ const generator = create.TextGenerator.loadsText({
 
 ### options
 Fine-tune the Cascada engine with extras like `autoescape` or `trimBlocks`:
+
+Standalone templates default `autoescape` to `false` and honor an explicit `true` for HTML output. LLM prompt renderers always disable autoescaping. Configured inline scripts compile once per component; named text, templates, and scripts use environment caches that respect loader updates and `noCache`.
+
 ```typescript
 const component = create.Template({
   options: {

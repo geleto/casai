@@ -1,7 +1,7 @@
 import 'dotenv/config';
 //do not import anything from the compiled casai in the unit tests
 import { expect } from 'chai';
-import { mergeLoaders, processLoaders, race, RaceLoader, MERGED_GROUP_TAG } from '../src/loaders';
+import { createRaceLoader, mergeLoaders, processLoaders, race, type RaceLoader, MERGED_GROUP_TAG } from '../src/loaders';
 import { timeout, StringLoader } from './common';
 
 describe('Race & Merge Loaders - Unit Tests', function () {
@@ -229,7 +229,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const result = await raceLoader.load('template');
 			expect(result).to.be.an('object');
 			expect(result).to.have.property('src');
-			const resultSrc = result!.src;
+			const resultSrc = (result as { src: string }).src;
 			expect(resultSrc).to.be.oneOf(['Fast response', 'Slow response']);
 		});
 
@@ -255,7 +255,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			// The race should return the working loader's result (first-to-succeed strategy)
 			expect(result).to.be.an('object');
 			expect(result).to.have.property('src');
-			const resultSrc = result!.src;
+			const resultSrc = (result as { src: string }).src;
 			expect(resultSrc).to.equal('Working response');
 		});
 
@@ -530,7 +530,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			// Verify result
 			expect(result).to.be.an('object');
 			expect(result).to.have.property('src');
-			const resultSrc = result!.src;
+			const resultSrc = (result as { src: string }).src;
 			expect(resultSrc).to.be.oneOf(['Response 1', 'Response 2']);
 
 			// Racing should be fast (StringLoader is synchronous, so this tests structure)
@@ -560,12 +560,12 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			// Verify results
 			expect(result1).to.be.an('object');
 			expect(result1).to.have.property('src');
-			const result1Src = result1!.src;
+			const result1Src = (result1 as { src: string }).src;
 			expect(result1Src).to.be.oneOf(['Content 1', 'Alternative 1']);
 
 			expect(result2).to.be.an('object');
 			expect(result2).to.have.property('src');
-			const result2Src = result2!.src;
+			const result2Src = (result2 as { src: string }).src;
 			expect(result2Src).to.be.oneOf(['Content 2', 'Alternative 2']);
 		});
 
@@ -594,7 +594,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			// Should return one of the contents (racing behavior)
 			expect(result).to.be.an('object');
 			expect(result).to.have.property('src');
-			const resultSrc = result!.src;
+			const resultSrc = (result as { src: string }).src;
 			expect(resultSrc).to.be.oneOf(['Parent content', 'Child content']);
 		});
 	});
@@ -736,7 +736,7 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 		it('should handle merged groups in single array', () => {
 			const loader1 = new StringLoader();
 			const loader2 = new StringLoader();
-			const raceLoader = new RaceLoader([loader2], 'existingGroup');
+			const raceLoader = createRaceLoader([loader2], 'existingGroup');
 			const loaders = [loader1, raceLoader];
 
 			const result = processLoaders(loaders);
@@ -750,8 +750,8 @@ describe('Race & Merge Loaders - Unit Tests', function () {
 			const loader1 = new StringLoader();
 			const loader2 = new StringLoader();
 			const loader3 = new StringLoader();
-			const raceLoader1 = new RaceLoader([loader1], 'existingGroup');
-			const raceLoader2 = new RaceLoader([loader2], 'existingGroup');
+			const raceLoader1 = createRaceLoader([loader1], 'existingGroup');
+			const raceLoader2 = createRaceLoader([loader2], 'existingGroup');
 			const loaders = [raceLoader1, raceLoader2, loader3];
 
 			const result = processLoaders(loaders);

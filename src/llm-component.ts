@@ -8,7 +8,7 @@ import { generateObject, generateText, streamObject, streamText } from 'ai';
 import type { LanguageModel, ModelMessage } from 'ai';
 import type { GenerateTextResult, StreamTextResult } from 'ai';
 import { RequiredPromptType, AnyPromptSource } from './types/types.js';
-import { loadString } from 'cascada-engine';
+import { AsyncEnvironment, NotFoundError } from 'cascada-engine';
 import type { ILoaderAny } from 'cascada-engine';
 import { createTemplatePromptRenderer, createScriptPromptRenderer, createFunctionPromptRenderer } from './prompt-renderers.js';
 import { augmentGenerateText, augmentStreamText, augmentTextFinishEvent } from './messages.js';
@@ -134,8 +134,8 @@ export function _createLLMComponent<
 		type TemplateComponent = ReturnType<typeof createTemplatePromptRenderer>;
 
 		let renderer: TemplateComponent | ScriptComponent | FunctionComponent;
-		const isTemplatePrompt = config.promptType === 'template' || config.promptType === 'template-name' || config.promptType === 'async-template' || config.promptType === 'async-template-name';
-		const isScriptPrompt = config.promptType === 'script' || config.promptType === 'script-name' || config.promptType === 'async-script' || config.promptType === 'async-script-name';
+		const isTemplatePrompt = config.promptType === 'async-template' || config.promptType === 'async-template-name';
+		const isScriptPrompt = config.promptType === 'async-script' || config.promptType === 'async-script-name';
 		const isFunctionPrompt = config.promptType === 'function';
 
 		if (isTemplatePrompt) {
@@ -247,54 +247,25 @@ export function _createLLMComponent<
 			return run(callConfig, true) as TFunctionResult;
 		});
 		if (config.promptType === 'text-name') {
-			// wrap the call in a promise that waits for the prompt to be loaded
-			// from loaders and only when it is ready - calls the original prompt
-
-			// Validate loader exists
 			const loaderConfig = config as configs.LoaderConfig;
-			if (!('loader' in loaderConfig)) {
-				throw new Error("A 'loader' is required for 'text-name' prompt type");
-			}
-
-			let loadedPrompt: Promise<string> | string | undefined = config.prompt ? loadString(config.prompt, loaderConfig.loader as (ILoaderAny | ILoaderAny[])) : undefined;
-			// A one-off prompt can bypass this eager load; keep its rejection handled until a default call awaits it.
-			if (loadedPrompt && typeof loadedPrompt !== 'string') {
-				void loadedPrompt.catch(() => undefined);
-			}
-			//const messages: ModelMessage[] | undefined = config.messages;
-			const syncRun = run;
+			const env = new AsyncEnvironment(loaderConfig.loader as ILoaderAny | ILoaderAny[]);
+			const textRun = run;
 			run = async (
-				configArg: configs.LLMRunConfig & { loader?: ILoaderAny | ILoaderAny[] },
+				configArg: configs.LLMRunConfig,
 				calledFromCall = false
 			): Promise<TFunctionResult> => {
-				validateLoadedTextPrompt(configArg.prompt);
+				const name = configArg.prompt ?? config.prompt;
+				validateLoadedTextPrompt(name);
 				let prompt: string | undefined;
 				try {
-					if (configArg.prompt && typeof configArg.prompt === 'string') {
-						// a new prompt to load
-						prompt = await loadString(configArg.prompt, loaderConfig.loader as (ILoaderAny | ILoaderAny[]));
-						// messages = maybeMessages;
-					} else if (loadedPrompt) {
-						// a prompt load has started at creation time
-						if (typeof loadedPrompt === 'string') {
-							//prompt was resoved in a previous run
-							prompt = loadedPrompt;
-						} else {
-							// Cache the resolved promise to avoid re-awaiting
-							prompt = await loadedPrompt;
-							loadedPrompt = prompt; // Store resolved value for future calls
-						}
-						//messages = configArg.messages;
-					}
-					// Without a prompt name, messages are sent alone, as for an inline text component.
+					if (name !== undefined) prompt = await env.loadString(name);
 				} catch (error) {
-					if (error instanceof Error && error.message.includes('not found')) {
-						throw new Error(`Failed to load prompt: ${error.message}`);
+					if (error instanceof NotFoundError) {
+						throw new Error(`Failed to load prompt: ${error.message}`, { cause: error });
 					}
 					throw error;
 				}
-				//todo - skip messages property if no messages in configArg
-				return syncRun({ ...configArg, prompt }, calledFromCall);
+				return textRun({ ...configArg, prompt }, calledFromCall);
 			};
 		}
 	}

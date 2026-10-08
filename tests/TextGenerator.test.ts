@@ -455,7 +455,7 @@ describe('create.TextGenerator', function () {
 				prompt: 'nonexistent.njk',
 			});
 
-			await expect(generator()).to.be.rejectedWith(/template not found/i);
+			await expect(generator()).to.be.rejectedWith(/resource not found/i);
 		});
 
 		it('should throw if a loader fails to find a template specified at runtime', async () => {
@@ -463,7 +463,7 @@ describe('create.TextGenerator', function () {
 				model, ...temperatureConfig,
 				loader: new StringLoader()
 			});
-			await expect(generator('nonexistent.njk')).to.be.rejectedWith(/template not found/i);
+			await expect(generator('nonexistent.njk')).to.be.rejectedWith(/resource not found/i);
 		});
 
 		it('should throw if a template is named, but no loader is provided', () => {
@@ -570,15 +570,15 @@ describe('create.TextGenerator', function () {
 			);
 		});
 
-		it('should throw if loader fails to find text at creation time', () => {
-			expect(() => {
-				create.TextGenerator.loadsText({
-					model,
-					...temperatureConfig,
-					loader: new StringLoader(),
-					prompt: 'nonexistent.txt'
-				});
-			}).to.throw(/not found/);
+		it('should reject when a configured text prompt is missing', async () => {
+			// Named text loads when the component is called, as named templates and scripts do.
+			const generator = create.TextGenerator.loadsText({
+				model,
+				...temperatureConfig,
+				loader: new StringLoader(),
+				prompt: 'nonexistent.txt'
+			});
+			await expect(generator()).to.be.rejectedWith(/not found/);
 		});
 
 		it('should throw if loader fails to find text at runtime', async () => {

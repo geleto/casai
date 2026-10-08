@@ -1,9 +1,10 @@
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import type { ModelMessage } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { create, ConfigError, ScriptError, TemplateError, z } from './cascada';
+import { create, ConfigError, ScriptError, TemplateError, race, z } from './cascada';
 
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -85,6 +86,22 @@ describe('LLM call contracts without providers', () => {
 	});
 
 	describe('prompt rendering settings', () => {
+		it('keeps HTML literal in LLM prompts even when escaping is requested', async () => {
+			const model = mockModel('DONE');
+			const generator = create.TextGenerator.withTemplate({
+				model, prompt: '{{ value }}', context: { value: '<b> & "text"' }, options: { autoescape: true },
+			});
+			await generator();
+			expect(promptTexts(model)).to.deep.equal([['<b> & "text"']]);
+		});
+
+		it('reports malformed script prompt output as a configuration validation error', async () => {
+			const model = mockModel('DONE');
+			const generator = create.TextGenerator.withScript({ model, prompt: 'return [{content: "Invalid message"}]' });
+			await rejects(() => generator(), (error: unknown) => error instanceof ConfigError && error.message.includes('Output validation failed'));
+			expect(model.doGenerateCalls).to.have.length(0);
+		});
+
 		it('should render template prompts with the component filters, options and loader', async () => {
 			const model = mockModel('DONE');
 			const generator = create.TextGenerator.withTemplate({
@@ -141,6 +158,57 @@ describe('LLM call contracts without providers', () => {
 	});
 
 	describe('plain-text calls', () => {
+		it('loads empty text and preserves literal template syntax', async () => {
+			const model = mockModel('DONE');
+			const literal = '  {{ untouched }} {% include "missing" %}\n';
+			const generator = create.TextGenerator.loadsText({
+				model, prompt: 'literal', loader: { load: (name: string) => name === 'literal' ? literal : '' },
+			});
+			await generator();
+			await generator('empty');
+			expect(promptTexts(model)).to.deep.equal([[literal], ['']]);
+		});
+
+		it('keeps text caches local to the component environment', async () => {
+			let value = 'Original';
+			const loader = { load: () => value };
+			const model = mockModel('DONE');
+			const first = create.TextGenerator.loadsText({ model, loader, prompt: 'name' });
+			const second = create.TextGenerator.loadsText({ model, loader, prompt: 'name' });
+			await first();
+			value = 'Changed';
+			await second();
+			await first();
+			expect(promptTexts(model)).to.deep.equal([['Original'], ['Changed'], ['Original']]);
+		});
+
+		it('honors noCache when loading a configured text prompt repeatedly', async () => {
+			let calls = 0;
+			const model = mockModel('DONE');
+			const generator = create.TextGenerator.loadsText({
+				model, prompt: 'name', loader: { load: (name: string) => ({ src: `Version ${++calls}`, path: name, noCache: true }) },
+			});
+			await generator();
+			await generator();
+			expect(promptTexts(model)).to.deep.equal([['Version 1'], ['Version 2']]);
+		});
+
+		for (const groupName of [undefined, 'remote']) {
+			it(`invalidates loaded text when a member of an ${groupName ? 'named' : 'anonymous'} race updates`, async () => {
+				let value = 'Original';
+				const loader = Object.assign(new EventEmitter(), { load: (name: string) => ({ src: value, path: name, noCache: false }) });
+				const model = mockModel('DONE');
+				const generator = create.TextGenerator.loadsText({
+					model, prompt: 'name', loader: race([loader, { load: () => null }], groupName),
+				});
+				await generator();
+				value = 'Changed';
+				loader.emit('update', 'name');
+				await generator();
+				expect(promptTexts(model)).to.deep.equal([['Original'], ['Changed']]);
+			});
+		}
+
 		it('should reject context arguments, which a plain-text prompt cannot use', async () => {
 			const model = mockModel('DONE');
 			const context = { topic: 'tests' };

@@ -269,14 +269,14 @@ describe('Messages, Conversation & Integration', function () {
 				expect(msgs[1].role).to.equal('assistant');
 			});
 
-			it('should throw ZodError if a script returns a malformed message object', async () => {
+			it('should reject output validation if a script returns a malformed message object', async () => {
 				const generator = create.TextGenerator.withScript({
 					model,
 					...commonConfig,
 				});
 				await expect(generator(
 					`return [{ content: "This is invalid" }]`
-				)).to.be.rejectedWith('Script output validation failed');
+				)).to.be.rejectedWith('Output validation failed');
 			});
 		});
 	});

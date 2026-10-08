@@ -1,7 +1,7 @@
 import { attachRendererTool } from '../renderer-tool.js';
 import { TemplateEngine } from '../TemplateEngine.js';
 import { mergeConfigs, processConfig } from '../config-utils.js';
-import { validateTemplateConfig, validateTemplateCall, ConfigError } from '../validate.js';
+import { validateTemplateConfig, validateTemplateCall } from '../validate.js';
 import * as configs from '../types/config.js';
 import * as utils from '../types/utils.js';
 import * as results from '../types/result.js';
@@ -213,19 +213,6 @@ export function _createTemplate<
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
 		console.log('[DEBUG] Template created with config:', merged);
-	}
-
-	// @todo - .loadsTemplate()
-	// Runtime validation for loader, backing up static checks
-	if ((merged.promptType === 'template-name' || merged.promptType === 'async-template-name') && !('loader' in merged)) {
-		throw new ConfigError('Template name types require a loader');
-	}
-
-	if ((merged.promptType === 'template-name' ||
-		merged.promptType === 'async-template-name') &&
-		!merged.loader
-	) {
-		throw new Error('A loader is required when promptType is "template-name", "async-template-name", or undefined.');
 	}
 
 	const renderer = new TemplateEngine(merged as configs.TemplateConfig<INPUT>);

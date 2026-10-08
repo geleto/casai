@@ -234,9 +234,9 @@ describe('Component boundary contracts', () => {
 			expect(inferredMessages).to.equal(messages);
 			if (false) {
 				// @ts-expect-error Template prompts must be strings rather than message arrays.
-				create.Config({ promptType: 'template', prompt: messages });
+				create.Config({ promptType: 'async-template', prompt: messages });
 				// @ts-expect-error Script prompts must be strings rather than message arrays.
-				create.Config({ promptType: 'script', prompt: messages });
+				create.Config({ promptType: 'async-script', prompt: messages });
 				// @ts-expect-error Inferred Config prompt arrays retain their array type.
 				const _prompt: string = parent.config.prompt;
 			}
@@ -546,7 +546,7 @@ describe('Component boundary contracts', () => {
 				// @ts-expect-error The tool context schema is fixed at creation.
 				void generator.run({ contextSchema: schema });
 				// @ts-expect-error The prompt type is fixed at creation.
-				void generator.run({ promptType: 'script' });
+				void generator.run({ promptType: 'async-script' });
 				// @ts-expect-error Filters configure the engine at creation.
 				void generator.run({ filters: {} });
 				// @ts-expect-error Engine options are fixed at creation.

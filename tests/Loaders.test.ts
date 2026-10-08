@@ -173,7 +173,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 				loader: [race([failingLoader], 'templates')],
 				template: 'template.txt',
 			});
-			await expect(renderer({ source: 'test' })).to.be.rejectedWith(/Template not found: template.txt/);
+			await expect(renderer({ source: 'test' })).to.be.rejectedWith(/Resource not found: template.txt/);
 		});
 	});
 

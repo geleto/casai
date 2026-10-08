@@ -59,7 +59,7 @@ describe('Config validation', () => {
 			expect(create.TextGenerator.withFunction({ model, prompt: ({ name }) => `Hello ${name}` }, functionPrompt)).to.be.a('function');
 			expect(() => create.TextGenerator.withFunction({ model } as never, functionPrompt))
 				.to.throw(ConfigError, "The 'prompt' property must be a function");
-			const templateName = create.Config({ template: 'greeting', promptType: 'template-name' });
+			const templateName = create.Config({ template: 'greeting', promptType: 'async-template-name' });
 			expect(templateName.config.template).to.equal('greeting');
 			expect(() => create.Template.loadsTemplate({} as never, templateName)).to.throw(ConfigError, "A 'loader' is required");
 		});
@@ -135,7 +135,7 @@ describe('Config validation', () => {
 			{ name: 'invalid message content', config: { messages: [{ role: 'user', content: 42 }] }, error: /invalid message objects/ },
 			{ name: 'invalid message prompt', config: { prompt: [{ role: 'user', content: 42 }] }, error: /invalid message objects/ },
 			{ name: 'non-function function prompt', config: { promptType: 'function', prompt: 'Hello' }, error: /prompt.*must be a function/ },
-			{ name: 'message array for a template prompt', config: { promptType: 'template', prompt: [{ role: 'user', content: 'Hello' }] }, error: /message array is not allowed/ },
+			{ name: 'message array for a template prompt', config: { promptType: 'async-template', prompt: [{ role: 'user', content: 'Hello' }] }, error: /message array is not allowed/ },
 		];
 		for (const { name, config, error } of invalidValues) {
 			it(`should reject ${name} in standalone and inherited fragments`, () => {

@@ -2,7 +2,7 @@ import { configMapKeys } from './types/merge.js';
 import type { MergedConfig, ProcessedConfig } from './types/merge.js';
 import * as configs from './types/config.js';
 import type { ModelMessage } from 'ai';
-import { mergeLoaders, processLoaders, RaceGroup, RaceLoader } from './loaders.js';
+import { mergeLoaders, processLoaders, type RaceGroup, type RaceLoader } from './loaders.js';
 import type { ILoaderAny } from 'cascada-engine';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(

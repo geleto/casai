@@ -24,6 +24,7 @@ function copyConfigProperties<TConfig>(config: Record<string, unknown>, keys: re
 export function createTemplatePromptRenderer(config: Record<string, unknown>, prompt: string | undefined, promptType: TemplatePromptType) {
 	const templateConfig = {
 		...copyConfigProperties<configs.TemplateConfig<Context>>(config, configs.TemplateConfigKeys),
+		options: { ...config.options as configs.TemplateConfig<Context>['options'], autoescape: false },
 		template: prompt
 	};
 	// A prompt can be supplied later through the renderer's string override argument.
@@ -33,6 +34,7 @@ export function createTemplatePromptRenderer(config: Record<string, unknown>, pr
 export function createScriptPromptRenderer(config: Record<string, unknown>, prompt: string | undefined, promptType: ScriptPromptType) {
 	const scriptConfig = {
 		...copyConfigProperties<configs.ScriptConfig<Context, PromptOutput>>(config, configs.ScriptConfigKeys),
+		options: { ...config.options as configs.ScriptConfig<Context, PromptOutput>['options'], autoescape: false },
 		script: prompt,
 		// Validate the prompt result, independently of the LLM's output schema.
 		schema: PromptStringOrMessagesSchema

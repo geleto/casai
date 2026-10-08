@@ -2,7 +2,7 @@ import type { ModelMessage, Schema, StreamObjectOnFinishCallback, StreamTextOnEn
 import { z } from 'zod';
 import type { InferParameters } from './utils.js';
 import type { ILoaderAny } from 'cascada-engine';
-import { RaceGroup, RaceLoader } from '../loaders.js';
+import type { RaceGroup, RaceLoader } from '../loaders.js';
 import type { AugmentedResponse } from './result.js';
 
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;
@@ -88,8 +88,8 @@ export type FunctionToolImplementation<
 		: ReturnType<ExecuteFunction>;
 
 // Define the possible prompt types
-export type TemplatePromptType = 'template' | 'async-template' | 'template-name' | 'async-template-name';
-export type ScriptPromptType = 'script' | 'async-script' | 'script-name' | 'async-script-name';
+export type TemplatePromptType = 'async-template' | 'async-template-name';
+export type ScriptPromptType = 'async-script' | 'async-script-name';
 export type FunctionPromptType = 'function';
 
 export type PromptType = TemplatePromptType | ScriptPromptType | FunctionPromptType | 'text' | 'text-name';
