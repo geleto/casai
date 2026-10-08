@@ -28,6 +28,19 @@ export const ReasoningPartSchema = z.object({
 	providerOptions: z.any().optional(),
 }).passthrough();
 
+export const CustomPartSchema = z.object({
+	type: z.literal('custom'),
+	kind: z.string().regex(/\./),
+	providerOptions: z.any().optional(),
+}).passthrough();
+
+export const ReasoningFilePartSchema = z.object({
+	type: z.literal('reasoning-file'),
+	data: z.any(),
+	mediaType: z.string(),
+	providerOptions: z.any().optional(),
+}).passthrough();
+
 export const ToolCallPartSchema = z.object({
 	type: z.literal('tool-call'),
 	toolCallId: z.string(),
@@ -45,6 +58,24 @@ export const ToolResultPartSchema = z.object({
 	providerOptions: z.any().optional(),
 }).passthrough();
 
+export const ToolApprovalRequestSchema = z.object({
+	type: z.literal('tool-approval-request'),
+	approvalId: z.string(),
+	toolCallId: z.string(),
+	reason: z.string().optional(),
+	isAutomatic: z.boolean().optional(),
+	signature: z.string().optional(),
+	inputSchemaInput: z.any().optional(),
+}).passthrough();
+
+export const ToolApprovalResponseSchema = z.object({
+	type: z.literal('tool-approval-response'),
+	approvalId: z.string(),
+	approved: z.boolean(),
+	reason: z.string().optional(),
+	providerExecuted: z.boolean().optional(),
+}).passthrough();
+
 // Message content schemas
 export const UserContentSchema = z.union([
 	z.string(),
@@ -56,15 +87,18 @@ export const AssistantContentSchema = z.union([
 	z.array(
 		z.union([
 			TextPartSchema,
+			CustomPartSchema,
 			FilePartSchema,
 			ReasoningPartSchema,
+			ReasoningFilePartSchema,
 			ToolCallPartSchema,
 			ToolResultPartSchema,
+			ToolApprovalRequestSchema,
 		]),
 	),
 ]);
 
-export const ToolContentSchema = z.array(ToolResultPartSchema);
+export const ToolContentSchema = z.array(z.union([ToolResultPartSchema, ToolApprovalResponseSchema]));
 
 // Message schemas
 export const SystemModelMessageSchema = z

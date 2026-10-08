@@ -95,9 +95,14 @@ function validatePromptProperties(config: Record<string, unknown>, promptType?: 
 }
 
 function validateRendererInputSchema(config: Record<string, unknown>, kind: 'Template' | 'Script'): void {
-	if (config.inputSchema !== undefined && !(config.inputSchema instanceof z.ZodObject)) {
-		throw new ConfigError(`For ${kind} components, 'inputSchema' must be a Zod object schema (z.object).`);
+	const inputSchema = config.inputSchema;
+	if (inputSchema === undefined || inputSchema instanceof z.ZodObject) return;
+	if (inputSchema && typeof inputSchema === 'object' && 'jsonSchema' in inputSchema) {
+		const jsonSchema = inputSchema.jsonSchema;
+		if (!jsonSchema || typeof jsonSchema !== 'object' || !('type' in jsonSchema) || jsonSchema.type === undefined) return;
+		if (jsonSchema.type === 'object' || (Array.isArray(jsonSchema.type) && jsonSchema.type.includes('object'))) return;
 	}
+	throw new ConfigError(`For ${kind} components, 'inputSchema' must be a Zod object schema (z.object) or an AI SDK object schema.`);
 }
 
 function validateObjectOutputProperties(config: Record<string, unknown>, isStreamer = false): 'object' | 'array' | 'enum' | 'no-schema' {
@@ -148,7 +153,7 @@ export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Text');
 	validatePromptProperties(config, promptType, true);
-	if (!('model' in config)) throw new ConfigError("Text generator configs require a 'model' property.");
+	if (config.model === undefined || config.model === null) throw new ConfigError("Text generator configs require a 'model' property.");
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
 	if (isLoaded && !('loader' in config)) {
@@ -175,7 +180,8 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Object');
 	validatePromptProperties(config, promptType, true);
-	if (!('model' in config)) throw new ConfigError("Object generator configs require a 'model' property.");
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime callers can explicitly clear an inherited model with null.
+	if (config.model === undefined || config.model === null) throw new ConfigError("Object generator configs require a 'model' property.");
 	const output = validateObjectOutputProperties(config, isStreamer);
 
 	if (isTool) {
@@ -297,7 +303,7 @@ export function validateFunctionConfig(config: Record<string, any>, isTool = fal
 export function validateLLMComponentCall(
 	config: Partial<configs.AnyConfig<any, any, any, any>>, promptType: types.PromptType,
 	...args: [string | undefined | ModelMessage[] | types.Context, (ModelMessage[] | types.Context)?, types.Context?]
-): void {
+): void | Promise<void> {
 	const callArgs = extractCallArguments(...args);
 	const isToolCall = callArgs.context?._toolCallOptions !== undefined;
 
@@ -308,7 +314,7 @@ export function validateLLMComponentCall(
 			throw new ConfigError('Function-prompt components only accept a context object.');
 		}
 		if (!isToolCall) {
-			validateInput(config, callArgs.context ?? {});
+			return validateInput(config, callArgs.context ?? {});
 		}
 		return;
 	}
@@ -319,8 +325,10 @@ export function validateLLMComponentCall(
 			if (callArgs.context) {
 				// Skip input validation if this is a tool call (indicated by presence of _toolCallOptions)
 
-				validateInput(config, callArgs.context);
+				return validateInput(config, callArgs.context);
 
+			} else if ('inputSchema' in config && config.inputSchema && !('shape' in config.inputSchema)) {
+				return validateInput(config, {});
 			} else if ('inputSchema' in config && config.inputSchema && Object.keys((config.inputSchema as z.ZodObject<any>).shape as Record<string, any>).length > 0) {
 				throw new ConfigError("A context object is required because an 'inputSchema' is defined in the configuration.");
 			}
@@ -342,7 +350,7 @@ export function validateLLMComponentCall(
 	}
 }
 
-export function validateTemplateCall(config: Partial<configs.TemplateConfig<any>>, ...args: [string | undefined | types.Context, types.Context?]): void {
+export function validateTemplateCall(config: Partial<configs.TemplateConfig<any>>, ...args: [string | undefined | types.Context, types.Context?]): void | Promise<void> {
 	const [templateOrContext, maybeContext] = args;
 	const context = (typeof templateOrContext === 'string') ? maybeContext : templateOrContext;
 	const isToolCall = context?._toolCallOptions !== undefined;
@@ -353,14 +361,16 @@ export function validateTemplateCall(config: Partial<configs.TemplateConfig<any>
 
 	if (!isToolCall) {
 		if (context) {
-			validateInput(config, context);
+			return validateInput(config, context);
+		} else if (config.inputSchema && !('shape' in config.inputSchema)) {
+			return validateInput(config, {});
 		} else if (config.inputSchema && Object.keys((config.inputSchema as z.ZodObject<any>).shape as Record<string, any>).length > 0) {
 			throw new ConfigError("A context object is required because an 'inputSchema' with properties is defined in the configuration.");
 		}
 	}// else - the tool call will have its own input schema validation
 }
 
-export function validateScriptOrFunctionCall(config: Record<string, any>, type: 'Script' | 'Function', ...args: [string | undefined | types.Context, types.Context?]): void {
+export function validateScriptOrFunctionCall(config: Record<string, any>, type: 'Script' | 'Function', ...args: [string | undefined | types.Context, types.Context?]): void | Promise<void> {
 	const [arg1, arg2] = args;
 	const context = (typeof arg1 === 'string') ? arg2 : arg1;
 	const isToolCall = context?._toolCallOptions !== undefined;
@@ -371,7 +381,9 @@ export function validateScriptOrFunctionCall(config: Record<string, any>, type: 
 
 	if (!isToolCall) {
 		if (context) {
-			validateInput(config, context);
+			return validateInput(config, context);
+		} else if (config.inputSchema && !('shape' in (config.inputSchema as types.SchemaType<any>))) {
+			return validateInput(config, {});
 		} else if (config.inputSchema && Object.keys((config.inputSchema as z.ZodObject<any>).shape as Record<string, any>).length > 0) {
 			throw new ConfigError("A context object is required because an 'inputSchema' with properties is defined in the configuration.");
 		}
@@ -380,24 +392,47 @@ export function validateScriptOrFunctionCall(config: Record<string, any>, type: 
 
 // --- Input/Output Schema Validators ---
 
-function validateInput(config: Partial<configs.AnyConfig<any, any, any, any>>, context: types.Context): void {
+function validateInput(config: Partial<configs.AnyConfig<any, any, any, any>>, context: types.Context): void | Promise<void> {
 	if ('inputSchema' in config && config.inputSchema) {
-		const schema = config.inputSchema as z.ZodType;
-		const result = schema.safeParse(context);
-		if (!result.success) {
-			throw new ConfigError(`Input context validation failed.\n${formatZodError(result.error)}`);
+		const schema = config.inputSchema;
+		if ('safeParse' in schema) {
+			const result = schema.safeParse(context);
+			if (!result.success) {
+				throw new ConfigError(`Input context validation failed.\n${formatZodError(result.error)}`);
+			}
+		} else if (schema.validate) {
+			const check = (result: { success: true, value: unknown } | { success: false, error: Error }): void => {
+				if (!result.success) {
+					throw new ConfigError(`Input context validation failed.\n${result.error.message}`, result.error);
+				}
+			};
+			const result = schema.validate(context);
+			if ('then' in result) return Promise.resolve(result).then(check);
+			check(result);
 		}
 	}
 }
 
-export function validateAndParseOutput<T>(config: Partial<configs.AnyConfig<any, any, any, any>>, result: T): T {
+export function validateAndParseOutput<T>(config: Partial<configs.AnyConfig<any, any, any, any>>, result: T): T | Promise<T> {
 	if ('schema' in config && config.schema) {
-		const schema = config.schema as z.ZodType;
-		const validationResult = schema.safeParse(result);
-		if (!validationResult.success) {
-			throw new ConfigError(`Output validation failed.\n${formatZodError(validationResult.error)}`);
+		const schema = config.schema;
+		if ('safeParse' in schema) {
+			const validationResult = schema.safeParse(result);
+			if (!validationResult.success) {
+				throw new ConfigError(`Output validation failed.\n${formatZodError(validationResult.error)}`);
+			}
+			return validationResult.data as T;
+		} else if (schema.validate) {
+			const check = (validationResult: { success: true, value: unknown } | { success: false, error: Error }): T => {
+				if (!validationResult.success) {
+					throw new ConfigError(`Output validation failed.\n${validationResult.error.message}`, validationResult.error);
+				}
+				return validationResult.value as T;
+			};
+			const validationResult = schema.validate(result);
+			if ('then' in validationResult) return Promise.resolve(validationResult).then(check);
+			return check(validationResult);
 		}
-		return validationResult.data as T;
 	}
 	return result;
 }

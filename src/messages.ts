@@ -40,6 +40,17 @@ function createAugmentedResponse<RESPONSE extends { messages: ModelMessage[] }>(
 	return response as unknown as AugmentedResponse<RESPONSE>;
 }
 
+export function augmentTextFinishEvent<EVENT extends { response: { messages: ModelMessage[] }, responseMessages: ModelMessage[] }>(
+	event: EVENT,
+	prefixForMessages: ModelMessage[] | undefined,
+	historyPrefix: ModelMessage[] | undefined,
+): Omit<EVENT, 'response'> & { response: AugmentedResponse<EVENT['response']> } {
+	return {
+		...event,
+		response: createAugmentedResponse(event.response, prefixForMessages, historyPrefix, event.responseMessages),
+	};
+}
+
 export function augmentGenerateText<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput>(
 	result: GenerateTextResult<TOOLS, any, OUTPUT>,
 	prefixForMessages: ModelMessage[] | undefined,

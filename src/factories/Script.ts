@@ -1,21 +1,24 @@
 import { attachRendererTool } from '../renderer-tool.js';
 import { mergeConfigs, processConfig } from '../config-utils.js';
-import { validateScriptConfig, validateScriptOrFunctionCall, validateAndParseOutput, ConfigError } from '../validate.js';
+import { validateScriptConfig, validateScriptOrFunctionCall, ConfigError } from '../validate.js';
 import { ScriptEngine } from '../ScriptEngine.js';
 import * as configs from '../types/config.js';
 import * as results from '../types/result.js';
 import * as utils from '../types/utils.js';
-import type { SchemaType, ScriptPromptType } from '../types/types.js';
+import type { InferSchema, ScriptPromptType } from '../types/types.js';
 import type { Provisional } from '../types/provisional.js';
 import type { ValidateScriptConfig, ValidateScriptParentConfig } from '../types/config-validation.js';
 
 //@todo - move to result
+type ScriptOutput<TConfig, TFallback = results.ScriptResult> =
+	TConfig extends { schema: infer TSchema } ? InferSchema<TSchema, TFallback> : TFallback;
+
 type ScriptResultPromise<
 	TConfig extends configs.ScriptConfig<INPUT, OUTPUT>,
 	INPUT extends Record<string, any>,
 	OUTPUT
 > =
-	Promise<TConfig extends { schema: SchemaType<infer OBJECT> } ? OBJECT : results.ScriptResult>;
+	Promise<ScriptOutput<TConfig>>;
 
 type ScriptResultPromiseWithParent<
 	TConfig extends configs.ScriptConfig<INPUT, OUTPUT>,
@@ -26,7 +29,7 @@ type ScriptResultPromiseWithParent<
 	PARENT_OUTPUT,
 	FinalConfig = configs.MergedConfig<TParentConfig, TConfig>
 > =
-	Promise<FinalConfig extends { schema: SchemaType<infer OBJECT> } ? OBJECT : results.ScriptResult>;
+	Promise<ScriptOutput<FinalConfig>>;
 
 // Script call signature type
 export type ScriptCallSignature<
@@ -112,7 +115,7 @@ function asTool<
 	OUTPUT
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT>>
-): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, ScriptOutput<TConfig, OUTPUT>, TConfig>;
 
 function asTool<
 	TConfig extends Provisional<Partial<configs.ScriptToolConfig<INPUT, OUTPUT>>>,
@@ -127,7 +130,7 @@ function asTool<
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateScriptParentConfig<TParentConfig, configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
-): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, ScriptOutput<TFinalConfig, FINAL_OUTPUT>, TFinalConfig>;
 
 function asTool(
 	config: Partial<configs.ScriptToolConfig<any, any>>,
@@ -172,7 +175,7 @@ function loadsScriptAsTool<
 	OUTPUT
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT> & configs.LoaderConfig>
-): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, ScriptOutput<TConfig, OUTPUT>, TConfig>;
 
 function loadsScriptAsTool<
 	TConfig extends Provisional<Partial<configs.ScriptToolConfig<INPUT, OUTPUT> & configs.LoaderConfig>>,
@@ -187,7 +190,7 @@ function loadsScriptAsTool<
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT> & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateScriptParentConfig<TParentConfig, configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.LoaderConfig>>
-): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, ScriptOutput<TFinalConfig, FINAL_OUTPUT>, TFinalConfig>;
 
 function loadsScriptAsTool(
 	config: Partial<configs.ScriptToolConfig<any, any> & configs.LoaderConfig>,
@@ -234,7 +237,7 @@ export function _createScript<
 
 	// Define the call function that handles both cases
 	const call = async (scriptOrContext?: INPUT | string, maybeContext?: INPUT): Promise<any> => {
-		validateScriptOrFunctionCall(merged, 'Script', scriptOrContext, maybeContext);
+		await validateScriptOrFunctionCall(merged, 'Script', scriptOrContext, maybeContext);
 
 		if ('debug' in merged && merged.debug) {
 			console.log('[DEBUG] Script - call function called with:', { scriptOrContext, maybeContext });
@@ -244,7 +247,7 @@ export function _createScript<
 			if ('debug' in merged && merged.debug) {
 				console.log('[DEBUG] Script - run result:', result);
 			}
-			return validateAndParseOutput(merged, result);
+			return result;
 		} else {
 			if (maybeContext !== undefined) {
 				throw new Error('Second argument must be undefined when not providing script.');
@@ -253,7 +256,7 @@ export function _createScript<
 			if ('debug' in merged && merged.debug) {
 				console.log('[DEBUG] Script - run result:', result);
 			}
-			return validateAndParseOutput(merged, result);
+			return result;
 		}
 	};
 

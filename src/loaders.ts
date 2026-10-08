@@ -1,5 +1,5 @@
 import { raceLoaders } from 'cascada-engine';
-import type { ILoaderAny, LoaderInterface, LoaderSource } from 'cascada-engine';
+import type { ILoaderAny, ILoader, ILoaderAsync, LoaderInterface, LoaderSource } from 'cascada-engine';
 
 export const RACE_GROUP_TAG = Symbol.for('casai.raceGroup');
 export const MERGED_GROUP_TAG = Symbol.for('casai.mergedGroup');
@@ -44,11 +44,22 @@ export class RaceLoader implements LoaderInterface {
 		}
 
 		// Kick off all loads immediately.
-		const rawPromises = this.loaders.map(loader => {
-			const result = (loader as LoaderInterface).load(name);
-			// Handle both sync and async loaders by wrapping sync results in Promise.resolve()
-			return Promise.resolve(result);
-		});
+		const rawPromises = this.loaders.map(loader =>
+			// Defer each invocation so a synchronous failure cannot prevent other racers from starting.
+			Promise.resolve().then(() => {
+				if (typeof loader === 'function') return loader(name);
+				if ('load' in loader && typeof loader.load === 'function') return loader.load(name);
+				if ('async' in loader && loader.async) {
+					return new Promise<LoaderSource | null>((resolve, reject) => {
+						(loader as ILoaderAsync).getSource(name, (error, source) => {
+							if (error) reject(error);
+							else resolve(source);
+						});
+					});
+				}
+				return (loader as ILoader).getSource(name);
+			})
+		);
 
 		// REVERT: Use a discriminated union for the Settled type. It is more type-safe
 		// and idiomatic, allowing TypeScript to perform powerful type narrowing.
@@ -187,7 +198,7 @@ function _processAndDeduplicate(
 			// Use the collected loaders for this named group to preserve cross-merge order.
 			const groupInfo = namedGroups.get(item.groupName);
 			if (groupInfo) {
-				const uniqueConstituents = groupInfo.collectedLoaders.filter(l => !seen.has(l));
+				const uniqueConstituents = item.loaders.filter(l => !seen.has(l));
 				if (uniqueConstituents.length > 0) {
 					const finalRaceLoader =
 						uniqueConstituents.length === item.loaders.length
@@ -198,7 +209,11 @@ function _processAndDeduplicate(
 				}
 			}
 		} else if (isRaceGroup(item)) { // Anonymous race group
-			const uniqueLoaders = item.loaders.filter(l => !seen.has(l));
+			const uniqueLoaders = item.loaders.filter(loader => {
+				if (seen.has(loader)) return false;
+				seen.add(loader);
+				return true;
+			});
 			if (uniqueLoaders.length > 0) {
 				uniqueLoaders.forEach(l => seen.add(l));
 				// IMPROVEMENT: Avoid wrapper for single-loader groups.

@@ -7,12 +7,12 @@ In the Cascada script below, `researcher`, `analyst`, and `writer` are distinct 
 ```javascript
 // 1. These two agents run CONCURRENTLY, automatically.
 // The engine sees 'researcher' and 'analyst' are independent and runs them concurrently.
-var background = researcher({ topic }).text
-var analysis = analyst({ topic }).object
+var background = researcher({ topic: topic }).text
+var analysis = analyst({ topic: topic }).object
 
 // 2. This agent automatically WAITS for the concurrent tasks to finish.
 // No 'await', no Promise.all. Just clean data-flow.
-var finalReport = writer({ background, analysis }).text
+var finalReport = writer({ background: background, analysis: analysis }).text
 ```
 
 **⚠️ Under active development:** Casai is evolving rapidly - bugs are possible. Issues and contributions are very welcome.
@@ -79,7 +79,7 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 
 ## Installation
 
-Install any Vercel AI SDK 6.x version
+Install a Vercel AI SDK 7.x version
 ```bash
 npm install ai
 ```
@@ -139,7 +139,7 @@ const contentAgent = create.Script({
 	},
 	script: `
       var revisionCount = 0
-      var currentDraft = draftGenerator({ topic }).text
+      var currentDraft = draftGenerator({ topic: topic }).text
       var critique = critiqueGenerator({ draft: currentDraft }).object
 
       // Iteratively revise until the quality threshold or maxRevisions is met
@@ -161,7 +161,7 @@ console.log(JSON.stringify(result, null, 2));
 
 ## Components: The Heart of Casai
 
-At the core of *Casai* are **components** - versatile objects that transform inputs into outputs. They are the building blocks for your workflows, designed to be both powerful and easy to compose. Every component is created using the `create` factory and offers two ways to be invoked: a standard function call `()` for most use cases, and an advanced `.run()` method for runtime overrides.
+At the core of *Casai* are **components** - versatile objects that transform inputs into outputs. They are the building blocks for your workflows, designed to be both powerful and easy to compose. Every component is created using the `create` factory and is callable with `()`. LLM components also offer an advanced `.run()` method for runtime overrides.
 
 ```typescript
 const result = await component({ topic: 'AI' });                    // Standard call
@@ -187,7 +187,7 @@ const jokeGenerator = create.TextGenerator({
 
 A key feature is that **every component is a callable function**. This provides several powerful ways to use them:
 
-1.  **With Pre-configured Input**: Call the component with no arguments (`await component()`) or just a context object (`await component({ user: 'Admin' })`) to use its pre-compiled prompt, script, or template for optimal performance.
+1.  **With Pre-configured Input**: Call the component with no arguments (`await component()`) or just a context object (`await component({ user: 'Admin' })`) to use its configured prompt, script, or template.
 2.  **With One-off Input**: Call the component with new arguments (`await component(newInput, newContext)`) for dynamic, on-the-fly execution. Both arguments are optional. The behavior of `newInput` depends on how the component was created.
 
 ### The Default Behavior: Plain Text
@@ -263,7 +263,7 @@ const result2 = await dynamicComponent('Hi {{ user }}', { user: 'Alice' });
 console.log(result2); // "Hi Alice"
 ```
 
-Template and script prompts defined at creation are pre-compiled for efficiency, while prompts provided at runtime are compiled on-the-fly, offering flexibility for dynamic scenarios.
+Configured templates are compiled for reuse. Scripts and one-off inputs are rendered through Cascada at call time.
 
 #### Advanced Overrides with the `.run()` Method
 For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Casai provides the `.run()` method.
@@ -329,7 +329,7 @@ Here is a complete guide to its different modes:
 
 | Creation Method | `prompt` Property Content | Processing Behavior |
 | :--- | :--- | :--- |
-| `create.TextGenerator(...)` | A static `string` or `ModelMessage[]` array. | The content is sent **directly** to the Vercel AI SDK with no processing. The user's runtime input is appended as the final `user` message. |
+| `create.TextGenerator(...)` | A static `string` or `ModelMessage[]` array. | The content is sent **directly** to the Vercel AI SDK with no processing. A call-time prompt replaces the configured prompt; configured `messages` precede it. |
 | `create.TextGenerator.withTemplate(...)` | A `string` containing a Cascada **template**. | The template is **rendered** into a final `string`, which becomes the LLM prompt. It only renders text and thus cannot produce a `ModelMessage[]` array. |
 | `create.TextGenerator.withScript(...)` | A `string` containing a Cascada **script**. | The script is **executed**. Its return value - which can be a `string` or a `ModelMessage[]` array - becomes the LLM prompt. |
 | `create.TextGenerator.withFunction(...)` | A synchronous or asynchronous JavaScript **function**. | The function is **executed**. Its return value - which can be a `string` or a `ModelMessage[]` array - becomes the LLM prompt. |
@@ -593,7 +593,7 @@ const userOnboardingTool = create.Script.asTool({
     inputSchema: z.object({ name: z.string(), email: z.string() }),
     context: { /* db, emailService, ... */ },
     script: `
-      var profile = db.createUser({ name, email })
+      var profile = db.createUser({ name: name, email: email })
       var emailStatus = emailService.sendWelcome(email)
       return { userId: profile.id, emailSent: emailStatus.success }
     `
@@ -1279,9 +1279,9 @@ const mainOrchestrator = create.Script({
     topic: 'a lost astronaut'
   },
   script: `
-    var character = characterGenerator({ topic }).object
-    var story = storyGenerator({ character, topic }).text
-    var critique = critiqueGenerator({ story }).text
+    var character = characterGenerator({ topic: topic }).object
+    var story = storyGenerator({ character: character, topic: topic }).text
+    var critique = critiqueGenerator({ story: story }).text
     return { character: character, story: story, critique: critique }
   `
 });
@@ -1344,7 +1344,8 @@ The `messages` property plays a dual role depending on where you define it:
     // The system message is part of the static configuration
     const chatAgent = create.TextStreamer({
       model: openai('gpt-4o'),
-      messages: [{ role: 'system', content: 'You are a helpful assistant.' }]
+      messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+      allowSystemInMessages: true
     });
     ```
 
@@ -1379,11 +1380,11 @@ With AI SDK 7, `toolCalls` and `toolResults` include all steps, even after the a
 You can achieve more complex message structures using these advanced patterns:
 
 **1. `prompt` as `ModelMessage[]`**
-For text-only components (those not created with `.withTemplate` or `.withScript`), you can provide an array of messages directly in the `prompt` property at configuration time. This is useful for defining few-shot examples or complex initial prompts. The user's input at runtime will be appended as the final `user` message.
+For plain-text components, you can provide an array of messages directly in the `prompt` property at configuration time. A call-time prompt replaces that array. To keep fixed few-shot examples before each new user prompt, put them in `messages` instead:
 ```typescript
 const fewShotAgent = create.TextGenerator({
   model: openai('gpt-4o'),
-  prompt: [
+  messages: [
     { role: 'user', content: 'Translate "hello" to French.' },
     { role: 'assistant', content: 'Bonjour' },
     // The final prompt will be appended here as a user message
@@ -1407,7 +1408,7 @@ const dynamicFewShotAgent = create.TextGenerator.withScript({
     `
 });
 ```
-When called, the messages from `getExamples` will be added to the conversation before the user's prompt.
+When called, the messages returned by `getExamples` become the prompt after any configured or call-time history. A positional string override replaces the script source for that call.
 
 ### Example: Building a Conversational Chatbot
 
@@ -1426,6 +1427,7 @@ async function getUserInput(promptText) {
 // 1. Configure the agent with a static system prompt
 const chatAgent = create.TextStreamer({
   model: openai('gpt-4o'),
+  allowSystemInMessages: true,
   messages: [{
     role: 'system',
     content: 'You are a friendly chatbot. Keep answers concise.'
@@ -1526,7 +1528,7 @@ const documentFinder = create.Script({
     // The data channel collects the results in source-code order regardless of completion order.
     data result
     for i in range(10)
-      var docPath = 'docs/document' + (i + 1) + '.txt'
+      var docPath = 'docs/document' ~ (i + 1) ~ '.txt'
       var docEmbedding = embedText(readFile(docPath))
       result.docs.push({
         filename: docPath,
@@ -1583,8 +1585,8 @@ const ragOrchestrator = create.Script({
     answerGenerator
   },
   script: `
-    var context = searchIndex(query)
-    var answer = answerGenerator({ context }).text
+    var retrievedContext = searchIndex(query)
+    var answer = answerGenerator({ context: retrievedContext }).text
     return { query: query, answer: answer }
   `
 });
@@ -1628,11 +1630,13 @@ const vectorIndex = await VectorStoreIndex.fromDocuments(docs, {
 
 Casai integrates with Zod to provide automatic, runtime validation for both the data you provide to components and the data they produce, ensuring type safety throughout your workflows.
 
+AI SDK schemas created with `jsonSchema` are also supported. For local input and output checks in Template, Script, and Function components, supply the schema's `validate` callback; it can be synchronous or asynchronous. JSON schema metadata alone does not perform local validation in these components. Output validation returns the parsed value, including transformations.
+
 ### Ensuring Type-Safe Inputs with `inputSchema`
 
-The `inputSchema` property validates the `context` data provided to a component before execution, catching errors early and ensuring your logic receives the correct data structure.
+The `inputSchema` property validates call-time `context` before execution. Configured `context` does not satisfy missing required input fields. Input validation checks the supplied data without replacing it with parsed or transformed values.
 
--   **Applies to**: Any component that uses a `context` object (`Template`, `Script`, `Function`, and LLM components created with `.withTemplate` or `.withScript`).
+-   **Applies to**: Any component that uses a `context` object (`Template`, `Script`, `Function`, and LLM components created with `.withTemplate`, `.withScript`, or `.withFunction`).
 -   **Usage**: Define the expected input data for a component using a Zod schema.
 -   **Requirement**: This property is **mandatory** when creating a tool with `.asTool`, as it defines the tool's arguments for the LLM.
 
@@ -1717,7 +1721,7 @@ const invalidComponent = create.TextGenerator({
 ### Enforced Rules
 - **Model**: Must be set in component creation or a parent `Config`.
 - **Loader**: Required for `.loadsTemplate`, `.loadsScript`, or `.loadsText`.
-- **Template/Script Properties**: `context`, `filters`, `loader`, and `options` are only allowed on components created with a Cascada modifier (`.withTemplate`, `.withScript`, or `.loads...`).
+- **Rendering Properties**: `context`, `filters`, and `options` are available with Cascada prompt modifiers. `.withFunction` supports `context` and `inputSchema` for JavaScript prompt callbacks. `loader` supplies external prompts or script/template composition.
 
 This type safety ensures robust, predictable workflows with early error detection.
 

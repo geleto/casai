@@ -81,7 +81,7 @@ export class ScriptEngine<
 		}
 
 		// Runtime check for missing script
-		if (!scriptOverride && !('script' in this.config) && !('script' in this.config && this.config.script)) {
+		if (scriptOverride === undefined && this.config.script === undefined) {
 			throw new ScriptError('No script provided. Either provide a script in the configuration or as a call argument.');
 		}
 
@@ -97,21 +97,27 @@ export class ScriptEngine<
 			}
 
 			// If we have a script override, use renderScript[String] directly
-			if (scriptOverride) {
-				const result = await this.env.renderScriptString(scriptOverride, mergedContext);
+			if (scriptOverride !== undefined) {
+				const source = this.config.promptType === 'script-name' || this.config.promptType === 'async-script-name'
+					? await cascada.loadString(scriptOverride, this.config.loader as types.CascadaLoaders)
+					: scriptOverride;
+				// Cascada's parser currently rejects empty source, which has the same result as returning none.
+				const result = await this.env.renderScriptString(source === '' ? 'return none' : source, mergedContext,
+					this.config.promptType?.endsWith('-name') ? { path: scriptOverride } : undefined);
 				if ('debug' in this.config && this.config.debug) {
 					console.log('[DEBUG] ScriptEngine.run - renderScriptString result:', result);
 				}
 				rawResult = result;
 			} else {
-				if (!('script' in this.config) || !this.config.script) {
+				if (typeof this.config.script !== 'string') {
 					throw new ScriptError('No script available to render');
 				}
 
 				const source = this.config.promptType === 'script-name' || this.config.promptType === 'async-script-name'
 					? await cascada.loadString(this.config.script, this.config.loader as types.CascadaLoaders)
 					: this.config.script;
-				const result = await this.env.renderScriptString(source, mergedContext);
+				const result = await this.env.renderScriptString(source === '' ? 'return none' : source, mergedContext,
+					this.config.promptType?.endsWith('-name') ? { path: this.config.script } : undefined);
 				if ('debug' in this.config && this.config.debug) {
 					console.log('[DEBUG] ScriptEngine.run - script result:', result);
 				}
@@ -149,8 +155,8 @@ export class ScriptEngine<
 			else if ('validate' in schema && typeof schema.validate === 'function') {
 				try {
 					// Type assertion to access the validate method safely
-					const vercelSchema = schema as { validate: (value: unknown) => { success: true; value: OUTPUT } | { success: false; error: Error } };
-					const validationResult = vercelSchema.validate(rawResult);
+					const vercelSchema = schema as { validate: (value: unknown) => { success: true; value: OUTPUT } | { success: false; error: Error } | PromiseLike<{ success: true; value: OUTPUT } | { success: false; error: Error }> };
+					const validationResult = await vercelSchema.validate(rawResult);
 					if (validationResult.success) {
 						if ('debug' in this.config && this.config.debug) {
 							console.log('[DEBUG] ScriptEngine.run - Vercel Schema validation successful:', validationResult.value);

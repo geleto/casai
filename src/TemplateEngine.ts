@@ -87,6 +87,9 @@ export class TemplateEngine<
 					this.templatePromise = (this.env as cascada.AsyncEnvironment).getTemplate(this.config.template);
 				}
 			}
+			// A one-off template may be used before the configured named template is awaited.
+			// Observe eager loading failures now while preserving rejection for a configured call.
+			void this.templatePromise?.catch(() => undefined);
 		} catch (error) {
 			if (error instanceof Error) {
 				throw new TemplateError(`Template initialization failed: ${error.message}`, error);
@@ -105,8 +108,13 @@ export class TemplateEngine<
 		}
 
 		// Runtime check for missing prompt
-		if (!promptOverride && !this.config.template) {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Internal prompt renderers can receive their source only at call time.
+		if (promptOverride === undefined && this.config.template === undefined) {
 			throw new TemplateError('No template prompt provided. Either provide a prompt in the configuration or as a call argument.');
+		}
+		// Cascada's parser currently rejects empty source; an empty inline template renders no text.
+		if ((promptOverride ?? this.config.template) === '' && !this.config.promptType?.endsWith('-name')) {
+			return '';
 		}
 
 		try {
@@ -119,7 +127,7 @@ export class TemplateEngine<
 			}
 
 			// If we have a prompt override, use renderTemplate[String] directly
-			if (promptOverride) {
+			if (promptOverride !== undefined) {
 				if (this.env instanceof cascada.AsyncEnvironment) {
 					let result: string;
 					if (this.config.promptType === 'async-template-name') {
@@ -144,7 +152,7 @@ export class TemplateEngine<
 									reject(err);
 								} else if (res !== null) {
 									if ('debug' in this.config && this.config.debug) {
-										console.log('[DEBUG] TemplateEngine.render - sync renderTemplateString result:', result);
+										console.log('[DEBUG] TemplateEngine.render - sync renderTemplateString result:', res);
 									}
 									resolve(res);
 								} else {
@@ -157,7 +165,7 @@ export class TemplateEngine<
 									reject(err);
 								} else if (res !== null) {
 									if ('debug' in this.config && this.config.debug) {
-										console.log('[DEBUG] TemplateEngine.render - sync renderTemplateString result:', result);
+										console.log('[DEBUG] TemplateEngine.render - sync renderTemplateString result:', res);
 									}
 									resolve(res);
 								} else {

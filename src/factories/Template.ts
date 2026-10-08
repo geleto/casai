@@ -232,7 +232,7 @@ export function _createTemplate<
 
 	// Define the call function that handles both cases
 	const call = async (promptOrContext?: Context | string, maybeContext?: Context): Promise<string> => {
-		validateTemplateCall(merged, promptOrContext, maybeContext);
+		await validateTemplateCall(merged, promptOrContext, maybeContext);
 
 		if ('debug' in merged && merged.debug) {
 			console.log('[DEBUG] Template - call function called with:', { promptOrContext, maybeContext });

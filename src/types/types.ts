@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { InferParameters } from './utils.js';
 import type { ILoaderAny } from 'cascada-engine';
 import { RaceGroup, RaceLoader } from '../loaders.js';
+import type { AugmentedResponse } from './result.js';
 
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;
 
@@ -109,8 +110,12 @@ export type PromptFunction<PR extends string | ModelMessage[] = string | ModelMe
 export type StreamObjectOnFinishEvent<SCHEMA extends z.ZodTypeAny | Schema<any>> =
 	Parameters<StreamObjectOnFinishCallback<InferParameters<SCHEMA>>>[0];
 
+type SDKStreamTextOnFinishEvent<TOOLS extends ToolSet> = Parameters<StreamTextOnEndCallback<TOOLS>>[0];
+
 export type StreamTextOnFinishEvent<TOOLS extends ToolSet = Record<string, never>> =
-	Parameters<StreamTextOnEndCallback<TOOLS>>[0];
+	Omit<SDKStreamTextOnFinishEvent<TOOLS>, 'response'> & {
+		response: AugmentedResponse<SDKStreamTextOnFinishEvent<TOOLS>['response']>;
+	};
 
 export type EmptyObject = Record<string, never>;
 

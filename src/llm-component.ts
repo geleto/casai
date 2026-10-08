@@ -11,7 +11,7 @@ import { RequiredPromptType, AnyPromptSource } from './types/types.js';
 import { loadString } from 'cascada-engine';
 import type { ILoaderAny } from 'cascada-engine';
 import { createTemplatePromptRenderer, createScriptPromptRenderer, createFunctionPromptRenderer } from './prompt-renderers.js';
-import { augmentGenerateText, augmentStreamText } from './messages.js';
+import { augmentGenerateText, augmentStreamText, augmentTextFinishEvent } from './messages.js';
 import { mergeConfigs } from './config-utils.js';
 
 interface LLMComponent<TConfig, TResult, TAllowedConfigShape> {
@@ -99,6 +99,14 @@ export function _createLLMComponent<
 			vercelConfig.messages = [...runConfig.messages ?? [], ...promptMessages];
 			delete vercelConfig.prompt;
 		}
+		if ((vercelFunc as unknown) === streamText) {
+			const streamConfig = vercelConfig as unknown as configs.StreamTextConfig<any, any>;
+			// Match SDK precedence while exposing the same history as the returned response.
+			const onEnd = streamConfig.onEnd ?? streamConfig.onFinish;
+			if (onEnd) {
+				streamConfig.onEnd = event => onEnd(augmentTextFinishEvent(event, promptMessages, historyPrefix));
+			}
+		}
 		const result = vercelFunc(vercelConfig);
 		if ((vercelFunc as unknown) === generateText) {
 			return (result as Promise<GenerateTextResult<any, any, any>>)
@@ -148,7 +156,7 @@ export function _createLLMComponent<
 				if (config.debug) {
 					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
 				}
-				validateLLMComponentCall(runConfig as Partial<configs.AnyConfig<any, any, any, any>>, config.promptType!, configArg.context);
+				await validateLLMComponentCall(runConfig as Partial<configs.AnyConfig<any, any, any, any>>, config.promptType!, configArg.context);
 			}
 
 			// Render the prompt
@@ -159,7 +167,7 @@ export function _createLLMComponent<
 				}
 				const runRenderer = createFunctionPromptRenderer(runConfig, configArg.prompt);
 				renderedPrompt = await runRenderer(runConfig.context);
-			} else if (typeof configArg.prompt === 'string' && configArg.prompt && !isFunctionPrompt) {
+			} else if (typeof configArg.prompt === 'string' && !isFunctionPrompt) {
 				//re-compile with the new prompt
 				renderedPrompt = await (renderer as TemplateComponent | ScriptComponent)(configArg.prompt, runConfig.context) as string | ModelMessage[];
 			} else {
@@ -181,7 +189,7 @@ export function _createLLMComponent<
 			if (config.debug) {
 				console.log(`[DEBUG] LLM ${config.promptType!} caller called with:`, { promptOrMessageOrContext, messagesOrContext, maybeContext });
 			}
-			validateLLMComponentCall(config, config.promptType!, promptOrMessageOrContext, messagesOrContext, maybeContext);
+			await validateLLMComponentCall(config, config.promptType!, promptOrMessageOrContext, messagesOrContext, maybeContext);
 
 			const { prompt, messages, context } = extractCallArguments(promptOrMessageOrContext, messagesOrContext, maybeContext);
 			const callConfig = {
@@ -202,7 +210,7 @@ export function _createLLMComponent<
 				if (config.debug) {
 					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
 				}
-				validateLLMComponentCall(runConfig, config.promptType ?? 'text', undefined);
+				void validateLLMComponentCall(runConfig, config.promptType ?? 'text', undefined);
 			}
 			return executeLLM(runConfig, runConfig.prompt, configArg.messages);
 		};
@@ -210,7 +218,7 @@ export function _createLLMComponent<
 			if (config.debug) {
 				console.log('[DEBUG] createLLMComponent - text path called with:', { promptOrMessages, maybeMessages });
 			}
-			validateLLMComponentCall(config, config.promptType ?? 'text', promptOrMessages, maybeMessages);
+			void validateLLMComponentCall(config, config.promptType ?? 'text', promptOrMessages, maybeMessages);
 
 			const { prompt, messages } = extractCallArguments(promptOrMessages, maybeMessages);
 			const callConfig = {
@@ -230,6 +238,10 @@ export function _createLLMComponent<
 			}
 
 			let loadedPrompt: Promise<string> | string | undefined = config.prompt ? loadString(config.prompt, loaderConfig.loader as (ILoaderAny | ILoaderAny[])) : undefined;
+			// A one-off prompt can bypass this eager load; keep its rejection handled until a default call awaits it.
+			if (loadedPrompt && typeof loadedPrompt !== 'string') {
+				void loadedPrompt.catch(() => undefined);
+			}
 			//const messages: ModelMessage[] | undefined = config.messages;
 			const syncRun = run;
 			run = async (

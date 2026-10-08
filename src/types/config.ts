@@ -14,6 +14,7 @@ import type {
 import type { ConfigureOptions } from 'cascada-engine';
 import type * as types from './types.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
+import type { AugmentedResponse } from './result.js';
 export type { MergedConfig } from './merge.js';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type
@@ -170,13 +171,24 @@ export type GenerateTextConfig<
 	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
 
 // The first argument of streamText
+type AugmentedStreamFinishCallback<CALLBACK> = CALLBACK extends (event: infer EVENT) => infer RESULT
+	? (event: Omit<EVENT, 'response'> & {
+		response: EVENT extends { response: infer RESPONSE } ? AugmentedResponse<RESPONSE> : never;
+	}) => RESULT
+	: never;
+
 export type StreamTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof streamText<TOOLS>>[0], 'prompt'>
+> = Omit<Parameters<typeof streamText<TOOLS>>[0], 'prompt' | 'onFinish' | 'onEnd'>
 	& BaseConfig
-	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
+	& {
+		prompt?: PROMPT;
+		inputSchema?: types.SchemaType<INPUT>;
+		onFinish?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS>>[0]['onFinish']>;
+		onEnd?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS>>[0]['onEnd']>;
+	};
 
 export type FinalGenerateTextConfigShape = Partial<ConfigShape<GenerateTextConfig<any, any, any>> & { model: LanguageModel }>;
 
@@ -395,7 +407,7 @@ export type AnyConfig<
 		| StreamObjectNoSchemaConfig<INPUT, PROMPT>
 	) & Partial<ToolConfig<INPUT, OUTPUT>> &
 		(
-			Partial<LoaderConfig> & (TemplatePromptConfig | ScriptPromptConfig)
+			Partial<LoaderConfig> & (TemplatePromptConfig | ScriptPromptConfig | { prompt?: PROMPT, promptType?: 'text' | 'text-name' })
 		)
 		| FunctionPromptConfig
 	) |

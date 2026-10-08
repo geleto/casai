@@ -155,7 +155,7 @@ export function _createFunction(
 			return validateAndParseOutput(toolConfig, await toolConfig.execute(mergedContext, options));
 		}
 		const funcConfig = merged as configs.FunctionConfig<any, any, any, any>;
-		validateScriptOrFunctionCall(funcConfig, 'Function', inputOrContext);
+		await validateScriptOrFunctionCall(funcConfig, 'Function', inputOrContext);
 		const mergedContext = { ...funcConfig.context ?? {}, ...inputOrContext } as Record<string, any>;
 		return validateAndParseOutput(funcConfig, await funcConfig.execute(mergedContext));
 	};
