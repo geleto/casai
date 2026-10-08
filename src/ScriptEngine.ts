@@ -4,6 +4,7 @@ import { Context, SchemaType, ScriptPromptType } from './types/types.js';
 import { ScriptConfig } from './types/config.js';
 import * as results from './types/result.js';
 import * as types from './types/types.js';
+import { loadSource, processLoaders } from './loaders.js';
 import { JSONValue } from 'ai';
 
 export class ScriptError extends Error {
@@ -34,7 +35,7 @@ export class ScriptEngine<
 
 		// Debug output if config.debug is true
 		if ('debug' in this.config && this.config.debug) {
-			console.log('[DEBUG] ScriptEngine constructor called with config:', JSON.stringify(this.config, null, 2));
+			console.log('[DEBUG] ScriptEngine constructor called with config:', this.config);
 		}
 
 		// Runtime validation of loader requirement
@@ -71,6 +72,27 @@ export class ScriptEngine<
 		}
 	}
 
+	// The environment loads named scripts, so relative imports resolve from the loaded path and precompiled
+	// scripts are accepted. An empty source fails to parse; it is checked only after a failure.
+	private async renderNamedScript(name: string, context: Context): Promise<Record<string, any> | string | null> {
+		try {
+			return await this.env.renderScript(name, context);
+		} catch (error) {
+			if (await this.isEmptySource(name)) return null;
+			throw error;
+		}
+	}
+
+	// The first loader with a source for the name supplies it, as in the environment.
+	private async isEmptySource(name: string): Promise<boolean> {
+		const loaders = this.config.loader === undefined ? [] : processLoaders(this.config.loader);
+		for (const loader of loaders) {
+			const source = await loadSource(loader, name).catch(() => null);
+			if (source !== null) return (typeof source === 'string' ? source : source.src) === '';
+		}
+		return false;
+	}
+
 	async run(
 		scriptOverride?: string,
 		contextOverride?: Context
@@ -96,33 +118,18 @@ export class ScriptEngine<
 				console.log('[DEBUG] ScriptEngine.run - merged context:', mergedContext);
 			}
 
-			// If we have a script override, use renderScript[String] directly
-			if (scriptOverride !== undefined) {
-				const source = this.config.promptType === 'script-name' || this.config.promptType === 'async-script-name'
-					? await cascada.loadString(scriptOverride, this.config.loader as types.CascadaLoaders)
-					: scriptOverride;
-				// Cascada's parser currently rejects empty source, which has the same result as returning none.
-				const result = await this.env.renderScriptString(source === '' ? 'return none' : source, mergedContext,
-					this.config.promptType?.endsWith('-name') ? { path: scriptOverride } : undefined);
-				if ('debug' in this.config && this.config.debug) {
-					console.log('[DEBUG] ScriptEngine.run - renderScriptString result:', result);
-				}
-				rawResult = result;
-			} else {
-				if (typeof this.config.script !== 'string') {
-					throw new ScriptError('No script available to render');
-				}
-
-				const source = this.config.promptType === 'script-name' || this.config.promptType === 'async-script-name'
-					? await cascada.loadString(this.config.script, this.config.loader as types.CascadaLoaders)
-					: this.config.script;
-				const result = await this.env.renderScriptString(source === '' ? 'return none' : source, mergedContext,
-					this.config.promptType?.endsWith('-name') ? { path: this.config.script } : undefined);
-				if ('debug' in this.config && this.config.debug) {
-					console.log('[DEBUG] ScriptEngine.run - script result:', result);
-				}
-				rawResult = result;
+			const script = scriptOverride ?? this.config.script;
+			if (typeof script !== 'string') {
+				throw new ScriptError('No script available to render');
 			}
+			// Cascada's parser currently rejects empty source, which has the same result as returning none.
+			const result = this.config.promptType === 'script-name' || this.config.promptType === 'async-script-name'
+				? await this.renderNamedScript(script, mergedContext)
+				: await this.env.renderScriptString(script === '' ? 'return none' : script, mergedContext);
+			if ('debug' in this.config && this.config.debug) {
+				console.log('[DEBUG] ScriptEngine.run - script result:', result);
+			}
+			rawResult = result;
 		} catch (error) {
 			if (error instanceof Error) {
 				throw new ScriptError(`Script render failed: ${error.message}`, error);

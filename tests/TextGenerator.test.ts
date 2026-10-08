@@ -423,10 +423,10 @@ describe('create.TextGenerator', function () {
 		});
 
 		// Refined test for missing prompt.
-		it('should throw an error at runtime if no prompt is provided in config or call', () => {
+		it('should reject at runtime if no prompt is provided in config or call', async () => {
 			const generator = create.TextGenerator({ model });
 			// Calling with no arguments should fail.
-			expect(() => generator(undefined as unknown as string)).to.throw(
+			await expect(generator(undefined as unknown as string)).to.be.rejectedWith(
 				ConfigError,
 				'Either \'prompt\' (string or messages array) or \'messages\' must be provided',
 			);

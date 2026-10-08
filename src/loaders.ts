@@ -44,22 +44,7 @@ export class RaceLoader implements LoaderInterface {
 		}
 
 		// Kick off all loads immediately.
-		const rawPromises = this.loaders.map(loader =>
-			// Defer each invocation so a synchronous failure cannot prevent other racers from starting.
-			Promise.resolve().then(() => {
-				if (typeof loader === 'function') return loader(name);
-				if ('load' in loader && typeof loader.load === 'function') return loader.load(name);
-				if ('async' in loader && loader.async) {
-					return new Promise<LoaderSource | null>((resolve, reject) => {
-						(loader as ILoaderAsync).getSource(name, (error, source) => {
-							if (error) reject(error);
-							else resolve(source);
-						});
-					});
-				}
-				return (loader as ILoader).getSource(name);
-			})
-		);
+		const rawPromises = this.loaders.map(loader => loadSource(loader, name));
 
 		// REVERT: Use a discriminated union for the Settled type. It is more type-safe
 		// and idiomatic, allowing TypeScript to perform powerful type narrowing.
@@ -116,6 +101,24 @@ export class RaceLoader implements LoaderInterface {
 		// All loaders settled successfully but returned null.
 		return null;
 	}
+}
+
+// Reads a source from any form of loader. The invocation is deferred, so a synchronous failure becomes a
+// rejection and cannot prevent other loaders from starting.
+export function loadSource(loader: ILoaderAny, name: string): Promise<LoaderSource | string | null> {
+	return Promise.resolve().then(() => {
+		if (typeof loader === 'function') return loader(name);
+		if ('load' in loader && typeof loader.load === 'function') return loader.load(name);
+		if ('async' in loader && loader.async) {
+			return new Promise<LoaderSource | null>((resolve, reject) => {
+				(loader as ILoaderAsync).getSource(name, (error, source) => {
+					if (error) reject(error);
+					else resolve(source);
+				});
+			});
+		}
+		return (loader as ILoader).getSource(name);
+	});
 }
 
 export function race(loaders: ILoaderAny | ILoaderAny[], groupName?: string): RaceGroup {

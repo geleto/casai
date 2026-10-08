@@ -58,7 +58,7 @@ export function Config(
 	validateConfigBasics(config);
 	// Debug output if config.debug is true
 	if ('debug' in config && config.debug) {
-		console.log('[DEBUG] Config function created with config:', JSON.stringify(config, null, 2));
+		console.log('[DEBUG] Config function created with config:', config);
 	}
 
 	const merged = parent ? mergeConfigs(parent.config, config) : processConfig(config);

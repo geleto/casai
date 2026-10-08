@@ -157,4 +157,48 @@ describe('Config validation', () => {
 			}
 		});
 	});
+
+	describe('Factory requirements', () => {
+		// Deliberately bypass TypeScript to exercise the runtime checks behind the compile-time requirements.
+		const loader = { load: () => 'Loaded' };
+		const requirements: { name: string, build: () => unknown, error: RegExp }[] = [
+			{ name: 'a Template without a template', build: () => create.Template({} as never), error: /'template' property is required/ },
+			{ name: 'a Script without a script', build: () => create.Script({} as never), error: /'script' property is required/ },
+			{ name: 'a Template tool without an input schema', build: () => create.Template.asTool({ template: 'Hello' } as never), error: /'inputSchema' is a required property when creating a Template/ },
+			{ name: 'a Script tool without an input schema', build: () => create.Script.asTool({ script: 'return 1' } as never), error: /'inputSchema' is a required property when creating a Script/ },
+			{ name: 'a loaded Template tool without a name', build: () => create.Template.loadsTemplate.asTool({ inputSchema, loader } as never), error: /'template' is a required property when creating a Template as a tool/ },
+			{ name: 'a loaded Script tool without a name', build: () => create.Script.loadsScript.asTool({ inputSchema, loader } as never), error: /'script' is a required property when creating a Script as a tool/ },
+			{ name: 'a Function without execute', build: () => create.Function({} as never), error: /'execute' property in a Function config must be a function/ },
+			{ name: 'a Function tool without an input schema', build: () => create.Function.asTool({ execute: () => 1 } as never), error: /'inputSchema' is a required property when creating a Function/ },
+			{ name: 'a text generator tool without a prompt', build: () => create.TextGenerator.withTemplate.asTool({ model, inputSchema } as never), error: /'prompt' is a required property when creating a TextGenerator/ },
+			{ name: 'an object generator tool without an input schema', build: () => create.ObjectGenerator.withTemplate.asTool({ model, schema, prompt: 'Hello' } as never), error: /'inputSchema' is a required property when creating a ObjectGenerator/ },
+			{ name: 'an object generator tool without a prompt', build: () => create.ObjectGenerator.withTemplate.asTool({ model, schema, inputSchema } as never), error: /'prompt' is a required property when creating a ObjectGenerator/ },
+			{ name: 'a loaded object streamer without a loader', build: () => create.ObjectStreamer.loadsTemplate({ model, schema, prompt: 'name' } as never), error: /'loader' is required/ },
+		];
+		for (const { name, build, error } of requirements) {
+			it(`should reject ${name} at creation`, () => {
+				expect(build).to.throw(ConfigError, error);
+			});
+		}
+
+		it('should treat an explicitly undefined or null loader as missing', () => {
+			for (const missing of [undefined, null]) {
+				const builds = [
+					() => create.Template.loadsTemplate({ template: 'name', loader: missing } as never),
+					() => create.Script.loadsScript({ script: 'name', loader: missing } as never),
+					() => create.TextGenerator.loadsText({ model, prompt: 'name', loader: missing } as never),
+					() => create.TextStreamer.loadsTemplate({ model, prompt: 'name', loader: missing } as never),
+					() => create.ObjectGenerator.loadsScript({ model, schema, prompt: 'name', loader: missing } as never),
+				];
+				for (const build of builds) {
+					expect(build).to.throw(ConfigError, /'loader' is required/);
+				}
+			}
+		});
+
+		it('should keep an inherited loader when a child loader is explicitly undefined', async () => {
+			const parent = create.Config({ loader: { load: (name: string) => `Hello from ${name}` } });
+			expect(await create.Template.loadsTemplate({ template: 'parent', loader: undefined }, parent)()).to.equal('Hello from parent');
+		});
+	});
 });

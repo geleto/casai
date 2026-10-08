@@ -68,6 +68,11 @@ export interface LoaderConfig {
 	loader: types.CasaiAILoaders;
 }
 
+// A loaded text prompt is the name of the prompt to load.
+export interface NamedPromptConfig {
+	prompt?: string;
+}
+
 // Only for use in Template
 export interface TemplateConfig<
 	INPUT extends Record<string, any>,
@@ -78,6 +83,9 @@ export interface TemplateConfig<
 }
 
 export const TemplateConfigKeys = ['template', 'inputSchema', 'promptType', ...CascadaConfigKeys] as const;
+
+// A loaded template's name can be configured or supplied at call time.
+export type NamedTemplateConfig<INPUT extends Record<string, any>> = Omit<TemplateConfig<INPUT>, 'template'> & { template?: string } & LoaderConfig;
 
 // Config for a Tool that uses the Template engine
 export interface TemplateToolConfig<

@@ -263,7 +263,7 @@ const result2 = await dynamicComponent('Hi {{ user }}', { user: 'Alice' });
 console.log(result2); // "Hi Alice"
 ```
 
-Configured templates are compiled for reuse. Scripts and one-off inputs are rendered through Cascada at call time.
+Configured templates are compiled for reuse; a syntax error in one is reported when the component is called. Scripts and one-off inputs are rendered through Cascada at call time.
 
 #### Advanced Overrides with the `.run()` Method
 For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Casai provides the `.run()` method.
@@ -458,6 +458,8 @@ console.log(childComponent.config);
 // Outputs the fully resolved configuration object
 ```
 
+Set `debug: true` on a component or a parent `Config` to log configuration merges, component creation, and calls to the console. A child can set `debug: false` to turn off inherited logging.
+
 ## The Casai Components
 
 ### Your Toolkit for Every Task
@@ -576,6 +578,7 @@ You can execute a new script dynamically by passing it as an argument.
     ```
 *   **With a one-off script string**:
     ```typescript
+    const runner = create.Script({ script: 'return "configured-id"' });
     const oneOffResult = await runner(`
       return "new-id"
     `); // "new-id"
@@ -600,7 +603,7 @@ const userOnboardingTool = create.Script.asTool({
 });
 ```
 
-**Use it for**: Building type-safe data layers, orchestrating multi-step agentic workflows, and fetching and aggregating data from multiple APIs/databases. For a deep dive into the scripting language, see the **[Cascada Script Documentation](script.md)**.
+**Use it for**: Building type-safe data layers, orchestrating multi-step agentic workflows, and fetching and aggregating data from multiple APIs/databases. For a deep dive into the scripting language, see the **[Cascada Script Documentation](https://github.com/geleto/cascada/blob/master/docs/cascada/script.md)**.
 
 ### TextGenerator
 
@@ -695,10 +698,13 @@ When you `await` a `TextGenerator` call, it returns a promise that resolves to a
     ```
 
 #### How to Call It
-Calling a `TextStreamer` returns a result object **immediately**, without waiting for the model to respond. This object contains the stream and promises that will resolve when the stream is complete.
+Calling a `TextStreamer` returns its result object without waiting for the model to respond. This object contains the stream and promises that will resolve when the stream is complete. A plain-text streamer returns the result object directly. A streamer that renders or loads its prompt (`.withTemplate`, `.withScript`, `.withFunction`, and the `.loads...` modifiers) returns a promise that resolves to the result object once the prompt is ready.
 
 ```typescript
-// The call returns instantly
+// A plain-text streamer returns the result directly
+const staticResult = staticStreamer();
+
+// A template streamer resolves once its prompt is rendered
 const result = await templateStreamer({ name: 'Zorp' });
 
 // You can then consume the stream
@@ -863,7 +869,7 @@ The `enum` strategy is not supported for streaming.
     ```
 
 #### Return Value and Handling the Stream
-The result object from an `ObjectStreamer` call is returned **immediately** and contains streams for real-time consumption and promises for final data, mirroring the Vercel AI SDK's [`streamObject`](https://sdk.vercel.ai/docs/ai-sdk-core/streaming-objects#streamobject) function.
+The result object from an `ObjectStreamer` call is returned without waiting for the model, directly for a plain-text streamer and through a promise for a streamer that renders or loads its prompt, as with `TextStreamer`. It contains streams for real-time consumption and promises for final data, mirroring the Vercel AI SDK's [`streamObject`](https://sdk.vercel.ai/docs/ai-sdk-core/streaming-objects#streamobject) function.
 
 **Real-time Streams:**
 *   **`partialObjectStream`**: A stream of partial updates to the object being generated (for `output: 'object'`).
@@ -931,7 +937,7 @@ When using `.asTool`, you must provide two additional properties in the configur
 Streaming components (`TextStreamer` and `ObjectStreamer`) **cannot** be used as tools. The Vercel AI SDK's tool-use protocol requires a single, resolved response (a `Promise`), not a real-time stream.
 
 **Accessing Tool Call Context:**
-When a tool is created from a template or script-based component, a special `_toolCallOptions` object is automatically injected into its `context`, providing metadata like the `toolCallId` and the `messages` history that triggered the call.
+When a tool is created from a template, script, or function-prompt (`.withFunction`) component, a special `_toolCallOptions` object is automatically injected into its `context`, providing metadata like the `toolCallId` and the `messages` history that triggered the call.
 
 The `_toolCallOptions` object contains:
 - **`toolCallId`**: `string` - The unique ID for this specific tool call. Useful for logging or streaming updates.
@@ -985,6 +991,8 @@ const generator = create.TextGenerator({
 `contextSchema` is **not a schema for Casai's configured `context`**. It describes the separate SDK execution context supplied through `toolsContext`. Configured `context` enriches input and supplies template/script variables; `inputSchema` validates call-time input. `Function.asTool` callbacks receive SDK context as `options.context`; `Template`, `Script`, and generator tools expose it through `_toolCallOptions.context`.
 
 The AI SDK validates and parses tool context before execution. Calling a Casai tool directly or calling `.execute()` skips this context validation, so direct callers must supply an already valid value.
+
+The SDK likewise validates model-issued tool input against `inputSchema` and reports invalid input as a tool error without running the tool, so `.execute()` does not validate input again. Calling a `Template`, `Script`, or generator tool directly validates its input like any other component call. A `Function.asTool` is its own `.execute()`, so a direct call skips input validation too.
 
 A child keeps its parent's inferred SDK context unless it supplies `contextSchema`. For `Function.asTool`, an incompatible replacement also requires an `execute` callback that accepts the new context. `Template`, `Script`, and generator tools can replace the schema without a callback.
 
@@ -1074,11 +1082,9 @@ const component = create.Template.loadsTemplate({
 *Casai* offers several loading options:
 
 *   **Built-in Loaders**:
-    *   **`FileSystemLoader`**: (Node.js only) Loads files from the local filesystem.
+    *   **`FileSystemLoader`**: (Node.js only) Loads files from the local filesystem. Relative paths in `include` and `import` (e.g., `./footer.njk`) resolve from the loading file's directory.
     *   **`WebLoader`**: (Browser only) Loads files over HTTP from a given base URL.
-    *   **`PrecompiledLoader`**: Loads assets from a precompiled JavaScript object for optimal performance.
-
-Of course. Here is the updated **Custom Loaders** section with more detailed explanations for `isRelative`, `resolve`, and a mention of the event system, all while keeping the style concise and developer-focused.
+    *   **`PrecompiledLoader`**: Loads templates and scripts precompiled with Cascada's precompile functions (such as `precompileTemplateStringAsync` and `precompileScriptString` with `format: 'esm'`), keyed by name, for optimal performance. Plain-text prompts loaded with `.loadsText` need a loader that returns source text.
 
 *   **Custom Loaders**: You can create a custom loader by providing either a simple asynchronous function or a more structured class. If a loader can't find an asset, it should return `null` to allow fallback to the next loader in the chain.
 
@@ -1176,7 +1182,7 @@ See [Nunjucks docs](https://mozilla.github.io/nunjucks/api.html#configure) for m
 
 ## Vercel AI Properties
 
-*Casai* components inherit a robust set of properties from the [Vercel AI SDK](https://sdk.vercel.ai/), enabling fine-tuned control over language model behavior. These properties are available across all LLM component types and can be set in a base `Config` object, during component creation, or, where applicable overridden in runtime calls.
+*Casai* components inherit a robust set of properties from the [Vercel AI SDK](https://sdk.vercel.ai/), enabling fine-tuned control over language model behavior. These properties are available across all LLM component types unless noted, and can be set in a base `Config` object, during component creation, or, where applicable, overridden in runtime calls. Casai sets no defaults for them; an omitted setting uses the provider's default.
 
 ### model
 **Purpose**: Specifies the language model to use for generation.
@@ -1185,7 +1191,7 @@ See [Nunjucks docs](https://mozilla.github.io/nunjucks/api.html#configure) for m
 
 ### temperature
 **Purpose**: Adjusts the randomness of the model's output.
-**Type**: `number` (0 to 1, default: 0.7).
+**Type**: `number` (the valid range depends on the provider).
 
 ### maxOutputTokens
 **Purpose**: Limits the number of tokens generated to manage size and cost.
@@ -1193,20 +1199,20 @@ See [Nunjucks docs](https://mozilla.github.io/nunjucks/api.html#configure) for m
 
 ### topP
 **Purpose**: Controls diversity via nucleus sampling. Limits tokens to the top probability mass; an alternative to `temperature` for finer diversity control.
-**Type**: `number` (0 to 1, default: 1).
+**Type**: `number` (0 to 1).
 
 ### presencePenalty
 **Purpose**: Discourages repetition of tokens already in the output. Positive values reduce reuse; negative encourage it.
-**Type**: `number` (-2.0 to 2.0, default: 0).
+**Type**: `number` (-2.0 to 2.0).
 
 ### frequencyPenalty
 **Purpose**: Reduces repetition based on token frequency. Higher values penalize frequent tokens; negative promote them.
-**Type**: `number` (-2.0 to 2.0, default: 0).
+**Type**: `number` (-2.0 to 2.0).
 
 ### stopSequences
 **Purpose**: Halts generation at specified sequences.
 **Type**: `string[]` (optional).
-**Details**: Stops before generating the sequence; useful for structured outputs.
+**Details**: Supported by `TextGenerator` and `TextStreamer`. Stops before generating the sequence.
 **Example**:
 ```typescript
 import { openai } from '@ai-sdk/openai';
@@ -1357,7 +1363,7 @@ To continue a conversation, you pass the history as an argument. The `prompt` st
 
 ```typescript
 // The 'chatHistory' array contains previous user/assistant turns
-await chatAgent(newUserInput, chatHistory);
+const result = chatAgent(newUserInput, chatHistory);
 ```
 
 ### Understanding the Response: `messages` vs. `messageHistory`
@@ -1447,7 +1453,7 @@ let dynamicHistory = [];
     }
 
     // 4. Call the agent with the user's prompt and the current dynamic history
-    const result = await chatAgent(userInput, dynamicHistory);
+    const result = chatAgent(userInput, dynamicHistory);
 
     process.stdout.write('Bot: ');
     // Stream the response in real-time
@@ -1634,7 +1640,7 @@ AI SDK schemas created with `jsonSchema` are also supported. For local input and
 
 ### Ensuring Type-Safe Inputs with `inputSchema`
 
-The `inputSchema` property validates call-time `context` before execution. Configured `context` does not satisfy missing required input fields. Input validation checks the supplied data without replacing it with parsed or transformed values.
+The `inputSchema` property validates call-time `context` before execution. Configured `context` does not satisfy missing required input fields. An omitted context is validated as an empty object: a schema whose fields are all optional accepts the call, and any other schema rejects it with an error asking for a context object. Input validation checks the supplied data without replacing it with parsed or transformed values.
 
 -   **Applies to**: Any component that uses a `context` object (`Template`, `Script`, `Function`, and LLM components created with `.withTemplate`, `.withScript`, or `.withFunction`).
 -   **Usage**: Define the expected input data for a component using a Zod schema.

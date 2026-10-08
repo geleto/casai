@@ -136,7 +136,7 @@ describe('LLM run overrides and repeated calls', () => {
 		const original = mockModel('ORIGINAL');
 		const replacement = mockModel('REPLACEMENT');
 		const streamer = create.TextStreamer({ model: original, prompt: 'Configured prompt.', maxOutputTokens: 10 });
-		const result = await streamer.run({ model: replacement, maxOutputTokens: 25 });
+		const result = streamer.run({ model: replacement, maxOutputTokens: 25 });
 		expect(await result.text).to.equal('REPLACEMENT');
 		expect(original.doStreamCalls).to.have.length(0);
 		expect(replacement.doStreamCalls[0].maxOutputTokens).to.equal(25);
@@ -146,8 +146,8 @@ describe('LLM run overrides and repeated calls', () => {
 		const firstModel = mockModel('FIRST');
 		const model = mockModel('SECOND');
 		const streamer = create.TextStreamer({ model: firstModel, prompt: 'Configured prompt.' });
-		await (await streamer()).consumeStream();
-		const result = await streamer.run({ model, messages: [{ role: 'assistant', content: 'Earlier reply.' }] });
+		await streamer().consumeStream();
+		const result = streamer.run({ model, messages: [{ role: 'assistant', content: 'Earlier reply.' }] });
 		await result.consumeStream();
 		expect(model.doStreamCalls[0].prompt.map(({ role, content }) => ({ role, content }))).to.deep.equal([
 			{ role: 'assistant', content: [{ type: 'text', text: 'Earlier reply.' }] },

@@ -710,7 +710,7 @@ describe('asTool', function () {
 					tools: { getWeather: weatherTool },
 				});
 
-				const result = await agent('What is the weather in San Francisco?');
+				const result = agent('What is the weather in San Francisco?');
 
 				// First consume the stream to ensure it completes
 				await streamToPromise(result.textStream);

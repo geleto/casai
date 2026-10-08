@@ -32,10 +32,7 @@ export function mergeConfigs<
 		: Boolean(parentConfig.debug);
 
 	if (debugEnabled) {
-		console.log('[DEBUG] mergeConfigs called with:', {
-			parentConfig: JSON.stringify(parentConfig, null, 2),
-			childConfig: JSON.stringify(childConfig, null, 2)
-		});
+		console.log('[DEBUG] mergeConfigs called with:', { parentConfig, childConfig });
 	}
 
 	// Start shallow merge
@@ -81,7 +78,7 @@ export function mergeConfigs<
 
 	// Debug output for merged result if debug is enabled
 	/* if (debugEnabled) {
-		console.log('[DEBUG] mergeConfigs result:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] mergeConfigs result:', merged);
 	} */
 
 	return merged as MergedConfig<TParent, TChild>;

@@ -83,18 +83,19 @@ function withText<
 	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>>
 ): StreamTextWithParentReturn<TConfig, TParentConfig, 'text', PROMPT, TConfigShape>;
 
+// Inline text calls the SDK directly, so the overloads declare a result without a promise.
 function withText(
 	config: any,
 	parent?: configs.ConfigProvider<any>
-) {
+): unknown {
 	return _createTextStreamer(config, 'text', parent, false);
 }
 
 function loadsText<
 	const TConfig extends Provisional<configs.StreamTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
+	PROMPT extends string = string,
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.NamedPromptConfig
 >(
 	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TConfig, configs.StreamTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape>;
@@ -105,8 +106,8 @@ function loadsText<
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
 	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
+	PROMPT extends string = string,
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.NamedPromptConfig
 >(
 	config: { tools?: TOOLS } & TConfig & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>>
@@ -270,7 +271,7 @@ function _createTextStreamer<
 
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
-		console.log('[DEBUG] _TextStreamer created with config:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] _TextStreamer created with config:', merged);
 	}
 
 	return _createLLMComponent(

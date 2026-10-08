@@ -32,7 +32,12 @@ function formatZodError(error: ZodError): string {
 	return `Validation failed:\n${issues.join('\n')}`;
 }
 
-function validateMessagesArray(messages: unknown): void {
+// An explicit undefined or null loader supplies no loader.
+function hasLoader(config: object): boolean {
+	return 'loader' in config && config.loader !== undefined && config.loader !== null;
+}
+
+export function validateMessagesArray(messages: unknown): void {
 	if (messages === undefined) return;
 	const result = z.array(ModelMessageSchema).safeParse(messages);
 	if (!result.success) {
@@ -90,8 +95,17 @@ function validatePromptProperties(config: Record<string, unknown>, promptType?: 
 		}
 	} else if (promptType?.includes('function') && typeof config.prompt !== 'function') {
 		throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
+	} else if (promptType === 'text-name') {
+		validateLoadedTextPrompt(config.prompt);
 	}
 	if (Array.isArray(config.prompt)) validateMessagesArray(config.prompt);
+}
+
+// A loaded text prompt is identified by name.
+export function validateLoadedTextPrompt(prompt: unknown): void {
+	if (prompt !== undefined && typeof prompt !== 'string') {
+		throw new ConfigError("The 'prompt' of a loadsText component must be the name of the prompt to load.");
+	}
 }
 
 function validateRendererInputSchema(config: Record<string, unknown>, kind: 'Template' | 'Script'): void {
@@ -156,7 +170,7 @@ export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType
 	if (config.model === undefined || config.model === null) throw new ConfigError("Text generator configs require a 'model' property.");
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
-	if (isLoaded && !('loader' in config)) {
+	if (isLoaded && !hasLoader(config)) {
 		throw new ConfigError("A 'loader' is required for this operation (e.g., for loads...() or *-name prompt types).");
 	}
 	if (isTool) {
@@ -209,7 +223,7 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 	}
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
-	if (isLoaded && !('loader' in config)) {
+	if (isLoaded && !hasLoader(config)) {
 		throw new ConfigError("A 'loader' is required for this operation (e.g., for loads...() or *-name prompt types).");
 	}
 }
@@ -228,7 +242,7 @@ export function validateTemplateConfig(config: Partial<configs.TemplateConfig<an
 	const isLoaded = templateType?.endsWith('-name') ?? false;
 
 	if (isLoaded) {
-		if (!('loader' in config)) {
+		if (!hasLoader(config)) {
 			throw new ConfigError("A 'loader' is required when loading a template by name (e.g., for 'template-name' or 'async-template-name' types).");
 		}
 	} else {
@@ -262,7 +276,7 @@ export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, a
 	const isLoaded = scriptType?.endsWith('-name') ?? false;
 
 	if (isLoaded) {
-		if (!('loader' in config)) {
+		if (!hasLoader(config)) {
 			throw new ConfigError("A 'loader' is required when loading a script by name (e.g., for 'script-name' or 'async-script-name' types).");
 		}
 	} else {
@@ -314,24 +328,15 @@ export function validateLLMComponentCall(
 			throw new ConfigError('Function-prompt components only accept a context object.');
 		}
 		if (!isToolCall) {
-			return validateInput(config, callArgs.context ?? {});
+			return validateCallInput(config, callArgs.context);
 		}
 		return;
 	}
 
 	if (promptType.includes('template') || promptType.includes('script')) {
-
+		// Skip input validation if this is a tool call (indicated by presence of _toolCallOptions)
 		if (!isToolCall) {
-			if (callArgs.context) {
-				// Skip input validation if this is a tool call (indicated by presence of _toolCallOptions)
-
-				return validateInput(config, callArgs.context);
-
-			} else if ('inputSchema' in config && config.inputSchema && !('shape' in config.inputSchema)) {
-				return validateInput(config, {});
-			} else if ('inputSchema' in config && config.inputSchema && Object.keys((config.inputSchema as z.ZodObject<any>).shape as Record<string, any>).length > 0) {
-				throw new ConfigError("A context object is required because an 'inputSchema' is defined in the configuration.");
-			}
+			return validateCallInput(config, callArgs.context);
 		}// else - the tool call will have its own input schema validation
 	} else { // text or text-name
 		const prompt = (config as Partial<configs.TemplatePromptConfig>).prompt;
@@ -360,13 +365,7 @@ export function validateTemplateCall(config: Partial<configs.TemplateConfig<any>
 	}
 
 	if (!isToolCall) {
-		if (context) {
-			return validateInput(config, context);
-		} else if (config.inputSchema && !('shape' in config.inputSchema)) {
-			return validateInput(config, {});
-		} else if (config.inputSchema && Object.keys((config.inputSchema as z.ZodObject<any>).shape as Record<string, any>).length > 0) {
-			throw new ConfigError("A context object is required because an 'inputSchema' with properties is defined in the configuration.");
-		}
+		return validateCallInput(config, context);
 	}// else - the tool call will have its own input schema validation
 }
 
@@ -380,17 +379,29 @@ export function validateScriptOrFunctionCall(config: Record<string, any>, type: 
 	}
 
 	if (!isToolCall) {
-		if (context) {
-			return validateInput(config, context);
-		} else if (config.inputSchema && !('shape' in (config.inputSchema as types.SchemaType<any>))) {
-			return validateInput(config, {});
-		} else if (config.inputSchema && Object.keys((config.inputSchema as z.ZodObject<any>).shape as Record<string, any>).length > 0) {
-			throw new ConfigError("A context object is required because an 'inputSchema' with properties is defined in the configuration.");
-		}
+		return validateCallInput(config, context);
 	}// else - the tool call will have its own input schema validation
 }
 
 // --- Input/Output Schema Validators ---
+
+// An omitted context is validated as empty input, so a schema whose fields are all optional accepts it.
+function validateCallInput(config: Partial<configs.AnyConfig<any, any, any, any>>, context: types.Context | undefined): void | Promise<void> {
+	if (context) return validateInput(config, context);
+	const requireContext = (error: unknown): never => {
+		if (error instanceof ConfigError) {
+			throw new ConfigError(`A context object is required because an 'inputSchema' is defined in the configuration.\n${error.message}`, error);
+		}
+		throw error;
+	};
+	let result: void | Promise<void>;
+	try {
+		result = validateInput(config, {});
+	} catch (error) {
+		return requireContext(error);
+	}
+	if (result instanceof Promise) return result.catch(requireContext);
+}
 
 function validateInput(config: Partial<configs.AnyConfig<any, any, any, any>>, context: types.Context): void | Promise<void> {
 	if ('inputSchema' in config && config.inputSchema) {

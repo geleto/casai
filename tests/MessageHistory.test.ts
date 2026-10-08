@@ -89,7 +89,7 @@ describe('Message history across tool steps', () => {
 	it('should propagate failed stream metadata when it is requested', async () => {
 		const model = new MockLanguageModelV3({ doStream: async () => { throw new Error('Provider failed'); } });
 		const streamer = create.TextStreamer({ model, prompt: 'Input.', maxRetries: 0, onError: () => undefined });
-		const result = await streamer();
+		const result = streamer();
 		const response = result.response;
 		expect(result.response).to.equal(response);
 		await rejects(response, /No output generated/);

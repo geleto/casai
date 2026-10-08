@@ -177,7 +177,7 @@ describe('LLM component contracts without providers', () => {
 		const streamer = create.ObjectStreamer({
 			model: mockModel('{"answer":"wrong"}', ['{"answer":', '"wrong"}']), schema, prompt: 'Return an answer.',
 		});
-		const result = await streamer();
+		const result = streamer();
 		const rejected = rejects(Promise.resolve(result.object), /No object generated/);
 		const partials = await collect(result.partialObjectStream);
 		await rejected;
@@ -402,7 +402,7 @@ describe('LLM component contracts without providers', () => {
 				callbacks.push(event);
 			},
 		});
-		const result = await streamer([{ role: 'user', content: 'Earlier input.' }]);
+		const result = streamer([{ role: 'user', content: 'Earlier input.' }]);
 		await collect(result.textStream);
 		expect(legacyCalls).to.equal(0);
 		expect(callbacks).to.have.length(1);
@@ -422,13 +422,13 @@ describe('LLM component contracts without providers', () => {
 			called.push('configured');
 		};
 		const streamer = create.TextStreamer({ model: mockModel('DONE'), prompt: 'Input.', onFinish: configured });
-		const overridden = await streamer.run({ onFinish: event => {
+		const overridden = streamer.run({ onFinish: event => {
 			const history: ModelMessage[] = event.response.messageHistory;
 			expect(history[0].content).to.equal('Input.');
 			called.push('override');
 		} });
 		await collect(overridden.textStream);
-		await collect((await streamer()).textStream);
+		await collect(streamer().textStream);
 		expect(called).to.deep.equal(['override', 'configured']);
 		expect(streamer.config.onFinish).to.equal(configured);
 	});
@@ -438,7 +438,7 @@ describe('LLM component contracts without providers', () => {
 		const model = new MockLanguageModelV3({ doStream: () => Promise.reject(failure) });
 		const errors: unknown[] = [];
 		const streamer = create.TextStreamer({ model, prompt: 'Input.', maxRetries: 0, onError: ({ error }) => { errors.push(error); } });
-		const result = await streamer();
+		const result = streamer();
 		const rejected = rejects(Promise.resolve(result.text), /No output generated/);
 		const events = await collect(result.fullStream);
 		await rejected;

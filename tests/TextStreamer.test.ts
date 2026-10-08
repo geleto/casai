@@ -34,14 +34,14 @@ describe('create.TextStreamer', function () {
 				model, ...temperatureConfig,
 				prompt: simplePrompt,
 			});
-			const result = await streamer();
+			const result = streamer();
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal(simpleExpected);
 		});
 
 		it('should provide the full text via the stream', async () => {
 			const streamer = create.TextStreamer({ model, ...temperatureConfig, prompt: simplePrompt });
-			const result = await streamer();
+			const result = streamer();
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal(simpleExpected);
 		});
@@ -58,7 +58,7 @@ describe('create.TextStreamer', function () {
 
 		it('should stream text when the prompt is a runtime argument', async () => {
 			const streamer = create.TextStreamer({ model });
-			const result = await streamer(simplePrompt);
+			const result = streamer(simplePrompt);
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal(simpleExpected);
 		});
@@ -68,7 +68,7 @@ describe('create.TextStreamer', function () {
 				model, ...temperatureConfig,
 				prompt: 'Write this exactly: {{ test }}',
 			});
-			const result = await streamer();
+			const result = streamer();
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal('{{ test }}');
 		});
@@ -80,7 +80,7 @@ describe('create.TextStreamer', function () {
 			});
 			// It's hard to test randomness, so we verify the property is set in the config
 			expect(streamer.config.temperature).to.equal(temperature ?? undefined);
-			const result = await streamer();
+			const result = streamer();
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.be.a('string').with.length.above(0);
 		});
@@ -99,7 +99,7 @@ describe('create.TextStreamer', function () {
 				},
 			});
 
-			const result = await streamer();
+			const result = streamer();
 			const streamedText = await streamToString(result.textStream);
 
 			expect(streamedText).to.equal(simpleExpected);
@@ -127,7 +127,7 @@ describe('create.TextStreamer', function () {
 				},
 			});
 
-			const result = await streamer();
+			const result = streamer();
 			// Consume the stream to trigger the flow
 			await streamToString(result.textStream).catch(() => {
 				// Expected to fail
@@ -412,9 +412,9 @@ describe('create.TextStreamer', function () {
 			);
 		});
 
-		it('should reject promises at runtime if no prompt is provided in config or call', () => {
+		it('should throw at runtime if no prompt is provided in config or call', () => {
 			const streamer = create.TextStreamer({ model });
-			// The call returns promises that should reject
+			// A plain-text streamer returns its result directly, so it throws rather than rejects.
 			expect(() => streamer(undefined as unknown as string)).to.throw(
 				ConfigError,
 				'Either \'prompt\' (string or messages array) or \'messages\' must be provided',

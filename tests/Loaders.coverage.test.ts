@@ -1,7 +1,14 @@
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { Callback, ILoaderAny, LoaderInterface, LoaderSource } from 'cascada-engine';
+import * as cascada from 'cascada-engine';
+import { MockLanguageModelV3 } from 'ai/test';
 import { mergeLoaders, processLoaders, race, RaceLoader } from '../src/loaders';
+import { create, FileSystemLoader, PrecompiledLoader, WebLoader } from './cascada';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -267,6 +274,66 @@ describe('Loader execution coverage', () => {
 			expect((first[0] as RaceLoader).loaders).to.deep.equal([parent, grandparent]);
 			expect(originalMembers).to.deep.equal([grandparent]);
 			expect(original[0].loaders).to.equal(originalMembers);
+		});
+	});
+
+	describe('Built-in loaders', () => {
+		let directory: string;
+		beforeEach(() => { directory = mkdtempSync(join(tmpdir(), 'casai-loaders-')); });
+		afterEach(() => { rmSync(directory, { recursive: true, force: true }); });
+
+		function write(name: string, content: string) {
+			mkdirSync(dirname(join(directory, name)), { recursive: true });
+			writeFileSync(join(directory, name), content);
+		}
+
+		function textModel(): MockLanguageModelV3 {
+			return new MockLanguageModelV3({ doGenerate: {
+				content: [{ type: 'text', text: 'DONE' }], finishReason: { unified: 'stop', raw: 'stop' }, warnings: [],
+				usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+			} });
+		}
+
+		function userPrompt(model: MockLanguageModelV3) {
+			return model.doGenerateCalls.map(call => call.prompt[0].content);
+		}
+
+		it('re-exports the Cascada loader classes', () => {
+			expect(FileSystemLoader).to.equal(cascada.FileSystemLoader);
+			expect(PrecompiledLoader).to.equal(cascada.PrecompiledLoader);
+			expect(WebLoader).to.equal(cascada.WebLoader);
+		});
+
+		it('loads templates, scripts and their relative dependencies from the file system', async () => {
+			write('pages/welcome.njk', 'Welcome {{ name }}. {% include "./footer.njk" with context %}');
+			write('pages/footer.njk', 'Regards, {{ team }}');
+			write('workflows/main.casc', 'from "./helpers.casc" import greet\nreturn greet(name)');
+			write('workflows/other.casc', 'from "../workflows/helpers.casc" import greet\nreturn greet(name) ~ "!"');
+			write('workflows/helpers.casc', 'function greet(name)\n return "Hello " ~ name\nendfunction');
+			const loader = new FileSystemLoader(directory);
+			const render = create.Template.loadsTemplate({ loader, template: 'pages/welcome.njk', context: { team: 'Casai' } });
+			expect(await render({ name: 'Ada' })).to.equal('Welcome Ada. Regards, Casai');
+			const run = create.Script.loadsScript({ loader, script: 'workflows/main.casc' });
+			expect(await run({ name: 'Ada' })).to.equal('Hello Ada');
+			expect(await run('workflows/other.casc', { name: 'Ada' })).to.equal('Hello Ada!');
+			const model = textModel();
+			await create.TextGenerator.loadsScript({ model, loader, prompt: 'workflows/main.casc', context: { name: 'Ada' } })();
+			expect(userPrompt(model)).to.deep.equal([[{ type: 'text', text: 'Hello Ada' }]]);
+		});
+
+		it('renders precompiled templates and scripts', async () => {
+			write('templates.mjs', cascada.precompileTemplateStringAsync('Hello {{ name }}!', { name: 'greeting.njk', format: 'esm' }));
+			write('scripts.mjs', cascada.precompileScriptString('return "Hi " ~ name', { name: 'greeting.casc', format: 'esm' }));
+			const templates = (await import(pathToFileURL(join(directory, 'templates.mjs')).href) as { default: Record<string, unknown> }).default;
+			const scripts = (await import(pathToFileURL(join(directory, 'scripts.mjs')).href) as { default: Record<string, unknown> }).default;
+			// Cascada declares the precompiled map as an array; at runtime it is keyed by name.
+			const loader = new PrecompiledLoader({ ...templates, ...scripts } as never);
+			expect(await create.Template.loadsTemplate({ loader, template: 'greeting.njk' })({ name: 'Ada' })).to.equal('Hello Ada!');
+			expect(await create.Script.loadsScript({ loader, script: 'greeting.casc' })({ name: 'Ada' })).to.equal('Hi Ada');
+			const model = textModel();
+			await create.TextGenerator.loadsTemplate({ model, loader, prompt: 'greeting.njk', context: { name: 'Ada' } })();
+			await create.TextGenerator.loadsScript({ model, loader, prompt: 'greeting.casc', context: { name: 'Ada' } })();
+			expect(userPrompt(model)).to.deep.equal([[{ type: 'text', text: 'Hello Ada!' }], [{ type: 'text', text: 'Hi Ada' }]]);
 		});
 	});
 });

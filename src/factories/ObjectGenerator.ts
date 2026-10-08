@@ -184,8 +184,8 @@ function loadsText<
 	const TConfig extends Provisional<configs.GenerateObjectConfig<never, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig>,
 	OUTPUT,
 	ENUM extends string,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig,
+	PROMPT extends string = string,
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
 		configs.LoaderConfig>,
@@ -200,10 +200,10 @@ function loadsText<
 	ENUM extends string,
 	PARENT_OUTPUT,
 	PARENT_ENUM extends string,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
+	PROMPT extends string = string,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type,
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig,
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.LoaderConfig>,
@@ -221,8 +221,8 @@ function loadsText<
 	ENUM extends string,
 	PARENT_OUTPUT,
 	PARENT_ENUM extends string,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig,
+	PROMPT extends string = string,
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
@@ -239,8 +239,8 @@ function loadsTextAsTool<
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	ENUM extends string,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	PROMPT extends string = string,
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT> & configs.NamedPromptConfig,
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
 		configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
@@ -256,13 +256,13 @@ function loadsTextAsTool<
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 	PARENT_ENUM extends string,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
+	PROMPT extends string = string,
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT> & configs.NamedPromptConfig,
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TFinalConfig,
 		configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
@@ -281,11 +281,11 @@ function loadsTextAsTool<
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 	PARENT_ENUM extends string,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
+	PROMPT extends string = string,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 	FINAL_ENUM extends string = ENUM extends never ? PARENT_ENUM : ENUM,
-	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
+	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT> & configs.NamedPromptConfig,
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
@@ -852,7 +852,7 @@ function _createObjectGenerator<
 
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
-		console.log('[DEBUG] _ObjectGenerator created with config:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] _ObjectGenerator created with config:', merged);
 	}
 
 	return _createLLMComponent(

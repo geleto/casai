@@ -54,7 +54,7 @@
 		"typecheck:exact": "tsc -p tests/type-safety",
 		"test": "npm run test:types && mocha",
 		"test:types": "npm run typecheck:src && npm run typecheck:ts6 && npm run build && npm run typecheck && npm run typecheck:exact",
-		"test:local": "npm run test:file -- tests/ComponentContracts.unit.test.ts tests/ConfigMerge.test.ts tests/ConfigValidation.test.ts tests/Engines.unit.test.ts tests/FactoryInference.test.ts tests/Function.test.ts tests/FunctionPrompt.test.ts tests/FunctionTool.test.ts tests/LLMComponents.unit.test.ts tests/LLMRun.test.ts tests/Loaders.coverage.test.ts tests/MessageHistory.test.ts tests/README.examples.test.ts tests/ToolContext.test.ts tests/Workflow.unit.test.ts tests/loaders-unit.test.ts tests/messages-unit.test.ts",
+		"test:local": "npm run test:file -- tests/ComponentContracts.unit.test.ts tests/ConfigMerge.test.ts tests/ConfigValidation.test.ts tests/Engines.unit.test.ts tests/FactoryInference.test.ts tests/Function.test.ts tests/FunctionPrompt.test.ts tests/FunctionTool.test.ts tests/LLMCalls.unit.test.ts tests/LLMComponents.unit.test.ts tests/LLMRun.test.ts tests/Loaders.coverage.test.ts tests/MessageHistory.test.ts tests/README.examples.test.ts tests/ToolContext.test.ts tests/Workflow.unit.test.ts tests/loaders-unit.test.ts tests/messages-unit.test.ts",
 		"test:file": "mocha --no-config --node-option import=tsx --node-option conditions=casai-source --require dotenv/config",
 		"test:watch": "mocha --watch",
 		"check": "npm run test:types && npm run lint && npm run test:local",

@@ -52,7 +52,7 @@ describe('Messages, Conversation & Integration', function () {
 					messages: [systemMessage],
 				});
 
-				const result = await streamer('Reply with "OK".');
+				const result = streamer('Reply with "OK".');
 				// consume stream to resolve the response promise
 				await result.consumeStream();
 
@@ -342,7 +342,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should initiate a streamed conversation and return augmented history', async () => {
-				const result = await streamAgent('count');
+				const result = streamAgent('count');
 				const streamedText = await streamToString(result.textStream);
 				expect(streamedText).to.equal('1');
 
@@ -354,13 +354,13 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should continue a streamedconversation using history and a new prompt', async () => {
-				const firstTurn = await streamAgent('count');
+				const firstTurn = streamAgent('count');
 				const firstText = await streamToString(firstTurn.textStream);
 				expect(firstText).to.equal('1');
 
 				const historyAfterFirst = (await firstTurn.response).messageHistory;
 
-				const secondTurn = await streamAgent('count', historyAfterFirst);
+				const secondTurn = streamAgent('count', historyAfterFirst);
 				const secondText = await streamToString(secondTurn.textStream);
 				expect(secondText).to.equal('2');
 

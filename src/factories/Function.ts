@@ -144,7 +144,7 @@ export function _createFunction(
 	validateFunctionConfig(merged, isTool);
 
 	if (merged.debug) {
-		console.log('[DEBUG] Function created with config:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] Function created with config:', merged);
 	}
 
 	// Create a callable function that delegates to the execute method

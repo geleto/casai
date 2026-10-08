@@ -30,7 +30,7 @@ export class TemplateEngine<
 
 		// Debug output if config.debug is true
 		if ('debug' in this.config && this.config.debug) {
-			console.log('[DEBUG] TemplateEngine constructor called with config:', JSON.stringify(this.config, null, 2));
+			console.log('[DEBUG] TemplateEngine constructor called with config:', this.config);
 		}
 
 		// Runtime validation of loader requirement

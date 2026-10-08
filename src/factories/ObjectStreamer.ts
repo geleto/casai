@@ -139,8 +139,8 @@ function withText<
 function loadsText<
 	const TConfig extends Provisional<configs.StreamObjectConfig<never, OUTPUT, PROMPT> & configs.LoaderConfig>,
 	OUTPUT,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig,
+	PROMPT extends string = string,
+	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
 >(
 	config: TConfig & ValidateObjectConfig<TConfig, TConfig,
 		configs.LoaderConfig>,
@@ -153,8 +153,8 @@ function loadsText<
 	TParentConfig extends Partial<configs.StreamObjectConfig<never, PARENT_OUTPUT, PROMPT> & configs.LoaderConfig>,
 	OUTPUT,
 	PARENT_OUTPUT,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig,
+	PROMPT extends string = string,
+	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
 
 	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>//@todo we need just the correct output type
 >(
@@ -172,8 +172,8 @@ function loadsText<
 	TParentConfig extends configs.StreamObjectConfig<never, PARENT_OUTPUT, PROMPT> & configs.LoaderConfig,
 	OUTPUT,
 	PARENT_OUTPUT,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig,
+	PROMPT extends string = string,
+	TConfigShape = ShapeOf<TConfig> & configs.LoaderConfig & configs.NamedPromptConfig,
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
@@ -436,7 +436,7 @@ function _createObjectStreamer<
 
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
-		console.log('[DEBUG] _ObjectStreamer created with config:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] _ObjectStreamer created with config:', merged);
 	}
 
 	return _createLLMComponent(

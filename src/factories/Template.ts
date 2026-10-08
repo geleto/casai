@@ -10,7 +10,7 @@ import type { Provisional } from '../types/provisional.js';
 import type { ValidateTemplateConfig, ValidateTemplateParentConfig } from '../types/config-validation.js';
 
 export type TemplateCallSignature<
-	TConfig extends configs.TemplateConfig<INPUT>,
+	TConfig extends Partial<configs.TemplateConfig<INPUT>>,
 	INPUT extends Record<string, any>//only INPUT, the output is string
 > =
 	// context is optional (todo - make it required if config has inputSchema and no template)
@@ -82,7 +82,7 @@ function withTemplate(
 
 // loadsTemplate: load by name via provided loader
 function loadsTemplate<
-	const TConfig extends Provisional<configs.TemplateConfig<INPUT> & configs.LoaderConfig>,
+	const TConfig extends Provisional<configs.NamedTemplateConfig<INPUT>>,
 	INPUT extends Record<string, any>
 >(
 	config: TConfig & ValidateTemplateConfig<
@@ -212,7 +212,7 @@ export function _createTemplate<
 
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
-		console.log('[DEBUG] Template created with config:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] Template created with config:', merged);
 	}
 
 	// @todo - .loadsTemplate()

@@ -104,8 +104,8 @@ function withTextAsTool(config: any, parent?: configs.ConfigProvider<any>) {
 function loadsText<
 	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
+	PROMPT extends string = string,
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.NamedPromptConfig
 >(
 	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>
 ): GenerateTextReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape>;
@@ -116,8 +116,8 @@ function loadsText<
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
+	PROMPT extends string = string,
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.NamedPromptConfig
 >(
 	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, never, PROMPT> & configs.LoaderConfig>>
@@ -131,8 +131,8 @@ function loadsTextAsTool<
 	const TConfig extends Provisional<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
 	INPUT extends Record<string, any>,
 	TOOLS extends ToolSet,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>
+	PROMPT extends string = string,
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string> & configs.NamedPromptConfig
 >(
 	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
@@ -145,9 +145,9 @@ function loadsTextAsTool<
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
-	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
+	PROMPT extends string = string,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>
+	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string> & configs.NamedPromptConfig
 >(
 	config: { tools?: TOOLS } & TConfig & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
 	parent: configs.ConfigProvider<{ tools?: PARENT_TOOLS } & TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>
@@ -456,7 +456,7 @@ function _createTextGenerator<
 
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
-		console.log('[DEBUG] _TextGenerator created with config:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] _TextGenerator created with config:', merged);
 	}
 
 	return _createLLMComponent(

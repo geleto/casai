@@ -300,7 +300,7 @@ describe('create.Script', function () {
 				prompt: 'Generate 3 character descriptions with names Peter, Paul and Mary, in this order.'
 			});
 
-			const { elementStream } = await characterStreamer();
+			const { elementStream } = characterStreamer();
 			const characters: { name: string, description: string }[] = [];
 			for await (const character of elementStream) {
 				characters.push(character);
@@ -323,7 +323,7 @@ describe('create.Script', function () {
 					4. No missing objects allowed
 					Expected output: [{"id": 1}, {"id": 2}]`,
 			});
-			const { elementStream } = await objectStreamer();
+			const { elementStream } = objectStreamer();
 			const result: { id: number }[] = [];
 			for await (const object of elementStream) {
 				result.push(object);

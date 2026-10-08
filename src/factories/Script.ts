@@ -219,7 +219,7 @@ export function _createScript<
 
 	// Debug output if config.debug is true
 	if ('debug' in merged && merged.debug) {
-		console.log('[DEBUG] Script created with config:', JSON.stringify(merged, null, 2));
+		console.log('[DEBUG] Script created with config:', merged);
 	}
 
 	if ((merged.promptType === 'script-name' || merged.promptType === 'async-script-name') && !('loader' in merged)) {

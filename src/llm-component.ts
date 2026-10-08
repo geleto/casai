@@ -1,7 +1,7 @@
 import type { Context, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
 import * as configs from './types/config.js';
 import type { ValidateRunConfig } from './types/config-validation.js';
-import { ConfigError, validateLLMComponentCall } from './validate.js';
+import { ConfigError, validateLLMComponentCall, validateLoadedTextPrompt, validateMessagesArray } from './validate.js';
 import { extractCallArguments } from './call-arguments.js';
 import * as utils from './types/utils.js';
 import { generateObject, generateText, streamObject, streamText } from 'ai';
@@ -14,10 +14,13 @@ import { createTemplatePromptRenderer, createScriptPromptRenderer, createFunctio
 import { augmentGenerateText, augmentStreamText, augmentTextFinishEvent } from './messages.js';
 import { mergeConfigs } from './config-utils.js';
 
+// Plain-text components call the SDK directly: a streamer's result is returned as is, not wrapped in a promise.
+type LLMResult<TResult, PType extends RequiredPromptType> = PType extends 'text' | 'text-name' ? TResult : utils.EnsurePromise<TResult>;
+
 interface LLMComponent<TConfig, TResult, TAllowedConfigShape> {
 	config: TConfig;
 	type: string;
-	run<const TRunConfig extends object>(config: TRunConfig & TAllowedConfigShape & ValidateRunConfig<TRunConfig, TConfig, TAllowedConfigShape>): utils.EnsurePromise<TResult>;
+	run<const TRunConfig extends object>(config: TRunConfig & TAllowedConfigShape & ValidateRunConfig<TRunConfig, TConfig, TAllowedConfigShape>): TResult;
 }
 
 //@todo - INPUT like in template
@@ -29,20 +32,20 @@ export type LLMCallSignature<
 	TConfigShape = Record<string, any>, //temporary default value
 	TAllowedConfigShape = Omit<Partial<TConfigShape>, configs.RunConfigDisallowedProperties>
 //INPUT extends Record<string, any> = TConfig extends { inputSchema: SchemaType<any> } ? utils.InferParameters<TConfig['inputSchema']> : Record<string, any>,
-> = LLMComponent<TConfig, TResult, TAllowedConfigShape> & (PType extends 'text' | 'text-name'
+> = LLMComponent<TConfig, LLMResult<TResult, PType>, TAllowedConfigShape> & (PType extends 'text' | 'text-name'
 	? (
 		// TConfig has no template, no context argument is needed
 		// We can have either a prompt or messages, but not both. No context as nothing is rendered.
 		TConfig extends { prompt: string | ModelMessage[] } | { messages: ModelMessage[] }
 		? {
 			// Optional prompt/messages
-			(prompt: string | ModelMessage[], messages?: ModelMessage[]): utils.EnsurePromise<TResult>;
-			(messages?: ModelMessage[]): utils.EnsurePromise<TResult>;
+			(prompt: string | ModelMessage[], messages?: ModelMessage[]): TResult;
+			(messages?: ModelMessage[]): TResult;
 		}
 		: {
 			// Required a prompt or messages
-			(prompt: string | ModelMessage[], messages?: ModelMessage[]): utils.EnsurePromise<TResult>;
-			(messages: ModelMessage[]): utils.EnsurePromise<TResult>;
+			(prompt: string | ModelMessage[], messages?: ModelMessage[]): TResult;
+			(messages: ModelMessage[]): TResult;
 		}
 	)
 	: PType extends 'function'
@@ -81,7 +84,7 @@ export function _createLLMComponent<
 ): LLMCallSignature<TConfig, TFunctionResult, PT, AnyPromptSource, configs.BaseConfig> {
 	// Debug output if config.debug is true
 	if (config.debug) {
-		console.log('[DEBUG] LLMComponent created with config:', JSON.stringify(config, null, 2));
+		console.log('[DEBUG] LLMComponent created with config:', config);
 	}
 
 	// The Vercel AI SDK functions for text and object generation accept a 'messages' array as input
@@ -156,11 +159,15 @@ export function _createLLMComponent<
 				if (config.debug) {
 					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
 				}
+				validateMessagesArray(configArg.messages);
 				await validateLLMComponentCall(runConfig as Partial<configs.AnyConfig<any, any, any, any>>, config.promptType!, configArg.context);
 			}
 
 			// Render the prompt
 			let renderedPrompt: string | ModelMessage[];
+			if (!isFunctionPrompt && configArg.prompt !== undefined && typeof configArg.prompt !== 'string') {
+				throw new ConfigError("A 'prompt' override for a template or script-based component must be a string containing the template or script.");
+			}
 			if (isFunctionPrompt && configArg.prompt !== undefined) {
 				if (typeof configArg.prompt !== 'function') {
 					throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
@@ -201,20 +208,32 @@ export function _createLLMComponent<
 		};
 	} else {
 		// Static Path - vanilla text prompt,promptType is 'text' or undefined
+		// A plain-text streamer returns its result directly, so it throws; other components return promises, which reject.
+		const returnsResult = config.promptType !== 'text-name' && ((vercelFunc as unknown) === streamText || (vercelFunc as unknown) === streamObject);
+		const settle = (execute: () => TFunctionResult): TFunctionResult => {
+			if (returnsResult) return execute();
+			try {
+				return execute();
+			} catch (error) {
+				return Promise.reject(error instanceof Error ? error : new Error(String(error))) as TFunctionResult;
+			}
+		};
 		run = (
 			configArg: configs.LLMRunConfig,
 			calledFromCall = false
-		): TFunctionResult => {
+		): TFunctionResult => settle(() => {
 			const runConfig = mergeConfigs(config, configArg) as TFunctionConfig;
 			if (!calledFromCall) {
 				if (config.debug) {
 					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
 				}
-				void validateLLMComponentCall(runConfig, config.promptType ?? 'text', undefined);
+				validateMessagesArray(configArg.messages);
+				// A plain-text prompt renders no context, so run() rejects it as a call does.
+				void validateLLMComponentCall(runConfig, config.promptType ?? 'text', configArg.context);
 			}
 			return executeLLM(runConfig, runConfig.prompt, configArg.messages);
-		};
-		call = (promptOrMessages?: string | ModelMessage[], maybeMessages?: ModelMessage[]): TFunctionResult => {
+		});
+		call = (promptOrMessages?: string | ModelMessage[], maybeMessages?: ModelMessage[]): TFunctionResult => settle(() => {
 			if (config.debug) {
 				console.log('[DEBUG] createLLMComponent - text path called with:', { promptOrMessages, maybeMessages });
 			}
@@ -226,7 +245,7 @@ export function _createLLMComponent<
 				...(messages !== undefined && { messages }),
 			};
 			return run(callConfig, true) as TFunctionResult;
-		};
+		});
 		if (config.promptType === 'text-name') {
 			// wrap the call in a promise that waits for the prompt to be loaded
 			// from loaders and only when it is ready - calls the original prompt
@@ -248,7 +267,7 @@ export function _createLLMComponent<
 				configArg: configs.LLMRunConfig & { loader?: ILoaderAny | ILoaderAny[] },
 				calledFromCall = false
 			): Promise<TFunctionResult> => {
-				//let prompt: string | undefined;
+				validateLoadedTextPrompt(configArg.prompt);
 				let prompt: string | undefined;
 				try {
 					if (configArg.prompt && typeof configArg.prompt === 'string') {
@@ -266,9 +285,8 @@ export function _createLLMComponent<
 							loadedPrompt = prompt; // Store resolved value for future calls
 						}
 						//messages = configArg.messages;
-					} else {
-						throw new Error('No prompt provided. Either configure a prompt in the config or provide one when calling run().');
 					}
+					// Without a prompt name, messages are sent alone, as for an inline text component.
 				} catch (error) {
 					if (error instanceof Error && error.message.includes('not found')) {
 						throw new Error(`Failed to load prompt: ${error.message}`);

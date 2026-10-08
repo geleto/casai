@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -6,7 +7,7 @@ import { promisify } from 'node:util';
 import { create, ConfigError, ScriptError, TemplateError, z } from './cascada';
 import { _createTemplate } from '../src/factories/Template';
 import { createFunctionPromptRenderer, createScriptPromptRenderer, createTemplatePromptRenderer } from '../src/prompt-renderers';
-import type { LoaderInterface } from 'cascada-engine';
+import type { LoaderInterface, LoaderSource } from 'cascada-engine';
 import { jsonSchema } from 'ai';
 
 const execFileAsync = promisify(execFile);
@@ -305,6 +306,60 @@ describe('Template and Script deterministic coverage', () => {
 				context: { chunks }, script: 'text output\nfor chunk in chunks()\n output(chunk)\nendfor\nreturn output.snapshot()',
 			});
 			await rejects(() => run(), /Stream failed/);
+		});
+	});
+
+	describe('Call arguments', () => {
+		it('rejects a second argument after a context object', async () => {
+			const render = create.Template({ template: 'Hello' }) as unknown as (context: object, extra: object) => Promise<string>;
+			const run = create.Script({ script: 'return "Hello"' }) as unknown as (context: object, extra: object) => Promise<unknown>;
+			await rejects(() => render({ name: 'Ada' }, { name: 'Extra' }), /Second argument must be undefined/);
+			await rejects(() => run({ name: 'Ada' }, { name: 'Extra' }), /Second argument must be undefined/);
+		});
+
+		it('requires a name at call time when a loading component has none configured', async () => {
+			const loader = memoryLoader({ greeting: 'Hello {{ name }}', 'greeting.casc': 'return "Hello " ~ name' });
+			const render = create.Template.loadsTemplate({ loader });
+			const run = create.Script.loadsScript({ loader });
+			if (false) {
+				// @ts-expect-error Without a configured name, the first argument names the template.
+				void render({ name: 'Ada' });
+				// @ts-expect-error Without a configured name, the first argument names the script.
+				void run({ name: 'Ada' });
+			}
+			await rejects(() => (render as unknown as (context: object) => Promise<string>)({ name: 'Ada' }), (error: unknown) => {
+				expect(error).to.be.instanceOf(ConfigError);
+				expect((error as Error).message).to.match(/template string must be provided/);
+				return true;
+			});
+			await rejects(() => (run as unknown as (context: object) => Promise<unknown>)({ name: 'Ada' }), (error: unknown) => {
+				expect(error).to.be.instanceOf(ConfigError);
+				expect((error as Error).message).to.match(/script string must be provided/);
+				return true;
+			});
+			expect(await render('greeting', { name: 'Ada' })).to.equal('Hello Ada');
+			expect(await run('greeting.casc', { name: 'Ada' })).to.equal('Hello Ada');
+		});
+
+		it('returns none from an empty named script, as from an empty inline script', async () => {
+			const loader: LoaderInterface = { load: name => ({ 'empty.casc': '', 'source.casc': { src: '', path: 'source.casc', noCache: false } } as Record<string, string | LoaderSource>)[name] ?? null };
+			expect(await create.Script.loadsScript({ loader, script: 'empty.casc' })()).to.equal(null);
+			expect(await create.Script.loadsScript({ loader })('source.casc')).to.equal(null);
+			// A non-empty script that fails is still reported, even when a later loader has an empty source.
+			const shadowed = create.Script.loadsScript({ loader: [memoryLoader({ 'empty.casc': 'return missing(' }), loader], script: 'empty.casc' });
+			await rejects(() => shadowed(), ScriptError);
+			await rejects(() => create.Script.loadsScript({ loader, script: 'missing.casc' })(), /not found/);
+		});
+
+		it('reports syntax errors in a configured template when called and still renders one-off templates', async () => {
+			const render = create.Template({ template: 'Hello {% if %}', context: { name: 'Ada' } });
+			await rejects(() => render(), (error: unknown) => {
+				expect(error).to.be.instanceOf(TemplateError);
+				expect((error as Error).message).to.match(/Template render failed/);
+				expect((error as TemplateError).cause).to.be.instanceOf(Error);
+				return true;
+			});
+			expect(await render('Hello {{ name }}')).to.equal('Hello Ada');
 		});
 	});
 

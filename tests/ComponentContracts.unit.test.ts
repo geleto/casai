@@ -8,6 +8,20 @@ import { create, ConfigError, ModelMessageSchema, PromptStringOrMessagesSchema, 
 import type { ConfigProvider } from './cascada';
 import { extractCallArguments } from '../src/call-arguments.js';
 
+function textModel(text: string): MockLanguageModelV3 {
+	return new MockLanguageModelV3({
+		doGenerate: {
+			content: [{ type: 'text', text }],
+			finishReason: { unified: 'stop', raw: 'stop' },
+			usage: {
+				inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+				outputTokens: { total: 1, text: 1, reasoning: 0 },
+			},
+			warnings: [],
+		},
+	});
+}
+
 describe('Component boundary contracts', () => {
 	describe('optional invocation arguments', () => {
 		const messages: ModelMessage[] = [{ role: 'user', content: 'Earlier question' }];
@@ -461,5 +475,114 @@ describe('Component boundary contracts', () => {
 				}
 			});
 		}
+	});
+
+	describe('omitted call-time context', () => {
+		const required = z.object({ name: z.string() });
+		const optional = z.object({ name: z.string().optional() });
+
+		it('accepts an omitted context when the input schema accepts empty input', async () => {
+			const model = textModel('Answer');
+			expect(await create.Template({ inputSchema: optional, template: 'Hello {{ name or "there" }}' })()).to.equal('Hello there');
+			expect(await create.Script({ inputSchema: optional, script: 'return "Ready"' })()).to.equal('Ready');
+			const fn = create.Function({ inputSchema: optional, execute: ({ name }) => name ?? 'there' });
+			expect(await (fn as unknown as () => Promise<string>)()).to.equal('there');
+			expect((await create.TextGenerator.withTemplate({ model, inputSchema: optional, prompt: 'Hello {{ name or "there" }}' })()).text).to.equal('Answer');
+			expect((await create.TextGenerator.withFunction({ model, inputSchema: optional, prompt: context => `Hello ${String(context.name ?? 'there')}` })()).text).to.equal('Answer');
+			expect(model.doGenerateCalls.map(call => call.prompt[0].content)).to.deep.equal([
+				[{ type: 'text', text: 'Hello there' }],
+				[{ type: 'text', text: 'Hello there' }],
+			]);
+		});
+
+		it('requires a context when the input schema rejects empty input and reports the missing field', async () => {
+			let renders = 0;
+			const render = () => ++renders;
+			const model = textModel('Answer');
+			const components: (() => Promise<unknown>)[] = [
+				create.Template({ inputSchema: required, context: { render }, template: '{{ render() }}' }),
+				create.Script({ inputSchema: required, context: { render }, script: 'return render()' }),
+				create.Function({ inputSchema: required, execute: render }) as unknown as () => Promise<unknown>,
+				create.TextGenerator.withTemplate({ model, inputSchema: required, context: { render }, prompt: '{{ render() }}' }),
+				create.TextGenerator.withFunction({ model, inputSchema: required, prompt: () => String(render()) }),
+			];
+			for (const component of components) {
+				await rejects(() => component(), (error: unknown) => {
+					expect(error).to.be.instanceOf(ConfigError);
+					expect((error as Error).message).to.match(/context object is required[\s\S]*'name'/);
+					return true;
+				});
+			}
+			expect(renders).to.equal(0);
+			expect(model.doGenerateCalls).to.have.length(0);
+		});
+	});
+
+	describe('compile-time configuration rules', () => {
+		it('rejects documented invalid configurations and immutable run overrides', () => {
+			const model = new MockLanguageModelV3();
+			const schema = z.object({ answer: z.number() });
+			const generator = create.TextGenerator.withTemplate({ model, prompt: 'Hello' });
+			const objects = create.ObjectGenerator.withTemplate({ model, schema, prompt: 'Hello' });
+			expect(generator.config.prompt).to.equal('Hello');
+			expect(objects.config.schema).to.equal(schema);
+			if (false) {
+				// @ts-expect-error A model is required in the component or a parent Config.
+				create.TextGenerator({ prompt: 'Hello' });
+				// @ts-expect-error Filters require a Cascada prompt modifier.
+				create.TextGenerator({ model, prompt: 'Hello', filters: {} });
+				// @ts-expect-error Engine options require a Cascada prompt modifier.
+				create.TextGenerator({ model, prompt: 'Hello', options: {} });
+				// @ts-expect-error A plain-text prompt does not render context.
+				create.TextGenerator({ model, prompt: 'Hello', context: {} });
+				// @ts-expect-error A plain-text prompt is loaded only with loadsText.
+				create.TextGenerator({ model, prompt: 'Hello', loader: { load: () => null } });
+				// @ts-expect-error The output schema is fixed at creation.
+				void generator.run({ schema });
+				// @ts-expect-error The output mode is fixed at creation.
+				void generator.run({ output: 'array' });
+				// @ts-expect-error Enum values are fixed at creation.
+				void generator.run({ enum: ['yes'] });
+				// @ts-expect-error The tool context schema is fixed at creation.
+				void generator.run({ contextSchema: schema });
+				// @ts-expect-error The prompt type is fixed at creation.
+				void generator.run({ promptType: 'script' });
+				// @ts-expect-error Filters configure the engine at creation.
+				void generator.run({ filters: {} });
+				// @ts-expect-error Engine options are fixed at creation.
+				void generator.run({ options: {} });
+				// @ts-expect-error The loader is fixed at creation.
+				void generator.run({ loader: { load: () => null } });
+				// @ts-expect-error An object generator keeps its output schema.
+				void objects.run({ schema });
+				// @ts-expect-error An object generator keeps its output mode.
+				void objects.run({ output: 'no-schema' });
+			}
+		});
+	});
+
+	describe('debug logging', () => {
+		it('logs component activity without serializing configured values', async () => {
+			const circular: Record<string, unknown> = { name: 'circular' };
+			circular.self = circular;
+			const logs: unknown[][] = [];
+			const originalLog = console.log;
+			console.log = (...args: unknown[]) => { logs.push(args); };
+			try {
+				const parent = create.Config({ debug: true, context: { circular } });
+				expect(await create.Template({ template: 'Template' }, parent)()).to.equal('Template');
+				expect(await create.Script({ script: 'return "Script"' }, parent)()).to.equal('Script');
+				expect(await create.Function({ execute: () => 'Function' }, parent)({})).to.equal('Function');
+				expect((await create.TextGenerator.withTemplate({ model: textModel('Rendered'), prompt: 'Text' }, parent)()).text).to.equal('Rendered');
+				expect((await create.TextGenerator({ model: textModel('Plain'), prompt: 'Text', debug: true })()).text).to.equal('Plain');
+			} finally {
+				console.log = originalLog;
+			}
+			const messages = logs.map(args => String(args[0]));
+			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', '_TextGenerator created', 'LLMComponent created', 'text path called']) {
+				expect(messages.some(logged => logged.includes(message)), message).to.equal(true);
+			}
+			expect(logs.some(args => args.some(arg => (arg as { context?: { circular?: unknown } } | undefined)?.context?.circular === circular))).to.equal(true);
+		});
 	});
 });

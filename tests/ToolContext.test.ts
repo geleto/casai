@@ -236,7 +236,7 @@ describe('SDK tool context', () => {
 			model, tools: { action }, toolsContext: { action: { factor: 3 } }, prompt: 'Use action.',
 		};
 		expect((await create.TextGenerator(config).run({})).toolResults[0].output).to.equal(6);
-		const stream = await create.TextStreamer(streamConfig).run({});
+		const stream = create.TextStreamer(streamConfig).run({});
 		expect((await stream.toolResults)[0].output).to.equal(6);
 		expect((await create.TextGenerator({}, create.Config(config)).run({})).toolResults[0].output).to.equal(6);
 	});
@@ -490,7 +490,7 @@ describe('SDK tool context', () => {
 			// @ts-expect-error Run-time overrides preserve tool context typing.
 			await generator.run({ toolsContext: { multiply: { factor: 'wrong' } } });
 			// @ts-expect-error Streamer run-time overrides preserve tool context typing.
-			await streamer.run({ toolsContext: { multiply: { factor: 'wrong' } } });
+			streamer.run({ toolsContext: { multiply: { factor: 'wrong' } } });
 		}
 	});
 
@@ -619,7 +619,7 @@ describe('SDK tool context', () => {
 
 		it('should pass overridden toolsContext through static streamers', async () => {
 			const streamer = create.TextStreamer({ ...config(mockModel('', 'multiply')), prompt: 'Multiply.' });
-			const result = await streamer.run({ toolsContext: { multiply: { factor: 5 } } });
+			const result = streamer.run({ toolsContext: { multiply: { factor: 5 } } });
 			await result.consumeStream();
 			expect((await result.toolResults)[0].output).to.equal(10);
 		});

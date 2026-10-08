@@ -61,7 +61,7 @@ describe('create.ObjectStreamer', function () {
 				prompt: 'Generate a JSON object for an item named "StreamTest" with a value of 99.',
 			});
 
-			const result = await streamer();
+			const result = streamer();
 			const partials = await collectPartials(result.partialObjectStream);
 			const finalObject = mergePartials(partials);
 
@@ -79,7 +79,7 @@ describe('create.ObjectStreamer', function () {
 				prompt: 'Generate a JSON array with two items: {id: 1, item: "A"} and {id: 2, item: "B"}.',
 			});
 
-			const result = await streamer();
+			const result = streamer();
 			const elements = await collectElements(result.elementStream);
 			const finalArray = elements;
 
@@ -98,7 +98,7 @@ describe('create.ObjectStreamer', function () {
 				prompt: 'Generate a JSON object with a "status" key set to "ok" and "code" key set to 200: { status: "ok", code: 200 }.',
 			});
 
-			const result = await streamer();
+			const result = streamer();
 			const partials = await collectPartials(result.partialObjectStream);
 			// As a workaround, we use mergePartials to get the complete object from the stream.
 			expect(partials.length).to.be.greaterThan(0);
@@ -112,7 +112,7 @@ describe('create.ObjectStreamer', function () {
 				schema: simpleSchema,
 			});
 
-			const result = await streamer('Generate an object named "RuntimeStream" with value 555.');
+			const result = streamer('Generate an object named "RuntimeStream" with value 555.');
 			const partials = await collectPartials(result.partialObjectStream);
 			const finalObject = mergePartials(partials);
 			expect(finalObject).to.deep.equal({ name: 'RuntimeStream', value: 555 });
@@ -306,7 +306,7 @@ describe('create.ObjectStreamer', function () {
 			});
 
 			// x@ts-expect-error wrong return due to the afore mentioned TypeScript bug
-			const result = await streamer();
+			const result = streamer();
 			const partials = await collectPartials(result.partialObjectStream);
 			const finalObject = mergePartials(partials) as z.infer<typeof simpleSchema>;
 			expect(finalObject).to.deep.equal({ name: 'FinishCallback', value: 123 });
@@ -328,11 +328,9 @@ describe('create.ObjectStreamer', function () {
 				prompt: 'This will fail.',
 			});
 
-			const resultPromise = streamer();
-			// await expect(resultPromise).to.be.rejected;
+			const result = streamer();
 
 			try {
-				const result = await resultPromise;
 				await collectPartials(result.partialObjectStream); // Consuming the stream triggers the error
 			} catch (e) {
 				expect(e).to.be.an.instanceOf(Error);
@@ -380,7 +378,7 @@ describe('create.ObjectStreamer', function () {
 			).to.not.throw();
 		});
 
-		it('should reject promise at runtime if no prompt is provided in config or call', () => {
+		it('should throw at runtime if no prompt is provided in config or call', () => {
 			const streamer = create.ObjectStreamer({ model, ...temperatureConfig, schema: simpleSchema });
 			expect(() => streamer(undefined as unknown as string)).to.throw(
 				ConfigError,

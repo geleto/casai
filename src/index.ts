@@ -14,7 +14,7 @@ export const create = factories;
 
 // --- Third-Party Re-exports (For User Convenience) ---
 export type { ModelMessage, ToolSet } from 'ai';
-export { FileSystemLoader, WebLoader } from 'cascada-engine';
+export { FileSystemLoader, PrecompiledLoader, WebLoader } from 'cascada-engine';
 export { z } from 'zod';
 
 // --- Configuration Types ---
