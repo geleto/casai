@@ -1,7 +1,7 @@
 import type { Context, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
 import * as configs from './types/config.js';
 import type { ValidateRunConfig } from './types/config-validation.js';
-import { ConfigError, validateLLMComponentCall, validateLoadedTextPrompt, validateMessagesArray } from './validate.js';
+import { ConfigError, validateConfigBasics, validateLLMComponentCall, validateLoadedTextPrompt, validateMessagesArray } from './validate.js';
 import { extractCallArguments } from './call-arguments.js';
 import * as utils from './types/utils.js';
 import { generateObject, generateText, streamObject, streamText } from 'ai';
@@ -94,11 +94,14 @@ export function _createLLMComponent<
 
 	// Use the same history contract for plain text and rendered/conversational prompts.
 	const executeLLM = (runConfig: TFunctionConfig, prompt: string | ModelMessage[] | undefined, historyPrefix: ModelMessage[] | undefined): TFunctionResult => {
-		const promptMessages: ModelMessage[] = prompt
-			? Array.isArray(prompt) ? prompt : [{ role: 'user', content: prompt }]
-			: [];
+		// SDK request arrays are copied below; keep lazy response history tied to that request too.
+		historyPrefix = historyPrefix?.slice();
+		const usesMessages = processMessages && (Array.isArray(prompt) || Boolean(runConfig.messages));
+		// With a standalone SDK prompt, even an empty string is submitted as a user message.
+		const promptMessages: ModelMessage[] = Array.isArray(prompt) ? [...prompt]
+			: typeof prompt === 'string' && (prompt.length > 0 || !usesMessages) ? [{ role: 'user', content: prompt }] : [];
 		const vercelConfig = { ...runConfig, prompt } as TFunctionConfig;
-		if (processMessages && (Array.isArray(prompt) || runConfig.messages)) {
+		if (usesMessages) {
 			vercelConfig.messages = [...runConfig.messages ?? [], ...promptMessages];
 			delete vercelConfig.prompt;
 		}
@@ -154,6 +157,9 @@ export function _createLLMComponent<
 			//  Merge configurations to get a complete view for this run.
 			// Call-time arguments (configArg) override factory settings (config).
 			const runConfig = mergeConfigs(config, configArg);
+			// Rendering and input validation may await; snapshot both sides of the history contract together.
+			const historyPrefix = configArg.messages?.slice();
+			if (runConfig.messages) runConfig.messages = [...runConfig.messages] as typeof runConfig.messages;
 
 			if (!calledFromCall) {
 				if (config.debug) {
@@ -186,7 +192,7 @@ export function _createLLMComponent<
 				console.log('[DEBUG] LLMComponent.run executed with:', { configArg, renderedPrompt });
 			}
 
-			return await executeLLM(runConfig as TFunctionConfig, renderedPrompt, configArg.messages);
+			return await executeLLM(runConfig as TFunctionConfig, renderedPrompt, historyPrefix);
 		};
 		call = async (
 			promptOrMessageOrContext?: string | ModelMessage[] | Context,
@@ -218,18 +224,21 @@ export function _createLLMComponent<
 				return Promise.reject(error instanceof Error ? error : new Error(String(error))) as TFunctionResult;
 			}
 		};
+		const validateTextRun = (runConfig: TFunctionConfig, configArg: configs.LLMRunConfig): void => {
+			if (config.debug) {
+				console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
+			}
+			validateMessagesArray(configArg.messages);
+			// Plain text has no rendered context; loaded text validates its name before reading the source.
+			void validateLLMComponentCall(runConfig, config.promptType ?? 'text', configArg.context);
+		};
 		run = (
 			configArg: configs.LLMRunConfig,
 			calledFromCall = false
 		): TFunctionResult => settle(() => {
 			const runConfig = mergeConfigs(config, configArg) as TFunctionConfig;
 			if (!calledFromCall) {
-				if (config.debug) {
-					console.log(`[DEBUG] LLM ${config.promptType!} run() called with:`, { configArg });
-				}
-				validateMessagesArray(configArg.messages);
-				// A plain-text prompt renders no context, so run() rejects it as a call does.
-				void validateLLMComponentCall(runConfig, config.promptType ?? 'text', configArg.context);
+				validateTextRun(runConfig, configArg);
 			}
 			return executeLLM(runConfig, runConfig.prompt, configArg.messages);
 		});
@@ -254,8 +263,13 @@ export function _createLLMComponent<
 				configArg: configs.LLMRunConfig,
 				calledFromCall = false
 			): Promise<TFunctionResult> => {
+				validateConfigBasics(configArg);
+				validateLoadedTextPrompt(configArg.prompt);
 				const name = configArg.prompt ?? config.prompt;
 				validateLoadedTextPrompt(name);
+				if (!calledFromCall) {
+					validateTextRun(mergeConfigs(config, configArg) as TFunctionConfig, configArg);
+				}
 				let prompt: string | undefined;
 				try {
 					if (name !== undefined) prompt = await env.loadString(name);
@@ -265,7 +279,7 @@ export function _createLLMComponent<
 					}
 					throw error;
 				}
-				return textRun({ ...configArg, prompt }, calledFromCall);
+				return textRun({ ...configArg, prompt }, true);
 			};
 		}
 	}

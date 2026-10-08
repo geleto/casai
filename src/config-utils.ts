@@ -4,10 +4,12 @@ import * as configs from './types/config.js';
 import type { ModelMessage } from 'ai';
 import { mergeLoaders, processLoaders, type RaceGroup, type RaceLoader } from './loaders.js';
 import type { ILoaderAny } from 'cascada-engine';
+import { validateConfigBasics } from './validate.js';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(
 	config: T
 ): ProcessedConfig<T> {
+	validateConfigBasics(config);
 	if ('loader' in config && config.loader) {
 		const loader = processLoaders(config.loader);
 		return { ...config, loader };
@@ -25,6 +27,8 @@ export function mergeConfigs<
 	parentConfig: TParent,
 	childConfig: TChild
 ): MergedConfig<TParent, TChild> {
+	// Validate raw values before map/message/loader merging can consume them.
+	validateConfigBasics(childConfig);
 	// Evaluate debug logging using the most specific config (child overrides parent).
 	const childHasDebug = Object.prototype.hasOwnProperty.call(childConfig, 'debug');
 	const debugEnabled = childHasDebug

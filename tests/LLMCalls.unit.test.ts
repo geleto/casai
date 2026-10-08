@@ -77,7 +77,7 @@ describe('LLM call contracts without providers', () => {
 					['other: Hi Configured'],
 					['default: Hello Configured'],
 				]);
-				// The configured template is loaded once, when the component is created.
+				// The environment caches the configured template after the first call.
 				expect(loaded.filter(name => name === 'default')).to.have.length(1);
 				expect(component.config.prompt).to.equal('default');
 				expect(component.config.context).to.deep.equal({ greeting: 'Hello', name: 'Configured' });
@@ -158,6 +158,71 @@ describe('LLM call contracts without providers', () => {
 	});
 
 	describe('plain-text calls', () => {
+		it('defers named-text loading until a call and keeps one-off names local', async () => {
+			const model = mockModel('DONE');
+			const loaded: string[] = [];
+			const generator = create.TextGenerator.loadsText({
+				model, prompt: 'default', loader: { load: (name: string) => { loaded.push(name); return `Loaded ${name}.`; } },
+			});
+			expect(loaded).to.deep.equal([]);
+			await generator('other');
+			expect(loaded).to.deep.equal(['other']);
+			await generator();
+			await generator();
+			expect(loaded).to.deep.equal(['other', 'default']);
+			expect(promptTexts(model)).to.deep.equal([['Loaded other.'], ['Loaded default.'], ['Loaded default.']]);
+		});
+
+		it('retries a failed named-text load on the next call', async () => {
+			const model = mockModel('DONE');
+			const failure = new Error('Temporarily unavailable');
+			let attempts = 0;
+			const generator = create.TextGenerator.loadsText({ model, prompt: 'default', loader: { load: async () => {
+				if (++attempts === 1) throw failure;
+				return 'Recovered.';
+			} } });
+			await rejects(() => generator(), error => error === failure);
+			expect(model.doGenerateCalls).to.have.length(0);
+			await generator();
+			expect(attempts).to.equal(2);
+			expect(promptTexts(model)).to.deep.equal([['Recovered.']]);
+		});
+
+		for (const factoryName of factoryNames) {
+			it(`accepts an empty loaded source through ${factoryName}.run()`, async () => {
+				const model = mockModel(answer);
+				const config = { model, prompt: 'empty', loader: { load: () => '' } };
+				const component = factoryName === 'TextGenerator' ? create.TextGenerator.loadsText(config)
+					: factoryName === 'TextStreamer' ? create.TextStreamer.loadsText(config)
+						: factoryName === 'ObjectGenerator' ? create.ObjectGenerator.loadsText({ ...config, schema })
+							: create.ObjectStreamer.loadsText({ ...config, schema });
+				await settle(await component.run({}));
+				await settle(await component.run({ prompt: 'other-empty' }));
+				expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([[''], ['']]);
+			});
+
+			it(`rejects invalid loaded-text run overrides before loading or calling ${factoryName}`, async () => {
+				const model = mockModel(answer);
+				const loaded: string[] = [];
+				const config = { model, prompt: 'default', loader: { load: (name: string) => { loaded.push(name); return 'Configured.'; } } };
+				const component = factoryName === 'TextGenerator' ? create.TextGenerator.loadsText(config)
+					: factoryName === 'TextStreamer' ? create.TextStreamer.loadsText(config)
+						: factoryName === 'ObjectGenerator' ? create.ObjectGenerator.loadsText({ ...config, schema })
+							: create.ObjectStreamer.loadsText({ ...config, schema });
+				for (const override of [
+					{ prompt: null }, { prompt: 42 }, { prompt: '' },
+					{ prompt: [{ role: 'user', content: 'Messages are not a resource name.' }] },
+					{ messages: [{ role: 'invalid', content: 'Invalid history.' }] },
+					{ context: { unused: true } },
+				]) {
+					await rejects(async () => { await component.run(override as never); }, ConfigError);
+				}
+				expect(loaded).to.deep.equal([]);
+				expect(model.doGenerateCalls).to.have.length(0);
+				expect(model.doStreamCalls).to.have.length(0);
+			});
+		}
+
 		it('loads empty text and preserves literal template syntax', async () => {
 			const model = mockModel('DONE');
 			const literal = '  {{ untouched }} {% include "missing" %}\n';

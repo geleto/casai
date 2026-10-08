@@ -94,6 +94,13 @@ describe('Template and Script deterministic coverage', () => {
 			expect(await render('greeting', { name: 'Ada' })).to.equal('Hello Ada');
 		});
 
+		it('renders empty named templates from strings and LoaderSource objects', async () => {
+			const loader: LoaderInterface = { load: name => name === 'string' ? '' : { src: '', path: name, noCache: false } };
+			const render = create.Template.loadsTemplate({ template: 'string', loader });
+			expect(await render()).to.equal('');
+			expect(await render('object')).to.equal('');
+		});
+
 		it('honors noCache when a named template changes between calls', async () => {
 			let source = 'First';
 			const loader: LoaderInterface = { load: name => ({ src: source, path: name, noCache: true }) };
@@ -204,6 +211,20 @@ describe('Template and Script deterministic coverage', () => {
 			expect(await run({ value: 3 })).to.equal(3);
 		});
 
+		it('isolates data and text channels across overlapping cached script executions', async () => {
+			let releaseFirst!: (value: string) => void;
+			const firstValue = new Promise<string>(resolve => { releaseFirst = resolve; });
+			const run = create.Script({ script: 'data items\nitems = []\nitems.push(value)\ntext body\nbody(value)\nreturn { items: items.snapshot(), text: body.snapshot() }' });
+			const first = run({ value: firstValue });
+			try {
+				expect(await run({ value: 'Second' })).to.deep.equal({ items: ['Second'], text: 'Second' });
+			} finally {
+				releaseFirst('First');
+			}
+			expect(await first).to.deep.equal({ items: ['First'], text: 'First' });
+			expect(await run({ value: 'Third' })).to.deep.equal({ items: ['Third'], text: 'Third' });
+		});
+
 		it('runs an explicitly configured empty script and returns null', async () => {
 			expect(await create.Script({ script: '' })()).to.equal(null);
 		});
@@ -265,6 +286,15 @@ describe('Template and Script deterministic coverage', () => {
 				script: 'from "helpers" import greet\nreturn greet(name)', context: { name: 'Ada' },
 			});
 			expect(await run()).to.equal('Hi Ada');
+		});
+
+		it('refreshes imported functions after loader updates while reusing an inline script', async () => {
+			const loader = new UpdatingLoader({ helpers: 'function value()\n return 1\nendfunction' });
+			const run = create.Script({ loader, script: 'from "helpers" import value\nreturn value()' });
+			expect(await run()).to.equal(1);
+			loader.sources.helpers = 'function value()\n return 2\nendfunction';
+			loader.emit('update', 'helpers');
+			expect(await run()).to.equal(2);
 		});
 
 		for (const override of [false, true]) {
@@ -387,6 +417,44 @@ describe('Template and Script deterministic coverage', () => {
 			});
 			await rejects(() => run(), /Stream failed/);
 		});
+	});
+
+	describe('Named rendering cache contracts', () => {
+		for (const kind of ['template', 'script'] as const) {
+			it(`shares a pending named ${kind} load while keeping invocation contexts separate`, async () => {
+				let release!: () => void;
+				let notifyStarted!: () => void;
+				const pending = new Promise<void>(resolve => { release = resolve; });
+				const started = new Promise<void>(resolve => { notifyStarted = resolve; });
+				let loads = 0;
+				const loader: LoaderInterface = { load: async () => {
+					loads++;
+					notifyStarted();
+					await pending;
+					return kind === 'template' ? 'Hello {{ name }}' : 'return "Hello " ~ name';
+				} };
+				const render = kind === 'template'
+					? create.Template.loadsTemplate({ template: 'greeting', loader })
+					: create.Script.loadsScript({ script: 'greeting', loader });
+				const results = Promise.all([render({ name: 'Ada' }), render({ name: 'Bob' })]);
+				await started;
+				release();
+				expect(await results).to.deep.equal(['Hello Ada', 'Hello Bob']);
+				expect(await render({ name: 'Cal' })).to.equal('Hello Cal');
+				expect(loads).to.equal(1);
+			});
+
+			it(`recovers from a named ${kind} syntax error after its loader updates`, async () => {
+				const loader = new UpdatingLoader({ source: kind === 'template' ? '{% if %}' : 'return missing(' });
+				const render = kind === 'template'
+					? create.Template.loadsTemplate({ template: 'source', loader })
+					: create.Script.loadsScript({ script: 'source', loader });
+				await rejects(() => render(), kind === 'template' ? TemplateError : ScriptError);
+				loader.sources.source = kind === 'template' ? 'Fixed' : 'return "Fixed"';
+				loader.emit('update', 'source');
+				expect(await render()).to.equal('Fixed');
+			});
+		}
 	});
 
 	describe('Call arguments', () => {

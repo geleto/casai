@@ -79,6 +79,8 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 
 ## Installation
 
+Requires Node.js 24 or later.
+
 Install a Vercel AI SDK 7.x version
 ```bash
 npm install ai
@@ -94,6 +96,8 @@ Install the specific LLM providers that you plan to use:
 npm install @ai-sdk/openai
 ```
 Check the [Vercel AI SDK Core documentation](https://sdk.vercel.ai/docs/ai-sdk-core) for provider-specific setup details
+
+Rendering uses Cascada's async APIs. `TemplatePromptType` accepts `async-template` and `async-template-name`; `ScriptPromptType` accepts `async-script` and `async-script-name`. The legacy sync variants have been removed. `RaceLoader` is a type-only export; use `race()` to configure concurrent loaders.
 
 ## Quick Start
 
@@ -263,7 +267,7 @@ const result2 = await dynamicComponent('Hi {{ user }}', { user: 'Alice' });
 console.log(result2); // "Hi Alice"
 ```
 
-Configured templates are compiled for reuse; a syntax error in one is reported when the component is called. Scripts and one-off inputs are rendered through Cascada at call time.
+Configured inline templates and scripts are compiled for reuse; syntax errors are reported when the component is called. Named text, templates, and scripts load on first use, so a one-off name can bypass a missing configured resource. One-off inline inputs are compiled for that call.
 
 #### Advanced Overrides with the `.run()` Method
 For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Casai provides the `.run()` method.
@@ -413,7 +417,7 @@ Omitting a property keeps its inherited value. Explicit `undefined` follows the 
 | `messages: undefined` or `messages: []` | Keeps the inherited messages. |
 | `loader: undefined` or `loader: []` | Keeps the inherited loader chain. |
 
-Component requirements still apply. For example, replacing a required `model` or `execute` with `undefined` makes the configuration invalid.
+Component requirements still apply. Replacing a required `model`, `execute`, output `schema`, or tool `inputSchema` with `undefined` makes the configuration invalid. Reusable `Config` fragments can remain incomplete; concrete factories check these requirements at creation.
 
 #### Example in Action
 
@@ -452,7 +456,7 @@ const childComponent = create.TextGenerator.withTemplate({
 ```
 
 ### Inspecting the Final Configuration
-The rules for how properties are inherited and merged (e.g., context and filters merge, prompt overrides) are powerful but complex. To see the result of all inherited and merged properties, you can access the read-only `.config` property on any component instance. This is an invaluable tool for debugging complex configurations.
+Inspect the resolved settings through `.config` on `Config`, `Template`, `Script`, and LLM components. `Function` and `Function.asTool` expose configuration properties directly on the callable, such as `fn.inputSchema`, `fn.schema`, and `fn.context`.
 ```typescript
 console.log(childComponent.config);
 // Outputs the fully resolved configuration object
@@ -1145,6 +1149,8 @@ By default, child loaders are placed before parent loaders to create a sequentia
 
 When you give `race()` a name (e.g., `race(..., 'cdn')`), you create a **named race group**. All loaders in groups with the same name across parent and child configurations are automatically merged into a single, combined race. This allows a child to add loaders to a parent's concurrent loading strategy instead of simply prepending to it.
 
+Duplicate loader instances are removed from both named and anonymous race groups, including groups inherited through multiple `Config` objects.
+
 ```typescript
 import { create, race, WebLoader, FileSystemLoader } from 'casai';
 
@@ -1375,6 +1381,8 @@ To make chat loops easy, the response object from `TextGenerator` and `TextStrea
 
 *   **`response.messages`**: The *delta* for the current turn. This includes the message generated from the input `prompt` and every generated message, including tool calls, tool results, and the final assistant reply.
 *   **`response.messageHistory`**: The *complete* dynamic history (input messages + delta), **excluding** any static messages from the component's configuration. This is the state you use for the next API call.
+
+Response history arrays reflect the messages submitted for that call. Appending to or clearing the caller's input array later does not rewrite an earlier response's history.
 
 | Property                  | Purpose                               | What it Contains                                                         | Primary Use Case                                |
 | ------------------------- | ------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------- |
@@ -1640,6 +1648,8 @@ const vectorIndex = await VectorStoreIndex.fromDocuments(docs, {
 Casai integrates with Zod to provide automatic, runtime validation for both the data you provide to components and the data they produce, ensuring type safety throughout your workflows.
 
 AI SDK schemas created with `jsonSchema` are also supported. For local input and output checks in Template, Script, and Function components, supply the schema's `validate` callback; it can be synchronous or asynchronous. JSON schema metadata alone does not perform local validation in these components. Output validation returns the parsed value, including transformations.
+
+Local input and output validation failures throw `ConfigError`. Script and Function output validation failures preserve the original schema error in `cause`. Script and template rendering failures throw `ScriptError` and `TemplateError` respectively. Unexpected exceptions thrown by schema callbacks propagate unchanged.
 
 ### Ensuring Type-Safe Inputs with `inputSchema`
 

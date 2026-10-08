@@ -12,7 +12,11 @@ export interface RaceGroup {
 interface NamedGroup {
 	firstIndex: number;
 	collectedLoaders: ILoaderAny[];
+	processedLoader?: RaceLoader;
 }
+
+// Keep anonymous groups recognizable after config processing, without changing their public shape.
+const anonymousRaceMembers = new WeakMap<object, ILoaderAny[]>();
 
 // A named race group is Cascada's race loader, which resolves relative paths through the member that
 // loaded each source, tagged so later merges can combine groups with the same name.
@@ -81,6 +85,7 @@ function _processAndDeduplicate(
 				namedGroups.set(groupName, {
 					firstIndex: i,
 					collectedLoaders: [...loader.loaders],
+					processedLoader: loader,
 				});
 			} else {
 				existingGroup.collectedLoaders.push(...loader.loaders);
@@ -98,7 +103,11 @@ function _processAndDeduplicate(
 		const deduplicatedLoaders = collectedLoaders.filter((loader, index, array) => array.indexOf(loader) === index);
 
 		if (deduplicatedLoaders.length > 0) {
-			processedChain[firstIndex] = createRaceLoader(deduplicatedLoaders, groupName);
+			const existing = namedGroups.get(groupName)?.processedLoader;
+			// Rebuilding an unchanged race would add another subscription to every member.
+			processedChain[firstIndex] = existing?.loaders.length === deduplicatedLoaders.length
+				&& existing.loaders.every((loader, index) => loader === deduplicatedLoaders[index])
+				? existing : createRaceLoader(deduplicatedLoaders, groupName);
 		} else if ((typeof process === 'undefined' || process.env.NODE_ENV !== 'production')) {
 			// IMPROVEMENT: Warn developers about silently dropped empty named groups.
 			console.warn(`Casai Loader: Named race group "${groupName}" was discarded because it became empty after deduplication.`);
@@ -126,18 +135,23 @@ function _processAndDeduplicate(
 					uniqueConstituents.forEach(l => seen.add(l));
 				}
 			}
-		} else if (isRaceGroup(item)) { // Anonymous race group
-			const uniqueLoaders = item.loaders.filter(loader => {
+		} else if (isRaceGroup(item) || anonymousRaceMembers.has(item)) { // Anonymous race group
+			const members = isRaceGroup(item) ? item.loaders : anonymousRaceMembers.get(item)!;
+			const uniqueLoaders = members.filter(loader => {
 				if (seen.has(loader)) return false;
 				seen.add(loader);
 				return true;
 			});
 			if (uniqueLoaders.length > 0) {
-				uniqueLoaders.forEach(l => seen.add(l));
-				// IMPROVEMENT: Avoid wrapper for single-loader groups.
-				finalResult.push(
-					uniqueLoaders.length === 1 ? uniqueLoaders[0] : raceLoaders(uniqueLoaders)
-				);
+				if (uniqueLoaders.length === 1) {
+					finalResult.push(uniqueLoaders[0]);
+				} else if (!isRaceGroup(item) && uniqueLoaders.length === members.length) {
+					finalResult.push(item);
+				} else {
+					const loader = raceLoaders(uniqueLoaders);
+					anonymousRaceMembers.set(loader, uniqueLoaders);
+					finalResult.push(loader);
+				}
 			}
 		} else { // Regular loader
 			if (!seen.has(item)) {

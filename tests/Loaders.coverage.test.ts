@@ -384,6 +384,26 @@ describe('Loader execution coverage', () => {
 		});
 
 		for (const groupName of [undefined, 'remote']) {
+			for (const kind of ['template', 'script'] as const) {
+				it(`refreshes relative ${kind} dependencies when ${groupName ? 'a named' : 'an anonymous'} race member updates`, async () => {
+					write('pages/main.njk', '{% include "./part.njk" %}');
+					write('pages/part.njk', 'First');
+					write('scripts/main.casc', 'from "./lib.casc" import value\nreturn value()');
+					write('scripts/lib.casc', 'function value()\n return "First"\nendfunction');
+					const member = new FileSystemLoader(directory);
+					const loader = publicRace([member, { load: () => null }], groupName);
+					const render = kind === 'template'
+						? create.Template.loadsTemplate({ loader, template: 'pages/main.njk' })
+						: create.Script.loadsScript({ loader, script: 'scripts/main.casc' });
+					expect(await render()).to.equal('First');
+					const childName = kind === 'template' ? 'pages/part.njk' : 'scripts/lib.casc';
+					write(childName, kind === 'template' ? 'Second' : 'function value()\n return "Second"\nendfunction');
+					// Match FileSystemLoader watcher events, including the resolved path of relative dependencies.
+					member.emit('update', childName, join(directory, childName));
+					expect(await render()).to.equal('Second');
+				});
+			}
+
 			it(`resolves relative includes and imports inside ${groupName ? 'named' : 'anonymous'} races`, async () => {
 				write('pages/main.njk', '{% include "./part.njk" with context %}');
 				write('pages/part.njk', 'Hello {{ name }}');

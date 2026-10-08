@@ -48,6 +48,12 @@ export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateReso
 	: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'>;
 
 type MissingKeys<TFinal, TExpected> = Exclude<{ [K in keyof TExpected]-?: EmptyMap extends Pick<TExpected, K> ? never : K }[keyof TExpected], keyof TFinal>;
+// A required setting explicitly cleared after inheritance is missing too.
+type MissingRequiredKeys<TFinal, TRequired> = {
+	[K in keyof TRequired]-?: K extends keyof TFinal
+	? [TFinal[K]] extends [undefined | null] ? K : never
+	: K;
+}[keyof TRequired];
 type IncompatibleKeys<TFinal, TExpected> = {
 	[K in keyof TExpected & keyof TFinal]-?: Pick<TFinal, K> extends Pick<TExpected, K> ? never : K
 }[keyof TExpected & keyof TFinal];
@@ -82,9 +88,9 @@ export type ValidateTemplateConfig<
 	ValidateResolved<TConfig, keyof Omit<TConfig, keyof TShape> extends never
 	? (
 		// 2. If no excess, check for required properties missing from the FINAL merged config.
-		keyof Omit<TRequired, keyof TFinalConfig> extends never
+		MissingRequiredKeys<TFinalConfig, TRequired> extends never
 		? TConfig // All checks passed.
-		: `Config Error: Missing required property '${keyof Omit<TRequired, keyof TFinalConfig> & string}' in the final configuration.`
+		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
 	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
 
@@ -117,9 +123,9 @@ export type ValidateScriptConfig<
 	ValidateResolved<TConfig, keyof Omit<TConfig, keyof TShape> extends never
 	? (
 		// 2. If no excess, check for required properties missing from the FINAL merged config.
-		keyof Omit<TRequired, keyof TFinalConfig> extends never
+		MissingRequiredKeys<TFinalConfig, TRequired> extends never
 		? TConfig // All checks passed.
-		: `Config Error: Missing required property '${keyof Omit<TRequired, keyof TFinalConfig> & string}' in the final configuration.`
+		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
 	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
 
@@ -150,9 +156,9 @@ export type ValidateGenerateTextConfig<
 	ValidateResolved<TConfig, keyof Omit<TConfig, keyof TShape> extends never
 	? (
 		// 2. If no excess, check for required properties missing from the FINAL merged config.
-		keyof Omit<TRequired, keyof TFinalConfig> extends never
+		MissingRequiredKeys<TFinalConfig, TRequired> extends never
 		? ValidateToolsContext<TConfig, TFinalConfig>
-		: `Config Error: Missing required property '${keyof Omit<TRequired, keyof TFinalConfig> & string}' in the final configuration.`
+		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
 	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
 
@@ -183,9 +189,9 @@ export type ValidateStreamTextConfig<
 	ValidateResolved<TConfig, keyof Omit<TConfig, keyof TShape> extends never
 	? (
 		// 2. If no excess, check for required properties missing from the FINAL merged config.
-		keyof Omit<TRequired, keyof TFinalConfig> extends never
+		MissingRequiredKeys<TFinalConfig, TRequired> extends never
 		? ValidateToolsContext<TConfig, TFinalConfig>
-		: `Config Error: Missing required property '${keyof Omit<TRequired, keyof TFinalConfig> & string}' in the final configuration.`
+		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
 	: `Config Error: Unknown properties for this streamer type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
 
@@ -247,13 +253,9 @@ export type ValidateObjectConfig<
 	ValidateResolved<TConfig, keyof Omit<TConfig, keyof TShape> extends never
 		// 2. If no excess, check for properties missing from the FINAL merged config.
 		? (
-			keyof Omit<
-				TRequiredShape,
-				keyof TFinalConfig
-			> extends never
+			MissingRequiredKeys<TFinalConfig, TRequiredShape> extends never
 			? TConfig //All checks passed.
-			: `Config Error: Missing required properties for output mode '${GetOutputType<TFinalConfig>}' - '${keyof
-			Omit<TRequiredShape, keyof TFinalConfig> & string}'`
+			: `Config Error: Missing required properties for output mode '${GetOutputType<TFinalConfig>}' - '${MissingRequiredKeys<TFinalConfig, TRequiredShape> & string}'`
 		)
 		: `Config Error: Unknown properties for output mode '${GetOutputType<TFinalConfig>}' - '${keyof Omit<TConfig, GetAllowedKeysForConfig<TFinalConfig>> & string}'`
 	>;

@@ -29,9 +29,9 @@ function formatZodError(error: ZodError): string {
 	return `Validation failed:\n${issues.join('\n')}`;
 }
 
-// An explicit undefined or null loader supplies no loader.
-function hasLoader(config: object): boolean {
-	return 'loader' in config && config.loader !== undefined && config.loader !== null;
+// Explicit undefined or null cannot satisfy a required setting.
+function hasConfiguredValue(config: Record<string, unknown>, key: string): boolean {
+	return config[key] !== undefined && config[key] !== null;
 }
 
 export function validateMessagesArray(messages: unknown): void {
@@ -167,14 +167,14 @@ export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType
 	if (config.model === undefined || config.model === null) throw new ConfigError("Text generator configs require a 'model' property.");
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
-	if (isLoaded && !hasLoader(config)) {
+	if (isLoaded && !hasConfiguredValue(config, 'loader')) {
 		throw new ConfigError("A 'loader' is required for this operation (e.g., for loads...() or *-name prompt types).");
 	}
 	if (isTool) {
-		if (!('inputSchema' in config)) {
+		if (!hasConfiguredValue(config, 'inputSchema')) {
 			throw new ConfigError("'inputSchema' is a required property when creating a TextGenerator as a tool.");
 		}
-		if (!('prompt' in config)) {
+		if (!hasConfiguredValue(config, 'prompt')) {
 			throw new ConfigError("'prompt' is a required property when creating a TextGenerator as a tool.");
 		}
 	}
@@ -196,10 +196,10 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 	const output = validateObjectOutputProperties(config, isStreamer);
 
 	if (isTool) {
-		if (!('inputSchema' in config)) {
+		if (!hasConfiguredValue(config, 'inputSchema')) {
 			throw new ConfigError("'inputSchema' is a required property when creating a ObjectGenerator as a tool.");
 		}
-		if (!('prompt' in config)) {
+		if (!hasConfiguredValue(config, 'prompt')) {
 			throw new ConfigError("'prompt' is a required property when creating a ObjectGenerator as a tool.");
 		}
 	}
@@ -207,7 +207,7 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 	switch (output) {
 		case 'object':
 		case 'array':
-			if (!('schema' in config)) {
+			if (!hasConfiguredValue(config, 'schema')) {
 				throw new ConfigError(`An 'output' of '${output}' requires a 'schema' property.`);
 			}
 			break;
@@ -220,7 +220,7 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 	}
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
-	if (isLoaded && !hasLoader(config)) {
+	if (isLoaded && !hasConfiguredValue(config, 'loader')) {
 		throw new ConfigError("A 'loader' is required for this operation (e.g., for loads...() or *-name prompt types).");
 	}
 }
@@ -239,8 +239,8 @@ export function validateTemplateConfig(config: Partial<configs.TemplateConfig<an
 	const isLoaded = templateType?.endsWith('-name') ?? false;
 
 	if (isLoaded) {
-		if (!hasLoader(config)) {
-			throw new ConfigError("A 'loader' is required when loading a template by name (e.g., for 'template-name' or 'async-template-name' types).");
+		if (!hasConfiguredValue(config, 'loader')) {
+			throw new ConfigError("A 'loader' is required when loading a template by name ('async-template-name').");
 		}
 	} else {
 		// If not loading by name, the template string must be in the config itself.
@@ -250,10 +250,10 @@ export function validateTemplateConfig(config: Partial<configs.TemplateConfig<an
 	}
 
 	if (isTool) {
-		if (!('inputSchema' in config)) {
+		if (!hasConfiguredValue(config, 'inputSchema')) {
 			throw new ConfigError("'inputSchema' is a required property when creating a Template as a tool.");
 		}
-		if (!('template' in config)) {
+		if (!hasConfiguredValue(config, 'template')) {
 			throw new ConfigError("'template' is a required property when creating a Template as a tool.");
 		}
 	}
@@ -273,8 +273,8 @@ export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, a
 	const isLoaded = scriptType?.endsWith('-name') ?? false;
 
 	if (isLoaded) {
-		if (!hasLoader(config)) {
-			throw new ConfigError("A 'loader' is required when loading a script by name (e.g., for 'script-name' or 'async-script-name' types).");
+		if (!hasConfiguredValue(config, 'loader')) {
+			throw new ConfigError("A 'loader' is required when loading a script by name ('async-script-name').");
 		}
 	} else {
 		// If not loading by name, the script string must be in the config itself.
@@ -284,10 +284,10 @@ export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, a
 	}
 
 	if (isTool) {
-		if (!('inputSchema' in config)) {
+		if (!hasConfiguredValue(config, 'inputSchema')) {
 			throw new ConfigError("'inputSchema' is a required property when creating a Script as a tool.");
 		}
-		if (!('script' in config)) {
+		if (!hasConfiguredValue(config, 'script')) {
 			throw new ConfigError("'script' is a required property when creating a Script as a tool.");
 		}
 	}
@@ -304,7 +304,7 @@ export function validateFunctionConfig(config: Record<string, any>, isTool = fal
 	if (typeof config.execute !== 'function') {
 		throw new ConfigError("The 'execute' property in a Function config must be a function.");
 	}
-	if (isTool && !('inputSchema' in config)) {
+	if (isTool && !hasConfiguredValue(config, 'inputSchema')) {
 		throw new ConfigError("'inputSchema' is a required property when creating a Function as a tool.");
 	}
 }
@@ -339,11 +339,13 @@ export function validateLLMComponentCall(
 		const prompt = (config as Partial<configs.TemplatePromptConfig>).prompt;
 		const finalPromptString = callArgs.prompt ?? (typeof prompt === 'string' ? prompt : undefined);
 		const finalPromptMessages = Array.isArray(prompt) ? prompt : [];
-		const finalMessages = callArgs.messages ?? (Array.isArray((config as Partial<configs.TemplatePromptConfig>).messages) ? (config as Partial<configs.TemplatePromptConfig>).messages : undefined);
+		const configuredMessages = (config as Partial<configs.TemplatePromptConfig>).messages;
 
 		const hasPromptString = typeof finalPromptString === 'string' && finalPromptString.length > 0;
-		const hasPromptMessages = finalPromptMessages.length > 0;
-		const hasMessages = finalMessages && finalMessages.length > 0;
+		const hasPromptMessages = callArgs.prompt === undefined && finalPromptMessages.length > 0;
+		// Call-time history is appended to configured messages, including when it is empty.
+		const hasMessages = (callArgs.messages?.length ?? 0) > 0
+			|| (Array.isArray(configuredMessages) && configuredMessages.length > 0);
 
 		if (!hasPromptString && !hasPromptMessages && !hasMessages) {
 			throw new ConfigError("Either 'prompt' (string or messages array) or 'messages' must be provided in the config or at call time.");
