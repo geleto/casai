@@ -2,13 +2,14 @@
 
 > **Future version of Casai:** See [README2.md](README2.md) for the planned API. These features are not yet implemented:
 >
-> - **[Agent](README2.md#generate-text-or-structured-data) / [StreamingAgent](README2.md#stream-incrementally)**: Unify text and structured-output generation, with optional tool loops and native AI SDK UI integration.
-> - **[Decision](README2.md#make-decisions)**: Answer choice, boolean, and scoring questions.
-> - **[Embedding](README2.md#embed-one-or-many-inputs) / [Reranker](README2.md#rerank-retrieved-documents)**: Generate vectors and rank retrieved documents for search and RAG.
-> - **[ImageGenerator](README2.md#generate-or-edit-images)**: Generate and edit images.
-> - **[Transcriber](README2.md#transcriber) / [StreamingTranscriber](README2.md#streamingtranscriber)**: Transcribe recordings or live audio; **[SpeechGenerator](README2.md#generate-speech)** produces speech, and **[VoiceSession](README2.md#hold-a-voice-conversation)** supports live voice conversations.
+> - **[LLMAgent](README2.md#llmagent)**: Unify text and structured-output generation and streaming, with [`.asStream`](README2.md#streaming-with-asstream) for a streaming ordinary call, optional tool loops, and AI SDK UI integration.
+> - **[Decision](README2.md#decision)**: Answer choice, boolean, and scoring questions.
+> - **[Embedding](README2.md#embedding) / [Reranker](README2.md#reranker)**: Generate vectors and rank retrieved documents for search and RAG.
+> - **[ImageGenerator](README2.md#imagegenerator)**: Generate and edit images.
+> - **[Transcriber](README2.md#transcriber) / [StreamingTranscriber](README2.md#streamingtranscriber)**: Transcribe recordings or live audio; **[SpeechGenerator](README2.md#speechgenerator)** produces speech, and **[VoiceSession](README2.md#voicesession)** supports live voice conversations.
+> - **[Streaming workflows](README2.md#streaming-through-templates-and-scripts)**: Stream Template, Script, and Function output in order; a later phase adds out-of-order delivery.
 >
-> This README describes the existing components and the planned [Phase 1 `.asAgent` addition](#agents-with-asagent). The [implementation design](docs/agents-design.md) defines all three phases.
+> This README describes the existing components and the planned [Phase 1 `.asAgent` addition](#agents-with-asagent). The [implementation design](docs/agents-design.md) tracks the five-phase roadmap.
 
 Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is a TypeScript AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically runs independent operations concurrently, giving you the performance of concurrent execution without the complexity of managing it.
 
@@ -182,7 +183,7 @@ At the core of *Casai* are **components** - versatile objects that transform inp
 
 ### Component Overview
 
-This table covers the current factories. `Config` creates reusable settings and is not a callable component. See the [Phase 2 and 3 overview](README2.md#component-overview) for the planned Agent and specialized factories. Component names link to Casai usage; SDK references cover detailed model settings and results. Only the main inputs and result fields are listed here.
+This table covers the current factories. `Config` creates reusable settings and is not a callable component. See the [Phase 2 and 3 overview](README2.md#component-overview) for the planned Agent and specialized factories. Component names link to Casai usage; SDK references cover detailed model settings and results. Linked result fields go directly to SDK return-value documentation, where available. Only the main inputs and result fields are listed here.
 
 | Component | What it does | Main inputs → result | SDK reference |
 | :--- | :--- | :--- | :--- |
@@ -190,8 +191,8 @@ This table covers the current factories. `Config` creates reusable settings and 
 | [Template](#template) | Render a Cascada template | Template and context → string | — |
 | [Script](#script) | Execute a Cascada workflow | Script and context → returned value | — |
 | [Function](#function) | Wrap JavaScript logic | Arguments/context → returned value | — |
-| [TextGenerator](#textgenerator) | Generate a complete text response | Prompt/messages or rendering context → `.text` | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text) |
-| [TextStreamer](#textstreamer) | Stream a text response | Prompt/messages or rendering context → `.textStream`, final `.text` | [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
+| [TextGenerator](#textgenerator) | Generate a complete text response | Prompt/messages or rendering context → [.text](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text) |
+| [TextStreamer](#textstreamer) | Stream a text response | Prompt/messages or rendering context → [.textStream, final .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) | [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
 | [ObjectGenerator](#objectgenerator) | Generate validated structured data | Prompt/messages or rendering context → `.object` | [SDK Output](https://ai-sdk.dev/docs/reference/ai-sdk-core/output) |
 | [ObjectStreamer](#objectstreamer) | Stream structured data | Prompt/messages or rendering context → `.partialObjectStream`, final `.object` | [SDK Output](https://ai-sdk.dev/docs/reference/ai-sdk-core/output) |
 
@@ -199,18 +200,18 @@ Model results also retain metadata and SDK features described in their component
 
 #### Modifier Support
 
-☑ = available; ☐ = not exposed; ☑¹ = planned for Phase 1, not implemented. Checkboxes describe factory modifiers, not methods on a created component.
+✅ = available; ❌ = not exposed; ✅¹ = planned for Phase 1, not implemented. Checkboxes describe factory modifiers, not methods on a created component.
 
 | Component | [.withText](#the-default-behavior-plain-text) | [.withTemplate](#the-with-family-for-inline-content) | [.withScript](#the-with-family-for-inline-content) | [.withFunction](#the-with-family-for-inline-content) | [.loadsText](#the-loads-family-for-external-content) | [.loadsTemplate](#the-loads-family-for-external-content) | [.loadsScript](#the-loads-family-for-external-content) | [.asTool](#using-components-as-tools) | [.asAgent](#agents-with-asagent) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| [Config](#configuration-management) | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| [Template](#template) | ☐ | ☐ | ☐ | ☐ | ☐ | ☑ | ☐ | ☑ | ☐ |
-| [Script](#script) | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☑ | ☑ | ☐ |
-| [Function](#function) | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☑ | ☐ |
-| [TextGenerator](#textgenerator) | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑¹ |
-| [TextStreamer](#textstreamer) | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☐ | ☑¹ |
-| [ObjectGenerator](#objectgenerator) | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑¹ |
-| [ObjectStreamer](#objectstreamer) | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | ☐ | ☑¹ |
+| [Config](#configuration-management) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| [Template](#template) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ |
+| [Script](#script) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| [Function](#function) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| [TextGenerator](#textgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅¹ |
+| [TextStreamer](#textstreamer) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅¹ |
+| [ObjectGenerator](#objectgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅¹ |
+| [ObjectStreamer](#objectstreamer) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅¹ |
 
 `Template`, `Script`, and `Function` perform their named operation by default; they do not have matching `.withTemplate`, `.withScript`, or `.withFunction` aliases. `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. For LLM factories, `.withText` is the default. Supported modifiers compose in prompt-modifier, optional `.asAgent`, optional `.asTool` order; see [Phase 1](#agents-with-asagent) for planned combinations.
 
@@ -785,7 +786,7 @@ You can provide callbacks in the component's configuration to handle events as t
 
 ### Agents with `.asAgent`
 
-> **Phase 1, planned:** `.asAgent` is not implemented yet. This is an opt-in addition to the four existing LLM factories. Their ordinary forms retain their current behavior. [Phase 2](README2.md) later introduces universal `Agent` and `StreamingAgent` factories with the SDK agent interface always available and loop behavior configured through `stopWhen`, without an `.asAgent` modifier.
+> **Phase 1, planned:** `.asAgent` is not implemented yet. This is an opt-in addition to the four existing LLM factories. Their ordinary forms retain their current behavior. [Phase 2](README2.md) later introduces a universal `LLMAgent` factory, with `.asStream` for a streaming ordinary call, the SDK agent interface always available, and loop behavior configured through `stopWhen`, without an `.asAgent` modifier.
 
 Add `.asAgent` to a factory to create a Casai component with a multi-step loop policy and the AI SDK [`Agent` interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent). The returned component remains callable and supports `.run()`, `.config`, rendering, validation, inheritance, and conversation history. It also exposes native `.generate()` and `.stream()` methods for SDK consumers.
 
@@ -798,7 +799,7 @@ Add `.asAgent` to a factory to create a Casai component with a multi-step loop p
 
 All four share an implementation backed by `generateText` and `streamText`. These SDK functions perform the model/tool loop. Casai implements the basic `Agent` interface directly; it does not need a `ToolLoopAgent` instance or a separate loop engine.
 
-Phase 2 reuses this core. Its `Agent` and `StreamingAgent` factories default to `Output.text()` and `isStepCount(1)` unless settings were supplied or inherited. They differ only in the default operation of the callable and `.run()`; both retain native generation and streaming.
+Phase 2 reuses this core. Its `LLMAgent` factory defaults to `Output.text()` and `isStepCount(1)` unless settings were supplied or inherited. It replaces `.run()` with `.generate()` and `.stream()`, which also implement the SDK interface; `.asStream` changes only the ordinary call's default operation.
 
 #### Creation and Standard Calls
 
@@ -896,7 +897,7 @@ Native calls use the configured model, tools, output, instructions, loop control
 
 Shared instructions belong in `instructions`. SDK call-option validation and `prepareCall` still run on both entry paths. Native custom options use `options`; Casai uses `callOptions` in configuration or `.run()`, since `options` already configures Cascada. Required native options must be supplied explicitly; native methods do not borrow Casai `callOptions` defaults.
 
-See the [implementation design](docs/agents-design.md) for preparation, type contracts, invocation isolation, and the three-phase roadmap, or [README2.md](README2.md) for the later `Agent` / `StreamingAgent` API. When updating demos for that API, preserve your explicit or inherited `stopWhen`, or add `isStepCount(20)` if you relied on the Phase 1 modifier's default. The Phase 2 factories default to one step and omit `.asAgent`.
+See the [implementation design](docs/agents-design.md) for preparation, type contracts, invocation isolation, and the five-phase roadmap, or [README2.md](README2.md) for the later `LLMAgent` API. When updating demos for that API, preserve your explicit or inherited `stopWhen`, or add `isStepCount(20)` if you relied on the Phase 1 modifier's default. The Phase 2 factory defaults to one step and omits `.asAgent`.
 
 ***
 
@@ -1909,10 +1910,13 @@ This type safety ensures robust, predictable workflows with early error detectio
 ### Coming Soon
 
 - **Phase 1: `.asAgent`**: Add the [agent modifier](#agents-with-asagent) to the four existing Text/Object generator and streamer factories, using a shared core backed directly by `generateText` and `streamText`.
-- **Phase 2: `Agent` / `StreamingAgent`**: Introduce the [final language-generation factories](README2.md) on that core, with text output and one model step as defaults, the SDK agent interface available on both factories, and loop behavior controlled solely by `stopWhen`. These factories omit `.asAgent`.
-- **Phase 3: Specialized Components**: Add `Decision`, `Embedding`, `Reranker`, `ImageGenerator`, `Transcriber`, `StreamingTranscriber`, `SpeechGenerator`, and `VoiceSession`. Embeddings accept a string or string array plus optional call overrides; streaming transcription uses the SDK's experimental API. Preserve each operation's native results and lifecycle. See the [Phase 3 design](docs/agents-design.md#phase-3-specialized-components). All three phases are planned, not available exports.
-- **Streaming Support for templates and scripts**: Add `TemplateStreamer` and `ScriptStreamer` components with an API aligned with Casai's other streamers, plus optional out-of-order chunk delivery for concurrent Cascada workflows. Dependent on the future [Cascada streaming implementation](https://github.com/geleto/cascada/blob/master/docs/cascada/streaming.md).
+- **Phase 2: `LLMAgent`**: Introduce the [final language-generation factory](README2.md) on that core, with text output and one model step as defaults, `.generate()` and `.stream()` serving both Casai calls and the SDK agent interface, `.asStream` for a streaming ordinary call, and loop behavior controlled solely by `stopWhen`. The factory omits `.asAgent` and `.run()`.
+- **Phase 3: Specialized Components**: Add `Decision`, `Embedding`, `Reranker`, `ImageGenerator`, `Transcriber`, `StreamingTranscriber`, `SpeechGenerator`, and `VoiceSession`. Embeddings accept a string or string array plus optional call overrides; streaming transcription keeps the SDK's native transcription stream. Preserve each operation's native results and lifecycle. See the [Phase 3 design](docs/agents-design.md#phase-3-specialized-components).
+- **Phase 4: Ordered Streaming Workflows**: Add `.stream()` to Template and Script, and `.asStream` to Template, Script, and Function. Cascada preserves logical output order while nested work runs concurrently: later output waits behind unfinished earlier positions. See the [Phase 4 design](docs/agents-design.md#phase-4-streaming-template-script-and-function) and the planned [Cascada streaming implementation](https://github.com/geleto/cascada/blob/master/docs/cascada/streaming.md).
+- **Phase 5: Out-of-Order Streaming**: Adopt Cascada's proposed `.indexed()` and `.indexedPath()` live-stream views, plus `at(chunk, index)` for JavaScript producers. The proposed Casai surface augments existing output streams, keeping ordinary iteration ordered while indexed views can expose ready chunks before earlier positions. Reader lifecycle and structured-output details remain to be settled. See the [Phase 5 design](docs/agents-design.md#phase-5-out-of-order-streaming).
 - **Improved Type Inference for AI SDK Configuration**: Better argument type inference for AI SDK functions passed through Casai configuration objects.
+
+All five phases are planned; the new APIs above are not available exports yet.
 
 ### Longer-Term Roadmap
 - **OpenTelemetry/MLflow integration**: MLflow's tracing, which captures your app's entire execution, including prompts, retrievals, tool calls.
