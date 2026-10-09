@@ -345,6 +345,8 @@ Template and Script have no `.generate()`. Without `.asStream`, their ordinary c
 
 `.asStream` cannot be combined with `.asTool`. When a Template or Script streams, the components it calls stream too; see [streaming through templates and scripts](#streaming-through-templates-and-scripts).
 
+Output streams also offer [indexed views](#indexed-stream-views) for consuming chunks with their logical positions while ordinary iteration stays ordered.
+
 ## Configuration Management
 
 ### Config
@@ -1204,12 +1206,41 @@ Output a result directly, as in `{{ writeIntro({ topic: topic }) }}`, to let it 
 
 Independent components may produce chunks out of order internally. Cascada buffers later output behind unfinished earlier positions and emits the next available prefix in order. For `{{ slowA() }}{{ fastB() }}`, chunks from `slowA` can be displayed immediately, but `fastB` waits until the preceding output finishes. A gap pauses delivery past that position; independent work can continue. Calling a component for an intermediate value does not by itself publish its output.
 
-Out-of-order delivery to consumers is reserved for [Phase 5](docs/agents-design.md#phase-5-out-of-order-streaming), following Cascada's proposed JavaScript API: `.indexed()` yields chunks with numeric or promised flat indices, `.indexedPath()` yields chunks with immediate hierarchical positions, and `at(chunk, index)` tags JavaScript-produced chunks with their logical positions. The [proposed Casai augmentation](docs/agents-design.md#recommended-augmentation-of-existing-output-streams) adds these views to existing output streams, for example `result.textStream.indexedPath()`, while ordinary iteration stays ordered. This is not implemented yet; reader lifecycle and partial structured-output semantics still need to be settled. SDK event streams and native transcription streams keep their own contracts.
+Use [indexed stream views](#indexed-stream-views) when you want to receive ready chunks before earlier positions are filled. Ordinary text streams remain ordered.
 
 Two cases do not follow the caller's mode:
 
 - A called component created with `.asStream` returns a stream even when its caller does not stream; the caller waits for the final value when it uses it.
 - A Function streams only when created with `.asStream`, because a streaming caller cannot change what its callback returns.
+
+### Indexed Stream Views
+
+`textStream`, supported `elementStream`, and `partialOutputStream` retain their ordinary `ReadableStream` and async-iteration behavior and add two methods:
+
+| Access | Delivery | Position information |
+| :--- | :--- | :--- |
+| `stream` | Ordered chunks | Implicit in iteration order |
+| `stream.indexed()` | Chunks as available | `{ chunk, index }`, where `index` is a zero-based `number` or `Promise<number>` |
+| `stream.indexedPath()` | Chunks as available | `{ chunk, indexpath }`, where `indexpath` is an immediately available `number[]` |
+
+For example, a UI can preview text from independent parts of a template as they become ready:
+
+```typescript
+const live = await newsletter.stream({ topic: 'battery recycling' });
+for await (const { chunk, indexpath } of live.textStream.indexedPath()) {
+  previewAtPath(indexpath, chunk); // Your UI places the chunk at its logical position.
+}
+```
+
+Use ordinary iteration over `live.textStream` instead when you need append-only text in order. Select one view per obtained handle before consuming it. View selection does not start a second execution; it does not provide replay, view switching after reading starts, or simultaneous readers on the same handle. Independent consumers require explicit supported branching.
+
+Flat indices can remain unresolved while earlier nested regions are still producing chunks. Awaiting an index inside the loop delays your consumption of later chunks. Hierarchical paths are available immediately; compare their numeric elements lexicographically, with shorter prefixes first. They describe stream positions, not JSON field paths.
+
+Text indices count chunks, and element indices count completed elements. Partial-output indices identify successive snapshots; they do not define how concurrent object updates merge. Final `.text` / `.output` promises retain their existing meaning. Plain SDK and untagged JavaScript sources wrapped by Casai expose the same views with sequential indices; only position-aware sources can deliver chunks ahead of earlier logical positions.
+
+JavaScript producers can supply logical positions through Cascada's planned `at(chunk, index)` integration. SDK event/UI streams and native transcription streams keep their own contracts. Promised indices are for in-process use; sending positioned chunks to a UI requires an explicit transport, typically using immediate paths.
+
+These views are agreed for [Phase 5](docs/agents-design.md#augmentation-of-existing-output-streams) and await implementation. Explicit branching, cancellation, buffering, and concurrent structured-output details remain documented in the design.
 
 ### Concurrency, Ordering, and Recovery
 

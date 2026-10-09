@@ -1,6 +1,6 @@
 # LLMAgent API and Specialized Components: Design and Implementation
 
-Status: agreed design, awaiting implementation, with unresolved details identified below. [README.md](../README.md#agents-with-asagent) describes Phase 1: `.asAgent` on the existing Text/Object factories. [README2.md](../README2.md) is the standalone user guide to the future API from Phases 2 to 4. Phase 2 exposes a single `LLMAgent` factory, with the `.asStream` modifier selecting streaming for its ordinary call and no `.asAgent` or `.run()`, using the same language-generation core as Phase 1. [Phase 3](#phase-3-specialized-components) adds decisions, embeddings, reranking, images, transcription, speech, and voice sessions. [Phase 4](#phase-4-streaming-template-script-and-function) adds ordered streaming to Template, Script, and Function. [Phase 5](#phase-5-out-of-order-streaming) adopts Cascada's proposed indexed stream views and tagged JavaScript producers for out-of-order delivery. This filename distinguishes the design note from repository `AGENTS.md` instructions.
+Status: agreed design, awaiting implementation, with unresolved details identified below. [README.md](../README.md#agents-with-asagent) describes Phase 1: `.asAgent` on the existing Text/Object factories. [README2.md](../README2.md) is the standalone user guide to the future API from Phases 2 to 5. Phase 2 exposes a single `LLMAgent` factory, with the `.asStream` modifier selecting streaming for its ordinary call and no `.asAgent` or `.run()`, using the same language-generation core as Phase 1. [Phase 3](#phase-3-specialized-components) adds decisions, embeddings, reranking, images, transcription, speech, and voice sessions. [Phase 4](#phase-4-streaming-template-script-and-function) adds ordered streaming to Template, Script, and Function. [Phase 5](#phase-5-out-of-order-streaming) augments existing output streams with Cascada's proposed indexed views and adopts tagged JavaScript producers for out-of-order delivery. This filename distinguishes the design note from repository `AGENTS.md` instructions.
 
 Phase 2 has one language-generation factory, `LLMAgent`; `.asStream` replaces a separate streaming factory. Phase 1 retains `.asAgent` as an addition to the existing factories. Casai is in active development with demos that can be rewritten; Phase 2 does not need to preserve the Phase 1 public surface through compatibility aliases or staged deprecation.
 
@@ -431,13 +431,13 @@ Use mock models and the existing type-checking workflow, and register new mock-o
 
 ## Phase 5: Out-of-Order Streaming
 
-Planned after Phase 4, using the [JavaScript integration in Cascada's streaming proposal](https://github.com/geleto/cascada/blob/master/docs/cascada/streaming.md#javascript-stream-integration). The upstream `stream` channel, `indexed()`, `indexedPath()`, and `at()` integration are proposed, not yet implemented or exported. Ordinary JavaScript async iterable inputs are already supported. Casai should expose the upstream ordering semantics rather than invent a separate event protocol or ordering engine.
+Agreed for Phase 5, awaiting implementation after Phase 4, using the [JavaScript integration in Cascada's streaming proposal](https://github.com/geleto/cascada/blob/master/docs/cascada/streaming.md#javascript-stream-integration). The upstream `stream` channel, `indexed()`, `indexedPath()`, and `at()` integration are proposed, not yet implemented or exported. Ordinary JavaScript async iterable inputs are already supported. Casai exposes the upstream ordering semantics through augmented output streams; Cascada owns the ordering engine.
 
 Chunk availability and logical position are independent. Work may produce a later chunk first; consumers can preview or process it immediately through an indexed view while ordinary iteration waits for preceding positions. All views describe the same source-ordered result.
 
 ### JavaScript Consumer Views
 
-In these examples, `stream` is the proposed live Cascada stream handle. The recommended Casai augmentation below exposes its views through existing output-stream properties; this is a proposal, not a feature of current SDK streams. A channel's `snapshot()` returns a materialized array, not this live handle.
+In these examples, `stream` is the planned live Cascada stream handle. The agreed Casai augmentation below exposes its views through existing output-stream properties. This is future functionality; current SDK streams do not provide these methods. A channel's `snapshot()` returns a materialized array, not this live handle.
 
 | View | Yielded value | Delivery and position |
 | :--- | :--- | :--- |
@@ -456,9 +456,9 @@ for await (const { chunk, indexpath } of stream.indexedPath()) {
 
 Index paths compare lexicographically by numeric elements. For example, `[1, 8, 9]` precedes `[2, 0]`, and a prefix such as `[1, 2]` precedes `[1, 2, 0]`. Do not compare arrays with JavaScript's `<` operator or use string sorting. Paths allow immediate placement or previews without waiting for a flat numeric index; a final reconstruction follows this logical order.
 
-### Recommended Augmentation of Existing Output Streams
+### Augmentation of Existing Output Streams
 
-Prefer augmenting the stream values already exposed on results, rather than adding another result wrapper or another component factory. Preserve ordinary `AsyncIterable` and `ReadableStream` behavior, with indexed views as additional methods. This surface is recommended for Phase 5; the reader lifecycle must be verified against the implemented Cascada API before it becomes a final contract.
+Augment the stream values already exposed on results. Preserve ordinary `AsyncIterable` and `ReadableStream` behavior, with indexed views as additional methods. This public surface and the rule of one selected consumer view per obtained handle are agreed. Bind them to the implemented Cascada API while resolving the lifecycle details listed below.
 
 ```typescript
 type CasaiStream<T> = AsyncIterable<T> & ReadableStream<T> & {
@@ -492,13 +492,13 @@ for await (const { chunk, indexpath } of result.textStream.indexedPath()) {
 
 Both examples are alternative consumption patterns. Selecting a view must not start a second model or workflow execution. `.indexed()` is the corresponding alternative when flat positions are useful; callers must handle its potentially promised index.
 
-| Existing output property | Proposed augmentation | Meaning and limits |
+| Existing output property | Augmentation | Meaning and limits |
 | :--- | :--- | :--- |
 | `textStream` | `CasaiStream<string>` | Indexes identify text chunks, not character or byte offsets. Cascada-backed output can expose ready chunks before earlier positions complete. |
 | `elementStream` | `CasaiStream<Element>` where an element stream is supported | Indexes identify complete elements in their logical sequence. This is a natural fit for independent concurrent work producing ordered results. |
 | `partialOutputStream` | `CasaiStream<PartialOutput>` as a sequence of snapshots | Indexes identify successive partial-output emissions, not object keys or JSON paths. Native SDK snapshots remain in their existing sequence; indexing does not define a merge of concurrent object updates. |
 
-For a plain SDK or untagged JavaScript source, the existing order is the only known order. It can expose the same methods with incremental numeric indices and paths such as `[index]`, but this provides no earlier delivery: it does not make a single model's serial output run out of order. Concurrent Cascada composition and explicitly tagged producers supply the additional position information needed for genuine out-of-order delivery.
+For a plain SDK or untagged JavaScript source wrapped by Casai, the existing order is the only known order. Expose the same methods with incremental numeric indices and paths such as `[index]`; these views preserve the source's delivery order. Concurrent Cascada composition and explicitly tagged producers supply the additional position information needed for out-of-order delivery.
 
 Partial structured output needs a narrower promise than text or complete elements. Preserve the SDK's snapshot semantics and final parsing; do not merge snapshots in arrival order, treat `indexpath` as a JSON patch path, or present complete elements as partial objects. How a Cascada Script exposes concurrent structured updates remains the Phase 4 design question. Position annotations alone do not resolve it.
 
@@ -510,7 +510,7 @@ The installed SDK returns real `ReadableStream` objects with async iteration and
 
 - Decorate newly obtained output-stream objects or provide a compatible stream facade. Preserve `getReader`, `pipeTo`, cancellation, locking, and SDK method receivers. Do not spread the result into a plain object, replace a stream with an async-generator-only wrapper, or eagerly read every SDK getter.
 - Build Cascada's ordered and indexed views over the position-aware source before its ordering buffer. An indexed wrapper over the already ordered text stream has lost the early-availability benefit. Do not drain the source or create an unused, buffering ordered branch merely to attach the extra methods.
-- Recommend one selected consumer view per obtained handle: ordinary reading, `.indexed()`, or `.indexedPath()`. Do not silently replay consumed chunks or permit competing readers on that handle. Preserve existing SDK getter/branch behavior; a request for multiple independent views must use an explicit upstream-supported branching policy and account for buffering.
+- Enforce one selected consumer view per obtained handle: ordinary reading, `.indexed()`, or `.indexedPath()`. Select the view before consumption; switching views after reading starts, replaying consumed chunks, and competing readers on that handle are not supported. Preserve existing SDK getter/branch behavior; multiple independent views require explicit upstream-supported branching and must account for buffering.
 - Final-value aggregation belongs to the execution, not to the chosen presentation order. Coordinate it with consumption so reading an indexed view does not starve final promises, and preserve existing automatic-consumption behavior without launching a second execution.
 - Treat indices as positions within the selected output sequence, not stable identifiers across text, elements, snapshots, or executions. Filtering, combining, or splitting chunks needs a defined position mapping; arbitrary `pipeThrough()` transforms return ordinary streams unless they explicitly preserve or recompute the indexed contract.
 - Resolve cancellation, early iterator exit, failed producers, and unresolved/rejected index promises through a common source lifecycle. The augmentation must not leave an unconsumed branch or independent producer running indefinitely.
@@ -541,10 +541,10 @@ Preserve Cascada's source-order visibility and transactional recovery. Reads see
 
 Keep ordinary `textStream` delivery ordered and retain Phase 4's final values. Selecting an indexed view changes delivery order and adds position information; it does not change which output the workflow publishes. StreamingTranscriber continues to expose its native transcription events, and SDK agent/UI streams retain their own contracts.
 
-The upstream proposal specifies the item shapes and ordering rules. Before implementation, settle these remaining integration details against the implemented Cascada API:
+The output properties, indexed method shapes, ordering semantics, and rule of one consumer view per obtained handle are agreed. Before implementation, settle these remaining integration details against the implemented Cascada API:
 
-- Validate the recommended augmentation of `textStream`, supported `elementStream`, and snapshot-based `partialOutputStream` against upstream handles; decide whether Casai re-exports `at`. Do not advertise indexed methods on unaugmented SDK results or operation-specific transcription streams.
-- Whether views share one consumer, can be switched, or can be consumed concurrently, together with cancellation, producer cleanup, and buffering limits. Do not promise replay or independent subscriptions without upstream support.
+- Bind the augmentation of `textStream`, supported `elementStream`, and snapshot-based `partialOutputStream` to upstream handles; decide whether Casai re-exports `at`. Do not advertise indexed methods on unaugmented SDK results or operation-specific transcription streams.
+- Define explicit branching for independent consumers, cancellation, producer cleanup, and buffering limits within the agreed consumption rule. Do not promise replay or independent subscriptions without upstream support.
 - Completion and failure behavior for unresolved or rejected index promises, duplicate positions, and missing positions, so reconstruction either completes or reports a defined failure instead of hanging.
 
 ### Phase 5 Verification
@@ -557,6 +557,7 @@ Use mock producers and the existing local/type-checking workflow; these checks n
 - Tagged JavaScript producers, promised indices, preservation through Function `.asStream` and context calls, and unchanged yield order for untagged sources.
 - Augmented streams remaining assignable to SDK stream/result types and usable through ordinary iteration and Web Streams readers; SDK lazy getter/branch semantics and UI event payloads remaining intact.
 - One execution regardless of the selected view, final-value promises completing under indexed consumption, and no hidden eager drain or unused branch created by augmentation.
+- Rejection of competing readers and view switches after consumption starts on one handle, with explicit supported branches retaining independent consumption.
 - Partial-output indices identifying snapshot emissions, complete-element indices identifying sequence elements, and paths not being treated as object update locations.
 - Source-order visibility, guard recovery without leaked provisional items, and poisoned items following Cascada semantics.
 - View ownership, cancellation, cleanup, buffer limits, and invalid or unresolved positions under the selected upstream lifecycle contract.
