@@ -345,7 +345,7 @@ Template and Script have no `.generate()`. Without `.asStream`, their ordinary c
 
 `.asStream` cannot be combined with `.asTool`. When a Template or Script streams, the components it calls stream too; see [streaming through templates and scripts](#streaming-through-templates-and-scripts).
 
-Output streams also offer [indexed views](#indexed-stream-views) for consuming chunks with their logical positions while ordinary iteration stays ordered.
+Results also offer [unordered output streams](#ordered-and-unordered-streams) for receiving ready chunks with their logical positions. Script and template loops consume them with the same syntax as ordinary streams.
 
 ## Configuration Management
 
@@ -1206,41 +1206,73 @@ Output a result directly, as in `{{ writeIntro({ topic: topic }) }}`, to let it 
 
 Independent components may produce chunks out of order internally. Cascada buffers later output behind unfinished earlier positions and emits the next available prefix in order. For `{{ slowA() }}{{ fastB() }}`, chunks from `slowA` can be displayed immediately, but `fastB` waits until the preceding output finishes. A gap pauses delivery past that position; independent work can continue. Calling a component for an intermediate value does not by itself publish its output.
 
-Use [indexed stream views](#indexed-stream-views) when you want to receive ready chunks before earlier positions are filled. Ordinary text streams remain ordered.
+Use [unordered output streams](#ordered-and-unordered-streams) when you want to receive ready chunks before earlier positions are filled. Ordinary text streams remain ordered.
 
 Two cases do not follow the caller's mode:
 
 - A called component created with `.asStream` returns a stream even when its caller does not stream; the caller waits for the final value when it uses it.
 - A Function streams only when created with `.asStream`, because a streaming caller cannot change what its callback returns.
 
-### Indexed Stream Views
+### Ordered and Unordered Streams
 
-`textStream`, supported `elementStream`, and `partialOutputStream` retain their ordinary `ReadableStream` and async-iteration behavior and add two methods:
+Results expose unordered output streams alongside their existing ordered streams. Both forms support `ReadableStream` and async iteration:
 
-| Access | Delivery | Position information |
+| Ordered property | Unordered property | Values |
 | :--- | :--- | :--- |
-| `stream` | Ordered chunks | Implicit in iteration order |
-| `stream.indexed()` | Chunks as available | `{ chunk, index }`, where `index` is a zero-based `number` or `Promise<number>` |
-| `stream.indexedPath()` | Chunks as available | `{ chunk, indexpath }`, where `indexpath` is an immediately available `number[]` |
+| `textStream` | `unorderedTextStream` | Text chunks |
+| `elementStream` | `unorderedElementStream` | Complete elements, where element streaming is supported |
+| `partialOutputStream` | `unorderedPartialOutputStream` | Successive partial-output snapshots |
 
-For example, a UI can preview text from independent parts of a template as they become ready:
+In JavaScript, an ordered stream yields raw values in logical order. An unordered stream yields records as chunks become available, each containing both positions:
 
 ```typescript
+type UnorderedChunk<T> = {
+  chunk: T;
+  indexpath: number[];              // Hierarchical position, available immediately.
+  index: number | Promise<number>; // Zero-based flat position, possibly deferred.
+};
+
 const live = await newsletter.stream({ topic: 'battery recycling' });
-for await (const { chunk, indexpath } of live.textStream.indexedPath()) {
-  previewAtPath(indexpath, chunk); // Your UI places the chunk at its logical position.
+for await (const { chunk, indexpath, index } of live.unorderedTextStream) {
+  previewAtPath(indexpath, chunk);
+  const flatIndex = await index; // Valid for both numbers and promises.
+  recordPosition(flatIndex, chunk);
 }
 ```
 
-Use ordinary iteration over `live.textStream` instead when you need append-only text in order. Select one view per obtained handle before consuming it. View selection does not start a second execution; it does not provide replay, view switching after reading starts, or simultaneous readers on the same handle. Independent consumers require explicit supported branching.
+`previewAtPath` and `recordPosition` represent application callbacks. Use `live.textStream` and append its strings when you need ordered text. Each obtained stream handle has one consumer; choosing an output property does not start a second execution or replay consumed chunks. Independent consumers require explicit supported branching.
 
-Flat indices can remain unresolved while earlier nested regions are still producing chunks. Awaiting an index inside the loop delays your consumption of later chunks. Hierarchical paths are available immediately; compare their numeric elements lexicographically, with shorter prefixes first. They describe stream positions, not JSON field paths.
+Flat indices can remain unresolved while earlier nested regions are still producing chunks. Awaiting an index inside the JavaScript loop pauses consumption of later chunks. Use the immediate path when a preview should proceed without waiting. Compare paths lexicographically by numeric elements, with shorter prefixes first; they describe stream positions, not JSON field paths.
 
-Text indices count chunks, and element indices count completed elements. Partial-output indices identify successive snapshots; they do not define how concurrent object updates merge. Final `.text` / `.output` promises retain their existing meaning. Plain SDK and untagged JavaScript sources wrapped by Casai expose the same views with sequential indices; only position-aware sources can deliver chunks ahead of earlier logical positions.
+Text indices count chunks, and element indices count completed elements. Partial-output indices identify successive snapshots; they do not define how concurrent object updates merge. Final `.text` / `.output` promises retain their existing meaning. Plain SDK and untagged JavaScript sources wrapped by Casai expose unordered properties with sequential positions; only position-aware sources can deliver chunks ahead of earlier logical positions.
 
-JavaScript producers can supply logical positions through Cascada's planned `at(chunk, index)` integration. SDK event/UI streams and native transcription streams keep their own contracts. Promised indices are for in-process use; sending positioned chunks to a UI requires an explicit transport, typically using immediate paths.
+#### Consuming Either Form in Script and Template Loops
 
-These views are agreed for [Phase 5](docs/agents-design.md#augmentation-of-existing-output-streams) and await implementation. Explicit branching, cancellation, buffering, and concurrent structured-output details remain documented in the design.
+In Cascada scripts and templates, consume unordered streams exactly like ordinary streams. Bind `source` in context to either `live.textStream` or `live.unorderedTextStream`; the loop body stays the same. Cascada receives the position metadata internally, while the loop variable receives the chunk itself.
+
+Script:
+
+```cascada
+text output
+for chunk in source
+  output(chunk)
+endfor
+return output.snapshot()
+```
+
+Template:
+
+```nunjucks
+{% for chunk in source %}{{ chunk }}{% endfor %}
+```
+
+These are alternative consumers, each needing its own source handle. If an unordered source delivers `world` at position 1 before `Hello ` at position 0, both loops assemble `Hello world`. There is no special loop syntax, `.chunk` access, manual sorting, or index awaiting. Elements and snapshots are likewise exposed as their original values. Ordinary loop concurrency still applies; output ordering does not sequence unrelated external side effects.
+
+This behavior uses the recognized position-aware stream protocol. Ordinary iterables yielding application objects with fields such as `chunk` or `index` continue to yield those objects unchanged. JavaScript consumers of an unordered property see the full records shown above.
+
+JavaScript producers can also supply logical positions through Cascada's planned `at(chunk, index)` integration. SDK event/UI streams and native transcription streams keep their own contracts. Promised indices are for in-process use; sending positioned chunks to a UI requires an explicit transport, typically using immediate paths.
+
+These properties and loop behavior are agreed for [Phase 5](docs/agents-design.md#ordered-and-unordered-output-properties) and await implementation. Upstream protocol integration, explicit branching, cancellation, buffering, and concurrent structured-output details remain documented in the design.
 
 ### Concurrency, Ordering, and Recovery
 
