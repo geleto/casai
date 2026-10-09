@@ -64,6 +64,7 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 - [The `prompt` Property: Your Universal Input](#the-prompt-property-your-universal-input)
 - [Configuration Management](#configuration-management)
 - [The Casai Components](#the-casai-components)
+- [Agent and StreamingAgent (planned)](#agent-and-streamingagent)
 - [Callable Component Objects](#callable-component-objects)
 - [Using Components as Tools](#using-components-as-tools)
 - [Template and Script Properties](#template-and-script-properties)
@@ -241,6 +242,7 @@ Here's a quick overview of the primary components you'll use:
 *   [**`create.Script`**](#script): **For data-layer orchestration.** Executes a Cascada script.
 *   [**`create.Function`**](#function): **For wrapping standard JS logic.** Creates a callable function from an `execute` method, which can be exposed as a tool to an LLM.
 *   [**`create.TextGenerator` / `create.TextStreamer`**](#textgenerator): **For LLM-based text generation.** Generates or streams unstructured text.
+*   [**`create.Agent` / `create.StreamingAgent`** (planned)](#agent-and-streamingagent): **For reusable tool-loop agents.** Uses Casai's component conventions and exposes the AI SDK agent interface for integration with SDK helpers.
 *   [**`create.ObjectGenerator` / `create.ObjectStreamer`**](#objectgenerator): **For structured data from an LLM.** Generates or streams structured JSON objects.
 
 ### Callable Component Objects
@@ -739,6 +741,123 @@ You can provide callbacks in the component's configuration to handle events as t
 *   **`onFinish`**: Called when the stream is complete, containing the final `text`, `usage`, and `response` (with `messages` and `messageHistory`).
 *   **`onError`**: Called if an error occurs during streaming.
 *   **`onChunk`**: Called for each individual chunk processed in the stream.
+
+***
+
+### Agent and StreamingAgent
+
+> **Planned functionality:** This section describes the agreed API design. `Agent` and `StreamingAgent` are not yet implemented or exported by Casai.
+
+These components wrap the AI SDK's [`ToolLoopAgent`](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent). The model can call tools over multiple steps, subject to the configured stopping conditions. `Agent` generates a complete result; `StreamingAgent` streams it. Both use the same Casai creation, inheritance, rendering, validation, and message-history conventions as the text components.
+
+| Component | Standard call and `.run()` use | SDK compatibility methods |
+| :--- | :--- | :--- |
+| `TextGenerator` | `generateText` | None |
+| `TextStreamer` | `streamText` | None |
+| `Agent` | `ToolLoopAgent.generate` | `.generate()` and `.stream()` |
+| `StreamingAgent` | `ToolLoopAgent.stream` | `.generate()` and `.stream()` |
+
+Text generators and streamers already support tool use and loop controls. The agent components add the SDK's reusable agent abstraction and compatibility with its agent helpers.
+
+#### Creation and Standard Calls
+
+The examples below assume an application-provided `model` and `tools` map.
+
+```typescript
+import { create } from 'casai';
+import { isStepCount } from 'ai';
+
+const agentConfig = create.Config({
+  model,
+  tools,
+  stopWhen: isStepCount(10),
+});
+
+const agent = create.Agent({}, agentConfig);
+const result = await agent('Research battery recycling.');
+console.log(result.text);
+
+const streamingAgent = create.StreamingAgent({}, agentConfig);
+const stream = await streamingAgent('Research battery recycling.');
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+`isStepCount` is the AI SDK 7 name for the earlier `stepCountIs` helper. The stopping condition limits the loop; the agent may finish earlier. Omitting `stopWhen` retains the SDK agent's default loop policy.
+
+Both factories support the usual modifiers: `.withText` (the default), `.withTemplate`, `.withScript`, `.withFunction`, `.loadsText`, `.loadsTemplate`, and `.loadsScript`. Pass a `Config` or another component as the second factory argument to inherit its configuration. Inspect the resolved settings through `.config`.
+
+Plain-text calls accept a prompt string, model messages, or the usual combination of a prompt and conversation history. A configured prompt can be used with `agent()`. Rendered components accept call-time context, with required fields inferred from `inputSchema`:
+
+```typescript
+import { z } from 'zod';
+
+const researcher = create.Agent.withTemplate({
+  prompt: 'Research {{ topic }}. Answer in {{ language }}.',
+  inputSchema: z.object({ topic: z.string() }),
+  context: { language: 'English' },
+}, agentConfig);
+
+const report = await researcher({ topic: 'battery recycling' });
+
+const frenchReport = await researcher.run({
+  context: { topic: 'battery recycling', language: 'French' },
+  temperature: 0.4,
+  stopWhen: isStepCount(5),
+});
+```
+
+`inputSchema` validates call-time context before configured context is merged. Required input fields must be supplied on each call; configured context cannot satisfy them. Ordinary calls preserve Casai's validation behavior rather than replacing input with schema-transformed output.
+
+There is no separate `input` envelope. For rendered components, an object argument supplies template/script/function data; a field named `prompt` is ordinary data. Plain-text calls use `agent('...')` or `agent.run({ prompt: '...' })`, rather than `agent({ prompt: '...' })`.
+
+Prompt overrides, loaded prompt names, and function prompts follow the existing [callable component conventions](#callable-component-objects). In particular, a template or script prompt override is new source to render; `.withFunction` takes a context object and supports replacing its prompt function through `.run()`.
+
+#### Run Overrides, Results, and Tools
+
+`.run()` uses the factory's default operation and applies allowed overrides to that invocation only. Configuration maps and messages follow the existing [inheritance rules](#property-inheritance-explained). Model settings, loop controls, instructions, and compatible tool overrides can vary per run; input/output contracts and renderer setup remain fixed.
+
+Both agent components return promises, including a plain-text `StreamingAgent`, because `ToolLoopAgent.stream()` performs asynchronous call preparation. Awaiting a streaming agent yields the stream result; it does not wait for the generated text to finish. This differs from the immediate result of a plain-text `TextStreamer`.
+
+Casai calls and `.run()` retain the SDK's tool calls, steps, usage, streams, and structured output via `output`, plus Casai's `response.messages` and `response.messageHistory` conventions. For streaming results, await `response` to read the history. Pass that history into subsequent calls explicitly; the component does not keep a conversation between invocations.
+
+`Agent` also follows the non-streaming `.asTool` convention, including combinations such as `create.Agent.withTemplate.asTool(...)`. Its direct call returns the full generation result, while the tool's `execute` resolves to the final text, like `TextGenerator.asTool`. `StreamingAgent` has no `.asTool` modifier.
+
+#### Native AI SDK Compatibility
+
+Both components additionally implement the AI SDK [`Agent` interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent): `version`, `id`, `tools`, `.generate()`, and `.stream()`. These methods accept native SDK arguments and return native SDK results, regardless of the factory's default operation:
+
+```typescript
+// Either component can generate or stream through the SDK interface.
+const generated = await streamingAgent.generate({
+  prompt: 'Explain battery recycling briefly.',
+});
+
+const streamed = await agent.stream({
+  messages: [{ role: 'user', content: 'Explain battery recycling briefly.' }],
+});
+```
+
+The compatibility methods use the resolved SDK settings, including model, tools, instructions, loop controls, and SDK hooks. They bypass Casai prompt loading/rendering, `inputSchema` validation, rendering-context merging, configured prompt/history insertion, and message-history augmentation. Supply a complete SDK prompt or conversation; SDK validation and hooks still run. Native calls accept either `prompt` or `messages`, as required by the SDK.
+
+For example, `researcher.generate({ prompt: 'Explain recycling.' })` sends that prompt directly. It neither requires `topic` nor renders the researcher's configured template. The same boundary applies when an SDK helper calls `.stream()`:
+
+```typescript
+import { createAgentUIStreamResponse } from 'ai';
+
+// uiMessages comes from the application's chat request.
+const response = await createAgentUIStreamResponse({
+  agent: streamingAgent,
+  uiMessages,
+});
+```
+
+Either `agent` or `streamingAgent` works with this helper. The helper uses the supplied conversation and does not invoke the Casai callable or append a configured Casai prompt. Put shared agent instructions in the SDK's `instructions` setting; prompt modifiers render `prompt`, not `instructions`.
+
+For advanced SDK integrations, `callOptionsSchema` and `prepareCall` retain their SDK meaning. Native methods receive custom call options under `options`; these are separate from Casai rendering context. On the Casai surface, the corresponding setting is `callOptions`, supplied in component configuration or `.run()`, because `options` already configures Cascada. When SDK call options are required, configure them for ordinary calls or supply them with `.run()`. Native methods require their own SDK `options` and do not use Casai `callOptions` defaults.
+
+See the [agent implementation design](docs/agents.md) for the preparation boundary, type contracts, and invocation isolation.
 
 ***
 
@@ -1750,6 +1869,7 @@ This type safety ensures robust, predictable workflows with early error detectio
 
 ### Coming Soon
 
+- **Agent components**: Implement [`Agent` and `StreamingAgent`](#agent-and-streamingagent) with Casai rendering and call conventions, plus the native AI SDK agent interface. The linked section documents the agreed design, not an available export.
 - **Streaming Support for templates and scripts**: Add `TemplateStreamer` and `ScriptStreamer` components with an API aligned with Casai's other streamers, plus optional out-of-order chunk delivery for concurrent Cascada workflows. Dependent on the future [Cascada streaming implementation](https://github.com/geleto/cascada/blob/master/docs/cascada/streaming.md).
 - **Improved Type Inference for AI SDK Configuration**: Better argument type inference for AI SDK functions passed through Casai configuration objects.
 
