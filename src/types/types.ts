@@ -4,7 +4,7 @@ import type { ILoaderAny } from 'cascada-engine';
 import type { RaceGroup, RaceLoader } from '../loaders.js';
 import type { AugmentedResponse } from './result.js';
 import type { EmptyMap } from './merge.js';
-import type { ValidateContextValue } from './input.js';
+import type { ComponentCall } from './input.js';
 
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;
 
@@ -59,9 +59,7 @@ export type FunctionCaller<
 	FunctionOutput = OutputSchema extends SchemaType<any>
 	? InferSchema<OutputSchema, any>
 	: ReturnType<ExecuteFunction>//the return type of the execute function
-> =
-	<TInput extends INPUT = INPUT>(...args: (EmptyObject extends INPUT ? [input?: TInput] : [input: TInput]) & NoInfer<ValidateContextValue<TInput>>)
-		=> /*AsyncIterable<OUTPUT> |*/ PromiseLike<FunctionOutput> | FunctionOutput;
+> = ComponentCall<EmptyObject extends INPUT ? [input?: INPUT] : [input: INPUT], Promise<Awaited<FunctionOutput>>>;
 
 // Type for the implementation function - has input and context as arguments
 // if there is output schema - we use it as the return type
@@ -146,11 +144,11 @@ export type PromptFunction<PR extends string | ModelMessage[] = string | ModelMe
 export type StreamObjectOnFinishEvent<SCHEMA extends z.ZodTypeAny | Schema<any>> =
 	GenerateObjectEndEvent<InferSchema<SCHEMA>>;
 
-type SDKStreamTextOnFinishEvent<TOOLS extends ToolSet> = Parameters<StreamTextOnEndCallback<TOOLS>>[0];
+type SDKStreamTextOnFinishEvent<TOOLS extends ToolSet, OUTPUT extends AIOutput, RUNTIME_CONTEXT extends Record<string, unknown>> = Parameters<StreamTextOnEndCallback<TOOLS, RUNTIME_CONTEXT, OUTPUT>>[0];
 
-export type StreamTextOnFinishEvent<TOOLS extends ToolSet = Record<string, never>> =
-	Omit<SDKStreamTextOnFinishEvent<TOOLS>, 'response'> & {
-		response: AugmentedResponse<SDKStreamTextOnFinishEvent<TOOLS>['response']>;
+export type StreamTextOnFinishEvent<TOOLS extends ToolSet = Record<string, never>, OUTPUT extends AIOutput = AIOutput<string, string, never>, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
+	Omit<SDKStreamTextOnFinishEvent<TOOLS, OUTPUT, RUNTIME_CONTEXT>, 'response'> & {
+		response: AugmentedResponse<SDKStreamTextOnFinishEvent<TOOLS, OUTPUT, RUNTIME_CONTEXT>['response']>;
 	};
 
 export type EmptyObject = Record<string, never>;

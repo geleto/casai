@@ -42,7 +42,7 @@ void fn();
 void fn(1);
 // @ts-expect-error Function.execute exposes its implementation and requires configured fields.
 void fn.execute({ value: 1 });
-expectType<number | PromiseLike<number>>(fn.execute({ value: 1, offset: 3 }));
+expectEqual<ReturnType<typeof fn.execute>, number>();
 
 const inherited = create.Function({}, fn);
 void inherited({ value: 2 });
@@ -67,9 +67,25 @@ void replaced({ name: 'child' });
 // @ts-expect-error Replacement input schemas remove the parent's input contract.
 void replaced({ value: 1 });
 // @ts-expect-error Replacement schema output is a string.
-expectType<number | PromiseLike<number>>(replaced({ name: 'child' }));
-const noOutputSchema = create.Function({ schema: undefined, execute: ({ name }) => name.length }, replaced);
-expectType<number | PromiseLike<number>>(noOutputSchema({ name: 'child' }));
+expectType<Promise<number>>(replaced({ name: 'child' }));
+const _noOutputSchema = create.Function({ schema: undefined, execute: ({ name }) => name.length }, replaced);
+expectEqual<ReturnType<typeof _noOutputSchema>, Promise<number>>();
+const _synchronousResult = fn({ value: 1 });
+expectEqual<typeof _synchronousResult, Promise<number>>();
+const asynchronousFunction = create.Function({ execute: async () => 1 });
+expectEqual<ReturnType<typeof asynchronousFunction>, Promise<number>>();
+void asynchronousFunction().then(value => {
+	expectEqual<typeof value, number>();
+	// @ts-expect-error Async Function calls resolve to values rather than nested promises.
+	expectType<Promise<number>>(value);
+});
+declare const thenableNumber: PromiseLike<number>;
+const _thenableFunction = create.Function({ execute: () => thenableNumber });
+expectEqual<ReturnType<typeof _thenableFunction>, Promise<number>>();
+const _transformedResultFunction = create.Function({ schema: z.string().transform(Number), execute: () => '1' });
+expectEqual<ReturnType<typeof _transformedResultFunction>, Promise<number>>();
+expectEqual<ReturnType<typeof inherited>, Promise<number>>();
+expectEqual<ReturnType<typeof replaced>, Promise<string>>();
 
 const inferred = create.Function({
 	context: { offset: 2 },
@@ -235,12 +251,12 @@ void spreadObject({ value: 1, offset: 'wrong' });
 // @ts-expect-error Optional configured fields still constrain run override types.
 void spreadTextStream.run({ context: { value: 1, offset: 'wrong' } });
 const transformedOutput = create.Function({ schema: z.string().transform(Number), execute: () => '123' });
-expectType<number | PromiseLike<number>>(transformedOutput({}));
+expectEqual<ReturnType<typeof transformedOutput>, Promise<number>>();
 expectType<string>(transformedOutput.execute());
 // @ts-expect-error Function implementations return unparsed output-schema input.
 create.Function({ schema: z.string().transform(Number), execute: () => 123 });
-const defaultedOutput = create.Function({ schema: z.number().default(123), execute: () => undefined });
-expectType<number | PromiseLike<number>>(defaultedOutput({}));
+const _defaultedOutput = create.Function({ schema: z.number().default(123), execute: () => undefined });
+expectEqual<ReturnType<typeof _defaultedOutput>, Promise<number>>();
 const outputSchema = z.string().transform(Number);
 const annotatedConfig: FunctionConfig<typeof transformedInput, typeof outputSchema, undefined> = {
 	inputSchema: transformedInput, schema: outputSchema,
@@ -251,7 +267,7 @@ const annotatedConfig: FunctionConfig<typeof transformedInput, typeof outputSche
 	},
 };
 const annotatedFunction = create.Function(annotatedConfig);
-expectType<number | PromiseLike<number>>(annotatedFunction({ value: '123' }));
+expectEqual<ReturnType<typeof annotatedFunction>, Promise<number>>();
 // @ts-expect-error Annotated Function configs retain raw input-schema types.
 void annotatedFunction({ value: 123 });
 const opaqueConfig: FunctionConfig<typeof inputSchema, undefined, undefined> = { inputSchema, execute: ({ value }) => value };
@@ -492,3 +508,18 @@ void unionConfiguredFunction({ value:1, mode:'prefix', prefix:'new', common:2 })
 void unionConfiguredFunction({ value:1, mode:'offset' });
 // @ts-expect-error Shared context overrides must preserve the field's type in every branch.
 void unionConfiguredFunction({ value:1, common:'wrong' });
+
+// Different component families retain common context calls when selected as a union.
+const functionOrScript = Math.random() > 0.5 ? fn : create.Script({ inputSchema, schema: z.number(), script: 'return value' });
+const _unionResult = functionOrScript({ value: 1 });
+expectEqual<typeof _unionResult, Promise<number>>();
+// @ts-expect-error Every selected component requires the numeric input field.
+void functionOrScript({ value: 'wrong' });
+// @ts-expect-error Required schema inputs cannot disappear through a component union.
+void functionOrScript();
+// @ts-expect-error Component unions retain object context guards.
+void functionOrScript([1]);
+const mixedInputFunctionOrScript = Math.random() > 0.5 ? fn : create.Script({ schema: z.number(), script: 'return value' });
+void mixedInputFunctionOrScript({ value: 1 });
+// @ts-expect-error A possibly selected required-input Function still requires context.
+void mixedInputFunctionOrScript();

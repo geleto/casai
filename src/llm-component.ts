@@ -1,7 +1,8 @@
 import type { Context, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
 import * as configs from './types/config.js';
 import type { ValidateRunConfig } from './types/config-validation.js';
-import type { CallContext, ContextArguments, RunContext, ValidateContextValue } from './types/input.js';
+import type { CallContext, ContextArguments, RunContext, ValidateContextValue, ComponentCall } from './types/input.js';
+import type { ProcessedConfig } from './types/merge.js';
 import type { FunctionRunPrompt } from './types/function-prompt.js';
 import { ConfigError, validateConfigBasics, validateLLMComponentCall, validateLoadedTextPrompt, validateMessagesArray } from './validate.js';
 import { extractCallArguments } from './call-arguments.js';
@@ -27,8 +28,15 @@ type RunPrompt<TConfig, PType extends RequiredPromptType, PROMPT> = PType extend
 	? TConfig extends { messages: ModelMessage[] } ? unknown : { prompt: PROMPT } | { messages: ModelMessage[] }
 	: { prompt: PROMPT };
 
+type RenderedArguments<TConfig, PROMPT> = TConfig extends { prompt: PROMPT }
+	? ContextArguments<TConfig>
+	| [promptOrMessages: PROMPT | ModelMessage[], ...args: ContextArguments<TConfig>]
+	| [prompt: PROMPT | undefined, messages: ModelMessage[], ...args: ContextArguments<TConfig>]
+	: [prompt: PROMPT, ...args: ContextArguments<TConfig>]
+	| [prompt: PROMPT, messages: ModelMessage[], ...args: ContextArguments<TConfig>];
+
 interface LLMComponent<TConfig, TResult, TAllowedConfigShape> {
-	config: TConfig;
+	config: ProcessedConfig<TConfig>;
 	type: string;
 	run<const TRunConfig extends object>(config: TRunConfig & TAllowedConfigShape & ValidateRunConfig<TRunConfig, TConfig, TAllowedConfigShape>): TResult;
 }
@@ -49,12 +57,14 @@ export type LLMCallSignature<
 		TConfig extends { prompt: string | ModelMessage[] } | { messages: ModelMessage[] }
 		? {
 			// Optional prompt/messages
-			(prompt: string | ModelMessage[], messages?: ModelMessage[]): TResult;
+			(prompt: string, messages?: ModelMessage[]): TResult;
+			(prompt: undefined, messages: ModelMessage[]): TResult;
 			(messages?: ModelMessage[]): TResult;
 		}
 		: {
 			// Required a prompt or messages
-			(prompt: string | ModelMessage[], messages?: ModelMessage[]): TResult;
+			(prompt: string, messages?: ModelMessage[]): TResult;
+			(prompt: undefined, messages: ModelMessage[]): TResult;
 			(messages: ModelMessage[]): TResult;
 		}
 	)
@@ -67,18 +77,7 @@ export type LLMCallSignature<
 	: (
 		// TConfig has template or script or function; return type is always a promise
 		// we can have a prompt and/or messages at the same time (prompt are required and get rendered).
-		TConfig extends { prompt: PROMPT }
-		? {
-			// Config already has a prompt => Optional prompt, optional messages, and optional context
-			(prompt: PROMPT, messages: ModelMessage[], ...args: ContextArguments<TConfig>): utils.EnsurePromise<TResult>;
-			(prompt: PROMPT, ...args: ContextArguments<TConfig>): utils.EnsurePromise<TResult>;
-			(...args: ContextArguments<TConfig>): utils.EnsurePromise<TResult>;
-		}
-		: (
-			// Requires a prompt, optional messages, and optional context
-			//(prompt: string, message: ModelMessage[], context?: Context): utils.EnsurePromise<TResult>;
-			(prompt: PROMPT, ...args: ContextArguments<TConfig>) => utils.EnsurePromise<TResult>
-		)
+		ComponentCall<RenderedArguments<TConfig, PROMPT>, utils.EnsurePromise<TResult>, true>
 	));
 
 //@todo - the promptComponent shall use a precompiled template/script when created with a template/script promptType
@@ -192,10 +191,10 @@ export function _createLLMComponent<
 				renderedPrompt = await runRenderer(runConfig.context);
 			} else if (typeof configArg.prompt === 'string' && !isFunctionPrompt) {
 				//re-compile with the new prompt
-				renderedPrompt = await (renderer as TemplateComponent | ScriptComponent)(configArg.prompt, runConfig.context) as string | ModelMessage[];
+				renderedPrompt = await (renderer as (prompt: string, context?: Context) => Promise<string | ModelMessage[]>)(configArg.prompt, runConfig.context);
 			} else {
 				// the renderer has precompiled script/template or is a function, just give it the context
-				renderedPrompt = await renderer(runConfig.context) as string | ModelMessage[];
+				renderedPrompt = await (renderer as (context?: Context) => string | ModelMessage[] | PromiseLike<string | ModelMessage[]>)(runConfig.context);
 			}
 
 			if (runConfig.debug) {

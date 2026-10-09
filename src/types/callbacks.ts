@@ -14,7 +14,7 @@ export type ConfigCallbackKeys = CallbackKeys<Parameters<typeof generateText<Too
 // Infer config data before checking callbacks that depend on that data.
 export type CallbackConfigShape<T> = T extends unknown ? {
 	// An inherited optional model may be undefined until the child supplies a required model.
-	[K in keyof T]: K extends ConfigCallbackKeys ? unknown
+	[K in keyof T]: K extends ConfigCallbackKeys | ToolSelectionKeys ? unknown
 	: K extends 'model' ? EmptyMap extends Pick<T, K> ? T[K] | undefined : T[K] : T[K]
 } : never;
 
@@ -54,6 +54,18 @@ export type TextCallbackConfig<P, T, R, O> = MergedConfig<[P] extends [never] ? 
 export type ObjectRunConfig<Shape, T, Streaming extends boolean> = Omit<Shape, 'onFinish'> & ObjectCallbacks<T, Streaming>;
 
 type ToolCallbackKeys = 'experimental_refineToolInput' | 'toolApproval';
+type ToolSelectionKeys = 'activeTools' | 'toolChoice' | 'toolOrder';
+type ToolSelections<TOOLS extends ToolSet> = Pick<Parameters<typeof generateText<TOOLS>>[0], ToolSelectionKeys>;
+export type ParentToolSelectionInput<P, C> = { tools?: P } & NoInfer<ToolSelections<ToolsFromConfig<MergedConfig<Setting<'tools', P>, Setting<'tools', C>>>>>;
+type InvalidToolSelections<TConfig, Expected> = {
+	[K in ToolSelectionKeys & keyof TConfig]-?: K extends keyof Expected ? Pick<TConfig, K> extends Pick<Expected, K> ? never : K : K;
+}[ToolSelectionKeys & keyof TConfig];
+
+// Fragments can name tools before a tool map exists; consuming factories check the final map.
+export type ValidateToolSelectionNames<TConfig, TFinalConfig = TConfig, PartialConfig extends boolean = false> =
+	[InvalidToolSelections<TConfig, ToolSelections<PartialConfig extends true ? 'tools' extends keyof TFinalConfig ? ToolsFromConfig<TFinalConfig> : ToolSet : ToolsFromConfig<TFinalConfig>>>] extends [never] ? unknown
+	: 'Config Error: Tool selections must name configured tools and follow the AI SDK selection contract.';
+
 type CallbackToolNames<T> = T extends Callback ? never : keyof T;
 type UnknownToolCallbackNames<TConfig, TFinalConfig> = {
 	[K in ToolCallbackKeys]: K extends keyof TConfig
@@ -75,7 +87,7 @@ type ValidateApprovalContracts<TConfig> = 'toolApproval' extends keyof TConfig
 	? [InvalidApprovalConfig<NonNullable<TConfig['toolApproval']>>] extends [never] ? unknown
 	: 'Config Error: Tool approval callbacks and statuses must follow the AI SDK approval contract.' : unknown;
 
-export type ValidateCallbacks<T, Final, Expected> = ValidateResolved<T, ValidateToolCallbackNames<Final> & ({
+export type ValidateCallbacks<T, Final, Expected> = ValidateResolved<T, ValidateToolCallbackNames<Final> & ValidateToolSelectionNames<Final> & ({
 	[K in keyof Expected & keyof Final]-?: Pick<Final, K> extends Pick<Expected, K> ? never : K
 }[keyof Expected & keyof Final] extends infer Invalid
 	? [Invalid] extends [never] ? unknown : `Config Error: Callback '${Invalid & string}' is incompatible with the final configuration.` : never)>;
@@ -89,7 +101,7 @@ export type ObjectCallbackInput<C, P, S, M, E, Streaming extends boolean> =
 
 export type TextCallbackInput<C, P, T, R, O, Streaming extends boolean,
 	Context = TextCallbackConfig<P, T, R, O>, Final = CallbackFinal<P, C>> =
-	TextCallbackArguments<T, R, O> & NoInfer<TextCallbacks<Context, ToolsFromConfig<Context>, Streaming>> &
+	TextCallbackArguments<T, R, O> & NoInfer<TextCallbacks<Context, ToolsFromConfig<Context>, Streaming> & ToolSelections<ToolsFromConfig<Context>>> &
 	ValidateCallbacks<C, Final, TextCallbacks<Final, ToolsFromConfig<Final>, Streaming>>;
 
 type ObjectCommonCallbacks<F extends (...args: any[]) => any, SDK = Parameters<F>[0]> = Pick<SDK, Exclude<CallbackKeys<SDK>, 'onFinish'>>;
@@ -117,6 +129,6 @@ export type FragmentCallbacks<T, Shapes = FragmentCallbackShapes<T>> = {
 
 export type FragmentCallbackInput<C, P, Tools, Schema, R, O, E,
 	Context = MergedConfig<P, Setting<'tools', Tools> & Setting<'schema', Schema> & Setting<'runtimeContext', R> & Setting<'output', O> & Setting<'enum', E>>> =
-	TextCallbackArguments<Tools, R, O> & { enum?: E } & NoInfer<FragmentCallbacks<Context>> &
-	ValidateResolved<C, ValidateApprovalContracts<CallbackFinal<P, C>> & ValidateToolCallbackNames<CallbackFinal<P, C>, CallbackFinal<P, C>, true> & ([StrictUnionSubtype<Pick<CallbackFinal<P, C>, ConfigCallbackKeys & keyof CallbackFinal<P, C>>, FragmentCallbackShapes<CallbackFinal<P, C>>>] extends [never]
+	TextCallbackArguments<Tools, R, O> & { enum?: E } & NoInfer<FragmentCallbacks<Context> & ToolSelections<'tools' extends keyof Context ? ToolsFromConfig<Context> : ToolSet>> &
+	ValidateResolved<C, ValidateApprovalContracts<CallbackFinal<P, C>> & ValidateToolCallbackNames<CallbackFinal<P, C>, CallbackFinal<P, C>, true> & ValidateToolSelectionNames<CallbackFinal<P, C>, CallbackFinal<P, C>, true> & ([StrictUnionSubtype<Pick<CallbackFinal<P, C>, ConfigCallbackKeys & keyof CallbackFinal<P, C>>, FragmentCallbackShapes<CallbackFinal<P, C>>>] extends [never]
 	? 'Config Error: Callbacks do not match the final configuration.' : unknown)>;

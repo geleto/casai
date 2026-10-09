@@ -93,7 +93,7 @@ function asFunction<
 		NoInfer<ChildFunctionContext<TParentConfig, TInputSchema, TOutputSchema, CONTEXT, TConfig>> &
 		ValidateFinalConfig<TConfig, ParentDefinition<TParentConfig>, FinalConfig<TParentConfig, TConfig>, ExpectedFunctionConfig<FinalConfig<TParentConfig, TConfig>>> &
 		ValidateResolved<TConfig, types.ValidateContextInputSchema<configs.DeclaredType<FinalConfig<TParentConfig, TConfig>, 'inputSchema'>>>,
-	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'FunctionCall' })
+	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'FunctionCall' | 'function' })
 ): FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>;
 
 // An optional context may be absent even when exact optional properties exclude explicit undefined.
@@ -111,7 +111,7 @@ function asFunction<
 		NoInfer<ChildFunctionContext<TParentConfig, TInputSchema, TOutputSchema, CONTEXT | undefined, TConfig>> &
 		ValidateFinalConfig<TConfig, ParentDefinition<TParentConfig>, FinalConfig<TParentConfig, TConfig>, ExpectedFunctionConfig<FinalConfig<TParentConfig, TConfig>>> &
 		ValidateResolved<TConfig, types.ValidateContextInputSchema<configs.DeclaredType<FinalConfig<TParentConfig, TConfig>, 'inputSchema'>>>,
-	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'FunctionCall' })
+	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'FunctionCall' | 'function' })
 ): FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>;
 
 function asFunction(

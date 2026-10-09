@@ -162,12 +162,16 @@ describe('Config validation', () => {
 		// Deliberately bypass TypeScript to exercise the runtime checks behind the compile-time requirements.
 		const loader = { load: () => 'Loaded' };
 		const requirements: { name: string, build: () => unknown, error: RegExp }[] = [
-			{ name: 'a Template without a template', build: () => create.Template({} as never), error: /'template' property is required/ },
-			{ name: 'a Script without a script', build: () => create.Script({} as never), error: /'script' property is required/ },
+			// @ts-expect-error Inline Template creation requires a template body.
+			{ name: 'a Template without a template', build: () => create.Template({}), error: /'template' property is required/ },
+			// @ts-expect-error Inline Script creation requires a script body.
+			{ name: 'a Script without a script', build: () => create.Script({}), error: /'script' property is required/ },
 			{ name: 'a Template tool without an input schema', build: () => create.Template.asTool({ template: 'Hello' } as never), error: /'inputSchema' is a required property when creating a Template/ },
 			{ name: 'a Script tool without an input schema', build: () => create.Script.asTool({ script: 'return 1' } as never), error: /'inputSchema' is a required property when creating a Script/ },
-			{ name: 'a loaded Template tool without a name', build: () => create.Template.loadsTemplate.asTool({ inputSchema, loader } as never), error: /'template' is a required property when creating a Template as a tool/ },
-			{ name: 'a loaded Script tool without a name', build: () => create.Script.loadsScript.asTool({ inputSchema, loader } as never), error: /'script' is a required property when creating a Script as a tool/ },
+			// @ts-expect-error A loaded Template tool must have a configured template name.
+			{ name: 'a loaded Template tool without a name', build: () => create.Template.loadsTemplate.asTool({ inputSchema, loader }), error: /'template' is a required property when creating a Template as a tool/ },
+			// @ts-expect-error A loaded Script tool must have a configured script name.
+			{ name: 'a loaded Script tool without a name', build: () => create.Script.loadsScript.asTool({ inputSchema, loader }), error: /'script' is a required property when creating a Script as a tool/ },
 			{ name: 'a Function without execute', build: () => create.Function({} as never), error: /'execute' property in a Function config must be a function/ },
 			{ name: 'a Function tool without an input schema', build: () => create.Function.asTool({ execute: () => 1 } as never), error: /'inputSchema' is a required property when creating a Function/ },
 			{ name: 'a text generator tool without a prompt', build: () => create.TextGenerator.withTemplate.asTool({ model, inputSchema } as never), error: /'prompt' is a required property when creating a TextGenerator/ },

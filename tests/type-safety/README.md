@@ -16,10 +16,15 @@ Each invalid case has a descriptive `@ts-expect-error` on the failing line. If t
 | `sdk-results.ts` | SDK result member preservation, structured outputs, tool discriminants, promises, streams, response history and response-conversion callbacks |
 | `public-contracts.ts` | Factory/modifier inventory, public aliases, exported types, annotated schema inference, loaders, race groups, providers, message schemas and errors |
 | `annotation-contracts.ts` | Exported configuration annotations, schema presence, typed renderer/tool inputs and outputs, prompt kinds, tool contexts and SDK finish callbacks |
+| `renderer-call-contracts.ts` | Standalone and inherited processed config, nested renderer defaults, required bodies, positional prompt/history/context forms and exact call/run results |
+| `family-contracts.ts` | Allowed renderer settings, forbidden local/inherited settings, body/option/filter value types and cross-family component parents |
+| `message-contracts.ts` | Validator output consumed by components, SDK message input drift, provider-qualified custom parts and narrowed parsed content |
 | `exact-optional.ts` | Consumer behavior that specifically depends on exact optional property types |
 
 Coverage comes from the README's API contracts, implementation behavior, existing runtime tests, the installed SDK declarations, and adversarial combinations such as empty inherited children, uncertain settings, transformed/defaulted schemas, and incompatible map replacements. Factory/modifier and SDK callback inventory assertions require review when those APIs change. Runtime-only conditions such as custom schema refinements still belong in runtime tests.
 
 For a coverage audit, first inventory the currently implemented exports and SDK callback/result members independently of these tests. Trace their runtime dispatch, validation and merge behavior, then vary boundaries: literal versus annotated values, standalone versus inherited versus run overrides, required versus optional fields, raw versus parsed schemas, and union branches versus configured defaults. Pair each new rejection with a valid neighboring case and verify exact inference where assignment could hide widening. Planned APIs in design documents are outside this inventory until implemented.
+
+Exercise standalone factory inference separately from `Config` parents. Put every tool-capable component family in SDK tool maps and check its downstream callback input/output types. Assert callable and `.run()` returns exactly, including calls through component unions, verify exposed processed settings against runtime normalization, and feed public validator outputs back into component APIs. These checks protect paths that a schema or tool tested only through a reusable parent can miss.
 
 When adding an API or fixing a type leak, add both a valid example and a negative case here. Give each negative case one intended violation, and supply unrelated required settings so it cannot pass because of a different error. Avoid casts in these probes: they bypass the contract being tested.

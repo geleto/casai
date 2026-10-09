@@ -1,8 +1,9 @@
 // Consumer-only tool input, execution-context and toolsContext contracts.
 import { create, z } from 'casai';
-import type { FunctionToolConfig, TemplateToolConfig, ScriptToolConfig } from 'casai';
+import type { ComponentTool, FunctionToolConfig, TemplateToolConfig, ScriptToolConfig } from 'casai';
 import { tool as sdkTool } from 'ai';
-import type { LanguageModel, ToolExecutionOptions } from 'ai';
+import type { JSONValue, LanguageModel, Tool, ToolExecutionOptions } from 'ai';
+import type { LoaderInterface } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
 
 declare const model: LanguageModel;
@@ -290,3 +291,147 @@ expectEqual<Parameters<typeof unionTool>, Parameters<typeof unionTool.execute>>(
 void unionTool.execute({ kind:'text' }, noContext);
 // @ts-expect-error Parsed tool branches override configured defaults with their own input types.
 void unionTool({ kind:'count', count:'wrong' }, noContext);
+
+// Tool outputs follow their final generation mode and schema, including inherited defaults.
+const answerSchema = z.object({ answer: z.number() });
+const objectTool = create.ObjectGenerator.asTool({ model, inputSchema, contextSchema, schema: answerSchema, prompt: 'Answer' });
+const arrayTool = create.ObjectGenerator.asTool({ model, inputSchema, schema: answerSchema, output: 'array', prompt: 'Answer' });
+const enumTool = create.ObjectGenerator.asTool({ model, inputSchema, output: 'enum', enum: ['yes', 'no'], prompt: 'Answer' });
+const jsonTool = create.ObjectGenerator.asTool({ model, inputSchema, output: 'no-schema', prompt: 'Answer' });
+expectEqual<Awaited<ReturnType<typeof objectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof arrayTool.execute>>, { answer: number }[]>();
+expectEqual<Awaited<ReturnType<typeof enumTool.execute>>, 'yes' | 'no'>();
+expectEqual<Awaited<ReturnType<typeof jsonTool.execute>>, JSONValue>();
+const objectToolParent = create.Config({ model, inputSchema, contextSchema, schema: answerSchema, prompt: 'Answer' });
+const _inheritedObjectTool = create.ObjectGenerator.asTool({}, objectToolParent);
+const _inheritedArrayTool = create.ObjectGenerator.asTool({}, arrayTool);
+const _inheritedEnumTool = create.ObjectGenerator.asTool({}, enumTool);
+const _inheritedJsonTool = create.ObjectGenerator.asTool({}, jsonTool);
+expectEqual<Awaited<ReturnType<typeof _inheritedObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof _inheritedArrayTool.execute>>, { answer: number }[]>();
+expectEqual<Awaited<ReturnType<typeof _inheritedEnumTool.execute>>, 'yes' | 'no'>();
+expectEqual<Awaited<ReturnType<typeof _inheritedJsonTool.execute>>, JSONValue>();
+const objectTemplateTool = create.ObjectGenerator.withTemplate.asTool({ model, inputSchema, contextSchema, schema: answerSchema, prompt: '{{ value }}' });
+const objectScriptTool = create.ObjectGenerator.withScript.asTool({ model, inputSchema, schema: answerSchema, prompt: 'return value' });
+const objectFunctionTool = create.ObjectGenerator.withFunction.asTool({ model, inputSchema, schema: answerSchema, prompt: ({ value }) => String(value) });
+expectEqual<Awaited<ReturnType<typeof objectTemplateTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof objectScriptTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof objectFunctionTool.execute>>, { answer: number }>();
+declare const loader: LoaderInterface;
+const loadedTextObjectTool = create.ObjectGenerator.loadsText.asTool({ model, inputSchema, schema: answerSchema, prompt: 'answer.txt', loader });
+const loadedTemplateObjectTool = create.ObjectGenerator.loadsTemplate.asTool({ model, inputSchema, schema: answerSchema, prompt: 'answer.njk', loader });
+const loadedScriptObjectTool = create.ObjectGenerator.loadsScript.asTool({ model, inputSchema, schema: answerSchema, prompt: 'answer.casc', loader });
+expectEqual<Awaited<ReturnType<typeof loadedTextObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof loadedTemplateObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof loadedScriptObjectTool.execute>>, { answer: number }>();
+const _inheritedTemplateObjectTool = create.ObjectGenerator.withTemplate.asTool({}, objectTemplateTool);
+const _inheritedScriptObjectTool = create.ObjectGenerator.withScript.asTool({}, objectScriptTool);
+const _inheritedFunctionObjectTool = create.ObjectGenerator.withFunction.asTool({}, objectFunctionTool);
+const _inheritedLoadedTextObjectTool = create.ObjectGenerator.loadsText.asTool({}, loadedTextObjectTool);
+const _inheritedLoadedTemplateObjectTool = create.ObjectGenerator.loadsTemplate.asTool({}, loadedTemplateObjectTool);
+const _inheritedLoadedScriptObjectTool = create.ObjectGenerator.loadsScript.asTool({}, loadedScriptObjectTool);
+expectEqual<Awaited<ReturnType<typeof _inheritedTemplateObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof _inheritedScriptObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof _inheritedFunctionObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof _inheritedLoadedTextObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof _inheritedLoadedTemplateObjectTool.execute>>, { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof _inheritedLoadedScriptObjectTool.execute>>, { answer: number }>();
+const _changedOutputObjectTool = create.ObjectGenerator.withTemplate.asTool({ schema: z.object({ answer: z.string() }) }, objectTemplateTool);
+expectEqual<Awaited<ReturnType<typeof _changedOutputObjectTool.execute>>, { answer: string }>();
+const scriptJsonTool = create.Script.asTool({ inputSchema, script: 'return { answer: value }' });
+const _inheritedScriptJsonTool = create.Script.asTool({}, scriptJsonTool);
+expectEqual<Awaited<ReturnType<typeof scriptJsonTool.execute>>, JSONValue>();
+expectEqual<Awaited<ReturnType<typeof _inheritedScriptJsonTool.execute>>, JSONValue>();
+expectEqual<Awaited<ReturnType<typeof scriptJsonTool>>, JSONValue>();
+const _loadedScriptJsonTool = create.Script.loadsScript.asTool({ inputSchema, script: 'answer.casc', loader });
+expectEqual<Awaited<ReturnType<typeof _loadedScriptJsonTool.execute>>, JSONValue>();
+expectEqual<Awaited<ReturnType<typeof _loadedScriptJsonTool>>, JSONValue>();
+
+// Public tools remain structurally compatible with both Casai and the AI SDK.
+expectType<ComponentTool<{ value: number }, number, { factor: number }>>(multiply);
+expectType<Tool<{ value: number }, number, { factor: number }>>(multiply);
+expectType<ComponentTool<{ value: number }, string, { factor: number }>>(template);
+expectType<Tool<{ value: number }, string, { factor: number }>>(template);
+expectType<ComponentTool<{ value: number }, number, { factor: number }>>(script);
+expectType<Tool<{ value: number }, number, { factor: number }>>(script);
+expectType<ComponentTool<{ value: number }, string, { factor: number }>>(textTool);
+expectType<Tool<{ value: number }, string, { factor: number }>>(textTool);
+expectType<ComponentTool<{ value: number }, { answer: number }, { factor: number }>>(objectTool);
+expectType<Tool<{ value: number }, { answer: number }, { factor: number }>>(objectTool);
+// @ts-expect-error Typed object tool outputs cannot be widened to a different schema result.
+expectType<Tool<{ value: number }, { answer: string }, { factor: number }>>(objectTool);
+
+create.TextGenerator({ model, prompt: 'Use tools', tools: { template, script, textTool, objectTool }, toolsContext: {
+	template: { factor: 2 }, script: { factor: 2 }, textTool: { factor: 2 }, objectTool: { factor: 2 },
+}, onEnd: event => {
+	for (const result of event.staticToolResults) {
+		expectEqual<typeof result.input, { value: number }>();
+		if (result.toolName === 'objectTool') {
+			expectEqual<typeof result.output, { answer: number }>();
+			// @ts-expect-error Object tool result fields preserve their schema type inside SDK callbacks.
+			expectType<string>(result.output.answer);
+		} else if (result.toolName === 'script') expectEqual<typeof result.output, number>();
+		else expectEqual<typeof result.output, string>();
+	}
+} });
+// @ts-expect-error Every tool family with a required contextSchema requires matching toolsContext.
+create.TextGenerator({ model, prompt: 'Use tools', tools: { template, script, textTool, objectTool }, toolsContext: { template: { factor: 2 }, script: { factor: 2 }, textTool: { factor: 2 } } });
+
+// Renderer tools without a JavaScript callback can replace execution context schemas freely.
+const suffixSchema = z.object({ suffix: z.string() });
+const suffixOptions: ToolExecutionOptions<{ suffix: string }> = { ...noContext, context: { suffix: '!' } };
+const replacedTemplateContext = create.Template.asTool({ contextSchema: suffixSchema }, template);
+const replacedObjectContext = create.ObjectGenerator.withTemplate.asTool({ contextSchema: suffixSchema }, objectTemplateTool);
+const textTemplateTool = create.TextGenerator.withTemplate.asTool({ model, inputSchema, contextSchema, prompt: '{{ value }}' });
+const replacedTextContext = create.TextGenerator.withTemplate.asTool({ contextSchema: suffixSchema }, textTemplateTool);
+void replacedTemplateContext.execute({ value: 1 }, suffixOptions);
+void replacedObjectContext.execute({ value: 1 }, suffixOptions);
+void replacedTextContext.execute({ value: 1 }, suffixOptions);
+// @ts-expect-error Replaced Template context schemas remove the previous factor context.
+void replacedTemplateContext.execute({ value: 1 }, options);
+// @ts-expect-error Replaced generator context schemas remove the previous factor context.
+void replacedObjectContext.execute({ value: 1 }, options);
+// @ts-expect-error Replaced text-generator context schemas remove the previous factor context.
+void replacedTextContext.execute({ value: 1 }, options);
+
+// Direct renderer calls validate raw values; SDK execute receives already parsed schema output.
+const rawRendererInput = z.object({ value: z.string().transform(Number), fallback: z.string().default('default') });
+const rawTemplateTool = create.Template.asTool({ inputSchema: rawRendererInput, template: '{{ value }}' });
+const rawScriptTool = create.Script.asTool({ inputSchema: rawRendererInput, script: 'return value', schema: z.union([z.string(), z.number()]) });
+const rawObjectTool = create.ObjectGenerator.withTemplate.asTool({ model, inputSchema: rawRendererInput, schema: answerSchema, prompt: '{{ value }}' });
+void rawTemplateTool({ value: '1' });
+void rawScriptTool({ value: '1' });
+void rawObjectTool({ value: '1' });
+void rawTemplateTool.execute({ value: 1, fallback: 'parsed' }, noContext);
+void rawScriptTool.execute({ value: 1, fallback: 'parsed' }, noContext);
+void rawObjectTool.execute({ value: 1, fallback: 'parsed' }, noContext);
+// @ts-expect-error Template direct calls take raw schema input.
+void rawTemplateTool({ value: 1 });
+// @ts-expect-error Script direct calls take raw schema input.
+void rawScriptTool({ value: 1 });
+// @ts-expect-error Object renderer direct calls take raw schema input.
+void rawObjectTool({ value: 1 });
+// @ts-expect-error Template execute takes parsed values, including defaulted fields.
+void rawTemplateTool.execute({ value: '1', fallback: 'parsed' }, noContext);
+// @ts-expect-error Script execute takes parsed values, including defaulted fields.
+void rawScriptTool.execute({ value: 1 }, noContext);
+// @ts-expect-error Object renderer execute takes parsed values.
+void rawObjectTool.execute({ value: '1', fallback: 'parsed' }, noContext);
+
+// Function/tool conversion preserves the original implementation and parsed result.
+const regularFunction = create.Function({ inputSchema, schema: z.number(), execute: ({ value }) => value + 1 });
+const convertedTool = create.Function.asTool({}, regularFunction);
+const convertedBack = create.Function({}, convertedTool);
+expectEqual<ReturnType<typeof convertedBack>, Promise<number>>();
+expectEqual<ReturnType<typeof convertedTool.execute>, Promise<number>>();
+void convertedTool.execute({ value: 1 }, noContext);
+void convertedBack({ value: 1 });
+// @ts-expect-error Conversion back to Function restores the ordinary one-argument call contract.
+void convertedBack({ value: 1 }, noContext);
+// @ts-expect-error Conversion preserves the input schema.
+void convertedBack({ value: 'wrong' });
+// @ts-expect-error A parsed-input tool implementation cannot consume ordinary raw transformed input.
+create.Function({}, parsedTool);
+const rawConversionFunction = create.Function({ inputSchema: rawRendererInput, execute: ({ value }) => value.length });
+// @ts-expect-error Conversion to a tool must check the implementation against parsed SDK input.
+create.Function.asTool({}, rawConversionFunction);

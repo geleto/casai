@@ -36,7 +36,7 @@ void templateTool.execute({ name: 123 }, executionOptions);
 void templateTool.execute({ name: 'Ada' }, { toolCallId: 'call', messages: [], context: { tenant: 123 } });
 
 // The intersection makes schema presence explicit; ScriptConfig alone permits it to be absent.
-const scriptConfig: ScriptConfig<{ name: string }, { length: number }> & { schema: typeof schema } = {
+const scriptConfig: ScriptConfig<{ name: string }, { length: number }> & { script: string, schema: typeof schema } = {
 	script: 'return { length: name.length }', inputSchema, schema,
 };
 const script = create.Script(scriptConfig);
@@ -118,7 +118,8 @@ const _wrongObjectStreamConfig: StreamObjectObjectConfig<never, { length: number
 
 // The wrapper always passes an object, even when execute itself accepts undefined.
 const optionalExecute = create.Function({ execute: (input?: { value: number }) => input?.value ?? 0 });
-expectType<number | PromiseLike<number>>(optionalExecute({ value: 1 }));
+expectEqual<ReturnType<typeof optionalExecute>, Promise<number>>();
+expectType<Promise<number>>(optionalExecute({ value: 1 }));
 // @ts-expect-error An optional callback parameter does not make its object fields optional.
 void optionalExecute();
 // @ts-expect-error The wrapper passes an object, so undefined cannot satisfy required fields.

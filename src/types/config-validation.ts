@@ -84,7 +84,7 @@ export type ValidateTemplateConfig<
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	& (TShape extends configs.ToolConfig<any, any> ? { inputSchema: SchemaType<any> } : {}) // inputSchema is required for asTool
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-	& (TShape extends configs.ToolConfig<any, any> ? { template: any } : {})
+	& (TShape extends configs.LoaderConfig ? TShape extends configs.ToolConfig<any, any> ? { template: string } : {} : { template: string })
 > =
 	// GATEKEEPER: Check for excess or missing properties
 	// 1. Check for excess properties in TConfig that are not in TShape
@@ -119,7 +119,7 @@ export type ValidateScriptConfig<
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 	& (TShape extends { inputSchema: any } ? { inputSchema: SchemaType<any> } : {}) // inputSchema is required for asTool
 	// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-	& (TShape extends configs.ToolConfig<any, any> ? { script: any } : {})
+	& (TShape extends configs.LoaderConfig ? TShape extends configs.ToolConfig<any, any> ? { script: string } : {} : { script: string })
 > =
 	// GATEKEEPER: Check for excess or missing properties
 	// 1. Check for excess properties in TConfig that are not in TShape

@@ -1,8 +1,8 @@
 // Compile-only consumer contracts; this module must never execute.
 import { create, z, FileSystemLoader } from 'casai';
 import { Output } from 'ai';
-import type { LanguageModel, ModelMessage, generateText, streamText, generateObject, streamObject, GenerateObjectStartEvent, GenerateObjectStepStartEvent, GenerateObjectStepEndEvent, GenerateObjectEndEvent, Telemetry, JSONSchema7 } from 'ai';
-import type { GenerateObjectObjectConfig, StreamObjectArrayConfig } from 'casai';
+import type { LanguageModel, ModelMessage, generateText, streamText, generateObject, streamObject, GenerateObjectStartEvent, GenerateObjectStepStartEvent, GenerateObjectStepEndEvent, GenerateObjectEndEvent, GenerateTextEndEvent, Telemetry, JSONSchema7 } from 'ai';
+import type { GenerateObjectObjectConfig, StreamObjectArrayConfig, StreamTextOnFinishEvent } from 'casai';
 
 import { expectType, expectEqual } from './assert.js';
 declare const model: LanguageModel;
@@ -578,3 +578,126 @@ create.TextStreamer({ model, output: Output.object({ schema: variantSchema }), o
 } });
 // @ts-expect-error A completion observer cannot require only one possible schema union member.
 create.ObjectGenerator({ model, schema: variantSchema, onFinish: (_event: GenerateObjectEndEvent<Extract<Variant, { kind: 'count' }>>) => undefined });
+
+// Tool selection settings always use the final tools, including inheritance, fragments, and run overrides.
+create.TextGenerator({ activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] }, parent);
+streamer.run({ activeTools: ['lookup'], toolChoice: 'auto', toolOrder: ['lookup'] });
+streamer.run({ activeTools: [], toolChoice: 'none', toolOrder: [] });
+create.Config({ activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] }, parent);
+// @ts-expect-error Inherited active-tools lists cannot name an unconfigured tool.
+create.TextGenerator({ activeTools: ['missing'] }, parent);
+// @ts-expect-error Inherited tool-choice objects cannot name an unconfigured tool.
+create.TextStreamer({ toolChoice: { type: 'tool', toolName: 'missing' } }, parent);
+// @ts-expect-error Inherited tool ordering cannot name an unconfigured tool.
+create.TextGenerator({ toolOrder: ['lookup', 'missing'] }, parent);
+// @ts-expect-error Config fragments with known tools validate active-tool names immediately.
+create.Config({ activeTools: ['missing'] }, parent);
+// @ts-expect-error Config fragments with known tools validate tool-choice names immediately.
+create.Config({ toolChoice: { type: 'tool', toolName: 'missing' } }, parent);
+// @ts-expect-error Config fragments with known tools validate ordering names immediately.
+create.Config({ toolOrder: ['missing'] }, parent);
+// @ts-expect-error run() cannot enable an unconfigured tool.
+streamer.run({ activeTools: ['missing'] });
+// @ts-expect-error run() cannot select an unconfigured tool.
+streamer.run({ toolChoice: { type: 'tool', toolName: 'missing' } });
+// @ts-expect-error run() cannot order an unconfigured tool.
+streamer.run({ toolOrder: ['missing'] });
+// @ts-expect-error Standalone selection validation must not widen a concrete tool map.
+create.TextGenerator({ model, tools, toolsContext, activeTools: ['missing'] });
+// @ts-expect-error Standalone tool-choice validation must not widen a concrete tool map.
+create.TextGenerator({ model, tools, toolsContext, toolChoice: { type: 'tool', toolName: 'missing' } });
+// @ts-expect-error Standalone ordering validation must not widen a concrete tool map.
+create.TextStreamer({ model, tools, toolsContext, toolOrder: ['missing'] });
+const deferredSelection = create.Config({ activeTools: ['lookup'] as const, toolChoice: { type: 'tool', toolName: 'lookup' } as const, toolOrder: ['lookup'] as const });
+create.TextGenerator({ model, tools, toolsContext }, deferredSelection);
+// @ts-expect-error A deferred selection must refer to tools in the consuming component.
+create.TextGenerator({ model, tools: { extra } }, deferredSelection);
+const selectedParent = create.Config({ tools, toolsContext, activeTools: ['lookup'] as const });
+// @ts-expect-error An invalid selector inherited from an annotated provider must be checked too.
+create.TextGenerator({ model }, { config: { tools, toolsContext, toolOrder: ['missing'] as const } });
+create.TextGenerator({ model, tools: { extra }, activeTools: ['lookup', 'extra'], toolOrder: ['extra', 'lookup'] }, selectedParent);
+declare const unknownSelection: readonly string[];
+// @ts-expect-error A broad string list cannot guarantee that each selected tool exists.
+streamer.run({ activeTools: unknownSelection });
+// @ts-expect-error Deferred fragments still reject malformed active-tools values before tools are supplied.
+create.Config({ activeTools: 123 });
+// @ts-expect-error Deferred fragments still reject malformed tool-choice values before tools are supplied.
+create.Config({ toolChoice: 'missing' });
+// @ts-expect-error Deferred fragments still require string tool-order names before tools are supplied.
+create.Config({ toolOrder: [123] });
+
+// Inline configured runtime values are defaults; later runs and steps retain their value types.
+const inlineRuntime = create.TextGenerator({
+	model, prompt: 'Answer.',
+	runtimeContext: { requestId: 'initial', retry: 0, details: { enabled: true }, labels: ['initial'], now: new Date(), format: (value: number) => String(value) },
+	onStart: _event => {
+		expectEqual<typeof _event.runtimeContext.requestId, string>();
+		expectEqual<typeof _event.runtimeContext.retry, number>();
+		expectEqual<typeof _event.runtimeContext.details.enabled, boolean>();
+		expectEqual<typeof _event.runtimeContext.labels[number], string>();
+		expectEqual<typeof _event.runtimeContext.now, Date>();
+		expectEqual<typeof _event.runtimeContext.format, (value: number) => string>();
+	},
+	prepareStep: () => ({ runtimeContext: { requestId: 'next', retry: 1, details: { enabled: false }, labels: ['next', 'again'], now: new Date(), format: value => String(value) } }),
+});
+void inlineRuntime.run({ runtimeContext: { requestId: 'next', retry: 2, details: { enabled: false }, labels: [], now: new Date(), format: value => String(value) } });
+void inlineRuntime.run({ prepareStep: _options => {
+	expectEqual<typeof _options.runtimeContext.requestId, string>();
+	return { runtimeContext: { requestId: 'later', retry: 3, details: { enabled: false }, labels: ['later'], now: new Date(), format: value => String(value) } };
+} });
+// @ts-expect-error Widened runtime defaults retain their original value kinds.
+void inlineRuntime.run({ runtimeContext: { requestId: 123, retry: 1, details: { enabled: false }, labels: [], now: new Date(), format: String } });
+// @ts-expect-error Nested runtime defaults still enforce their field types.
+void inlineRuntime.run({ prepareStep: () => ({ runtimeContext: { requestId: 'next', retry: 1, details: { enabled: 'yes' }, labels: [], now: new Date(), format: String } }) });
+const inlineRuntimeStream = create.TextStreamer({ model, prompt: 'Answer.', runtimeContext: { requestId: 'initial' } });
+inlineRuntimeStream.run({ runtimeContext: { requestId: 'next' }, onEnd: _event => { expectEqual<typeof _event.runtimeContext.requestId, string>(); } });
+
+// A fragment usable by text and object components receives the union of their finish events.
+// eslint-disable-next-line @typescript-eslint/no-generated-empty-object-type -- A fragment without tools intentionally specializes both text events to an empty tool map.
+type FragmentFinish = GenerateTextEndEvent<Record<never, never>> | StreamTextOnFinishEvent<Record<never, never>> | GenerateObjectEndEvent<unknown>;
+const sharedFinish = create.Config({ onFinish: _event => {
+	expectEqual<typeof _event, FragmentFinish>();
+	// @ts-expect-error A shared callback cannot assume that every consuming component generates an object.
+	expectType<unknown>(_event.object);
+	if ('object' in _event) expectEqual<typeof _event.object, unknown>();
+	else expectEqual<typeof _event.text, string>();
+} });
+create.TextGenerator({ model }, sharedFinish);
+create.TextStreamer({ model }, sharedFinish);
+create.ObjectGenerator({ model, schema }, sharedFinish);
+create.ObjectStreamer({ model, schema }, sharedFinish);
+
+// Explicit runtime-context unions keep their discriminants and correlated payloads.
+type RuntimeVariant = { kind: 'count', value: number } | { kind: 'label', value: string };
+declare const discriminatedRuntime: RuntimeVariant;
+const variantRuntimeGenerator = create.TextGenerator({ model, prompt: 'Answer.', runtimeContext: discriminatedRuntime, onStart: _event => {
+	const context = _event.runtimeContext;
+	expectEqual<typeof context, RuntimeVariant>();
+	if (context.kind === 'count') expectEqual<typeof context.value, number>();
+	else expectEqual<typeof context.value, string>();
+} });
+void variantRuntimeGenerator.run({ runtimeContext: { kind: 'count', value: 2 } });
+void variantRuntimeGenerator.run({ prepareStep: () => ({ runtimeContext: { kind: 'label', value: 'next' } }) });
+// @ts-expect-error Annotated runtime contexts retain their allowed discriminants.
+void variantRuntimeGenerator.run({ runtimeContext: { kind: 'other', value: 2 } });
+// @ts-expect-error Runtime-context payloads stay correlated with their discriminants.
+void variantRuntimeGenerator.run({ prepareStep: () => ({ runtimeContext: { kind: 'count', value: 'wrong' } }) });
+const variantRuntimeParent = create.Config({ model, prompt: 'Answer.', runtimeContext: discriminatedRuntime });
+create.TextStreamer({}, variantRuntimeParent).run({ runtimeContext: { kind: 'label', value: 'next' }, onEnd: _event => {
+	expectEqual<typeof _event.runtimeContext, RuntimeVariant>();
+} });
+// @ts-expect-error Inherited annotated runtime-context unions are not widened to unrelated tags.
+create.TextStreamer({}, variantRuntimeParent).run({ runtimeContext: { kind: 'other', value: 2 } });
+
+// Structural parents infer mutable runtime defaults just like Config-created parents.
+const structuralRuntimeGenerator = create.TextGenerator.withTemplate({ prompt: 'Answer.' }, { config: { model, runtimeContext: { requestId: 'initial' } } });
+void structuralRuntimeGenerator.run({ runtimeContext: { requestId: 'next' } });
+const structuralRuntimeStreamer = create.TextStreamer.withTemplate({ prompt: 'Answer.' }, { config: { model, runtimeContext: { requestId: 'initial' } } });
+void structuralRuntimeStreamer.run({ runtimeContext: { requestId: 'next' } });
+create.TextGenerator.withTemplate({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, runtimeContext: { requestId: 'initial' }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] } });
+create.TextStreamer.withTemplate({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, runtimeContext: { requestId: 'initial' }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] } });
+create.TextGenerator.withTemplate({ prompt: 'Answer.', tools: { extra } }, { config: { model, tools, toolsContext, activeTools: ['lookup', 'extra'], toolOrder: ['extra', 'lookup'] } });
+// @ts-expect-error Structural parent selector inference cannot admit unknown tool names.
+create.TextStreamer.withTemplate({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, activeTools: ['missing'] } });
+// @ts-expect-error Structural parent defaults still retain their value kinds.
+void structuralRuntimeStreamer.run({ runtimeContext: { requestId: 123 } });

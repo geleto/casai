@@ -44,6 +44,34 @@ describe('Function.asTool Updates', () => {
 			expect(transformations).to.equal(1);
 		});
 
+		it('should preserve the implementation through Function to tool to Function conversion', async () => {
+			let executions = 0;
+			let transformations = 0;
+			const original = create.Function({
+				inputSchema: z.object({ value: z.number() }), context: { offset: 3 },
+				schema: z.string().transform(value => {
+					transformations++;
+					return Number(value) + 1;
+				}),
+				execute: ({ value, offset }) => {
+					executions++;
+					return String(value + offset);
+				},
+			});
+			const tool = create.Function.asTool({}, original);
+			const roundtrip = create.Function({}, tool);
+			expect(tool.execute).to.equal(tool);
+			expect(roundtrip.execute).to.equal(original.execute);
+			expect(await original({ value: 2 })).to.equal(6);
+			expect(await tool.execute({ value: 3, offset: 7 }, callOptions)).to.equal(11);
+			expect(await roundtrip({ value: 4, offset: 6 })).to.equal(11);
+			expect(executions).to.equal(3);
+			expect(transformations).to.equal(3);
+			// @ts-expect-error The restored ordinary Function rejects invalid input statically and at runtime.
+			await expect(roundtrip({ value: 'invalid' })).to.be.rejectedWith(/Input context validation failed/);
+			expect(executions).to.equal(3);
+		});
+
 		it('should check an inherited implementation against the final schemas and context', async () => {
 			const parent = create.Function.asTool({
 				inputSchema: z.object({ value: z.number() }), context: { offset: 3 }, schema: z.number(),

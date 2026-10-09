@@ -8,7 +8,8 @@ import * as utils from '../types/utils.js';
 import type { InferSchema, ScriptPromptType } from '../types/types.js';
 import type { RendererCall } from '../types/input.js';
 import type { Provisional } from '../types/provisional.js';
-import type { ValidateScriptConfig, ValidateScriptParentConfig } from '../types/config-validation.js';
+import type { ProcessedConfig } from '../types/merge.js';
+import type { RequiredInheritedConfig, ValidateScriptConfig, ValidateScriptParentConfig } from '../types/config-validation.js';
 
 //@todo - move to result
 type ScriptOutput<TConfig, TFallback = results.ScriptResult> =
@@ -26,7 +27,7 @@ export type ScriptCallSignature<
 	TConfig extends configs.ScriptConfig<INPUT, OUTPUT>,
 	INPUT extends Record<string, any>,
 	OUTPUT
-> = RendererCall<TConfig, ScriptResultPromise<TConfig, INPUT, OUTPUT>, 'script'> & { config: TConfig; type: string };
+> = RendererCall<TConfig, ScriptResultPromise<TConfig, INPUT, OUTPUT>, 'script'> & { config: ProcessedConfig<TConfig>; type: string };
 
 export type ScriptCallSignatureWithParent<
 	TConfig extends Partial<configs.ScriptConfig<INPUT, OUTPUT>>,
@@ -46,7 +47,7 @@ function baseScript<
 	INPUT extends Record<string, any>,
 	OUTPUT
 >(
-	config: TConfig & ValidateScriptConfig<TConfig, TConfig, configs.ScriptConfig<INPUT, OUTPUT>>
+	config: TConfig & { script: string } & ValidateScriptConfig<TConfig, TConfig, configs.ScriptConfig<INPUT, OUTPUT>>
 ): ScriptCallSignature<TConfig, INPUT, OUTPUT>;
 
 function baseScript<
@@ -58,7 +59,7 @@ function baseScript<
 	PARENT_OUTPUT,
 	TFinalConfig extends configs.FinalScriptConfigShape = configs.MergedConfig<TParentConfig, TConfig>
 >(
-	config: TConfig & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptConfig<INPUT, OUTPUT>>,
+	config: TConfig & RequiredInheritedConfig<TParentConfig, { script: string }> & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateScriptParentConfig<TParentConfig, configs.ScriptConfig<PARENT_INPUT, PARENT_OUTPUT>>>
 ): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT>;
 
@@ -76,7 +77,7 @@ function asTool<
 	OUTPUT
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT>>
-): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, ScriptOutput<TConfig, OUTPUT>, TConfig>;
+): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, ScriptOutput<TConfig>, TConfig>;
 
 function asTool<
 	TConfig extends Provisional<Partial<configs.ScriptToolConfig<INPUT, OUTPUT>>>,
@@ -86,12 +87,11 @@ function asTool<
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 	TFinalConfig extends configs.FinalScriptConfigShape = configs.MergedConfig<TParentConfig, TConfig>
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateScriptParentConfig<TParentConfig, configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
-): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, ScriptOutput<TFinalConfig, FINAL_OUTPUT>, TFinalConfig>;
+): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, ScriptOutput<TFinalConfig>, TFinalConfig>;
 
 function asTool(
 	config: Partial<configs.ScriptToolConfig<any, any>>,
@@ -136,7 +136,7 @@ function loadsScriptAsTool<
 	OUTPUT
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT> & configs.LoaderConfig>
-): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, ScriptOutput<TConfig, OUTPUT>, TConfig>;
+): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, ScriptOutput<TConfig>, TConfig>;
 
 function loadsScriptAsTool<
 	TConfig extends Provisional<Partial<configs.ScriptToolConfig<INPUT, OUTPUT> & configs.LoaderConfig>>,
@@ -146,12 +146,11 @@ function loadsScriptAsTool<
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 	TFinalConfig extends configs.FinalScriptConfigShape = configs.MergedConfig<TParentConfig, TConfig>
 >(
 	config: TConfig & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT> & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateScriptParentConfig<TParentConfig, configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT> & configs.LoaderConfig>>
-): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, ScriptOutput<TFinalConfig, FINAL_OUTPUT>, TFinalConfig>;
+): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, ScriptOutput<TFinalConfig>, TFinalConfig>;
 
 function loadsScriptAsTool(
 	config: Partial<configs.ScriptToolConfig<any, any> & configs.LoaderConfig>,

@@ -198,7 +198,7 @@ describe('asTool', function () {
 					})
 				});
 
-				const result = await tool.execute({ country: 'France' }, toolCallOptions) as { capital: string; population: number };
+				const result = await tool.execute({ country: 'France' }, toolCallOptions);
 				expect(result).to.have.property('capital');
 				expect(result).to.have.property('population');
 				expect(result.capital.toLowerCase()).to.equal('paris');

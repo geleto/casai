@@ -14,7 +14,7 @@ import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateObjectLLMConfig } from "../validate.js";
 import type { Provisional, ResolvedConfig } from '../types/provisional.js';
 import type { EmptyMap } from '../types/merge.js';
-import type { ObjectCallbackShape, ObjectCallbackInput, ObjectRunConfig } from '../types/callbacks.js';
+import type { ObjectCallbackShape, ObjectCallbackInput, ObjectOutputFromConfig, ObjectRunConfig } from '../types/callbacks.js';
 import type { ValidateObjectConfig, ValidateObjectParentConfig } from '../types/config-validation.js';
 
 type CommonGenerateObjectObjectConfig = configs.GenerateObjectObjectConfig<Record<string, any>, any, types.AnyPromptSource>;
@@ -147,7 +147,7 @@ function withTextAsTool<
 >(
 	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ToolConfig<INPUT, OUTPUT>>,
-): GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function withTextAsTool<
 	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.ToolConfig<INPUT, OUTPUT>>>>,
@@ -161,7 +161,6 @@ function withTextAsTool<
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ToolConfig<INPUT, OUTPUT>,
@@ -175,7 +174,7 @@ function withTextAsTool<
 		configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 
 ): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'text',
-	OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+	OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 //Implementation
 function withTextAsTool<
@@ -192,12 +191,12 @@ function withTextAsTool<
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
-): GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 	return _createObjectGeneratorAsTool(
-		config as configs.GenerateObjectConfig<never, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>,
+		config as configs.GenerateObjectConfig<never, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>,
 		'text',
 		parent as configs.ConfigProvider<configs.GenerateObjectConfig<never, OUTPUT, ENUM> & configs.OptionalPromptConfig>
-	) as unknown as GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+	) as unknown as GenerateObjectReturn<TConfig, 'text', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 }
 
 function loadsText<
@@ -274,7 +273,7 @@ function loadsTextAsTool<
 	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
 ): GenerateObjectReturn<TConfig, 'text-name', OUTPUT, ENUM, PROMPT, TConfigShape>
-	& results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+	& results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function loadsTextAsTool<
 	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
@@ -288,7 +287,6 @@ function loadsTextAsTool<
 	PROMPT extends string = string,
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT> & configs.NamedPromptConfig,
@@ -301,7 +299,7 @@ function loadsTextAsTool<
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>,
 
-): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'text-name', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'text-name', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 //Implementation
 function loadsTextAsTool<
@@ -321,12 +319,12 @@ function loadsTextAsTool<
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
-): GenerateObjectReturn<TConfig, 'text-name', FINAL_OUTPUT, FINAL_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'text-name', FINAL_OUTPUT, FINAL_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 	return _createObjectGeneratorAsTool(
-		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>,
+		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>,
 		'text-name',
 		parent as configs.ConfigProvider<configs.GenerateObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PARENT_ENUM> & configs.OptionalPromptConfig>
-	) as unknown as GenerateObjectReturn<TConfig, 'text-name', FINAL_OUTPUT, FINAL_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TConfig>;
+	) as unknown as GenerateObjectReturn<TConfig, 'text-name', FINAL_OUTPUT, FINAL_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 }
 
 function withTemplate<
@@ -396,7 +394,7 @@ function withTemplateAsTool<
 >(
 	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
-): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function withTemplateAsTool<
 	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
@@ -408,7 +406,6 @@ function withTemplateAsTool<
 	PARENT_OUTPUT,
 	PARENT_ENUM extends string,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
@@ -421,7 +418,7 @@ function withTemplateAsTool<
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
 
-): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-template', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-template', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 function withTemplateAsTool<
 	TConfig extends Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM>> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, OUTPUT>,
@@ -436,12 +433,12 @@ function withTemplateAsTool<
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
-): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 	return _createObjectGeneratorAsTool(
-		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>,
+		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>,
 		'async-template',
 		parent
-	) as unknown as GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+	) as unknown as GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 }
 
 function loadsTemplate<
@@ -512,7 +509,7 @@ function loadsTemplateAsTool<
 >(
 	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
-): GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function loadsTemplateAsTool<
 	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
@@ -525,7 +522,6 @@ function loadsTemplateAsTool<
 	PARENT_ENUM extends string,
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
@@ -538,7 +534,7 @@ function loadsTemplateAsTool<
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
 
-): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-template-name', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-template-name', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 function loadsTemplateAsTool<
 	TConfig extends Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
@@ -553,12 +549,12 @@ function loadsTemplateAsTool<
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
-): GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 	return _createObjectGeneratorAsTool(
-		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>,
+		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>,
 		'async-template-name',
-		parent as configs.ConfigProvider<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>>
-	) as unknown as GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+		parent as configs.ConfigProvider<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>>
+	) as unknown as GenerateObjectReturn<TConfig, 'async-template-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 }
 
 function withScript<
@@ -629,7 +625,7 @@ function withScriptAsTool<
 >(
 	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
-): GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function withScriptAsTool<
 	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
@@ -642,7 +638,6 @@ function withScriptAsTool<
 	PARENT_ENUM extends string,
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
@@ -655,7 +650,7 @@ function withScriptAsTool<
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
 
-): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-script', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-script', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 function withScriptAsTool<
 	TConfig extends configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, OUTPUT>,
@@ -670,12 +665,12 @@ function withScriptAsTool<
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
-): GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 	return _createObjectGeneratorAsTool(
-		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>,
+		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>,
 		'async-script',
 		parent
-	) as unknown as GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+	) as unknown as GenerateObjectReturn<TConfig, 'async-script', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 }
 
 function loadsScript<
@@ -746,7 +741,7 @@ function loadsScriptAsTool<
 >(
 	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>,
-): GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function loadsScriptAsTool<
 	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
@@ -759,7 +754,6 @@ function loadsScriptAsTool<
 	PARENT_ENUM extends string,
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
@@ -772,7 +766,7 @@ function loadsScriptAsTool<
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
 
-): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-script-name', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'async-script-name', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 function loadsScriptAsTool<
 	TConfig extends configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, OUTPUT>,
@@ -787,12 +781,12 @@ function loadsScriptAsTool<
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
-): GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 	return _createObjectGeneratorAsTool(
-		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>,
+		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>,
 		'async-script-name',
 		parent
-	) as unknown as GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+	) as unknown as GenerateObjectReturn<TConfig, 'async-script-name', OUTPUT, ENUM, string, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 }
 
 function withFunction<
@@ -921,7 +915,7 @@ function withFunctionAsTool<
 >(
 	config: TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, true, true> & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
-): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function withFunctionAsTool<
 	TConfig extends FunctionPromptShape<Provisional<ObjectCallbackShape<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>,
@@ -940,7 +934,7 @@ function withFunctionAsTool<
 	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
 	config: TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, true, false> & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, false> & ValidateObjectConfig<TConfig, TConfig,
 		configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>,
-): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 
 function withFunctionAsTool<
 	TConfig extends FunctionPromptShape<Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>>,
@@ -954,7 +948,6 @@ function withFunctionAsTool<
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
@@ -970,7 +963,7 @@ function withFunctionAsTool<
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
 
-): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'function', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'function', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 function withFunctionAsTool<
 	TConfig extends FunctionPromptShape<Provisional<ObjectCallbackShape<Partial<configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>>>>>,
@@ -984,7 +977,6 @@ function withFunctionAsTool<
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
-	FINAL_OUTPUT = OUTPUT extends never ? PARENT_OUTPUT : OUTPUT,
 
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
 	TConfigShape extends ShapeOf<TConfig> = ShapeOf<TConfig> & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, OUTPUT>,
@@ -1001,7 +993,7 @@ function withFunctionAsTool<
 	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
 		configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, PARENT_OUTPUT>>>
 
-): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'function', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, FINAL_OUTPUT, TFinalConfig>;
+): GenerateObjectWithParentReturn<TConfig, TParentConfig, 'function', OUTPUT, ENUM, PARENT_OUTPUT, PARENT_ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, ObjectOutputFromConfig<TFinalConfig>, TFinalConfig>;
 
 function withFunctionAsTool<
 	TConfig extends configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, OUTPUT>,
@@ -1017,12 +1009,12 @@ function withFunctionAsTool<
 >(
 	config: TConfig,
 	parent?: configs.ConfigProvider<TParentConfig>
-): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 	return _createObjectGeneratorAsTool(
-		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>,
+		config as configs.GenerateObjectConfig<INPUT, OUTPUT, ENUM, PROMPT> & configs.OptionalPromptConfig & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>,
 		'function',
 		parent
-	) as unknown as GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;
+	) as unknown as GenerateObjectReturn<TConfig, 'function', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig>;
 }
 
 //common function for the specialized from/loads Template/Script/Text
@@ -1072,13 +1064,13 @@ function _createObjectGeneratorAsTool<
 	config: TConfig & { description?: string; inputSchema: types.SchemaType<INPUT> },
 	promptType: types.PromptType,
 	parent?: configs.ConfigProvider<configs.BaseConfig & configs.OptionalPromptConfig>,
-): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
+): GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, ObjectOutputFromConfig<TConfig>, TConfig> {
 
 	const renderer = _createObjectGenerator(config, promptType, parent, true) as unknown as
 		GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, PROMPT, TConfigShape> & { config: TConfig };
-	return attachRendererTool<INPUT, OUTPUT, TConfig, typeof renderer>(renderer,
+	return attachRendererTool<INPUT, ObjectOutputFromConfig<TConfig>, TConfig, typeof renderer>(renderer,
 		async context =>
-			(await (renderer as unknown as (context: INPUT) => Promise<results.GenerateObjectObjectResult<OUTPUT>>)(context)).object,
+			(await (renderer as unknown as (context: INPUT) => Promise<results.GenerateObjectObjectResult<ObjectOutputFromConfig<TConfig>>>)(context)).object,
 	);
 
 }

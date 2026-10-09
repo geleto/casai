@@ -13,6 +13,10 @@ import { expectEqual, expectType } from './assert.js';
 // Both public entry points expose the same overloads rather than widened wrappers.
 // New factories or modifiers require a corresponding coverage review.
 expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'TextGenerator' | 'TextStreamer' | 'ObjectGenerator' | 'ObjectStreamer'>();
+expectEqual<keyof typeof import('casai'),
+	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
+	| 'race' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'TemplateError' | 'ScriptError' | 'z'
+>();
 type PromptModifiers = 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript';
 expectEqual<keyof typeof TextGenerator, PromptModifiers | 'asTool'>();
 expectEqual<keyof typeof ObjectGenerator, PromptModifiers | 'asTool'>();
@@ -50,7 +54,7 @@ expectType<SchemaType<{ value: number }>>(toolConfig.inputSchema);
 const _wrongToolConfig: ToolConfig<{ value: number }, string> = { inputSchema: z.object({ value: z.string() }) };
 const _eventSchema = z.object({ answer: z.number() });
 expectEqual<StreamObjectOnFinishEvent<typeof _eventSchema>, GenerateObjectEndEvent<{ answer: number }>>();
-type TextEnd = Parameters<StreamTextOnEndCallback<Record<string, never>>>[0];
+type TextEnd = Parameters<StreamTextOnEndCallback<Record<string, never>, Record<string, unknown>, import('ai').OutputInterface<string, string, never>>>[0];
 expectEqual<Omit<StreamTextOnFinishEvent, 'response'>, Omit<TextEnd, 'response'>>();
 expectEqual<StreamTextOnFinishEvent['response']['messages'], ModelMessage[]>();
 expectEqual<StreamTextOnFinishEvent['response']['messageHistory'], ModelMessage[]>();

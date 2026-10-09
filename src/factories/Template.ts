@@ -8,12 +8,13 @@ import * as results from '../types/result.js';
 import type { Context, TemplatePromptType } from '../types/types.js';
 import type { RendererCall } from '../types/input.js';
 import type { Provisional } from '../types/provisional.js';
-import type { ValidateTemplateConfig, ValidateTemplateParentConfig } from '../types/config-validation.js';
+import type { ProcessedConfig } from '../types/merge.js';
+import type { RequiredInheritedConfig, ValidateTemplateConfig, ValidateTemplateParentConfig } from '../types/config-validation.js';
 
 export type TemplateCallSignature<
 	TConfig extends Partial<configs.TemplateConfig<INPUT>>,
 	INPUT extends Record<string, any>//only INPUT, the output is string
-> = RendererCall<TConfig, Promise<string>, 'template'> & { config: TConfig; type: string };
+> = RendererCall<TConfig, Promise<string>, 'template'> & { config: ProcessedConfig<TConfig>; type: string };
 
 export type TemplateCallSignatureWithParent<
 	TConfig extends Partial<configs.TemplateConfig<INPUT>>,
@@ -41,7 +42,7 @@ function withTemplate<
 	PARENT_INPUT extends Record<string, any>,
 	TFinalConfig extends configs.FinalTemplateConfigShape = configs.MergedConfig<TParentConfig, TConfig>
 >(
-	config: TConfig & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateConfig<INPUT>>,
+	config: TConfig & RequiredInheritedConfig<TParentConfig, { template: string }> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateConfig<INPUT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateTemplateParentConfig<TParentConfig, configs.TemplateConfig<PARENT_INPUT>>>
 ): TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT>;
 

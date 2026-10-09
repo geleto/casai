@@ -1,12 +1,15 @@
 import { create, z } from 'casai';
 import type { LanguageModel, ModelMessage } from 'ai';
-import { expectType } from './assert.js';
+import type { StreamTextResult, StreamObjectObjectResult, GenerateTextResult, GenerateObjectObjectResult } from 'casai';
+import { expectType, expectEqual } from './assert.js';
 
 declare const model: LanguageModel;
 const schema = z.object({ answer: z.number() });
 const loader = (name: string) => name;
 const messages: ModelMessage[] = [{ role: 'user', content: 'Answer.' }];
 const parent = create.Config({ model });
+// eslint-disable-next-line @typescript-eslint/no-generated-empty-object-type -- No configured tools means no names, including an index signature.
+type NoTools = Record<never, never>;
 
 // Plain prompts accept strings or messages. Only configured prompts/history allow omission.
 const text = create.TextGenerator({ model, prompt: 'Answer.' });
@@ -23,6 +26,15 @@ void object();
 void object(messages);
 void objectStream();
 void objectStream(messages);
+void text(undefined, messages);
+// @ts-expect-error Plain text calls cannot supply message history twice.
+void text(messages, messages);
+// @ts-expect-error Plain text stream calls cannot supply message history twice.
+void stream(messages, messages);
+// @ts-expect-error Plain object calls cannot supply message history twice.
+void object(messages, messages);
+// @ts-expect-error Plain object stream calls cannot supply message history twice.
+void objectStream(messages, messages);
 // @ts-expect-error A scalar is neither a prompt nor message history.
 void text(123);
 // @ts-expect-error Plain prompts do not take positional context.
@@ -87,8 +99,8 @@ void scriptText({ topic: 'math' });
 void scriptStream('return topic', messages, { topic: 'math' });
 void scriptObject('return topic', { topic: 'math' });
 void scriptObjectStream();
-expectType<Promise<unknown>>(templateStream());
-expectType<Promise<unknown>>(scriptObjectStream());
+expectEqual<ReturnType<typeof templateStream>, Promise<StreamTextResult<NoTools>>>();
+expectEqual<ReturnType<typeof scriptObjectStream>, Promise<StreamObjectObjectResult<{ answer: number }>>>();
 // @ts-expect-error Template invocation accepts a string or context object.
 void templateText(123);
 // @ts-expect-error Template history must be an array of messages.
@@ -147,9 +159,9 @@ void loadedScript({ topic: 'math' });
 void loadedScriptStream('other.casc', { topic: 'math' });
 void loadedScriptObject('other.casc', messages, { topic: 'math' });
 void loadedScriptObjectStream();
-expectType<Promise<unknown>>(loadedTextStream());
-expectType<Promise<unknown>>(loadedTemplateStream());
-expectType<Promise<unknown>>(loadedScriptObjectStream());
+expectEqual<ReturnType<typeof loadedTextStream>, Promise<StreamTextResult<NoTools>>>();
+expectEqual<ReturnType<typeof loadedTemplateStream>, Promise<StreamTextResult<NoTools>>>();
+expectEqual<ReturnType<typeof loadedScriptObjectStream>, Promise<StreamObjectObjectResult<{ answer: number }>>>();
 // @ts-expect-error Loaded text config stores a filename, not messages.
 create.TextGenerator.loadsText({ model, loader, prompt: messages });
 // @ts-expect-error A loaded template requires a loader.
@@ -176,7 +188,17 @@ void functionText.run({ prompt: async () => messages });
 void functionStream.run({ prompt: () => 'Replace.' });
 void functionObject.run({ prompt: () => messages });
 void functionObjectStream.run({ prompt: async () => 'Replace.' });
-expectType<Promise<unknown>>(functionStream());
+expectEqual<ReturnType<typeof functionStream>, Promise<StreamTextResult<NoTools>>>();
+const _textRun = text.run({});
+const _objectRun = object.run({});
+const _templateStreamRun = templateStream.run({});
+const _scriptObjectStreamRun = scriptObjectStream.run({});
+const _functionStreamRun = functionStream.run({});
+expectEqual<typeof _textRun, Promise<GenerateTextResult<NoTools>>>();
+expectEqual<typeof _objectRun, Promise<GenerateObjectObjectResult<{ answer: number }>>>();
+expectEqual<typeof _templateStreamRun, Promise<StreamTextResult<NoTools>>>();
+expectEqual<typeof _scriptObjectStreamRun, Promise<StreamObjectObjectResult<{ answer: number }>>>();
+expectEqual<typeof _functionStreamRun, Promise<StreamTextResult<NoTools>>>();
 // @ts-expect-error Function prompts accept context, not positional prompt replacements.
 void functionText('Replace.');
 // @ts-expect-error Function prompts reject arrays even when no input schema is configured.

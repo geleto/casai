@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ModelMessage } from 'ai';
 
 // Content part schemas
 export const TextPartSchema = z.object({
@@ -30,7 +31,7 @@ export const ReasoningPartSchema = z.object({
 
 export const CustomPartSchema = z.object({
 	type: z.literal('custom'),
-	kind: z.string().regex(/\./),
+	kind: z.templateLiteral([z.string(), '.', z.string()]),
 	providerOptions: z.any().optional(),
 }).passthrough();
 
@@ -133,12 +134,16 @@ export const ToolModelMessageSchema = z
 	})
 	.passthrough();
 
-export const ModelMessageSchema = z.union([
+const ModelMessageUnionSchema = z.union([
 	SystemModelMessageSchema,
 	UserModelMessageSchema,
 	AssistantModelMessageSchema,
 	ToolModelMessageSchema,
 ]);
+
+// Match the SDK's public output contract while retaining the inferred validation input for drift checks.
+// The underlying union stays intact, including passthrough provider extension fields.
+export const ModelMessageSchema: z.ZodType<ModelMessage, z.input<typeof ModelMessageUnionSchema>> = ModelMessageUnionSchema;
 
 // Union schema: string | ModelMessage[]
 export const PromptStringOrMessagesSchema = z.union([

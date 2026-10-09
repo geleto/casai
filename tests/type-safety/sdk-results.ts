@@ -4,6 +4,7 @@ import type {
 	GenerateTextResult as PublicGenerateTextResult, StreamTextResult as PublicStreamTextResult,
 	GenerateObjectObjectResult, GenerateObjectArrayResult, GenerateObjectEnumResult, GenerateObjectNoSchemaResult, GenerateObjectResultAll,
 	StreamObjectObjectResult, StreamObjectArrayResult, StreamObjectNoSchemaResult, StreamObjectResultAll,
+	StreamTextOnFinishEvent,
 } from 'casai';
 import { Output } from 'ai';
 import type { LanguageModel, UIMessage, InferUIMessageChunk, StreamTextResult as SDKStreamTextResult, GenerateTextResult as SDKGenerateTextResult, ModelMessage, AsyncIterableStream, DeepPartial, GenerateObjectResult, StreamObjectResult, JSONValue, ObjectStreamPart, UIMessageStreamOnEndCallback, OutputInterface, FinishReason, TextStreamPart } from 'ai';
@@ -327,3 +328,26 @@ void variantText.partialOutputStream.pipeTo(new WritableStream({ write: partial 
 		expectType<number>(partial.value);
 	}
 } }));
+
+// Bare public text result and completion-event aliases describe the default text output.
+declare const bareGenerated: PublicGenerateTextResult;
+declare const bareStream: PublicStreamTextResult;
+declare const bareFinish: StreamTextOnFinishEvent;
+expectEqual<typeof bareGenerated.output, string>();
+expectEqual<typeof bareStream.output, PromiseLike<string>>();
+expectEqual<typeof bareStream.partialOutputStream, AsyncIterableStream<string>>();
+expectEqual<typeof bareStream.elementStream, AsyncIterableStream<never>>();
+expectEqual<typeof bareFinish.output, string | undefined>();
+// @ts-expect-error A bare result does not allow output to leak any.
+expectType<number>(bareGenerated.output);
+// @ts-expect-error A bare streaming result resolves default text, not arbitrary output.
+expectType<PromiseLike<number>>(bareStream.output);
+// @ts-expect-error Default completion events have optional text output.
+expectType<number>(bareFinish.output);
+expectEqual<StreamTextOnFinishEvent<typeof tools, typeof output, typeof runtimeContext>['output'], Answer | undefined>();
+expectEqual<StreamTextOnFinishEvent<typeof tools, typeof output, typeof runtimeContext>['runtimeContext'], typeof runtimeContext>();
+const _inlineRuntimeResult = create.TextGenerator({ model, prompt: 'Answer.', runtimeContext: { requestId: 'initial', step: 0, details: { enabled: true }, tags: ['initial'] } }).run({ runtimeContext: { requestId: 'next', step: 1, details: { enabled: false }, tags: ['next'] } });
+expectEqual<Awaited<typeof _inlineRuntimeResult>['finalStep']['runtimeContext']['requestId'], string>();
+expectEqual<Awaited<typeof _inlineRuntimeResult>['finalStep']['runtimeContext']['step'], number>();
+expectEqual<Awaited<typeof _inlineRuntimeResult>['finalStep']['runtimeContext']['details']['enabled'], boolean>();
+expectEqual<Awaited<typeof _inlineRuntimeResult>['finalStep']['runtimeContext']['tags'][number], string>();

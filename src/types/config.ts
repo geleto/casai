@@ -216,7 +216,8 @@ type RunToolContext<TOOLS extends ToolSet, K extends keyof TOOLS,
 
 // A run can replace implementations while preserving its tool input, output and context types.
 export type TextRunConfig<TShape, TOOLS extends ToolSet, TConfig = { tools: TOOLS }, Streaming extends boolean = false> =
-	Omit<TShape, 'tools' | 'toolsContext' | 'runtimeContext' | ConfigCallbackKeys> & TextCallbacks<TConfig, TOOLS, Streaming> & {
+	Omit<TShape, 'tools' | 'toolsContext' | 'runtimeContext' | 'activeTools' | 'toolChoice' | 'toolOrder' | ConfigCallbackKeys> &
+	Pick<Parameters<typeof generateText<TOOLS>>[0], 'activeTools' | 'toolChoice' | 'toolOrder'> & TextCallbacks<TConfig, TOOLS, Streaming> & {
 	runtimeContext?: RuntimeContextFromConfig<TConfig>;
 	tools?: { [K in keyof TOOLS]?: Tool<InferToolInput<TOOLS[K]>, InferToolOutput<TOOLS[K]>, RunToolContext<TOOLS, K>> | TOOLS[K] };
 	toolsContext?: Partial<NonNullable<ToolsContextConfig<TOOLS>['toolsContext']>>;

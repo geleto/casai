@@ -12,9 +12,9 @@ export function attachRendererTool<
 	INPUT extends Context,
 	OUTPUT,
 	TConfig extends ContextSchemaConfig & { description?: string, inputSchema?: SchemaType<any> },
-	TRenderer extends { config: TConfig },
+	TRenderer extends { config: Pick<TConfig, 'description' | 'inputSchema' | 'contextSchema'> },
 >(
-	renderer: TRenderer & { config: TConfig },
+	renderer: TRenderer & { config: Pick<TConfig, 'description' | 'inputSchema' | 'contextSchema'> },
 	render: (context: INPUT & { _toolCallOptions: ToolExecutionOptions<ToolContextFromConfig<TConfig>> }) => PromiseLike<OUTPUT>,
 ): TRenderer & ComponentToolFromConfig<INPUT, OUTPUT, TConfig> {
 	type RendererTool = ComponentToolFromConfig<INPUT, OUTPUT, TConfig>;

@@ -1,7 +1,7 @@
 // Context wrappers accept objects before validation; SDK Function tools receive parsed input.
 import { create, z } from 'casai';
 import type { LanguageModel } from 'ai';
-import { expectEqual, expectType } from './assert.js';
+import { expectEqual } from './assert.js';
 
 declare const model: LanguageModel;
 const scalarInput = z.string().transform(value => ({ value }));
@@ -71,8 +71,8 @@ void preprocessedPrompt('input');
 void preprocessedPrompt(['input']);
 
 // Output schemas continue accepting their raw input, including unknown coercion inputs.
-const coercedOutput = create.Function({ schema: z.coerce.string(), execute: () => 123 });
-expectType<string | PromiseLike<string>>(coercedOutput({}));
+const _coercedOutput = create.Function({ schema: z.coerce.string(), execute: () => 123 });
+expectEqual<ReturnType<typeof _coercedOutput>, Promise<string>>();
 const numericFragment = create.Config({ schema: z.number(), execute: () => 1 });
 create.Function({}, numericFragment);
 // @ts-expect-error Zero-argument fragment implementations must return the output schema's raw input.
@@ -82,7 +82,8 @@ create.Config({ schema: z.number(), execute: async () => 'wrong' });
 // @ts-expect-error Inherited zero-argument fragment implementations must match replacement outputs.
 create.Config({ schema: z.string() }, numericFragment);
 const rawOutputFragment = create.Config({ schema: z.string().transform(Number), execute: () => '123' });
-expectType<number | PromiseLike<number>>(create.Function({}, rawOutputFragment)({}));
+const _fragmentFunction = create.Function({}, rawOutputFragment);
+expectEqual<ReturnType<typeof _fragmentFunction>, Promise<number>>();
 // @ts-expect-error A transformed output schema requires its raw input from fragment implementations.
 create.Config({ schema: z.string().transform(Number), execute: () => 123 });
 
