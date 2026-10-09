@@ -53,7 +53,8 @@ describe('Message history across tool steps', () => {
 				const component = rendered
 					? streaming ? create.TextStreamer.withFunction({ model, prompt: () => 'Input.' }) : create.TextGenerator.withFunction({ model, prompt: () => 'Input.' })
 					: streaming ? create.TextStreamer({ model, prompt: 'Input.' }) : create.TextGenerator({ model, prompt: 'Input.' });
-				const result = await component();
+				const call: () => ReturnType<typeof component> = component;
+				const result = await call();
 				const response = await result.response;
 				const messages: ModelMessage[] = [{ role: 'user', content: 'Input.' }, ...(await result.responseMessages)];
 				expect(response.messages).to.deep.equal(messages);

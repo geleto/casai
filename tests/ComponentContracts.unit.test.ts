@@ -486,9 +486,9 @@ describe('Component boundary contracts', () => {
 			expect(await create.Template({ inputSchema: optional, template: 'Hello {{ name or "there" }}' })()).to.equal('Hello there');
 			expect(await create.Script({ inputSchema: optional, script: 'return "Ready"' })()).to.equal('Ready');
 			const fn = create.Function({ inputSchema: optional, execute: ({ name }) => name ?? 'there' });
-			expect(await (fn as unknown as () => Promise<string>)()).to.equal('there');
+			expect(await fn()).to.equal('there');
 			expect((await create.TextGenerator.withTemplate({ model, inputSchema: optional, prompt: 'Hello {{ name or "there" }}' })()).text).to.equal('Answer');
-			expect((await create.TextGenerator.withFunction({ model, inputSchema: optional, prompt: context => `Hello ${String(context.name ?? 'there')}` })()).text).to.equal('Answer');
+			expect((await create.TextGenerator.withFunction({ model, inputSchema: optional, prompt: context => `Hello ${context.name ?? 'there'}` })()).text).to.equal('Answer');
 			expect(model.doGenerateCalls.map(call => call.prompt[0].content)).to.deep.equal([
 				[{ type: 'text', text: 'Hello there' }],
 				[{ type: 'text', text: 'Hello there' }],
@@ -499,15 +499,18 @@ describe('Component boundary contracts', () => {
 			let renders = 0;
 			const render = () => ++renders;
 			const model = textModel('Answer');
-			const components: (() => Promise<unknown>)[] = [
+			const components = [
 				create.Template({ inputSchema: required, context: { render }, template: '{{ render() }}' }),
 				create.Script({ inputSchema: required, context: { render }, script: 'return render()' }),
-				create.Function({ inputSchema: required, execute: render }) as unknown as () => Promise<unknown>,
+				create.Function({ inputSchema: required, execute: render }),
 				create.TextGenerator.withTemplate({ model, inputSchema: required, context: { render }, prompt: '{{ render() }}' }),
 				create.TextGenerator.withFunction({ model, inputSchema: required, prompt: () => String(render()) }),
 			];
 			for (const component of components) {
-				await rejects(() => component(), (error: unknown) => {
+				await rejects(async () => {
+					// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
+					await component();
+				}, (error: unknown) => {
 					expect(error).to.be.instanceOf(ConfigError);
 					expect((error as Error).message).to.match(/context object is required[\s\S]*'name'/);
 					return true;

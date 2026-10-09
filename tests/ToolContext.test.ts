@@ -229,10 +229,10 @@ describe('SDK tool context', () => {
 	it('should accept exported annotated configs with optional tools properties', async () => {
 		const action = create.Function.asTool({ inputSchema, contextSchema, execute: ({ value }, { context }) => value * context.factor });
 		const model = mockModel('', 'action');
-		const config: GenerateTextConfig<{ action: typeof action }, never> = {
+		const config: GenerateTextConfig<{ action: typeof action }, never> & { prompt: string } = {
 			model, tools: { action }, toolsContext: { action: { factor: 3 } }, prompt: 'Use action.',
 		};
-		const streamConfig: StreamTextConfig<{ action: typeof action }, never> = {
+		const streamConfig: StreamTextConfig<{ action: typeof action }, never> & { prompt: string } = {
 			model, tools: { action }, toolsContext: { action: { factor: 3 } }, prompt: 'Use action.',
 		};
 		expect((await create.TextGenerator(config).run({})).toolResults[0].output).to.equal(6);
@@ -611,8 +611,9 @@ describe('SDK tool context', () => {
 		for (const { name, build } of variants) {
 			it(`should pass overridden toolsContext through ${name} generators`, async () => {
 				const generator = build(mockModel('', 'multiply'));
+				const call: () => ReturnType<typeof generator> = generator;
 				expect((await generator.run({ toolsContext: { multiply: { factor: 5 } } })).toolResults[0].output).to.equal(10);
-				expect((await generator()).toolResults[0].output).to.equal(6);
+				expect((await call()).toolResults[0].output).to.equal(6);
 				expect(generator.config.toolsContext.multiply.factor).to.equal(3);
 			});
 		}
@@ -729,7 +730,7 @@ describe('SDK tool context', () => {
 			const templateConfig: TemplateToolConfig<{ value: number }, { factor: number }> = {
 				inputSchema, contextSchema, template: '{{ value * _toolCallOptions.context.factor }}',
 			};
-			const scriptConfig: ScriptToolConfig<{ value: number }, number, { factor: number }> = {
+			const scriptConfig: ScriptToolConfig<{ value: number }, number, { factor: number }> & { script: string } = {
 				inputSchema, contextSchema, script: 'return value * _toolCallOptions.context.factor',
 			};
 			const template = create.Template.asTool(templateConfig);
@@ -769,7 +770,7 @@ describe('SDK tool context', () => {
 			const model = mockModel();
 			const tool = create.TextGenerator.withFunction.asTool({
 				model, inputSchema, contextSchema,
-				prompt: context => `Factor ${context._toolCallOptions.context.factor}`,
+				prompt: context => `Factor ${context._toolCallOptions?.context.factor ?? 1}`,
 			});
 			expect(tool.contextSchema).to.equal(contextSchema);
 			expect(await tool.execute({ value: 2 }, options)).to.equal('TOOL_CONTEXT');
@@ -785,7 +786,7 @@ describe('SDK tool context', () => {
 			const tool = create.ObjectGenerator.withFunction.asTool({
 				model, inputSchema, contextSchema,
 				schema: z.object({ answer: z.number() }),
-				prompt: context => `Factor ${context._toolCallOptions.context.factor}`,
+				prompt: context => `Factor ${context._toolCallOptions?.context.factor ?? 1}`,
 			});
 			expect(tool.contextSchema).to.equal(contextSchema);
 			expect(await tool.execute({ value: 2 }, options)).to.deep.equal({ answer: 6 });
@@ -798,9 +799,9 @@ describe('SDK tool context', () => {
 
 		it('should inherit schemas for function-prompt generator tools', async () => {
 			const parent = create.Config({ model: mockModel(), inputSchema, contextSchema });
-			const text = create.TextGenerator.withFunction.asTool({ prompt: context => `Factor ${context._toolCallOptions.context.factor}` }, parent);
+			const text = create.TextGenerator.withFunction.asTool({ prompt: context => `Factor ${context._toolCallOptions?.context.factor ?? 1}` }, parent);
 			const objectParent = create.Config({ model: mockModel('{"answer":6}'), inputSchema, contextSchema, schema: z.object({ answer: z.number() }) });
-			const object = create.ObjectGenerator.withFunction.asTool({ prompt: context => `Factor ${context._toolCallOptions.context.factor}` }, objectParent);
+			const object = create.ObjectGenerator.withFunction.asTool({ prompt: context => `Factor ${context._toolCallOptions?.context.factor ?? 1}` }, objectParent);
 			expect(text.contextSchema).to.equal(contextSchema);
 			expect(object.contextSchema).to.equal(contextSchema);
 			expect(await text.execute({ value: 2 }, options)).to.equal('TOOL_CONTEXT');

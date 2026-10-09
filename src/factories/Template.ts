@@ -6,51 +6,23 @@ import * as configs from '../types/config.js';
 import * as utils from '../types/utils.js';
 import * as results from '../types/result.js';
 import type { Context, TemplatePromptType } from '../types/types.js';
+import type { RendererCall } from '../types/input.js';
 import type { Provisional } from '../types/provisional.js';
 import type { ValidateTemplateConfig, ValidateTemplateParentConfig } from '../types/config-validation.js';
 
 export type TemplateCallSignature<
 	TConfig extends Partial<configs.TemplateConfig<INPUT>>,
 	INPUT extends Record<string, any>//only INPUT, the output is string
-> =
-	// context is optional (todo - make it required if config has inputSchema and no template)
-	TConfig extends { template: string }
-	? {
-		//TConfig has template, prompt argument is optional
-		(promptOrContext?: INPUT | string): Promise<string>;//one optional argument, template or context
-		(prompt?: string, context?: INPUT): Promise<string>;//two optional arguments, template and context
-		config: TConfig;
-		type: string;
-	}
-	: {
-		//TConfig has no template, prompt argument is needed
-		(prompt: string, context?: INPUT): Promise<string>;
-		config: TConfig;
-		type: string;
-	};
+> = RendererCall<TConfig, Promise<string>, 'template'> & { config: TConfig; type: string };
 
 export type TemplateCallSignatureWithParent<
 	TConfig extends Partial<configs.TemplateConfig<INPUT>>,
 	TParentConfig extends Partial<configs.TemplateConfig<PARENT_INPUT>>,
 	INPUT extends Record<string, any>, //only INPUT, the output is string
 	PARENT_INPUT extends Record<string, any>,
-	FINAL_INPUT = utils.Override<PARENT_INPUT, INPUT>,
+	_FINAL_INPUT = utils.Override<PARENT_INPUT, INPUT>,
 	FinalConfig = configs.MergedConfig<TParentConfig, TConfig>
-> =
-	FinalConfig extends { template: string }
-	? {
-		//TConfig has template, no template argument is needed
-		(promptOrContext?: FINAL_INPUT | string): Promise<string>;//one optional argument, template or context
-		(prompt?: string, context?: FINAL_INPUT): Promise<string>;//two arguments, template and context
-		config: FinalConfig;
-		type: string;
-	}
-	: {
-		//TConfig has no template, template argument is needed
-		(prompt: string, context?: FINAL_INPUT): Promise<string>;//template is a must, context is optional
-		config: FinalConfig;
-		type: string;
-	};
+> = RendererCall<FinalConfig, Promise<string>, 'template'> & { config: FinalConfig; type: string };
 
 // Default behavior: inline/embedded template
 function withTemplate<

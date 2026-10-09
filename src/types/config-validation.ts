@@ -2,11 +2,13 @@ import type { LanguageModel, ToolSet } from 'ai';
 import type * as configs from './config.js';
 import type { ToolsContextConfig, ToolsFromConfig } from './config.js';
 import type { SchemaType } from './types.js';
-import type { DeclaredExecute } from './function-config.js';
+import type { DeclaredExecute, DeclaredFunctionExecute } from './function-config.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
 import type { ValidateResolved } from './provisional.js';
 import type { StrictUnionSubtype } from './utils.js';
-import type { CallbackConfigShape } from './callbacks.js';
+import type { CallbackConfigShape, ValidateToolCallbackNames } from './callbacks.js';
+import type { ValidateRendererInput } from './renderer-input.js';
+import type { ValidateContextValue } from './input.js';
 
 type ContextMapFromConfig<TConfig> = 'toolsContext' extends keyof TConfig
 	? [NonNullable<TConfig['toolsContext']>] extends [never] ? EmptyMap : NonNullable<TConfig['toolsContext']>
@@ -34,7 +36,7 @@ export type ValidateToolsContext<TConfig, TFinalConfig = TConfig, PartialConfig 
 export type ValidateRunConfig<TRunConfig, TConfig, TShape> = NoInfer<
 	Exclude<keyof TRunConfig, keyof TShape> extends never
 	? Exclude<keyof ToolsFromConfig<TRunConfig>, keyof ToolsFromConfig<TConfig>> extends never
-	? ValidateToolsContext<TRunConfig, MergedConfig<TConfig, TRunConfig>>
+	? ValidateToolCallbackNames<TRunConfig, TConfig> & ValidateToolsContext<TRunConfig, MergedConfig<TConfig, TRunConfig>> & ('context' extends keyof TRunConfig ? ValidateContextValue<TRunConfig['context']> : unknown)
 	: 'Config Error: run() can only replace configured tools.'
 	: `Config Error: Unknown run properties: '${Exclude<keyof TRunConfig, keyof TShape> & string}'.`
 >;
@@ -44,15 +46,15 @@ export type ValidateRunConfig<TRunConfig, TConfig, TShape> = NoInfer<
 export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateResolved<TConfig,
 	[StrictUnionSubtype<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]
 	? 'Config Error: These properties do not belong to any single component configuration.'
-	: Pick<TFinalConfig, 'execute' & keyof TFinalConfig> extends { execute?: DeclaredExecute<TFinalConfig> }
+	: Pick<TFinalConfig, 'execute' & keyof TFinalConfig> extends { execute?: DeclaredExecute<TFinalConfig> | DeclaredFunctionExecute<TFinalConfig> }
 	? ValidateToolsContext<TConfig, TFinalConfig, true>
 	: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'>;
 
 type MissingKeys<TFinal, TExpected> = Exclude<{ [K in keyof TExpected]-?: EmptyMap extends Pick<TExpected, K> ? never : K }[keyof TExpected], keyof TFinal>;
-// A required setting explicitly cleared after inheritance is missing too.
+// Required settings must be present for every possible value after inheritance.
 type MissingRequiredKeys<TFinal, TRequired> = {
 	[K in keyof TRequired]-?: K extends keyof TFinal
-	? [TFinal[K]] extends [undefined | null] ? K : never
+	? [Extract<TFinal[K], undefined | null>] extends [never] ? never : K
 	: K;
 }[keyof TRequired];
 type IncompatibleKeys<TFinal, TExpected> = {
@@ -93,7 +95,7 @@ export type ValidateTemplateConfig<
 		? TConfig // All checks passed.
 		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
-	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
+	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`> & ValidateResolved<TConfig, ValidateRendererInput<TFinalConfig>>;
 
 
 // Generic validator for the `parent` config object.
@@ -128,7 +130,7 @@ export type ValidateScriptConfig<
 		? TConfig // All checks passed.
 		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
-	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
+	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`> & ValidateResolved<TConfig, ValidateRendererInput<TFinalConfig>>;
 
 // Generic validator for the `parent` config object.
 export type ValidateScriptParentConfig<
@@ -141,6 +143,12 @@ export type ValidateScriptParentConfig<
 	: `Parent Config Error: Parent has properties not allowed for the final script type: '${keyof Omit<TParentConfig, keyof TShape> & string}'`;
 
 type AnyGenerateTextConfig = configs.ConfigShape<configs.GenerateTextConfig<any, any, any>>;
+
+// A parent must guarantee each required setting, or the child must supply it.
+export type RequiredInheritedConfig<TParent, TRequired> = NoInfer<{
+	[K in keyof TRequired as [TParent] extends [Record<K, TRequired[K]>] ? never : K]: TRequired[K]
+}>;
+export type RequiredModelConfig<TParent> = RequiredInheritedConfig<TParent, { model: LanguageModel }>;
 
 // Generic validator for the `config` object passed to a factory function.
 export type ValidateGenerateTextConfig<
@@ -233,16 +241,22 @@ type GetObjectGeneratorRequiredShape<TFinalConfig extends { output?: string }> =
 	{ schema: unknown; model: unknown };
 
 type GetObjectConfigShape<TFinalConfig extends { output?: string }> =
-	TFinalConfig extends { output: 'enum' } ? configs.GenerateObjectEnumConfig<any> :
-	TFinalConfig extends { output: 'no-schema' } ? configs.GenerateObjectNoSchemaConfig<any> :
-	TFinalConfig extends { output: 'array' } ? configs.GenerateObjectArrayConfig<any, any> :
+	TFinalConfig extends { output: 'enum' } ? ConfigShapeMap['enum'] :
+	TFinalConfig extends { output: 'no-schema' } ? ConfigShapeMap['no-schema'] :
+	TFinalConfig extends { output: 'array' } ? ConfigShapeMap['array'] :
 	// Default case for 'object', 'array', or undefined output.
-	configs.GenerateObjectObjectConfig<any, any>;
+	ConfigShapeMap['object'];
+
+// A setting inherited from another output mode must still fit the final mode.
+type ValidateObjectMode<TFinalConfig, TShape,
+	TInvalid = IncompatibleKeys<TFinalConfig, Pick<TShape, Extract<keyof TShape, 'mode'>>>,
+> = [TInvalid] extends [never] ? unknown
+	: `Config Error: Property '${TInvalid & string}' is incompatible with the final output mode.`;
 
 export type ValidateObjectConfig<
 	TConfig extends configs.ConfigShape<configs.GenerateObjectBaseConfig<any, any> & { output?: string | undefined }>,
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape & Record<string, any>,
-	TShapeExtras = Record<string, never>, // extends { output?: string | undefined, inputSchema?: SchemaType<any>, loader?: any } = Record<string, never>,
+	TShapeExtras = EmptyMap,
 	TShape = GetObjectConfigShape<TFinalConfig> & TShapeExtras,
 	TRequiredShape =
 	& (TShapeExtras extends { inputSchema: any } ? GetObjectGeneratorRequiredShape<TFinalConfig> & { inputSchema: any } : GetObjectGeneratorRequiredShape<TFinalConfig>)
@@ -255,7 +269,7 @@ export type ValidateObjectConfig<
 		// 2. If no excess, check for properties missing from the FINAL merged config.
 		? (
 			MissingRequiredKeys<TFinalConfig, TRequiredShape> extends never
-			? TConfig //All checks passed.
+			? TConfig & ValidateObjectMode<TFinalConfig, TShape>
 			: `Config Error: Missing required properties for output mode '${GetOutputType<TFinalConfig>}' - '${MissingRequiredKeys<TFinalConfig, TRequiredShape> & string}'`
 		)
 		: `Config Error: Unknown properties for output mode '${GetOutputType<TFinalConfig>}' - '${keyof Omit<TConfig, GetAllowedKeysForConfig<TFinalConfig>> & string}'`
@@ -264,7 +278,7 @@ export type ValidateObjectConfig<
 export type ValidateObjectParentConfig<
 	TParentConfig extends configs.ConfigShape<configs.GenerateObjectConfig<any, any, any, any> & { output?: string | undefined }>,
 	TFinalConfig extends configs.FinalGenerateObjectConfigShape & Record<string, any>,
-	TShapeExtras /*extends { output?: string | undefined, inputSchema?: SchemaType<any>, loader?: any }*/ = Record<string, never>,
+	TShapeExtras = EmptyMap,
 	TShape = GetObjectConfigShape<TFinalConfig> & TShapeExtras,
 > =
 	// Check for excess properties in the parent; the final config carries the child's provisional marker.
@@ -273,3 +287,19 @@ export type ValidateObjectParentConfig<
 	? TParentConfig
 	// On excess property failure, return a descriptive string.
 	: `Parent Config Error: Unknown properties for final output mode '${GetOutputType<TFinalConfig>}' - ${keyof Omit<TParentConfig, GetAllowedKeysForConfig<TFinalConfig>> & string}`>;
+
+// Streamers have SDK settings such as onError that are not valid generator settings.
+type ObjectStreamingProperties = Pick<configs.StreamObjectBaseConfig<any>,
+	Exclude<keyof configs.StreamObjectBaseConfig<any>, keyof configs.GenerateObjectBaseConfig<any>>>;
+
+export type ValidateObjectStreamerConfig<
+	TConfig extends configs.ConfigShape<configs.GenerateObjectBaseConfig<any, any> & { output?: string | undefined }>,
+	TFinalConfig extends configs.FinalGenerateObjectConfigShape & Record<string, any>,
+	TShapeExtras = EmptyMap,
+> = ValidateObjectConfig<TConfig, TFinalConfig, TShapeExtras & ObjectStreamingProperties>;
+
+export type ValidateObjectStreamerParentConfig<
+	TParentConfig extends configs.ConfigShape<configs.GenerateObjectConfig<any, any, any, any> & { output?: string | undefined }>,
+	TFinalConfig extends configs.FinalGenerateObjectConfigShape & Record<string, any>,
+	TShapeExtras = EmptyMap,
+> = ValidateObjectParentConfig<TParentConfig, TFinalConfig, TShapeExtras & ObjectStreamingProperties>;

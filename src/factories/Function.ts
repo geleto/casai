@@ -4,7 +4,7 @@ import { validateFunctionConfig, validateScriptOrFunctionCall, validateAndParseO
 //import { ExecuteFunction, types.InferSchema, types.SchemaType, ToolExecuteFunction } from '../types/types.js';
 import type { FlexibleSchema, ToolExecutionOptions } from 'ai';
 import type { EmptyMap, MergedConfig } from '../types/merge.js';
-import type { Provisional } from '../types/provisional.js';
+import type { Provisional, ValidateResolved } from '../types/provisional.js';
 import type { ValidateFinalConfig } from '../types/config-validation.js';
 import type {
 	CallInput, ChildDefinition, ContextOf, DeclaredConfig, ExecuteOf, ExpectedFunctionConfig, ExpectedToolConfig,
@@ -27,8 +27,8 @@ type ParentDefinition<TParent> = DeclaredConfig<typeof implementationType extend
 type FinalConfig<TParent, TConfig> = MergedConfig<ParentDefinition<TParent>, TConfig>;
 
 // Callback contextual types come from the separately inferred child schemas, not the provisional child config.
-type ChildFunctionContext<TParent, TInputSchema, TOutputSchema, CONTEXT> =
-	FunctionExecuteContext<ChildDefinition<ParentDefinition<TParent>, TInputSchema, TOutputSchema, CONTEXT, never>>;
+type ChildFunctionContext<TParent, TInputSchema, TOutputSchema, CONTEXT, TActual> =
+	FunctionExecuteContext<ChildDefinition<ParentDefinition<TParent>, TInputSchema, TOutputSchema, CONTEXT, never>, TActual>;
 type ChildToolContext<TParent, TInputSchema, TOutputSchema, CONTEXT, TContextSchema> =
 	ToolExecuteContext<ChildDefinition<ParentDefinition<TParent>, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>;
 
@@ -50,6 +50,15 @@ export type FunctionCallSignature<
 
 
 // type: function and execute are required by vercel ai
+type ToolCaller<
+	TInputSchema extends types.SchemaType<Record<string, any>>,
+	TOutputSchema extends types.SchemaType<any> | undefined,
+	CONTEXT extends Record<string, any> | undefined,
+	TOOL_CONTEXT,
+	TExecute extends (...args: any) => any,
+> = (input: types.InputWithContext<types.InferSchema<TInputSchema>, CONTEXT, TInputSchema, false, true>,
+	options: ToolExecutionOptions<TOOL_CONTEXT>) => ReturnType<types.FunctionToolCaller<TInputSchema, TOutputSchema, TExecute, TOOL_CONTEXT>>;
+
 export type ToolCallSignature<
 	TInputSchema extends types.SchemaType<Record<string, any>>,
 	TOutputSchema extends types.SchemaType<any> | undefined,
@@ -58,14 +67,12 @@ export type ToolCallSignature<
 	TOOL_CONTEXT = configs.ToolContextFromConfig<TConfig>,
 	TExecute extends (...args: any) => any = ExecuteOf<TConfig>,
 > = //The context is stored in the config and the caller is called only with the input:
-	types.FunctionToolCaller<TInputSchema, TOutputSchema, TExecute, TOOL_CONTEXT> // no context
+	ToolCaller<TInputSchema, TOutputSchema, CONTEXT, TOOL_CONTEXT, TExecute>
 	& Omit<TConfig, 'execute' | 'type'>
 	& {
 		type: 'function';
 		// .execute is the caller: configured context fields are optional overrides.
-		execute: (input: types.InferSchema<TInputSchema> & (CONTEXT extends undefined ? unknown : Partial<Omit<CONTEXT, keyof types.InferSchema<TInputSchema>>>),
-			options: ToolExecutionOptions<TOOL_CONTEXT>)
-			=> ReturnType<types.FunctionToolCaller<TInputSchema, TOutputSchema, TExecute, TOOL_CONTEXT>>;
+		execute: ToolCaller<TInputSchema, TOutputSchema, CONTEXT, TOOL_CONTEXT, TExecute>;
 		readonly [implementationType]?: TExecute;
 	};
 
@@ -81,10 +88,29 @@ function asFunction<
 	TConfig extends Provisional<object> = Provisional<object>,
 >(
 	config:
-		{ context?: CONTEXT, inputSchema?: TInputSchema, schema?: TOutputSchema } & // infer the callback's schemas
+		{ context: CONTEXT, inputSchema?: TInputSchema, schema?: TOutputSchema } & // infer the callback's schemas
 		TConfig & // Ensures type is TConfig
-		NoInfer<ChildFunctionContext<TParentConfig, TInputSchema, TOutputSchema, CONTEXT>> &
-		ValidateFinalConfig<TConfig, ParentDefinition<TParentConfig>, FinalConfig<TParentConfig, TConfig>, ExpectedFunctionConfig<FinalConfig<TParentConfig, TConfig>>>,
+		NoInfer<ChildFunctionContext<TParentConfig, TInputSchema, TOutputSchema, CONTEXT, TConfig>> &
+		ValidateFinalConfig<TConfig, ParentDefinition<TParentConfig>, FinalConfig<TParentConfig, TConfig>, ExpectedFunctionConfig<FinalConfig<TParentConfig, TConfig>>> &
+		ValidateResolved<TConfig, types.ValidateContextInputSchema<configs.DeclaredType<FinalConfig<TParentConfig, TConfig>, 'inputSchema'>>>,
+	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'FunctionCall' })
+): FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>;
+
+// An optional context may be absent even when exact optional properties exclude explicit undefined.
+function asFunction<
+	TParentConfig extends object = EmptyMap,
+	TInputSchema extends types.SchemaType<Record<string, any>> | undefined = never,
+	TOutputSchema extends types.SchemaType<any> | undefined = never,
+	CONTEXT extends Record<string, any> | undefined = undefined,
+	TConfig extends Provisional<object> = Provisional<object>,
+>(
+	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
+	config:
+		{ context?: CONTEXT | undefined, inputSchema?: TInputSchema, schema?: TOutputSchema } &
+		TConfig &
+		NoInfer<ChildFunctionContext<TParentConfig, TInputSchema, TOutputSchema, CONTEXT | undefined, TConfig>> &
+		ValidateFinalConfig<TConfig, ParentDefinition<TParentConfig>, FinalConfig<TParentConfig, TConfig>, ExpectedFunctionConfig<FinalConfig<TParentConfig, TConfig>>> &
+		ValidateResolved<TConfig, types.ValidateContextInputSchema<configs.DeclaredType<FinalConfig<TParentConfig, TConfig>, 'inputSchema'>>>,
 	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'FunctionCall' })
 ): FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>;
 
@@ -110,9 +136,27 @@ function asTool<
 	TConfig extends Provisional<object> = Provisional<object>,
 >(
 	config:
-		{ context?: CONTEXT, inputSchema?: TInputSchema, schema?: TOutputSchema, contextSchema?: TContextSchema } & // infer the callback's schemas
+		{ context: CONTEXT, inputSchema?: TInputSchema, schema?: TOutputSchema, contextSchema?: TContextSchema } & // infer the callback's schemas
 		TConfig &
 		NoInfer<ChildToolContext<TParentConfig, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>> &
+		ValidateFinalConfig<TConfig, ParentDefinition<TParentConfig>, FinalConfig<TParentConfig, TConfig>, ExpectedToolConfig<FinalConfig<TParentConfig, TConfig>>>,
+	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'function' | 'FunctionCall' })
+): ToolFromConfig<FinalConfig<TParentConfig, TConfig>>;
+
+// Keep definite configured fields required while optional context contributes optional fields.
+function asTool<
+	TParentConfig extends object = EmptyMap,
+	TInputSchema extends types.SchemaType<Record<string, any>> | undefined = never,
+	TOutputSchema extends types.SchemaType<any> | undefined = never,
+	CONTEXT extends Record<string, any> | undefined = undefined,
+	TContextSchema extends FlexibleSchema | undefined = never,
+	TConfig extends Provisional<object> = Provisional<object>,
+>(
+	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
+	config:
+		{ context?: CONTEXT | undefined, inputSchema?: TInputSchema, schema?: TOutputSchema, contextSchema?: TContextSchema } &
+		TConfig &
+		NoInfer<ChildToolContext<TParentConfig, TInputSchema, TOutputSchema, CONTEXT | undefined, TContextSchema>> &
 		ValidateFinalConfig<TConfig, ParentDefinition<TParentConfig>, FinalConfig<TParentConfig, TConfig>, ExpectedToolConfig<FinalConfig<TParentConfig, TConfig>>>,
 	parent?: configs.ConfigProvider<TParentConfig> | (TParentConfig & { type: 'function' | 'FunctionCall' })
 ): ToolFromConfig<FinalConfig<TParentConfig, TConfig>>;

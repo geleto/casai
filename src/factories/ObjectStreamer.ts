@@ -1,3 +1,5 @@
+import type { FlexibleSchema } from 'ai';
+import type { FunctionPromptInput, FunctionPromptShape } from '../types/function-prompt.js';
 import { streamObject } from "ai";
 import type { LanguageModel, ModelMessage } from "ai";
 
@@ -6,7 +8,7 @@ import * as configs from '../types/config.js';
 import * as utils from '../types/utils.js';
 import * as types from '../types/types.js';
 
-import type { ValidateObjectConfig, ValidateObjectParentConfig } from '../types/config-validation.js';
+import type { ValidateObjectStreamerConfig, ValidateObjectStreamerParentConfig } from '../types/config-validation.js';
 import type { Provisional, ResolvedConfig } from '../types/provisional.js';
 import type { EmptyMap } from '../types/merge.js';
 import type { ObjectCallbackShape, ObjectCallbackInput, ObjectRunConfig } from '../types/callbacks.js';
@@ -26,6 +28,10 @@ type ShapeOf<TConfig> =
 	? CommonStreamObjectNoSchemaConfig
 	: CommonStreamObjectObjectConfig;
 
+// Inherited output modes determine run settings while prompt-specific settings remain available.
+type InheritedShapeOf<TFinalConfig, TShape> = Omit<TShape, 'mode' | 'schemaName' | 'schemaDescription'>
+	& Pick<ShapeOf<TFinalConfig>, Extract<keyof ShapeOf<TFinalConfig>, 'mode' | 'schemaName' | 'schemaDescription'>>;
+
 // Parameterize return types by concrete promptType literal used by implementation
 // Plain text prompts return the stream object without the promise as they don't render the prompt
 type StreamObjectReturn<
@@ -34,16 +40,17 @@ type StreamObjectReturn<
 	OUTPUT, //@out
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape,
-	IsAsync extends boolean = false
+	IsAsync extends boolean = false,
+	WholeConfig extends configs.BaseConfig = TConfig
 > =
 	TConfig extends { output: 'array', schema: types.SchemaType<OUTPUT> }
-	? LLMCallSignature<TConfig, utils.ConditionalPromise<results.StreamObjectArrayResult<utils.InferParameters<TConfig['schema']>>, IsAsync>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, true>>
+	? LLMCallSignature<WholeConfig, utils.ConditionalPromise<results.StreamObjectArrayResult<utils.InferParameters<TConfig['schema']>>, IsAsync>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, true>>
 	: TConfig extends { output: 'array' }
 	? `Config Error: Array output requires a schema`
 	: TConfig extends { output: 'no-schema' }
-	? LLMCallSignature<TConfig, utils.ConditionalPromise<results.StreamObjectNoSchemaResult, IsAsync>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, true>>
+	? LLMCallSignature<WholeConfig, utils.ConditionalPromise<results.StreamObjectNoSchemaResult, IsAsync>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, true>>
 	: TConfig extends { output?: 'object' | undefined, schema: types.SchemaType<OUTPUT> }
-	? LLMCallSignature<TConfig, utils.ConditionalPromise<results.StreamObjectObjectResult<utils.InferParameters<TConfig['schema']>>, IsAsync>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, true>>
+	? LLMCallSignature<WholeConfig, utils.ConditionalPromise<results.StreamObjectObjectResult<utils.InferParameters<TConfig['schema']>>, IsAsync>, PType, PROMPT, ObjectRunConfig<TConfigShape, TConfig, true>>
 	: `Config Error: Object output requires a schema`;
 
 type StreamObjectPromiseReturn<
@@ -74,7 +81,7 @@ type StreamObjectWithParentReturn<
 		PType,
 		OUTPUT extends never ? PARENT_OUTPUT : OUTPUT, //@out
 		PROMPT,
-		TConfigShape
+		InheritedShapeOf<TFinalConfig, TConfigShape>
 	>
 
 type StreamObjectWithParentPromiseReturn<
@@ -92,7 +99,7 @@ type StreamObjectWithParentPromiseReturn<
 		PType,
 		OUTPUT extends never ? PARENT_OUTPUT : OUTPUT, //@out
 		PROMPT,
-		TConfigShape
+		InheritedShapeOf<TFinalConfig, TConfigShape>
 	>
 
 // A text-only prompt has no inputs
@@ -105,7 +112,7 @@ function withText<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TConfig>,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig>,
 ): StreamObjectReturn<TConfig, 'text', OUTPUT, PROMPT, TConfigShape>;
 
 // Overload 2: With parent parameter
@@ -122,8 +129,8 @@ function withText<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TFinalConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig>>,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig>>,
 ): StreamObjectWithParentReturn<TConfig, TParentConfig, 'text',
 	OUTPUT, PARENT_OUTPUT, PROMPT, TConfigShape>
 
@@ -153,7 +160,7 @@ function loadsText<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig,
 		configs.LoaderConfig>,
 ): StreamObjectPromiseReturn<TConfig, 'text-name', OUTPUT, PROMPT, TConfigShape>;
 
@@ -172,9 +179,9 @@ function loadsText<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig,
 		configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig,
 		configs.LoaderConfig>>,
 
 ): StreamObjectWithParentPromiseReturn<TConfig, TParentConfig, 'text-name', OUTPUT, PARENT_OUTPUT, PROMPT, TConfigShape>;
@@ -208,7 +215,7 @@ function withTemplate<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TConfig, configs.TemplatePromptConfig>,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig, configs.TemplatePromptConfig>,
 ): StreamObjectPromiseReturn<TConfig, 'async-template', OUTPUT, string, TConfigShape>;
 
 // Overload 2: With parent parameter
@@ -226,9 +233,9 @@ function withTemplate<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig>>
 
 ): StreamObjectWithParentPromiseReturn<TConfig, TParentConfig, 'async-template', OUTPUT, PARENT_OUTPUT, string, TConfigShape>;
@@ -258,7 +265,7 @@ function loadsTemplate<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig>,
 ): StreamObjectPromiseReturn<TConfig, 'async-template-name', OUTPUT, string, TConfigShape>;
 
@@ -277,9 +284,9 @@ function loadsTemplate<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig,
 		configs.TemplatePromptConfig & configs.LoaderConfig>>
 
 ): StreamObjectWithParentPromiseReturn<TConfig, TParentConfig, 'async-template-name', OUTPUT, PARENT_OUTPUT, string, TConfigShape>;
@@ -309,7 +316,7 @@ function withScript<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig>,
 ): StreamObjectPromiseReturn<TConfig, 'async-script', OUTPUT, string, TConfigShape>;
 
@@ -327,9 +334,9 @@ function withScript<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig>>
 
 ): StreamObjectWithParentPromiseReturn<TConfig, TParentConfig, 'async-script', OUTPUT, PARENT_OUTPUT, string, TConfigShape>;
@@ -359,7 +366,7 @@ function loadsScript<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig>,
 ): StreamObjectPromiseReturn<TConfig, 'async-script-name', OUTPUT, string, TConfigShape>;
 
@@ -378,9 +385,9 @@ function loadsScript<
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig,
 		configs.ScriptPromptConfig & configs.LoaderConfig>>
 
 ): StreamObjectWithParentPromiseReturn<TConfig, TParentConfig, 'async-script-name', OUTPUT, PARENT_OUTPUT, string, TConfigShape>;
@@ -402,7 +409,7 @@ function loadsScript<
 }
 
 function withFunction<
-	const TConfig extends Provisional<ObjectCallbackShape<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>>,
+	TConfig extends FunctionPromptShape<Provisional<ObjectCallbackShape<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
@@ -410,15 +417,36 @@ function withFunction<
 	TCallbackSchema extends types.SchemaType<any> | undefined = never,
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TConfig,
+	config: TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, false, true> & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig,
+		configs.FunctionPromptConfig>,
+): StreamObjectPromiseReturn<TConfig, 'function', OUTPUT, PROMPT, TConfigShape>;
+
+function withFunction<
+	TConfig extends FunctionPromptShape<Provisional<ObjectCallbackShape<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>>>,
+	INPUT extends Record<string, any>,
+	OUTPUT,
+	PROMPT extends types.PromptFunction = types.PromptFunction,
+	TConfigShape = ShapeOf<TConfig> & configs.FunctionPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
+>(
+	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
+	config: TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, false, false> & ObjectCallbackInput<TConfig, EmptyMap, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TConfig,
 		configs.FunctionPromptConfig>,
 ): StreamObjectPromiseReturn<TConfig, 'function', OUTPUT, PROMPT, TConfigShape>;
 
 // Overload 2: With parent parameter
 function withFunction<
-	TConfig extends Provisional<ObjectCallbackShape<Partial<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>>>,
-	TParentConfig extends ObjectCallbackShape<Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PROMPT> & configs.FunctionPromptConfig>>,
+	TConfig extends FunctionPromptShape<Provisional<ObjectCallbackShape<Partial<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>>>>,
+	TParentConfig extends FunctionPromptShape<ObjectCallbackShape<Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PROMPT> & configs.FunctionPromptConfig>>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
@@ -429,10 +457,38 @@ function withFunction<
 	TCallbackSchema extends types.SchemaType<any> | undefined = never,
 	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
 	TCallbackEnum extends readonly string[] | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
 >(
-	config: TConfig & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectConfig<TConfig, TFinalConfig,
+	config: TConfig & FunctionPromptInput<TConfig, TParentConfig, TPromptInput, TPromptContext, TPromptToolContext, false, true> & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig,
 		configs.FunctionPromptConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateObjectParentConfig<TParentConfig, TFinalConfig,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig,
+		configs.FunctionPromptConfig>>,
+
+): StreamObjectWithParentPromiseReturn<TConfig, TParentConfig, 'function', OUTPUT, PARENT_OUTPUT, PROMPT, TConfigShape>;
+
+function withFunction<
+	TConfig extends FunctionPromptShape<Provisional<ObjectCallbackShape<Partial<configs.StreamObjectConfig<INPUT, OUTPUT, PROMPT> & configs.FunctionPromptConfig>>>>,
+	TParentConfig extends FunctionPromptShape<ObjectCallbackShape<Partial<configs.StreamObjectConfig<PARENT_INPUT, PARENT_OUTPUT, PROMPT> & configs.FunctionPromptConfig>>>,
+	INPUT extends Record<string, any>,
+	OUTPUT,
+	PARENT_INPUT extends Record<string, any>,
+	PARENT_OUTPUT,
+	TFinalConfig extends configs.FinalStreamObjectConfigShape = configs.MergedConfig<TParentConfig, TConfig>, //@todo we need just the correct output type
+	PROMPT extends types.PromptFunction = types.PromptFunction,
+	TConfigShape = ShapeOf<TConfig> & configs.FunctionPromptConfig,
+	TCallbackSchema extends types.SchemaType<any> | undefined = never,
+	TCallbackMode extends 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
+>(
+	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
+	config: TConfig & FunctionPromptInput<TConfig, TParentConfig, TPromptInput, TPromptContext, TPromptToolContext, false, false> & ObjectCallbackInput<TConfig, TParentConfig, TCallbackSchema, TCallbackMode, TCallbackEnum, true> & ValidateObjectStreamerConfig<TConfig, TFinalConfig,
+		configs.FunctionPromptConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateObjectStreamerParentConfig<TParentConfig, TFinalConfig,
 		configs.FunctionPromptConfig>>,
 
 ): StreamObjectWithParentPromiseReturn<TConfig, TParentConfig, 'function', OUTPUT, PARENT_OUTPUT, PROMPT, TConfigShape>;

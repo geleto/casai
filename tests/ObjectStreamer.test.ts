@@ -294,18 +294,15 @@ describe('create.ObjectStreamer', function () {
 				resolveFinish = resolve;
 			});
 
-			//x@ts-expect-error A TypeScript bug: https://github.com/microsoft/TypeScript/issues/62204
 			const streamer = create.ObjectStreamer({
 				model, ...temperatureConfig,
 				schema: simpleSchema,
-				sss: 1,
 				prompt: 'Generate a JSON object for "FinishCallback" with value 123.',
 				onFinish: function (result: StreamObjectOnFinishEvent<typeof simpleSchema>) {
 					resolveFinish(result);
 				}
 			});
 
-			// x@ts-expect-error wrong return due to the afore mentioned TypeScript bug
 			const result = streamer();
 			const partials = await collectPartials(result.partialObjectStream);
 			const finalObject = mergePartials(partials) as z.infer<typeof simpleSchema>;

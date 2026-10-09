@@ -71,7 +71,9 @@ describe('LLM component contracts without providers', () => {
 				]]);
 				const calls = streaming ? replacement.doStreamCalls : replacement.doGenerateCalls;
 				expect(calls[0].maxOutputTokens).to.equal(25);
+				// @ts-expect-error Invalid schema input is also rejected at runtime.
 				await rejects(() => component.run({ context: { topic: 1 } }), /Input context validation failed/);
+				// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
 				await rejects(() => component.run({}), /context object is required/);
 				expect(calls).to.have.length(1);
 				const second = await component({ topic: 'Next' });
@@ -263,6 +265,7 @@ describe('LLM component contracts without providers', () => {
 			if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 			else if ('text' in result) await result.text;
 			expect(events).to.deep.equal(['validate', 'prompt']);
+			// @ts-expect-error Invalid schema input is also rejected at runtime.
 			await rejects(() => component.run({ context: { value: 'invalid' } }), /Input context validation failed/);
 			expect(events).to.deep.equal(['validate', 'prompt', 'validate']);
 			expect(promptCalls(model, factoryName.endsWith('Streamer'))).to.have.length(1);

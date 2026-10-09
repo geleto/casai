@@ -61,7 +61,7 @@ export const ContextConfigKeys: (keyof ContextConfig)[] = ['context', 'debug'] a
 export interface CascadaConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends ContextConfig<CONTEXT> {
 	filters?: types.CascadaFilters;
 	options?: ConfigureOptions;
-	loader?: types.CasaiAILoaders;
+	loader?: types.CasaiAILoaders | undefined;
 }
 
 export const CascadaConfigKeys: (keyof CascadaConfig)[] = ['context', 'filters', 'options', 'loader', 'debug'] as const;
@@ -103,7 +103,7 @@ export type FinalTemplateConfigShape = Partial<TemplateConfig<any> & ToolConfig<
 // Config for prompts that are rendered with templates (as part of the whole generate/stream Text/Object/Function config)
 export interface TemplatePromptConfig extends CascadaConfig {
 	prompt?: string;//the string containing the template, can be specified in the caller
-	messages?: ModelMessage[];
+	messages?: ModelMessage[] | undefined;
 	promptType?: types.TemplatePromptType;
 }
 
@@ -137,7 +137,7 @@ export type OptionalTemplatePromptConfig = TemplatePromptConfig | { promptType: 
 // Config for prompts that are rendered with scripts (as part of the whole generate/stream Text/Object/Function config)
 export interface ScriptPromptConfig extends CascadaConfig {
 	prompt?: string;//the string containing the script, can be specified in the caller
-	messages?: ModelMessage[];
+	messages?: ModelMessage[] | undefined;
 	promptType?: types.ScriptPromptType;
 }
 
@@ -149,7 +149,7 @@ export type OptionalPromptConfig = OptionalTemplatePromptConfig | OptionalScript
 // Config for prompts that are rendered with functions (as part of the whole generate/stream Text/Object/Function config)
 export interface FunctionPromptConfig extends ContextConfig {
 	prompt: types.PromptFunction;//The prompt is a function that returns a string or ModelMessage[]
-	messages?: ModelMessage[];
+	messages?: ModelMessage[] | undefined;
 	promptType?: types.FunctionPromptType;
 }
 
@@ -176,9 +176,9 @@ export type GenerateTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof generateText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt'>
+> = Omit<Parameters<typeof generateText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages'>
 	& BaseConfig
-	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT> };
+	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT> };
 
 // The first argument of streamText
 type AugmentedStreamFinishCallback<CALLBACK> = CALLBACK extends (event: infer EVENT) => infer RESULT
@@ -191,10 +191,11 @@ export type StreamTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'onFinish' | 'onEnd'>
+> = Omit<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages' | 'onFinish' | 'onEnd'>
 	& BaseConfig
 	& {
 		prompt?: PROMPT;
+		messages?: ModelMessage[] | undefined;
 		inputSchema?: types.SchemaType<INPUT>;
 		onFinish?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0]['onFinish']>;
 		onEnd?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0]['onEnd']>;
@@ -229,9 +230,9 @@ export type GenerateObjectBaseConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
 	RESULT = unknown,
-> = Omit<Parameters<typeof generateObject>[0], 'output' | 'mode' | 'prompt' | 'onFinish'>
+> = Omit<Parameters<typeof generateObject>[0], 'output' | 'mode' | 'prompt' | 'messages' | 'onFinish'>
 	& BaseConfig
-	& { prompt?: PROMPT, inputSchema?: types.SchemaType<INPUT>, onFinish?: (event: GenerateObjectEndEvent<RESULT>) => void | PromiseLike<void> };
+	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT>, onFinish?: (event: GenerateObjectEndEvent<RESULT>) => void | PromiseLike<void> };
 
 export type GenerateObjectObjectConfig<
 	INPUT extends Record<string, any>,
@@ -298,11 +299,12 @@ export type StreamObjectBaseConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
 	RESULT = unknown,
-> = Omit<Parameters<typeof streamObject>[0], 'output' | 'mode' | 'prompt' | 'onFinish'>
+> = Omit<Parameters<typeof streamObject>[0], 'output' | 'mode' | 'prompt' | 'messages' | 'onFinish'>
 	& BaseConfig
 	& {
 		//Bring back the removed onFinish and prompt properties
 		prompt?: PROMPT;
+		messages?: ModelMessage[] | undefined;
 		onFinish?: ObjectFinishCallback<RESULT, true>;
 		inputSchema?: types.SchemaType<INPUT>;
 	};
@@ -390,7 +392,7 @@ export interface FunctionToolConfig<
 
 // Shared configuration fields used by the LLM run() implementation.
 export type LLMRunConfig = Partial<BaseConfig> & {
-	messages?: ModelMessage[];
+	messages?: ModelMessage[] | undefined;
 	prompt?: types.AnyPromptSource;
 	context?: types.Context;
 };
@@ -407,7 +409,7 @@ export type AnyConfig<
 	INPUT extends Record<string, any>,
 	OUTPUT, //@out
 	ENUM extends string = string,
-	PROMPT extends types.AnyPromptSource = string | ModelMessage[]
+	PROMPT extends types.AnyPromptSource = types.AnyPromptSource
 > =
 	((// LLM Configs with template prompt
 		| GenerateTextConfig<TOOLS, INPUT, PROMPT>
@@ -421,16 +423,15 @@ export type AnyConfig<
 		| StreamObjectNoSchemaConfig<INPUT, PROMPT>
 	) & Partial<ToolConfig<INPUT, OUTPUT>> &
 		(
-			Partial<LoaderConfig> & (TemplatePromptConfig | ScriptPromptConfig | { prompt?: PROMPT, promptType?: 'text' | 'text-name' })
+			Pick<CascadaConfig, 'loader'> & (TemplatePromptConfig | ScriptPromptConfig | FunctionPromptConfig | { prompt?: PROMPT, promptType?: 'text' | 'text-name' })
 		)
-		| FunctionPromptConfig
 	) |
 	((// Template/Script Engine Configs
 		| TemplateConfig<INPUT>
 		| TemplateToolConfig<INPUT>
 		| ScriptToolConfig<INPUT, OUTPUT>
 		| ScriptConfig<INPUT, OUTPUT>
-	) & Partial<LoaderConfig>)
+	) & Pick<CascadaConfig, 'loader'>)
 	| FunctionFragmentConfig;
 
 // Any Function or Function.asTool config. Config types and checks execute from the schemas the config declares.

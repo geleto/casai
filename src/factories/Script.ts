@@ -6,6 +6,7 @@ import * as configs from '../types/config.js';
 import * as results from '../types/result.js';
 import * as utils from '../types/utils.js';
 import type { InferSchema, ScriptPromptType } from '../types/types.js';
+import type { RendererCall } from '../types/input.js';
 import type { Provisional } from '../types/provisional.js';
 import type { ValidateScriptConfig, ValidateScriptParentConfig } from '../types/config-validation.js';
 
@@ -20,38 +21,12 @@ type ScriptResultPromise<
 > =
 	Promise<ScriptOutput<TConfig>>;
 
-type ScriptResultPromiseWithParent<
-	TConfig extends configs.ScriptConfig<INPUT, OUTPUT>,
-	TParentConfig extends configs.ScriptConfig<PARENT_INPUT, PARENT_OUTPUT>,
-	INPUT extends Record<string, any>,
-	OUTPUT,
-	PARENT_INPUT extends Record<string, any>,
-	PARENT_OUTPUT,
-	FinalConfig = configs.MergedConfig<TParentConfig, TConfig>
-> =
-	Promise<ScriptOutput<FinalConfig>>;
-
 // Script call signature type
 export type ScriptCallSignature<
 	TConfig extends configs.ScriptConfig<INPUT, OUTPUT>,
 	INPUT extends Record<string, any>,
 	OUTPUT
-> =
-	// context is optional (todo - make it required if config has inputSchema and no script)
-	TConfig extends { script: string }
-	? {
-		// TConfig has a script, so the script argument is optional.
-		(scriptOrContext?: INPUT | string): ScriptResultPromise<TConfig, INPUT, OUTPUT>;
-		(script?: string, context?: INPUT): ScriptResultPromise<TConfig, INPUT, OUTPUT>;
-		config: TConfig;
-		type: string;
-	}
-	: {
-		// TConfig has no script, so the script argument is required.
-		(script: string, context?: INPUT): ScriptResultPromise<TConfig, INPUT, OUTPUT>;
-		config: TConfig;
-		type: string;
-	};
+> = RendererCall<TConfig, ScriptResultPromise<TConfig, INPUT, OUTPUT>, 'script'> & { config: TConfig; type: string };
 
 export type ScriptCallSignatureWithParent<
 	TConfig extends Partial<configs.ScriptConfig<INPUT, OUTPUT>>,
@@ -60,23 +35,9 @@ export type ScriptCallSignatureWithParent<
 	OUTPUT,
 	PARENT_INPUT extends Record<string, any>,
 	PARENT_OUTPUT,
-	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
+	_FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	FinalConfig = configs.MergedConfig<TParentConfig, TConfig>
-> =
-	FinalConfig extends { script: string }
-	? {
-		// FinalConfig has a script, so the script argument is optional.
-		(scriptOrContext?: FINAL_INPUT | string): ScriptResultPromiseWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT>;
-		(script?: string, context?: FINAL_INPUT): ScriptResultPromiseWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT>;
-		config: FinalConfig;
-		type: string;
-	}
-	: {
-		// FinalConfig has no script, so the script argument is required.
-		(script: string, context?: FINAL_INPUT): ScriptResultPromiseWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT>;
-		config: FinalConfig;
-		type: string;
-	};
+> = RendererCall<FinalConfig, Promise<ScriptOutput<FinalConfig>>, 'script'> & { config: FinalConfig; type: string };
 
 
 // Default behavior: inline/embedded script

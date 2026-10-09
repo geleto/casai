@@ -360,7 +360,7 @@ describe('LLM call contracts without providers', () => {
 			expect(objects).not.to.be.instanceOf(Promise);
 			expect(await collect(objects.partialObjectStream)).to.deep.include({ answer: 4 });
 
-			const rendered = [
+			const rendered: (() => Promise<{ textStream: AsyncIterable<string> }>)[] = [
 				create.TextStreamer.withTemplate({ model, prompt: 'Hello {{ name }}', context: { name: 'Ada' } }),
 				create.TextStreamer.withScript({ model, prompt: 'return "Hello " ~ name', context: { name: 'Ada' } }),
 				create.TextStreamer.withFunction({ model, prompt: () => 'Hello Ada' }),
@@ -403,6 +403,7 @@ describe('LLM call contracts without providers', () => {
 				expect(loaded).to.deep.equal(['named']);
 
 				const empty = streaming ? create.TextStreamer.loadsText({ model, loader }) : create.TextGenerator.loadsText({ model, loader });
+				// @ts-expect-error Missing prompts are also rejected at runtime.
 				await rejects(async () => await empty.run({}), /Either 'prompt' \(string or messages array\) or 'messages' must be provided/);
 			});
 		}

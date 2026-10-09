@@ -5,7 +5,7 @@ import type { FlexibleSchema, ToolSet } from 'ai';
 import type { EmptyMap, ProcessedConfig } from '../types/merge.js';
 import type { Provisional, ResolvedConfig } from '../types/provisional.js';
 import type { CallbackConfigShape, FragmentCallbackInput } from '../types/callbacks.js';
-import type { ChildDefinition, DeclaredConfig, ToolExecuteContext } from '../types/function-config.js';
+import type { ChildDefinition, DeclaredConfig, FragmentExecuteContext } from '../types/function-config.js';
 import type * as types from '../types/types.js';
 import { validateAnyConfig, validateConfigBasics } from '../validate.js';
 
@@ -33,7 +33,7 @@ export function Config<
 		{ tools?: TOOLS, inputSchema?: TInputSchema, schema?: TOutputSchema, context?: CONTEXT, contextSchema?: TContextSchema } &
 		TConfig &
 		FragmentCallbackInput<TConfig, EmptyMap, TCallbackTools, TOutputSchema, TCallbackRuntime, TCallbackOutput, TCallbackEnum> &
-		NoInfer<ToolExecuteContext<ChildDefinition<EmptyMap, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>> &
+		NoInfer<FragmentExecuteContext<ChildDefinition<EmptyMap, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>, TConfig>> &
 		ValidateConfigFragment<TConfig, TConfig, Partial<configs.AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>>,
 ): configs.ConfigProvider<ProcessedConfig<ResolvedConfig<TConfig>>>;
 
@@ -55,7 +55,7 @@ export function Config<
 		{ tools?: TOOLS, inputSchema?: TInputSchema, schema?: TOutputSchema, context?: CONTEXT, contextSchema?: TContextSchema } &
 		TConfig &
 		FragmentCallbackInput<TConfig, DeclaredConfig<TParentConfig>, TCallbackTools, TOutputSchema, TCallbackRuntime, TCallbackOutput, TCallbackEnum> &
-		NoInfer<ToolExecuteContext<ChildDefinition<DeclaredConfig<TParentConfig>, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>> &
+		NoInfer<FragmentExecuteContext<ChildDefinition<DeclaredConfig<TParentConfig>, TInputSchema, TOutputSchema, CONTEXT, TContextSchema>, TConfig>> &
 		ValidateConfigFragment<TConfig, configs.MergedConfig<DeclaredConfig<TParentConfig>, TConfig>, Partial<configs.AnyConfigShape<ToolSet, INPUT, OUTPUT, ENUM>>>,
 	parent: configs.ConfigProvider<TParentConfig>
 ): configs.ConfigProvider<configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>>;

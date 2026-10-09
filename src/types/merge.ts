@@ -36,7 +36,8 @@ export type ProcessedConfig<T> = { [K in keyof T]: ProcessedValue<K, T[K]> };
 
 type ArrayElement<T> = T extends readonly (infer ELEMENT)[] ? ELEMENT : never;
 type MergedValue<A, B, K extends PropertyKey> = K extends 'loader'
-	? ProcessedValue<K, SpreadValue<A, B, K>>
+	// mergeConfigs normalizes a supplied or inherited loader chain, including explicit undefined.
+	? ILoaderAny[]
 	: K extends 'messages'
 	? 'messages' extends keyof A ? 'messages' extends keyof B
 	? (ArrayElement<A['messages']> | ArrayElement<B['messages']>)[] : SpreadValue<A, B, K> : SpreadValue<A, B, K>

@@ -171,6 +171,7 @@ describe('Template and Script deterministic coverage', () => {
 				context: { name: 'Configured', touch: () => ++calls },
 			});
 			await rejects(() => render({ name: 42 } as never), ConfigError);
+			// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
 			await rejects(() => render(), ConfigError);
 			expect(calls).to.equal(0);
 			expect(await render({ name: 'Ada' })).to.equal('1 Ada');
@@ -397,6 +398,7 @@ describe('Template and Script deterministic coverage', () => {
 				context: { name: 'Configured', touch: (name: string) => { calls++; return name; } },
 			});
 			await rejects(() => run({ name: 42 } as never), ConfigError);
+			// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
 			await rejects(() => run(), ConfigError);
 			expect(calls).to.equal(0);
 			expect(await run({ name: 'Ada' })).to.equal('Ada');

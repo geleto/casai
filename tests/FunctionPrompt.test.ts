@@ -153,8 +153,11 @@ describe('withFunction prompts', () => {
 				prompt: () => { promptCalls++; return 'unused'; },
 			});
 
+			// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
 			await expect(generator()).to.be.rejectedWith(ConfigError, 'Input context validation failed');
+			// @ts-expect-error Invalid schema input is also rejected at runtime.
 			await expect(generator({ marker: 3 })).to.be.rejectedWith(ConfigError, 'Input context validation failed');
+			// @ts-expect-error Missing schema input is also rejected at runtime.
 			await expect(generator.run({ context: {} })).to.be.rejectedWith(ConfigError, 'Input context validation failed');
 			expect(promptCalls).to.equal(0);
 			expect(model.doGenerateCalls).to.have.lengthOf(0);

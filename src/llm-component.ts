@@ -1,6 +1,8 @@
 import type { Context, ScriptPromptType, TemplatePromptType, PromptFunction } from './types/types.js';
 import * as configs from './types/config.js';
 import type { ValidateRunConfig } from './types/config-validation.js';
+import type { CallContext, ContextArguments, RunContext, ValidateContextValue } from './types/input.js';
+import type { FunctionRunPrompt } from './types/function-prompt.js';
 import { ConfigError, validateConfigBasics, validateLLMComponentCall, validateLoadedTextPrompt, validateMessagesArray } from './validate.js';
 import { extractCallArguments } from './call-arguments.js';
 import * as utils from './types/utils.js';
@@ -17,6 +19,14 @@ import { mergeConfigs } from './config-utils.js';
 // Plain-text components call the SDK directly: a streamer's result is returned as is, not wrapped in a promise.
 type LLMResult<TResult, PType extends RequiredPromptType> = PType extends 'text' | 'text-name' ? TResult : utils.EnsurePromise<TResult>;
 
+type RunPrompt<TConfig, PType extends RequiredPromptType, PROMPT> = PType extends 'function'
+	? unknown
+	: TConfig extends { prompt: AnyPromptSource }
+	? unknown
+	: PType extends 'text' | 'text-name'
+	? TConfig extends { messages: ModelMessage[] } ? unknown : { prompt: PROMPT } | { messages: ModelMessage[] }
+	: { prompt: PROMPT };
+
 interface LLMComponent<TConfig, TResult, TAllowedConfigShape> {
 	config: TConfig;
 	type: string;
@@ -32,7 +42,7 @@ export type LLMCallSignature<
 	TConfigShape = Record<string, any>, //temporary default value
 	TAllowedConfigShape = Omit<Partial<TConfigShape>, configs.RunConfigDisallowedProperties>
 //INPUT extends Record<string, any> = TConfig extends { inputSchema: SchemaType<any> } ? utils.InferParameters<TConfig['inputSchema']> : Record<string, any>,
-> = LLMComponent<TConfig, LLMResult<TResult, PType>, TAllowedConfigShape> & (PType extends 'text' | 'text-name'
+> = LLMComponent<TConfig, LLMResult<TResult, PType>, (PType extends 'function' ? Omit<TAllowedConfigShape, 'prompt'> & FunctionRunPrompt<TConfig> : TAllowedConfigShape) & RunPrompt<TConfig, PType, PROMPT> & (PType extends 'text' | 'text-name' ? unknown : RunContext<TConfig>)> & (PType extends 'text' | 'text-name'
 	? (
 		// TConfig has no template, no context argument is needed
 		// We can have either a prompt or messages, but not both. No context as nothing is rendered.
@@ -52,7 +62,7 @@ export type LLMCallSignature<
 	? (
 		// Function-based renderers only accept a context object.
 		// Overriding the prompt function with a one-off string is ambiguous.
-		(context?: Context) => utils.EnsurePromise<TResult>
+		<TContext extends CallContext<TConfig> = CallContext<TConfig>>(...args: ContextArguments<TConfig, TContext> & NoInfer<ValidateContextValue<TContext>>) => utils.EnsurePromise<TResult>
 	)
 	: (
 		// TConfig has template or script or function; return type is always a promise
@@ -60,14 +70,14 @@ export type LLMCallSignature<
 		TConfig extends { prompt: PROMPT }
 		? {
 			// Config already has a prompt => Optional prompt, optional messages, and optional context
-			(prompt: PROMPT, messages: ModelMessage[], context?: Context): utils.EnsurePromise<TResult>;
-			(prompt: PROMPT, context?: Context): utils.EnsurePromise<TResult>;
-			(context?: Context): utils.EnsurePromise<TResult>;
+			(prompt: PROMPT, messages: ModelMessage[], ...args: ContextArguments<TConfig>): utils.EnsurePromise<TResult>;
+			(prompt: PROMPT, ...args: ContextArguments<TConfig>): utils.EnsurePromise<TResult>;
+			(...args: ContextArguments<TConfig>): utils.EnsurePromise<TResult>;
 		}
 		: (
 			// Requires a prompt, optional messages, and optional context
 			//(prompt: string, message: ModelMessage[], context?: Context): utils.EnsurePromise<TResult>;
-			(prompt: PROMPT, context?: Context) => utils.EnsurePromise<TResult>
+			(prompt: PROMPT, ...args: ContextArguments<TConfig>) => utils.EnsurePromise<TResult>
 		)
 	));
 

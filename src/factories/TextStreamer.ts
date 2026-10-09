@@ -1,9 +1,11 @@
+import type { FlexibleSchema } from 'ai';
+import type { FunctionPromptInput, FunctionPromptShape } from '../types/function-prompt.js';
 import { streamText } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 
 import * as results from '../types/result.js';
 import * as configs from '../types/config.js';
-import type { ValidateStreamTextConfig, ValidateStreamTextParentConfig } from '../types/config-validation.js';
+import type { RequiredInheritedConfig, RequiredModelConfig, ValidateStreamTextConfig, ValidateStreamTextParentConfig } from '../types/config-validation.js';
 import * as utils from '../types/utils.js';
 import * as types from '../types/types.js';
 
@@ -87,7 +89,7 @@ function withText<
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>,
+	config: { tools?: TOOLS } & TConfig & RequiredModelConfig<TParentConfig> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<TOOLS, never, PROMPT>>>
 ): StreamTextWithParentReturn<TConfig, TParentConfig, 'text', PROMPT, TConfigShape>;
 
@@ -125,7 +127,7 @@ function loadsText<
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
+	config: { tools?: TOOLS } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<any, never, PROMPT> & configs.LoaderConfig>>
 ): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'text-name', PROMPT, TConfigShape>;
 
@@ -158,7 +160,7 @@ function withTemplate<
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
+	config: { tools?: TOOLS } & TConfig & RequiredModelConfig<TParentConfig> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>>
 ): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-template', string, TConfigShape>
 
@@ -193,7 +195,7 @@ function loadsTemplate<
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
+	config: { tools?: TOOLS } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>
 ): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-template-name', string, TConfigShape>;
 
@@ -225,7 +227,7 @@ function withScript<
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
+	config: { tools?: TOOLS } & TConfig & RequiredModelConfig<TParentConfig> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>>
 ): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-script', string, TConfigShape>;
 
@@ -257,7 +259,7 @@ function loadsScript<
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
+	config: { tools?: TOOLS } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig, configs.StreamTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>
 ): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'async-script-name', string, TConfigShape>;
 
@@ -266,21 +268,41 @@ function loadsScript(config: any, parent?: configs.ConfigProvider<any>) {
 }
 
 function withFunction<
-	const TConfig extends Provisional<CallbackConfigShape<configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>>,
+	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TCallbackTools extends ToolSet | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TConfig,
+	config: { tools?: TOOLS } & TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, false, true> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TConfig,
 		configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>
 ): StreamTextPromiseReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig>;
 
 function withFunction<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>>>,
+	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>>>,
+	TOOLS extends ToolSet,
+	INPUT extends Record<string, any>,
+	PROMPT extends types.PromptFunction = types.PromptFunction,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
+>(
+	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
+	config: { tools?: TOOLS } & TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, false, false> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TConfig,
+		configs.StreamTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>
+): StreamTextPromiseReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig>;
+
+function withFunction<
+	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>>>,
+	TParentConfig extends FunctionPromptShape<CallbackConfigShape<Partial<configs.TextConfigShape<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -291,8 +313,34 @@ function withFunction<
 	TCallbackTools extends ToolSet | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
 >(
-	config: { tools?: TOOLS } & TConfig & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig,
+	config: { tools?: TOOLS } & TConfig & FunctionPromptInput<TConfig, TParentConfig, TPromptInput, TPromptContext, TPromptToolContext, false, true> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig,
+		configs.StreamTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>,
+	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>>
+): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape>;
+
+function withFunction<
+	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.StreamTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>>>,
+	TParentConfig extends FunctionPromptShape<CallbackConfigShape<Partial<configs.TextConfigShape<configs.StreamTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>>>>,
+	TOOLS extends ToolSet,
+	INPUT extends Record<string, any>,
+	PARENT_TOOLS extends ToolSet,
+	PARENT_INPUT extends Record<string, any>,
+	TFinalConfig extends configs.FinalStreamTextConfigShape = configs.MergedConfig<TParentConfig, TConfig>,
+	PROMPT extends types.PromptFunction = types.PromptFunction,
+	TConfigShape extends CommonConfig = CommonConfig & configs.FunctionPromptConfig,
+	TCallbackTools extends ToolSet | undefined = never,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends types.AIOutput | undefined = never,
+	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
+	TPromptContext extends Record<string, any> | undefined = never,
+	TPromptToolContext extends FlexibleSchema | undefined = never,
+>(
+	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
+	config: { tools?: TOOLS } & TConfig & FunctionPromptInput<TConfig, TParentConfig, TPromptInput, TPromptContext, TPromptToolContext, false, false> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, true> & ValidateStreamTextConfig<TConfig, TFinalConfig,
 		configs.StreamTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateStreamTextParentConfig<TParentConfig, configs.StreamTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>>
 ): StreamTextWithParentPromiseReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape>;

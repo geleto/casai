@@ -43,10 +43,11 @@ export function createScriptPromptRenderer(config: Record<string, unknown>, prom
 }
 
 export function createFunctionPromptRenderer(config: Record<string, unknown>, prompt: PromptFunction): (context?: Context) => PromptOutput | PromiseLike<PromptOutput> {
-	return _createFunction({
+	const renderer = _createFunction({
 		...copyConfigProperties<configs.FunctionConfig<SchemaType<Context>, SchemaType<PromptOutput>, Context, Context>>(config, configs.FunctionConfigKeys),
 		// Validate the prompt result, independently of the LLM's output schema.
 		schema: PromptStringOrMessagesSchema,
 		execute: prompt
-	});
+	}) as (context: Context) => PromptOutput | PromiseLike<PromptOutput>;
+	return (context = {}) => renderer(context);
 }

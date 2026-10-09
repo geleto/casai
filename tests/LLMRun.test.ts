@@ -43,14 +43,17 @@ describe('LLM run overrides and repeated calls', () => {
 					: promptType === 'script'
 						? streaming ? create.TextStreamer.withScript(script) : create.TextGenerator.withScript(script)
 						: streaming ? create.TextStreamer.withFunction(functionConfig) : create.TextGenerator.withFunction(functionConfig);
+				const invoke: (context: { name: string }) => ReturnType<typeof component> = component;
 				const result = await component.run({ context: { name: 'Alice' } });
 				expect(await result.text).to.equal('OK');
 				const call = streaming ? model.doStreamCalls[0] : model.doGenerateCalls[0];
 				expect(call.prompt[0].content).to.deep.equal([{ type: 'text', text: 'Hello Alice' }]);
 				expect(validations).to.equal(1);
-				expect(await (await component({ name: 'Bob' })).text).to.equal('OK');
+				expect(await (await invoke({ name: 'Bob' })).text).to.equal('OK');
 				expect(validations).to.equal(2);
+				// @ts-expect-error Invalid schema input is also rejected at runtime.
 				await rejects(() => component.run({ context: { name: 123 } }), /Input context validation failed/);
+				// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
 				await rejects(() => component.run({}), /context object is required|Input context validation failed/);
 				expect(component.config.context.name).to.equal('Configured');
 			});

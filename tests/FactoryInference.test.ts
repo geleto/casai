@@ -105,10 +105,10 @@ describe('Factory inference with inline callbacks', () => {
 		const model = mockModel(answer);
 		const streamModel = mockModel(answer);
 		const generator = create.ObjectGenerator.withFunction({
-			schema, context: { topic: 'math' }, prompt: context => `Answer about ${String(context.topic)}.`,
+			schema, context: { topic: 'math' }, prompt: context => `Answer about ${context.topic}.`,
 		}, create.Config({ model }));
 		const streamer = create.ObjectStreamer.withFunction({
-			schema, context: { topic: 'math' }, prompt: context => `Stream about ${String(context.topic)}.`,
+			schema, context: { topic: 'math' }, prompt: context => `Stream about ${context.topic}.`,
 		}, create.Config({ model: streamModel }));
 		expect((await generator()).object).to.deep.equal({ answer: 4 });
 		expect(await streamedObject(await streamer())).to.deep.equal({ answer: 4 });

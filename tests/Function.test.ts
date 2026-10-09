@@ -525,7 +525,7 @@ describe('create.Function', function () {
 				}),
 				execute: async (input) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
-					return (input.a || 0) + (input.b || 0) + (input.c || 0) + (input.d ?? 0);
+					return (input.a ?? 0) + (input.b ?? 0) + (input.c ?? 0) + (input.d ?? 0);
 				}
 			});
 

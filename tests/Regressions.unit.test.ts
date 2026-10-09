@@ -84,8 +84,8 @@ describe('Regressions across component boundaries', () => {
 				const objectConfig = { ...config, schema: z.object({}) };
 				const components = factory === 'TextGenerator' ? [create.TextGenerator({ model: mock, prompt: 'Input.' }), create.TextGenerator.withTemplate(config), create.TextGenerator.loadsText(config)]
 					: factory === 'TextStreamer' ? [create.TextStreamer({ model: mock, prompt: 'Input.' }), create.TextStreamer.withTemplate(config), create.TextStreamer.loadsText(config)]
-						: factory === 'ObjectGenerator' ? [create.ObjectGenerator(objectConfig), create.ObjectGenerator.withTemplate(objectConfig), create.ObjectGenerator.loadsText(objectConfig)]
-							: [create.ObjectStreamer(objectConfig), create.ObjectStreamer.withTemplate(objectConfig), create.ObjectStreamer.loadsText(objectConfig)];
+						: factory === 'ObjectGenerator' ? [create.ObjectGenerator({ model: mock, prompt: 'Input.', schema: objectConfig.schema }), create.ObjectGenerator.withTemplate(objectConfig), create.ObjectGenerator.loadsText(objectConfig)]
+							: [create.ObjectStreamer({ model: mock, prompt: 'Input.', schema: objectConfig.schema }), create.ObjectStreamer.withTemplate(objectConfig), create.ObjectStreamer.loadsText(objectConfig)];
 				for (const component of components) {
 					for (const invalid of [undefined, null, [], 'config', 42]) {
 						await rejects(async () => await component.run(invalid as never), ConfigError);
@@ -220,7 +220,8 @@ describe('Regressions across component boundaries', () => {
 					const component = loaded
 						? streaming ? create.TextStreamer.loadsText({ model: mock, prompt: 'empty', loader: { load: () => '' } }) : create.TextGenerator.loadsText({ model: mock, prompt: 'empty', loader: { load: () => '' } })
 						: streaming ? create.TextStreamer.withFunction({ model: mock, prompt: () => '' }) : create.TextGenerator.withFunction({ model: mock, prompt: () => '' });
-					const result = await component();
+					const call: () => ReturnType<typeof component> = component;
+					const result = await call();
 					await result.text;
 					const response = await result.response;
 					expect(response.messages).to.deep.equal([{ role: 'user', content: '' }, ...(await result.responseMessages)]);

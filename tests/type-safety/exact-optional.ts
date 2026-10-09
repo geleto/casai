@@ -19,3 +19,12 @@ create.Function.asTool({ execute: undefined }, parent);
 declare const maybe: { execute?: typeof double | undefined };
 // @ts-expect-error This optional property is declared to hold undefined.
 create.Function.asTool(maybe, parent);
+
+// SDK callbacks stay optional without admitting explicitly undefined callbacks.
+declare const model: import('ai').LanguageModel;
+const objects = create.ObjectStreamer({ model, schema: z.object({ answer: z.number() }), prompt: 'Answer.' });
+// @ts-expect-error Optional SDK callbacks cannot be explicitly undefined.
+objects.run({ onFinish: undefined });
+const texts = create.TextStreamer({ model, prompt: 'Answer.' });
+// @ts-expect-error The outer approval setting is optional without explicitly admitting undefined.
+texts.run({ toolApproval: undefined });
