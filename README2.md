@@ -6,68 +6,6 @@ Casai is a TypeScript library for composing AI calls, tools, and application log
 
 Use JavaScript for application logic, Cascada templates for text, and Cascada scripts for workflows that return data. Cascada resolves asynchronous values automatically and runs independent work concurrently, so a workflow can read in dependency order without manual promise coordination.
 
-## Component Overview
-
-Choose a component by the operation you need. Component names link to usage examples below; the other links cover Cascada syntax and AI SDK inputs and results. The table lists the main values. Model results also retain usage, warnings, metadata, and other fields supplied by the SDK. `Config` creates reusable settings and is not callable.
-
-| Component | What it does | Main inputs → result | Reference |
-| :--- | :--- | :--- | :--- |
-| [Config](#config) | Share configuration | Settings and optional parent → `.config` | — |
-| [Template](#template) | Render a Cascada template | Template and context → string, or a text stream | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
-| [Script](#script) | Execute a Cascada workflow | Script and context → returned value, or a stream | [Cascada scripts](https://geleto.github.io/cascada-script/#/) |
-| [Function](#function) | Wrap JavaScript logic | Arguments/context → returned value, or the callback's stream | — |
-| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages or rendering context → [.output, .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns), or when streaming [.textStream, .partialOutputStream, final .output](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
-| [Decision](#decision) | Answer choice, boolean, and score questions | `state`, configured `questions` → [.answers](https://ai-sdk.dev/docs/ai-sdk-core/decisions#question-types) | [Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) |
-| [Embedding](#embedding) | Embed one or many texts | String or string array → [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
-| [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` → [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
-| [ImageGenerator](#imagegenerator) | Generate or edit images | `prompt` and optional editing inputs → [.images](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#returns) | [Images](https://ai-sdk.dev/docs/ai-sdk-core/image-generation) |
-| [Transcriber](#transcriber) | Transcribe a recording | `audio` → [.text, .segments](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) | [Transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription) |
-| [StreamingTranscriber](#streamingtranscriber) | Transcribe live audio | Audio stream and format → [.fullStream, final .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-transcribe#returns) | [Streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription) |
-| [SpeechGenerator](#speechgenerator) | Generate spoken audio | `text` → [.audio](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech#returns) | [Speech](https://ai-sdk.dev/docs/ai-sdk-core/speech) |
-| [VoiceSession](#voicesession) | Hold a live voice conversation | Audio/text exchange → session events | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
-
-Every `LLMAgent` has `.generate()` and `.stream()`, which are also its [AI SDK Agent interface](#ai-sdk-agent-interface-and-ui-integration). Its ordinary call generates, or streams when the component is created with [`.asStream`](#streaming-with-asstream). `.asStream` affects only the ordinary call; `.generate()` and `.stream()` remain available either way. Template, Script, and Function can [stream](#streaming) too. Other AI components have operation-specific methods, inputs, and results.
-
-### Modifier Support
-
-✅ = supported; ❌ = not applicable or not exposed. Modifiers select how a component prepares input, which operation its ordinary call performs, or how it exposes a completed result as a tool. They are applied to the factory, for example `create.LLMAgent.withTemplate(...)`.
-
-| Component | [.withText](#text-and-template-modifiers) | [.withTemplate](#text-and-template-modifiers) | [.withScript](#script-and-function-modifiers) | [.withFunction](#script-and-function-modifiers) | [.loadsText](#text-and-template-modifiers) | [.loadsTemplate](#text-and-template-modifiers) | [.loadsScript](#script-and-function-modifiers) | [.asStream](#streaming) | [.asTool](#using-components-as-tools) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| [Config](#config) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| [Template](#template) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
-| [Script](#script) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| [Function](#function) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| [LLMAgent](#llmagent) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [Decision](#decision) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [Embedding](#embedding) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [Reranker](#reranker) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [ImageGenerator](#imagegenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [Transcriber](#transcriber) | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| [StreamingTranscriber](#streamingtranscriber) | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| [SpeechGenerator](#speechgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [VoiceSession](#voicesession) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-
-`Template`, `Script`, and `Function` perform their named operation without a matching `.with...` modifier. `.asStream` affects only the ordinary call; a component's other methods, such as `.generate()` and `.stream()`, remain available. `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. See [input preparation](#input-preparation-by-component) for what each modifier prepares and [streaming](#streaming) for `.asStream`.
-
-#### Combining Modifiers
-
-A factory form takes at most one modifier from each group, in this order:
-
-1. An input modifier: `.withText`, `.withTemplate`, `.withScript`, `.withFunction`, `.loadsText`, `.loadsTemplate`, or `.loadsScript`.
-2. An output modifier: `.asStream` or `.asTool`.
-
-For example, `create.LLMAgent.withTemplate.asStream(...)` and `create.Script.loadsScript.asTool(...)` are valid. These combinations are not:
-
-| Combination | Reason |
-| :--- | :--- |
-| Two input modifiers, such as `.withTemplate.withScript` | A component prepares its input in one way |
-| `.asStream` with `.asTool`, in either order | A tool must return a completed result to the model |
-| `.asTool` on StreamingTranscriber or VoiceSession | A live stream or session is not a completed tool result |
-| `.asStream` on components without a streaming operation | Only LLMAgent, Template, Script, and Function offer one; StreamingTranscriber always streams |
-
-Unsupported combinations do not exist on the factory, so TypeScript reports them and JavaScript calls fail when the component is created.
-
 ## Table of Contents
 
 - [Installation](#installation)
@@ -174,9 +112,31 @@ The examples below use `create`, `Output`, `z`, and `model` from this setup. Spe
 
 ## Understanding the Casai API
 
+Factories such as `create.LLMAgent` and `create.Script` create callable components. A component holds reusable configuration and performs its operation when called.
+
+### Component Overview
+
+Choose a component by the operation you need. `Config` supplies shared settings and is not callable. Component names link to usage examples; reference links cover Cascada syntax and AI SDK contracts. The table lists the main inputs and results; model results also retain SDK usage, warnings, and metadata.
+
+| Component | What it does | Main inputs → result | Reference |
+| :--- | :--- | :--- | :--- |
+| [Config](#config) | Shared configuration | Settings and optional parent → `.config` | — |
+| [Template](#template) | Render a Cascada template | Template and context → string, or a text stream | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
+| [Script](#script) | Execute a Cascada workflow | Script and context → returned value, or a stream | [Cascada scripts](https://geleto.github.io/cascada-script/#/) |
+| [Function](#function) | Wrap JavaScript logic | Arguments/context → returned value, or the callback's stream | — |
+| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages or rendering context → [.output, .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns), or when streaming [.textStream, .partialOutputStream, final .output](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
+| [Decision](#decision) | Answer choice, boolean, and score questions | `state`, configured `questions` → [.answers](https://ai-sdk.dev/docs/ai-sdk-core/decisions#question-types) | [Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) |
+| [Embedding](#embedding) | Embed one or many texts | String or string array → [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
+| [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` → [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
+| [ImageGenerator](#imagegenerator) | Generate or edit images | `prompt` and optional editing inputs → [.images](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#returns) | [Images](https://ai-sdk.dev/docs/ai-sdk-core/image-generation) |
+| [Transcriber](#transcriber) | Transcribe a recording | `audio` → [.text, .segments](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) | [Transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription) |
+| [StreamingTranscriber](#streamingtranscriber) | Transcribe live audio | Audio stream and format → [.fullStream, final .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-transcribe#returns) | [Streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription) |
+| [SpeechGenerator](#speechgenerator) | Generate spoken audio | `text` → [.audio](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech#returns) | [Speech](https://ai-sdk.dev/docs/ai-sdk-core/speech) |
+| [VoiceSession](#voicesession) | Hold a live voice conversation | Audio/text exchange → session events | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
+
 ### Creating and Calling Components
 
-Create a component once with reusable settings, then call it with the input for each task:
+Pass reusable settings to a factory, then supply task-specific input to the component it returns:
 
 ```typescript
 const writer = create.LLMAgent({ model, prompt: 'Write a short welcome message.' });
@@ -185,9 +145,7 @@ const welcome = await writer();
 const invitation = await writer('Write a short invitation to a community dinner.');
 ```
 
-The call shape follows the component's input. Plain LLMAgents accept prompt text or model messages. Template and script variants accept rendering context. An `Embedding` accepts a string or an array of strings. Each component's section describes its input and result.
-
-Factories are also named exports: `import { LLMAgent, Template, Script } from 'casai'` lets you write `LLMAgent.withTemplate(...)` instead of `create.LLMAgent.withTemplate(...)`.
+The ordinary call follows the component's input convention: prompt text for a plain LLMAgent, rendering context for a Template or Script, or a string or string array for an Embedding. The [component sections](#the-casai-components) describe each input and result.
 
 A call-time prompt replaces the configured prompt for that invocation. A rendered component can also accept a one-off source and context:
 
@@ -204,45 +162,29 @@ console.log(await greeting('Welcome {{ name }}.', { name: 'Ada' }));
 
 An object supplied as rendering context is data. For example, a field named `prompt` inside that object is a template variable; it does not override the component's prompt setting. There is no `input` wrapper around ordinary calls.
 
-### LLMAgent Call Reference
+To inherit shared settings, pass a [Config](#config) or a compatible component as the factory's second argument. See [configuration management](#configuration-management) for how settings are merged.
 
-These forms apply to every LLMAgent, with or without `.asStream`. Here, `history` is a `ModelMessage[]`, `context` is an object, and `source` is an inline prompt/template/script or a loaded resource name, as selected by the modifier.
-
-| Component form | Ordinary call | Meaning |
-| :--- | :--- | :--- |
-| Plain text | `agent()` | Use configured prompt and messages |
-| Plain text | `agent('New prompt')` | Replace the configured prompt for this call |
-| Plain text | `agent(history)` | Supply dynamic history, followed by any configured prompt |
-| Plain text | `agent('New prompt', history)` | Supply history and replace the prompt |
-| Template/script, including loaded forms | `agent(context)` | Prepare the configured source with context |
-| Template/script, including loaded forms | `agent(history, context)` | Add history before the prepared prompt |
-| Template/script, including loaded forms | `agent(source, context)` | Prepare a one-off source |
-| Template/script, including loaded forms | `agent(source, history, context)` | Combine a source override, history, and context |
-| Function prompt | `agent(context)` | Call the configured prompt function |
-
-Zero-argument calls require enough configured input, and schemas with required fields still require call-time context. Plain-text calls do not interpolate context; select a rendering modifier to use variables. A positional message array supplies history rather than replacing a configured prompt. To replace the prompt with a message array explicitly, use `.generate({ prompt: messageArray })` or `.stream(...)`.
-
-Function prompts accept context only in the ordinary call. Use `.generate({ context, history })` to add history, or `.generate({ context, source: replacementFunction })` to change the preparer for that invocation. For all LLMAgent forms, `.generate()` and `.stream()` offer [named fields](#named-arguments-and-per-call-overrides) when a positional call would be unclear.
+Factories are also named exports: `import { LLMAgent, Template, Script } from 'casai'` lets you write `LLMAgent.withTemplate(...)` instead of `create.LLMAgent.withTemplate(...)`.
 
 ### Adding Capabilities with Modifiers
 
-Modifiers select how a factory prepares input. For LLMAgents, the source is configured with `prompt`:
+Modifiers are properties of the factory, applied before creating the component: `create.LLMAgent.withTemplate(...)`. Input modifiers select how the source is prepared; `.asStream` and `.asTool` select how the component exposes its result.
 
-| Factory form | What `prompt` contains | Preparation |
-| :--- | :--- | :--- |
-| `create.LLMAgent(...)` or `.withText(...)` | Text or model messages | Use directly |
-| `create.LLMAgent.withTemplate(...)` | Cascada template text | Render to text |
-| `create.LLMAgent.withScript(...)` | Cascada script source | Execute to produce text or model messages |
-| `create.LLMAgent.withFunction(...)` | JavaScript function | Call to produce text or model messages |
-| `create.LLMAgent.loadsText(...)` | Resource name | Load literal text |
-| `create.LLMAgent.loadsTemplate(...)` | Resource name | Load and render a template |
-| `create.LLMAgent.loadsScript(...)` | Resource name | Load and execute a script |
+- [`.withText`](#text-and-template-modifiers): Use literal text directly, without rendering. LLMAgent also accepts model messages and uses this modifier by default.
+- [`.withTemplate`](#text-and-template-modifiers): Render an inline Cascada template with context to prepare text input.
+- [`.withScript`](#script-and-function-modifiers): Execute an inline Cascada script to prepare the component's input.
+- [`.withFunction`](#script-and-function-modifiers): Call a JavaScript function with context to prepare the component's input.
+- [`.loadsText`](#text-and-template-modifiers): Load literal text from a named resource through the configured loader.
+- [`.loadsTemplate`](#text-and-template-modifiers): Load a named Cascada template through the configured loader, then render it with context.
+- [`.loadsScript`](#script-and-function-modifiers): Load a named Cascada script through the configured loader, then execute it to prepare input.
+- [`.asStream`](#streaming): Make the ordinary call return a live stream result. The component's other methods keep their behavior.
+- [`.asTool`](#using-components-as-tools): Expose the component as a tool a language model can invoke, while keeping it directly callable.
 
-Each form can be followed by `.asStream`, as in `create.LLMAgent.withTemplate.asStream(...)`, to make the ordinary call stream; `.generate()` and `.stream()` are unchanged. The [modifier table](#modifier-support) lists the combinations available on other factories.
+For LLMAgents, configure the input source in `prompt`. With `.loads...`, that value is a resource name resolved by the configured [loader](#loader). Standalone Template and Script use `template` and `script` respectively.
 
 #### Text and Template Modifiers
 
-Use `.withText` for literal input and `.withTemplate` to interpolate context, call helpers, or include other templates. `.loadsText` and `.loadsTemplate` obtain their source through a configured [loader](#loader).
+Use a template when the input is text with variables, helper calls, or includes. Configured `context` supplies defaults; `inputSchema` validates the data supplied with each call:
 
 ```typescript
 const translate = create.LLMAgent.withTemplate({
@@ -257,7 +199,7 @@ console.log((await translate({ text: 'Good morning' })).output);
 
 #### Script and Function Modifiers
 
-Use `.withScript` or `.loadsScript` when preparing input involves a workflow. Use `.withFunction` for JavaScript logic, including asynchronous calls. Function prompts receive context and return the prepared input; their ordinary callable accepts context only.
+Use a script for a preparation workflow, or a JavaScript function for logic such as formatting, fetching data, or calling an API. The function may be asynchronous and receives the merged context:
 
 ```typescript
 const summarize = create.LLMAgent.withFunction({
@@ -269,7 +211,47 @@ const summarize = create.LLMAgent.withFunction({
 const summary = await summarize({ paragraphs: ['First paragraph.', 'Second paragraph.'] });
 ```
 
-Script and function prompts can return model-message arrays to retain roles, tool messages, and media parts. A template produces text.
+For an LLMAgent, scripts and functions can return text or model-message arrays that retain roles, tool messages, and media parts. Templates produce text.
+
+#### Combining Modifiers
+
+A factory form takes at most one modifier from each group, in this order:
+
+1. An input modifier (`.with...` or `.loads...`).
+2. An output modifier: `.asStream` or `.asTool`.
+
+For example, `create.LLMAgent.withTemplate.asStream(...)` and `create.Script.loadsScript.asTool(...)` are valid.
+
+##### Invalid combinations
+
+- **Two input modifiers**, such as `.withTemplate.withScript`: A component prepares its input in one way.
+- **`.asStream` with `.asTool`, in either order**: A tool must return a completed result to the model, so neither modifier exposes the other.
+- **`.asTool` on StreamingTranscriber or VoiceSession**: A live stream or session is not a completed tool result.
+- **`.asStream` on components without a streaming operation**: Only LLMAgent, Template, Script, and Function offer it; StreamingTranscriber always streams.
+
+Unsupported combinations have no corresponding factory property. TypeScript reports them, and JavaScript sees `undefined` for the missing modifier.
+
+#### Modifier Support
+
+Choose a modifier supported by the component: ✅ = supported; ❌ = not applicable or not exposed.
+
+| Component | [.withText](#text-and-template-modifiers) | [.withTemplate](#text-and-template-modifiers) | [.withScript](#script-and-function-modifiers) | [.withFunction](#script-and-function-modifiers) | [.loadsText](#text-and-template-modifiers) | [.loadsTemplate](#text-and-template-modifiers) | [.loadsScript](#script-and-function-modifiers) | [.asStream](#streaming) | [.asTool](#using-components-as-tools) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| [Config](#config) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| [Template](#template) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
+| [Script](#script) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| [Function](#function) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| [LLMAgent](#llmagent) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [Decision](#decision) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| [Embedding](#embedding) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| [Reranker](#reranker) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| [ImageGenerator](#imagegenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| [Transcriber](#transcriber) | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| [StreamingTranscriber](#streamingtranscriber) | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| [SpeechGenerator](#speechgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| [VoiceSession](#voicesession) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+
+`Template`, `Script`, and `Function` perform their named operation by default, so they have no matching `.with...` modifier. Their loading, streaming, and tool forms adapt that operation.
 
 #### Input Preparation by Component
 
@@ -291,9 +273,29 @@ Rendering context is passed through the ordinary rendered call or the component'
 
 For embedding batches, templates render independently in input order. Preparing a reranking query or image prompt retains separately supplied documents or editing inputs. Transcribers use script/function preparation for fetching or opening audio; encoded audio strings are not text prompts. Voice-session instructions are prepared once per new connection.
 
+### LLMAgent Call Reference
+
+These forms apply to every LLMAgent, with or without `.asStream`. Here, `history` is a `ModelMessage[]`, `context` is an object, and `source` is an inline prompt/template/script or a loaded resource name, as selected by the modifier.
+
+| Component form | Ordinary call | Meaning |
+| :--- | :--- | :--- |
+| Plain text | `agent()` | Use configured prompt and messages |
+| Plain text | `agent('New prompt')` | Replace the configured prompt for this call |
+| Plain text | `agent(history)` | Supply dynamic history, followed by any configured prompt |
+| Plain text | `agent('New prompt', history)` | Supply history and replace the prompt |
+| Template/script, including loaded forms | `agent(context)` | Prepare the configured source with context |
+| Template/script, including loaded forms | `agent(history, context)` | Add history before the prepared prompt |
+| Template/script, including loaded forms | `agent(source, context)` | Prepare a one-off source |
+| Template/script, including loaded forms | `agent(source, history, context)` | Combine a source override, history, and context |
+| Function prompt | `agent(context)` | Call the configured prompt function |
+
+Zero-argument calls require enough configured input, and schemas with required fields still require call-time context. Plain-text calls do not interpolate context; select a rendering modifier to use variables. A positional message array supplies history rather than replacing a configured prompt. To replace the prompt with a message array explicitly, use `.generate({ prompt: messageArray })` or `.stream(...)`.
+
+Function prompts accept context only in the ordinary call. Use `.generate({ context, history })` to add history, or `.generate({ context, source: replacementFunction })` to change the preparer for that invocation. For all LLMAgent forms, `.generate()` and `.stream()` offer [named fields](#named-arguments-and-per-call-overrides) when a positional call would be unclear.
+
 ### Named Arguments and Per-Call Overrides
 
-An LLMAgent's `.generate()` and `.stream()` take named input fields and settings that apply to one invocation. `.generate()` always returns a complete result and `.stream()` a live stream result, whichever operation the ordinary call performs:
+Every LLMAgent exposes `.generate()` and `.stream()` as its [AI SDK Agent interface](#ai-sdk-agent-interface-and-ui-integration). Both methods take named inputs and settings for one invocation. `.generate()` always returns a complete result and `.stream()` a live stream result, including on components created with `.asStream`:
 
 ```typescript
 const detailed = await explain.generate({
@@ -327,10 +329,7 @@ Specialized components name their method after the operation and use its SDK inp
 
 ### Streaming
 
-Components that produce output over time can return a live stream result instead of the complete value:
-
-- `.stream()` always streams. LLMAgent, Template, and Script provide it, as does StreamingTranscriber, which only streams.
-- `.asStream` makes the ordinary call stream. It changes nothing else: the component's other methods remain available.
+Use `.stream()` to stream a particular invocation, or create a component with `.asStream` to make its ordinary call stream. LLMAgent, Template, and Script offer both forms; Function provides `.asStream` only. StreamingTranscriber always streams through its ordinary call or `.stream()` and does not need a modifier.
 
 | Component | Ordinary call | Ordinary call with `.asStream` | `.stream()` arguments |
 | :--- | :--- | :--- | :--- |
@@ -341,9 +340,9 @@ Components that produce output over time can return a live stream result instead
 
 Streaming calls return a promise for the stream result; awaiting it yields the live handle without waiting for the output to finish. LLMAgent and the Template, Script, and Function streaming forms use the AI SDK's property names where applicable: `textStream` and `text` for text, `partialOutputStream` and `output` for structured values. Final values are promises. [StreamingTranscriber](#streamingtranscriber) keeps its native transcription result with `fullStream` events and final `text`; it does not provide this common text/structured streaming contract.
 
-Template and Script have no `.generate()`. Without `.asStream`, their ordinary call already returns the complete value; with it, the complete value is the stream result's final value. LLMAgent has `.generate()` because the AI SDK Agent interface requires it. Function has a single operation, its callback, so it has `.asStream` but no `.stream()`.
+Without `.asStream`, Template and Script return a complete value from the ordinary call; with it, await the stream result's final value. Neither has `.generate()`. A Function's callback supplies the stream when `.asStream` is selected.
 
-`.asStream` cannot be combined with `.asTool`. When a Template or Script streams, the components it calls stream too; see [streaming through templates and scripts](#streaming-through-templates-and-scripts).
+When a Template or Script streams, the components it calls stream too; see [streaming through templates and scripts](#streaming-through-templates-and-scripts).
 
 Results also offer [unordered output streams](#ordered-and-unordered-streams) for receiving ready chunks with their logical positions. Script and template loops consume them with the same syntax as ordinary streams.
 
@@ -479,7 +478,7 @@ console.log(await totals({ price: 12, quantity: 3 })); // { subtotal: 36 }
 
 Configure source with `script`. Call with context, or a one-off script and context. Use direct `return` values for strings, numbers, objects, arrays, or other supported workflow results. `schema` optionally validates the returned value.
 
-`.loadsScript` loads a named script through a configured loader. `.asTool` and `.loadsScript.asTool` expose the workflow as a tool. Both inline and loaded scripts can call helpers or components from context.
+`.loadsScript` loads a named script through a configured loader. `.asTool` and `.loadsScript.asTool` expose the workflow as a tool; `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. Both inline and loaded scripts can call helpers or components from context.
 
 `.stream()`, which takes the same arguments as the ordinary call, and `.asStream` return a stream result whose `output` resolves to the returned value. Components called by a streaming script stream too, as described in [streaming through templates and scripts](#streaming-through-templates-and-scripts).
 
