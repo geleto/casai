@@ -1,8 +1,10 @@
 # Casai: AI Orchestration That Writes Like a Story
 
-> **Future API draft:** This README documents the intended API, including components awaiting implementation. For the currently available API, see [README.md](README.md). The [design document](docs/agents-design.md) tracks implementation stages; [remaining API details](docs/agents-design.md#remaining-public-api-details) identify signatures and result formats that still need to be specified.
+> **API design draft:** This README documents the intended API, including components awaiting implementation. The [design document](docs/agents-design.md) tracks implementation stages; [remaining API details](docs/agents-design.md#remaining-public-api-details) identify signatures and result formats that still need to be specified. [README.md](README.md) documents the implementation currently in the repository.
 
-Casai is a TypeScript library for composing AI calls, tools, and application logic into reusable workflows. Create a component with its model, input preparation, and validation rules, then call it like a function. Components can share configuration, invoke each other, and work with the Vercel AI SDK.
+Casai is a TypeScript library for composing AI calls, tools, and application logic into reusable workflows. Configure a component's operation, input preparation, and validation rules, with a model when the operation needs one, then call it like a function. Components can share configuration, invoke each other, and work with the Vercel AI SDK.
+
+**All four components—LLMAgent, Template, Script, and Function—support the AI SDK Agent interface.** Each exposes `.generate()` and `.stream()`, so a model-backed agent can be replaced by a template, a workflow, or JavaScript logic while keeping the same SDK caller and chat UI. Preserve the input, output, options, and tool contracts when switching implementations; see [replacing an LLMAgent](#replacing-an-llmagent-with-template-script-or-function).
 
 Use JavaScript for application logic, Cascada templates for text, and Cascada scripts for workflows that return data. Cascada resolves asynchronous values automatically and runs independent work concurrently, so a workflow can read in dependency order without manual promise coordination.
 
@@ -11,6 +13,8 @@ Use JavaScript for application logic, Cascada templates for text, and Cascada sc
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Understanding the Casai API](#understanding-the-casai-api)
+  - [Creating and Calling Components](#creating-and-calling-components)
+  - [One Agent Interface, Four Implementations](#one-agent-interface-four-implementations)
 - [Configuration Management](#configuration-management)
 - [The Casai Components](#the-casai-components)
 - [Using Components as Tools](#using-components-as-tools)
@@ -20,6 +24,7 @@ Use JavaScript for application logic, Cascada templates for text, and Cascada sc
 - [Conversational AI: Managing Message History](#conversational-ai-managing-message-history)
 - [Images and Files in LLMAgent Messages](#images-and-files-in-llmagent-messages)
 - [AI SDK Agent Interface and UI Integration](#ai-sdk-agent-interface-and-ui-integration)
+- [Replacing an LLMAgent with Template, Script, or Function](#replacing-an-llmagent-with-template-script-or-function)
 - [Choosing Your Orchestration Strategy](#choosing-your-orchestration-strategy)
 - [Embedding and RAG Integration](#embedding-and-rag-integration)
 - [Input and Output Validation](#input-and-output-validation)
@@ -116,7 +121,7 @@ Factories such as `create.LLMAgent` and `create.Script` create callable componen
 
 ### Component Overview
 
-Choose a component by the operation you need. `Config` supplies shared settings and is not callable. Component names link to usage examples; reference links cover Cascada syntax and AI SDK contracts. The table lists the main inputs and results; model results also retain SDK usage, warnings, and metadata.
+Choose a component by the operation you need. `Config` supplies shared settings and is not callable. Component names link to usage examples; reference links cover Cascada syntax and AI SDK contracts. The table describes ordinary calls; the four Agent-compatible components also expose the common methods below. Model results retain SDK usage, warnings, and metadata.
 
 | Component | What it does | Main inputs → result | Reference |
 | :--- | :--- | :--- | :--- |
@@ -124,7 +129,7 @@ Choose a component by the operation you need. `Config` supplies shared settings 
 | [Template](#template) | Render a Cascada template | Template and context → string, or a text stream | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
 | [Script](#script) | Execute a Cascada workflow | Script and context → returned value, or a stream | [Cascada scripts](https://geleto.github.io/cascada-script/#/) |
 | [Function](#function) | Wrap JavaScript logic | Arguments/context → returned value, or the callback's stream | — |
-| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages or rendering context → [.output, .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns), or when streaming [.textStream, .partialOutputStream, final .output](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
+| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages or rendering context → [.output, .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns), or when streaming [.textStream, .elementStream, final .output](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
 | [Decision](#decision) | Answer choice, boolean, and score questions | `state`, configured `questions` → [.answers](https://ai-sdk.dev/docs/ai-sdk-core/decisions#question-types) | [Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) |
 | [Embedding](#embedding) | Embed one or many texts | String or string array → [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
 | [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` → [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
@@ -142,10 +147,13 @@ Pass reusable settings to a factory, then supply task-specific input to the comp
 const writer = create.LLMAgent({ model, prompt: 'Write a short welcome message.' });
 
 const welcome = await writer();
+console.log(welcome.output);
 const invitation = await writer('Write a short invitation to a community dinner.');
 ```
 
-The ordinary call follows the component's input convention: prompt text for a plain LLMAgent, rendering context for a Template or Script, or a string or string array for an Embedding. The [component sections](#the-casai-components) describe each input and result.
+The ordinary call, `component(...)`, uses the component's own input convention. A plain LLMAgent accepts prompt text or model messages. Template and Script accept rendering context; Function accepts its callback input. An Embedding accepts a string or string array. The [component sections](#the-casai-components) describe the supported positional arguments.
+
+Without `.asStream`, the ordinary calls of LLMAgent, Template, Script, and Function return promises for complete values. LLMAgent returns an SDK result, read through `.output`; Template returns a string directly; Script returns its workflow value; Function returns its callback value. A Script or Function's `schema`, when configured, parses that native value.
 
 A call-time prompt replaces the configured prompt for that invocation. A rendered component can also accept a one-off source and context:
 
@@ -164,7 +172,7 @@ An object supplied as rendering context is data. For example, a field named `pro
 
 To inherit shared settings, pass a [Config](#config) or a compatible component as the factory's second argument. See [configuration management](#configuration-management) for how settings are merged.
 
-Factories are also named exports: `import { LLMAgent, Template, Script } from 'casai'` lets you write `LLMAgent.withTemplate(...)` instead of `create.LLMAgent.withTemplate(...)`.
+Factories are also named exports: `import { LLMAgent, Template, Script } from 'casai'` lets you write `LLMAgent(...)` instead of `create.LLMAgent(...)`.
 
 ### Adding Capabilities with Modifiers
 
@@ -293,9 +301,49 @@ Zero-argument calls require enough configured input, and schemas with required f
 
 Function prompts accept context only in the ordinary call. Use `.generate({ context, history })` to add history, or `.generate({ context, source: replacementFunction })` to change the preparer for that invocation. For all LLMAgent forms, `.generate()` and `.stream()` offer [named fields](#named-arguments-and-per-call-overrides) when a positional call would be unclear.
 
+### One Agent Interface, Four Implementations
+
+All four components—LLMAgent, Template, Script, and Function—support the **[AI SDK Agent interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent)**. This lets the same SDK caller or chat UI use a model, a template, a workflow, or JavaScript to produce its answer. The interface provides two operations:
+
+- **`.generate(...)`** returns a complete SDK result with a typed `.output`.
+- **`.stream(...)`** returns a live SDK result with text or complete-array-element streams, final-value promises, and events for SDK UI helpers.
+
+These methods sit alongside the ordinary callable interface:
+
+| Call | Arguments | Result |
+| :--- | :--- | :--- |
+| `component(...)` | Component-specific positional input, such as prompt text or a context object | The component's native value; `.asStream` selects a stream for the ordinary call |
+| `component.generate({ ... })` | Named input and per-call settings | A complete SDK result with `.output`, on all four components |
+| `component.stream({ ... })` | Named input and per-call settings | A live SDK stream result, on all four components |
+
+For example, the Template created above returns text directly when called, and an SDK result when used through `.generate()`:
+
+```typescript
+const text = await greeting({ name: 'Ada' });
+const result = await greeting.generate({ context: { name: 'Ada' } });
+console.log(text, result.output); // Both contain Hello Ada!
+```
+
+Use the ordinary call when composing native operations and reading their own return values. Use `.generate()` or `.stream()` for a common SDK result contract, SDK/UI integration, or per-call settings. On Template, Script, and Function, the configured SDK `output` specification applies to these Agent methods; ordinary calls retain their native return-value and `schema` contracts.
+
+The implementation chooses how to produce the answer: LLMAgent calls a language model, Template renders text, Script executes a workflow, and Function runs JavaScript. Agent compatibility itself makes no model request. Loaded and `.asStream` forms retain both methods; `.asStream` changes only the ordinary call. SDK chat integration works with any LLMAgent stopping condition, including the default one model step. The coded components supply their own response logic; see [what the chat UI uses](#what-the-chat-ui-uses).
+
+Use these common Agent methods as the [drop-in replacement boundary](#replacing-an-llmagent-with-template-script-or-function), preserving the input, output, options, and tool contracts expected by the caller.
+
+An LLMAgent can let the model choose configured tools. Template, Script, and Function can call reusable functions explicitly through their `context`, including the same implementations exposed as tools. Function's callback receives that merged context. See [calling tools from coded components](#calling-tools-from-coded-components). The SDK's compatibility properties are explained in the [Agent reference](#agent-properties).
+
 ### Named Arguments and Per-Call Overrides
 
-Every LLMAgent exposes `.generate()` and `.stream()` as its [AI SDK Agent interface](#ai-sdk-agent-interface-and-ui-integration). Both methods take named inputs and settings for one invocation. `.generate()` always returns a complete result and `.stream()` a live stream result, including on components created with `.asStream`:
+LLMAgent, Template, Script, and Function implement the AI SDK Agent methods `.generate()` and `.stream()`. Casai extends their accepted arguments with application input and supported runtime overrides. Both methods take one named-argument object, accept SDK requests unchanged, and return full SDK results. `.generate()` always completes the operation; `.stream()` returns a live stream result, including on components created with `.asStream`.
+
+| Request form | Defined by | Purpose |
+| :--- | :--- | :--- |
+| `{ prompt: ... }` or `{ messages: ... }`, with SDK options, callbacks, and cancellation | AI SDK Agent | Generate or stream from literal text or a conversation; SDK UI helpers use this form |
+| `{ context: ... }`, with optional `source` and supported overrides | Casai | Execute the configured operation with typed application input, optionally changing its source or settings for this invocation |
+
+For a Template, Script, or Function, supply application input in `context`, for example `receipt.generate({ context: { orderId: 'A123', count: 3 } })`. A source override accompanies `context` as `source`; it never comes from conversation content. SDK `prompt` or `messages` instead uses the component's [conversation mapper](#map-conversations-to-component-input). Choose either an explicit-context call or a conversation call; a coded component does not accept both together. Ordinary calls take their component-specific positional arguments.
+
+LLMAgent additionally accepts model request overrides:
 
 ```typescript
 const detailed = await explain.generate({
@@ -315,7 +363,7 @@ const detailed = await explain.generate({
 | `options` | [Custom call options](#custom-call-options-and-hooks), validated by `callOptionsSchema` |
 | Other settings | Model settings, tools, callbacks, `stopWhen`, cancellation, and other per-call overrides |
 
-Use at most one of `source`, `prompt`, or `messages`. A call-time `prompt` or `messages` is used as written: the configured source is not prepared, so rendering and `inputSchema` validation are skipped and no `context` is needed. Use `history` with rendering context or a new literal `prompt`; a complete `messages` request cannot also supply `history`. Configured static `messages` and `instructions` still apply.
+For LLMAgent, use at most one of `source`, `prompt`, or `messages`. A call-time `prompt` or `messages` is used as written: the configured source is not prepared, so rendering and `inputSchema` validation are skipped and no `context` is needed. Use `history` with rendering context or a new literal `prompt`; a complete `messages` request cannot also supply `history`. Configured static `messages` and `instructions` still apply.
 
 A field set to `undefined` counts as not supplied and leaves the configured value in place. Callbacks passed for one call run in addition to the configured callbacks. These rules also let [AI SDK helpers](#ai-sdk-agent-interface-and-ui-integration) call `.generate()` and `.stream()` directly.
 
@@ -323,28 +371,43 @@ Overrides are isolated: concurrent calls can use different context, settings, to
 
 Isolation applies to Casai's invocation settings; models, helper functions, and nested application objects are not deep-cloned. Keep mutable conversation or request state in per-call inputs rather than shared helper closures or configured objects.
 
-Supported overrides include inputs, model settings, cancellation, and compatible tool implementations. The output contract, validation schemas, and renderer setup stay fixed. Create another component to change `output`, add tools with new types, or change `inputSchema`, `filters`, `renderOptions`, or `loader`.
+All four components accept invocation input, custom options, lifecycle callbacks, cancellation, and timeouts; streaming calls also accept SDK transforms. LLMAgent accepts model settings and compatible tool implementation overrides. The output contract, validation schemas, conversation mapper, and renderer setup stay fixed. Create another component to change `output`, add tools with new types, or change `inputSchema`, `prepareInput`, `filters`, `renderOptions`, or `loader`.
 
-Specialized components name their method after the operation and use its SDK input fields, such as `transcriber.transcribe({ audio })` or `reranker.rerank({ query, documents })`. `Template`, `Script`, and `Function` use their ordinary calls, and Template and Script add [`.stream()`](#streaming). `VoiceSession` has a [session lifecycle](#voicesession).
+Specialized components name their method after the operation and use its SDK input fields, such as `transcriber.transcribe({ audio })` or `reranker.rerank({ query, documents })`. `VoiceSession` has a [session lifecycle](#voicesession).
 
 ### Streaming
 
-Use `.stream()` to stream a particular invocation, or create a component with `.asStream` to make its ordinary call stream. LLMAgent, Template, and Script offer both forms; Function provides `.asStream` only. StreamingTranscriber always streams through its ordinary call or `.stream()` and does not need a modifier.
+Use `.stream()` to stream a particular invocation, or create a component with `.asStream` to make its ordinary call stream. LLMAgent, Template, Script, and Function offer both forms. StreamingTranscriber always streams through its ordinary call or `.stream()` and does not need a modifier.
 
 | Component | Ordinary call | Ordinary call with `.asStream` | `.stream()` arguments |
 | :--- | :--- | :--- | :--- |
 | LLMAgent | Complete result | Stream result | [Named arguments](#named-arguments-and-per-call-overrides) |
-| Template | Complete text | Stream result | The same as the ordinary call |
-| Script | Returned value | Stream result | The same as the ordinary call |
-| Function | Callback result | The callback's stream | Not provided |
+| Template | Complete text | Stream result | [Named arguments](#named-arguments-and-per-call-overrides) |
+| Script | Returned value | Stream result | [Named arguments](#named-arguments-and-per-call-overrides) |
+| Function | Callback result | The callback's stream | [Named arguments](#named-arguments-and-per-call-overrides) |
 
-Streaming calls return a promise for the stream result; awaiting it yields the live handle without waiting for the output to finish. LLMAgent and the Template, Script, and Function streaming forms use the AI SDK's property names where applicable: `textStream` and `text` for text, `partialOutputStream` and `output` for structured values. Final values are promises. [StreamingTranscriber](#streamingtranscriber) keeps its native transcription result with `fullStream` events and final `text`; it does not provide this common text/structured streaming contract.
+Streaming calls return a promise for the stream result; awaiting it yields the live handle without waiting for the output to finish. Text streams expose `textStream`, with the joined string in the final `text` promise. Array streams expose `elementStream`, with the collected array in the final `output` promise. Agent results also expose the final parsed `output` for text. [StreamingTranscriber](#streamingtranscriber) keeps its native transcription result with `fullStream` events and final `text`; it does not provide this common text/array streaming contract.
 
-Without `.asStream`, Template and Script return a complete value from the ordinary call; with it, await the stream result's final value. Neither has `.generate()`. A Function's callback supplies the stream when `.asStream` is selected.
+Without `.asStream`, Template and Script return a complete value from the ordinary call; with it, await the stream result's final value. A Function's callback supplies the stream when `.asStream` is selected. All four components retain SDK `.generate()` and `.stream()` regardless of that modifier. A regular Function's `.stream()` emits the completed callback value when ready; a streaming callback supplies incremental chunks. See the [execution rules](#agent-settings-streaming-and-tools).
 
 When a Template or Script streams, the components it calls stream too; see [streaming through templates and scripts](#streaming-through-templates-and-scripts).
 
 Results also offer [unordered output streams](#ordered-and-unordered-streams) for receiving ready chunks with their logical positions. Script and template loops consume them with the same syntax as ordinary streams.
+
+#### Text and Array Element Streams
+
+Streaming has two native output forms for Template, Script, and Function:
+
+| Output | Incremental values | Final Agent `.output` |
+| :--- | :--- | :--- |
+| `Output.text()` | String chunks through `textStream` | One complete string |
+| `Output.array({ element })` | Complete, validated elements through `elementStream` | An array of those elements in logical order |
+
+The schema describes the final output in both generation and streaming modes. For an array, `element` describes one complete item. Each item is delivered once; consumers can render or process it immediately. `.generate()` returns the complete array, while `.stream()` exposes its elements as they become available and resolves `output` to the collected array.
+
+A Template producing an array renders JSON text; Casai exposes each completed array item after parsing and validation. A Script selects a live sequence of complete items, and a Function can yield those items from an async generator. Plain returned arrays become available when complete and can then be delivered element by element. Text output is assembled by joining chunks. Neither mode asks the program to return a different final data type.
+
+Standalone objects remain supported as complete outputs through `Output.object(...)` or `Output.json()`. Coded components deliver such a value when ready; incremental object updates are outside their native streaming contract. LLMAgent retains the SDK's `partialOutputStream` for compatibility. Casai's streaming examples and unordered output extensions focus on text and complete array elements.
 
 ## Configuration Management
 
@@ -384,7 +447,7 @@ Key merging is shallow. A child `context: { settings: { language: 'French' } }` 
 
 Omitting a property inherits it. Explicit `undefined` clears ordinary replacement properties. For merged maps, an omitted, empty, or `undefined` whole map retains inherited entries; an explicitly `undefined` entry replaces that entry. Empty or `undefined` `messages` and `loader` values retain the inherited collection. These rules apply to configuration inheritance; in call-time arguments, `undefined` means not supplied.
 
-Keep shared fragments compatible with their consumers. A context-only Config can be shared by a Script and an LLMAgent; a Config containing language-model settings is not a standalone Template configuration. Settings such as `execute` belong to Function, while LLMAgent output schemas belong inside `Output.object(...)` or another `Output` specification. Incompatible inherited properties are rejected along with incompatible local ones.
+Keep shared fragments compatible with their consumers. A context-only Config can be shared by a Script and an LLMAgent; a Config containing language-model settings is not a standalone Template configuration. Settings such as `execute` belong to Function, while public Agent output schemas belong inside `Output.object(...)` or another `Output` specification on any of the four Agent-compatible components. Incompatible inherited properties are rejected along with incompatible local ones.
 
 ### Inspecting Configuration
 
@@ -400,6 +463,8 @@ console.log(shortSummarizer.config.context);         // { language: 'English' }
 ## The Casai Components
 
 The following sections cover creating and calling each component and reading its result. [Config](#config) supplies shared settings. Choose a model suited to the operation: a language model for LLMAgents, an embedding model for Embedding, and the corresponding provider model for other AI operations.
+
+LLMAgent, Template, Script, and Function share the [Agent interface](#one-agent-interface-four-implementations), input validation, configuration inheritance, and tool adaptation. A Template, Script, or Function can [replace an LLMAgent directly](#replacing-an-llmagent-with-template-script-or-function) in SDK calls and UI handlers when its input, output, options, and tool contracts match.
 
 ### Template
 
@@ -432,9 +497,11 @@ console.log(await report({ title: 'Weekly report' }));
 
 In this form, a call-time source override is another resource name. `.asTool` and `.loadsTemplate.asTool` expose the rendered string as a tool result. Standalone templates default to no HTML escaping; set `renderOptions: { autoescape: true }` for HTML output.
 
+Template implements the Agent interface directly. `receipt.generate({ context: { orderId: 'A123', count: 3 } })` returns an SDK result whose `.output` contains the rendered text. Configure `prepareInput` to map SDK conversations into variables, and `output` for structured Agent output; see [replacing an LLMAgent](#replacing-an-llmagent-with-template-script-or-function). The ordinary call still returns a string.
+
 #### Streaming a Template
 
-`.stream()` takes the same arguments as the ordinary call and delivers the text as it renders. LLMAgents called by the template stream their output into it:
+`.stream()` takes named arguments and delivers the text as it renders. Put template variables in `context`. LLMAgents called by the template stream their output into it:
 
 ```typescript
 const writeIntro = create.LLMAgent.withTemplate({
@@ -449,7 +516,7 @@ const newsletter = create.Template({
   context: { writeIntro },
 });
 
-const issue = await newsletter.stream({ topic: 'battery recycling' });
+const issue = await newsletter.stream({ context: { topic: 'battery recycling' } });
 for await (const text of issue.textStream) {
   process.stdout.write(text);
 }
@@ -480,9 +547,11 @@ Configure source with `script`. Call with context, or a one-off script and conte
 
 `.loadsScript` loads a named script through a configured loader. `.asTool` and `.loadsScript.asTool` expose the workflow as a tool; `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. Both inline and loaded scripts can call helpers or components from context.
 
-`.stream()`, which takes the same arguments as the ordinary call, and `.asStream` return a stream result whose `output` resolves to the returned value. Components called by a streaming script stream too, as described in [streaming through templates and scripts](#streaming-through-templates-and-scripts).
+Script implements the Agent interface directly. `.generate({ context: ... })` returns an SDK result; configure `output` to describe its public value and `prepareInput` to map SDK conversations into workflow input. The ordinary call keeps its own `schema` and return-value contract; see [shared input and output schemas](#output-schemas-and-structured-replacements).
 
-**Draft API detail:** how a script selects what it streams incrementally, for example a `text` or `data` channel, and whether structured values stream as partial objects or completed elements, is still to be specified in the [streaming design](docs/agents-design.md#phase-4-streaming-template-script-and-function).
+`.stream({ context: ... })` returns a live SDK result whose `output` resolves to the value parsed by the configured SDK output specification. `.asStream` makes the ordinary call return a stream with the native final value. Components called by a streaming script stream too, as described in [streaming through templates and scripts](#streaming-through-templates-and-scripts).
+
+Script streams text chunks or complete array elements. A plain returned value becomes available when complete; incremental output requires a selected live text or item sequence. **Draft API detail:** the exact syntax binding that live output to the Script result remains to be specified in the [streaming design](docs/agents-design.md#phase-4-streaming-template-script-and-function). The array result collects all emitted elements in logical order; there is no incremental object-update contract.
 
 See [Cascada script documentation](https://geleto.github.io/cascada-script/#/) for language syntax and concurrency, and [composition examples](#using-components-in-templates-and-scripts) below.
 
@@ -504,9 +573,11 @@ console.log(await normalize({ text: '  HELLO  ' })); // hello
 
 A Function can inherit from a `Config` or another Function. If a child changes schemas or context incompatibly, provide an `execute` callback that matches the final configuration. Use `.asTool` to let an LLMAgent call the function; see [tools](#using-components-as-tools) for execution context and validation behavior.
 
+Function implements the Agent interface directly. `normalize.generate({ context: { text: '  HELLO  ' } })` returns an SDK result with `.output === 'hello'`. Configure `prepareInput` for SDK conversations and `output` for structured results. A complete-value callback can serve the chat UI through `.stream()`; its value is emitted when ready. See [replacing an LLMAgent](#replacing-an-llmagent-with-template-script-or-function).
+
 #### Streaming from a Function
 
-With `.asStream`, the callback must return a stream. It can return a compatible text/structured stream result from another component, such as `writer.stream(...)`, or any async iterable, including an async generator. Native transcription results retain their own event contract and need explicit consumption or adaptation. String chunks become `textStream`, and `text` resolves to the joined chunks:
+With `.asStream`, the callback returns a text or array-element stream. It can return a compatible stream result from another component, such as `writer.stream(...)`, or an async iterable, including an async generator. Native transcription results retain their own event contract and need explicit consumption or adaptation. With the default text output, string chunks become `textStream`, and `text` resolves to the joined chunks:
 
 ```typescript
 const countdown = create.Function.asStream({
@@ -523,9 +594,27 @@ for await (const text of launch.textStream) {
 }
 ```
 
-TypeScript and runtime validation reject a callback that does not return a stream. `schema` validates the final value. A Function has no `.stream()` method, because its callback is its only operation, and the callback does not need to know whether it is streaming: a Function created with `.asStream` always streams. It cannot be combined with `.asTool`.
+TypeScript and runtime validation reject a callback that does not return a stream when `.asStream` is selected. `schema` validates the native final value. Function also exposes `.stream({ context: ... })` and `.generate({ context: ... })`: the former forwards the callback's stream, while the latter collects that one execution into a complete SDK result. `.asStream` cannot be combined with `.asTool`.
 
-**Draft API detail:** the final value of a stream of non-text values, either the last value or all collected values, is still to be specified in the [streaming design](docs/agents-design.md#phase-4-streaming-template-script-and-function).
+For an array stream, configure `Output.array(...)` and yield one complete element at a time:
+
+```typescript
+const titles = create.Function.asStream({
+  inputSchema: z.object({ topics: z.array(z.string()) }),
+  output: Output.array({ element: z.object({ title: z.string() }) }),
+  execute: async function* ({ topics }) {
+    for (const topic of topics) yield { title: `Guide to ${topic}` };
+  },
+});
+
+const titleStream = await titles.stream({ context: { topics: ['Solar', 'Wind'] } });
+for await (const item of titleStream.elementStream) {
+  console.log(item.title); // Each item is complete.
+}
+console.log(await titleStream.output); // [{ title: 'Guide to Solar' }, { title: 'Guide to Wind' }]
+```
+
+Each yielded value is an array element, including when the element itself is a string or an array. The configured output kind determines whether strings are text chunks or array items. `.generate()` collects the elements into the complete array from one callback execution. A native `schema`, when supplied, describes that final array. See [text and array element streams](#text-and-array-element-streams) for the shared contract.
 
 ### LLMAgent
 
@@ -540,6 +629,8 @@ console.log(answer.text);   // The SDK text accessor is also available.
 ```
 
 Plain calls accept prompt text or model messages; rendered forms accept context. All seven input modifiers are supported. `.generate()` and `.stream()` accept [named inputs and isolated overrides](#named-arguments-and-per-call-overrides).
+
+Code that consumes the SDK Agent interface can instead use a [Template, Script, or Function directly](#replacing-an-llmagent-with-template-script-or-function) with the same external input and output contracts.
 
 #### Structured Output
 
@@ -629,19 +720,7 @@ for await (const text of textResult.textStream) {
 console.log(await textResult.usage);
 ```
 
-Use `.asStream` when code that only calls the component, such as a handler that receives it or a Script that does not itself stream, should get a stream. When you hold the component yourself, `.stream()` works without it, and a [streaming Template or Script](#streaming-through-templates-and-scripts) streams the LLMAgents it calls without it. For structured output, consume partial values and then await the complete validated output:
-
-```typescript
-// Stream the researcher LLMAgent directly; no second component is needed.
-const reportStream = await researcher.stream({ context: { topic: 'battery recycling' } });
-
-for await (const partial of reportStream.partialOutputStream) {
-  console.log(partial); // Fields may still be missing.
-}
-
-const completeReport = await reportStream.output;
-console.log(completeReport.summary);
-```
+Use `.asStream` when code that only calls the component, such as a handler that receives it or a Script that does not itself stream, should get a stream. When you hold the component yourself, `.stream()` works without it, and a [streaming Template or Script](#streaming-through-templates-and-scripts) streams the LLMAgents it calls without it. For an array response, configure `Output.array(...)` and consume each complete item through `elementStream`, as shown below. Await `output` for the collected array.
 
 The [SDK streaming result](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) includes text, partial-output and supported array-element streams, tool events, steps, usage, metadata, and response conversion methods. Use `result.stream` for the complete SDK 7 event stream; `fullStream` is its deprecated alias. Final values such as `.output` and `.response` are promises.
 
@@ -656,9 +735,9 @@ Choose a stream for the information you need:
 | Stream | Contains |
 | :--- | :--- |
 | `textStream` | Text deltas; no tool or error events |
-| `partialOutputStream` | Partial parsed output; fields may be incomplete |
 | `elementStream` | Completed array elements, when using `Output.array(...)` |
 | `stream` | All events, including tools, errors, and completion |
+| `partialOutputStream` | The SDK's partial parsed output, retained on LLMAgent results; native coded streams use text or complete elements |
 
 For example, use an element stream to process each completed item:
 
@@ -672,6 +751,7 @@ const items = await list('Suggest three titles for an article about recycling.')
 for await (const item of items.elementStream) {
   console.log(item.title);
 }
+console.log(await items.output); // Complete array of titles.
 ```
 
 Stream consumption drives completion. Read a stream, forward it to an HTTP response, or call `await result.consumeStream()` when only completion matters. Final-result promises such as `.output`, `.usage`, and `.steps` also trigger consumption. Awaiting the component call alone only obtains the handle. To display incremental output, consume that stream before awaiting the final value.
@@ -907,6 +987,50 @@ When the SDK invokes this LLMAgent tool, its `execute` returns the parsed `.outp
 
 Components created with `.asStream`, StreamingTranscriber, and VoiceSession cannot be tools; see [combining modifiers](#combining-modifiers). Use a completed operation when the model needs a tool response. Plain SDK tools can also be placed in an LLMAgent's `tools` map.
 
+### Calling Tools from Coded Components
+
+`tools` registers named SDK tool definitions: their descriptions, argument schemas, and execution handlers where available. On an LLMAgent, the model can select these tools. On a Template, Script, or Function, the program decides which operations to call. The public `.tools` map also tells SDK/UI integrations how to validate tool messages in a conversation.
+
+Template, Script, and Function can call tool implementations as normal context methods. Put a callable component in `context` and register its `.asTool` form in `tools`. A Script calls the context method directly; a Function's `execute` callback receives it alongside the validated input:
+
+```typescript
+const numberInput = z.object({ a: z.number(), b: z.number() });
+
+const multiplyNumbers = create.Function({
+  inputSchema: numberInput,
+  execute: ({ a, b }) => a * b,
+});
+
+const multiplyTool = create.Function.asTool({
+  description: 'Multiply two numbers.',
+}, multiplyNumbers);
+
+const calculatorSettings = {
+  inputSchema: numberInput,
+  tools: { multiply: multiplyTool },
+  context: { multiply: multiplyNumbers },
+};
+
+const scriptedCalculator = create.Script({
+  ...calculatorSettings,
+  script: 'return "Product: " ~ multiply({ a: a, b: b })',
+});
+
+const codedCalculator = create.Function({
+  ...calculatorSettings,
+  execute: async ({ a, b, multiply }) => `Product: ${await multiply({ a, b })}`,
+});
+
+console.log(await scriptedCalculator({ a: 6, b: 7 })); // Product: 42
+console.log(await codedCalculator({ a: 6, b: 7 }));    // Product: 42
+```
+
+Both components reuse the same implementation: `tools.multiply` describes its SDK tool form, and `context.multiply` supplies the callable method. A Template can use that same context entry in `{{ multiply({ a: a, b: b }) }}`. Helpers can also be grouped under a context object, such as `context: { helpers: { multiply: multiplyNumbers } }`, and called as `helpers.multiply(...)`.
+
+Context helpers are supplied explicitly; configuring `tools` alone does not insert functions into context. Plain SDK tool definitions are objects, and some have no local execution handler. To use one from application code, expose its underlying application function or an explicit callable wrapper in context. SDK tool execution metadata, validation, and lifecycle are described in [tool execution context](#tool-execution-context).
+
+A direct helper call follows the component's normal call contract. Merely registering that helper as a tool does not emit SDK tool-call events or apply a model's tool approval policy. Coded workflows expose tool events only when they produce or forward actual SDK-compatible events.
+
 ### Tool Execution Context
 
 Use `contextSchema` for application data supplied to a tool without asking the model to provide it. Pass that data through the LLMAgent's `toolsContext` map:
@@ -1069,6 +1193,8 @@ Standalone templates default `autoescape` to `false`; language-model prompt rend
 
 AI components use their operation's SDK settings and retain its result fields. Follow the reference links in the [component overview](#component-overview) for full input and return contracts. Support for individual settings depends on the model and provider.
 
+LLMAgent, Template, Script, and Function share the Agent settings `output`, `callOptionsSchema`, `options`, `tools`, `runtimeContext`, `id`, and SDK lifecycle/cancellation settings. Coded components additionally use `prepareInput` for conversation mapping. See [the common contract](#agent-settings-streaming-and-tools); model generation settings below belong to LLMAgent.
+
 For LLMAgent, common settings include:
 
 | Property | Purpose |
@@ -1116,9 +1242,11 @@ const observed = create.LLMAgent({
 
 Streaming completion callbacks require the stream to progress to completion. `onChunk`, `onError`, and `onAbort` apply to streaming execution. Callbacks passed to `.generate()` or `.stream()` run in addition to the configured callbacks, in the SDK's order, so a configured callback used for usage accounting is never dropped by a caller. See [SDK lifecycle callbacks](https://ai-sdk.dev/docs/ai-sdk-core/generating-text#lifecycle-callbacks-experimental).
 
+Template, Script, and Function's Agent methods follow the same callback composition rules. A coded execution reports its local step and completion; tool callbacks describe actual compatible tool executions, and model usage is recorded only when available from a forwarded SDK result.
+
 ### Custom Call Options and Hooks
 
-`callOptionsSchema` describes application-specific options for LLMAgent requests, supplied as `options`. AI SDK helpers such as `createAgentUIStreamResponse` forward their own `options` argument the same way. Cascada's rendering settings use `renderOptions`.
+`callOptionsSchema` describes application-specific Agent options on LLMAgent, Template, Script, and Function, supplied as `options`. AI SDK helpers such as `createAgentUIStreamResponse` forward their own `options` argument the same way. Cascada's rendering settings use `renderOptions`.
 
 ```typescript
 const accountAgent = create.LLMAgent({
@@ -1132,7 +1260,7 @@ await accountAgent.generate({
 });
 ```
 
-Use `prepareCall` to consume these validated options and customize supported request settings. It runs once per invocation, after input preparation. `prepareStep` runs for individual model steps. Templates and scripts are prepared once, rather than rerendered for each tool-loop step.
+On LLMAgent, use `prepareCall` to consume these validated options and customize supported request settings. It runs once per invocation, after input preparation. `prepareStep` runs for individual model steps. Templates and scripts used to prepare the prompt run once, rather than rerendering for each tool-loop step. On coded components, `prepareInput` receives parsed options before it maps a conversation into input; there is no implicit model-step hook or tool loop.
 
 When the custom schema requires options, configure default `options` for ordinary calls, or supply them with `.generate()` or `.stream()`. Configured `options` apply whenever a call does not supply its own. `callOptionsSchema` is fixed at creation, and a call's `options` replaces the configured value as a whole.
 
@@ -1194,11 +1322,11 @@ A template can also invoke an asynchronous component directly, for example `{{ s
 
 ### Streaming Through Templates and Scripts
 
-When a Template or Script streams, through `.stream()` or `.asStream`, the components it calls from its context stream too where they support the text/structured streaming contract. Cascada forwards output selected by the template's output expressions or the script's output mechanism in logical output order. When the parent does not stream, called components use their ordinary call. The same components therefore work in both modes:
+When a Template or Script streams, through `.stream()` or `.asStream`, the components it calls from its context stream too where they support the text/array-element streaming contract. Cascada forwards output selected by the template's output expressions or the script's output mechanism in logical output order. When the parent does not stream, called components use their ordinary call. The same components therefore work in both modes:
 
 ```typescript
 const page = await newsletter({ topic: 'battery recycling' });  // complete text
-const live = await newsletter.stream({ topic: 'battery recycling' });  // streamed text
+const live = await newsletter.stream({ context: { topic: 'battery recycling' } });  // streamed text
 ```
 
 Output a result directly, as in `{{ writeIntro({ topic: topic }) }}`, to let it stream. Reading a final value such as `.output` waits for the complete value, as it does outside a template.
@@ -1207,10 +1335,10 @@ Independent components may produce chunks out of order internally. Cascada buffe
 
 Use [unordered output streams](#ordered-and-unordered-streams) when you want to receive ready chunks before earlier positions are filled. Ordinary text streams remain ordered.
 
-Two cases do not follow the caller's mode:
+Nested components retain these behaviors:
 
 - A called component created with `.asStream` returns a stream even when its caller does not stream; the caller waits for the final value when it uses it.
-- A Function streams only when created with `.asStream`, because a streaming caller cannot change what its callback returns.
+- A streaming caller cannot make a regular Function callback produce incremental chunks. Its complete value is emitted when ready; use a streaming callback and `.asStream` for incremental native output.
 
 ### Ordered and Unordered Streams
 
@@ -1220,7 +1348,6 @@ Results expose unordered output streams alongside their existing ordered streams
 | :--- | :--- | :--- |
 | `textStream` | `unorderedTextStream` | Text chunks |
 | `elementStream` | `unorderedElementStream` | Complete elements, where element streaming is supported |
-| `partialOutputStream` | `unorderedPartialOutputStream` | Successive partial-output snapshots |
 
 In JavaScript, an ordered stream yields raw values in logical order. An unordered stream yields records as chunks become available, each containing both positions:
 
@@ -1231,7 +1358,7 @@ type UnorderedChunk<T> = {
   index: number | Promise<number>; // Zero-based flat position, possibly deferred.
 };
 
-const live = await newsletter.stream({ topic: 'battery recycling' });
+const live = await newsletter.stream({ context: { topic: 'battery recycling' } });
 for await (const { chunk, indexpath, index } of live.unorderedTextStream) {
   previewAtPath(indexpath, chunk);
   const flatIndex = await index; // Valid for both numbers and promises.
@@ -1243,7 +1370,7 @@ for await (const { chunk, indexpath, index } of live.unorderedTextStream) {
 
 Flat indices can remain unresolved while earlier nested regions are still producing chunks. Awaiting an index inside the JavaScript loop pauses consumption of later chunks. Use the immediate path when a preview should proceed without waiting. Compare paths lexicographically by numeric elements, with shorter prefixes first; they describe stream positions, not JSON field paths.
 
-Text indices count chunks, and element indices count completed elements. Partial-output indices identify successive snapshots; they do not define how concurrent object updates merge. Final `.text` / `.output` promises retain their existing meaning. Plain SDK and untagged JavaScript sources wrapped by Casai expose unordered properties with sequential positions; only position-aware sources can deliver chunks ahead of earlier logical positions.
+Text indices count chunks, and element indices count completed elements. Final `.text` / `.output` promises retain their existing meaning. Plain SDK and untagged JavaScript sources wrapped by Casai expose unordered properties with sequential positions; only position-aware sources can deliver chunks ahead of earlier logical positions. The SDK's ordered partial-output property remains available on LLMAgent; Casai adds no unordered partial-object extension.
 
 #### Consuming Either Form in Script and Template Loops
 
@@ -1265,13 +1392,13 @@ Template:
 {% for chunk in source %}{{ chunk }}{% endfor %}
 ```
 
-These are alternative consumers, each needing its own source handle. If an unordered source delivers `world` at position 1 before `Hello ` at position 0, both loops assemble `Hello world`. There is no special loop syntax, `.chunk` access, manual sorting, or index awaiting. Elements and snapshots are likewise exposed as their original values. Ordinary loop concurrency still applies; output ordering does not sequence unrelated external side effects.
+These are alternative consumers, each needing its own source handle. If an unordered source delivers `world` at position 1 before `Hello ` at position 0, both loops assemble `Hello world`. There is no special loop syntax, `.chunk` access, manual sorting, or index awaiting. Array elements are likewise exposed as their original values. Ordinary loop concurrency still applies; output ordering does not sequence unrelated external side effects.
 
 This behavior uses the recognized position-aware stream protocol. Ordinary iterables yielding application objects with fields such as `chunk` or `index` continue to yield those objects unchanged. JavaScript consumers of an unordered property see the full records shown above.
 
 JavaScript producers can also supply logical positions through Cascada's planned `at(chunk, index)` integration. SDK event/UI streams and native transcription streams keep their own contracts. Promised indices are for in-process use; sending positioned chunks to a UI requires an explicit transport, typically using immediate paths.
 
-These properties and loop behavior are agreed for [Phase 5](docs/agents-design.md#ordered-and-unordered-output-properties) and await implementation. Upstream protocol integration, explicit branching, cancellation, buffering, and concurrent structured-output details remain documented in the design.
+These properties and loop behavior are agreed for [Phase 5](docs/agents-design.md#ordered-and-unordered-output-properties) and await implementation. Upstream protocol integration, explicit branching, cancellation, buffering, and complete-element validation remain documented in the design.
 
 ### Concurrency, Ordering, and Recovery
 
@@ -1389,12 +1516,21 @@ The model and provider determine supported media and formats. Generated files an
 
 ## AI SDK Agent Interface and UI Integration
 
-Every LLMAgent implements the SDK Agent interface with `version: 'agent-v1'`, optional `id`, `tools`, `.generate()`, and `.stream()`. These are the same methods described in [named arguments](#named-arguments-and-per-call-overrides), so SDK code and Casai code share one entry point:
+LLMAgent, Template, Script, and Function directly implement the [AI SDK Agent interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent). Their `.generate()` and `.stream()` methods accept the SDK's call arguments and return its complete result and stream contracts, including the event stream consumed by UI helpers. Casai's [additional named arguments](#named-arguments-and-per-call-overrides) provide rendering context, source overrides, and supported per-call settings through those same methods. Their ordinary calls and `.asStream` defaults are described in [streaming](#streaming).
 
-| Component | Ordinary call | `.generate()` | `.stream()` |
-| :--- | :--- | :--- | :--- |
-| `LLMAgent` | Generate | Generate | Stream |
-| `LLMAgent.asStream` | Stream | Generate | Stream |
+### Agent Properties
+
+The SDK interface also requires these properties on each component:
+
+| Property | Meaning for the user |
+| :--- | :--- |
+| `version` | Identifies the SDK Agent contract, currently `'agent-v1'`; Casai supplies this compatibility marker |
+| `id` | An optional identifier you assign to the component; `undefined` when omitted |
+| `tools` | The configured named SDK tool definitions, including schemas and any execution handlers; defaults to `{}` |
+
+Use `.tools` to inspect the registered definitions or retain the tool contract needed by SDK/UI callers. To call their reusable implementations from a Template, Script, or Function, supply [callable helpers in context](#calling-tools-from-coded-components).
+
+### Generation, Streaming, and the Chat UI
 
 ```typescript
 const writer = create.LLMAgent({ model });
@@ -1409,9 +1545,38 @@ const complete = await streamer.generate({ prompt: 'Explain recycling.' });
 console.log(complete.output);
 ```
 
-Neither method is emulated. `.stream()` streams incrementally whichever operation the ordinary call performs, and `.generate()` generates directly rather than consuming a stream. Both return promises; awaiting `.stream()` yields the live handle. Each call starts one execution with the configured stopping condition.
+On LLMAgent, `.stream()` uses incremental model streaming whichever operation the ordinary call performs, and `.generate()` generates directly rather than consuming a stream. Both return promises; awaiting `.stream()` yields the live handle. Each call starts one execution with the configured stopping condition. Template, Script, and Function use the [execution rules](#agent-settings-streaming-and-tools) of their own producers.
 
-SDK UI helpers can use any LLMAgent directly. This server handler accepts the SDK UI message format and returns a streaming response:
+### What the Chat UI Uses
+
+The chat client sends `UIMessage[]` to a server handler. The SDK helper validates those messages, converts them to `ModelMessage[]`, and calls the component's `.stream({ prompt: convertedMessages, ... })`. It converts the returned SDK event stream into assistant message parts for the client. This uses `.stream()` regardless of the component's ordinary-call default; a raw `textStream` alone is not the SDK UI protocol. See the [SDK UI response helper](https://ai-sdk.dev/docs/reference/ai-sdk-core/create-agent-ui-stream-response).
+
+**Any LLMAgent can serve this handler, including one with `stopWhen: isStepCount(1)`.** The stopping condition limits model steps within each server request, not the number of chat turns. Each subsequent request supplies its conversation and starts another invocation. A single step can execute tools and expose their results in UI tool parts, but cannot make a second model call to write an answer based on those results. A larger limit allows that follow-up within the same request; it is not required for chat integration.
+
+The shared Agent contract lets all four implementations deliver a response through the same handler. Each uses the conversation differently:
+
+| Component | How it uses chat input | Response available to the UI |
+| :--- | :--- | :--- |
+| LLMAgent | Sends the literal conversation to its model, together with configured instructions and static messages | Model-generated assistant text, plus tool or other message parts actually emitted by the SDK stream |
+| Template | Maps the conversation into template variables, then renders its configured template and helper expressions | Rendered text as an assistant message; available portions can stream while asynchronous expressions resolve |
+| Script | Maps the conversation into workflow input, then executes the configured script, including any explicit helper or model calls | The workflow's selected text or JSON output as an assistant message; internal operations appear only when their output is exposed |
+| Function | Maps the conversation into callback input, then executes JavaScript with that input and configured context helpers | The callback's text or JSON output as an assistant message; a complete value arrives when ready, while a streaming callback can supply chunks |
+
+For a coded component, the default conversation input is `{ messages }`. Configure `prepareInput` when its program expects other fields, such as `message` or `orderId`; `inputSchema` validates the mapped input. The incoming conversation remains data for the configured program. The [conversation mapping examples](#map-conversations-to-component-input) show all three implementations using the same latest-user-message input.
+
+A static Template can simply return the same response on every chat request:
+
+```typescript
+const cannedReply = create.Template({
+  template: 'Thanks for your message. We will reply shortly.',
+});
+```
+
+Pass `cannedReply` as `agent` in the handler below and its rendered text becomes the assistant's reply. Use mapped variables and helpers for a personalized template, a Script for a workflow, or a Function for JavaScript response logic. These programs determine how to answer and which history to use; Agent support supplies the common request and response contract.
+
+Text outputs become assistant text parts. Structured Agent output is carried as JSON text; the application's renderer decides how to present it. The parsed `.output` value is available to SDK callers and does not by itself define a chat widget. Tool, reasoning, source, and file displays likewise depend on emitted message parts and the client's renderers. Calling a context helper from coded logic does not automatically create a UI tool part. Preserve compatible `tools` declarations when existing conversation history includes tool parts; see [calling tools from coded components](#calling-tools-from-coded-components).
+
+SDK UI helpers accept any of the four components directly when their conversation input and output contracts are configured for that application. This server handler accepts the SDK UI message format and returns a streaming response:
 
 ```typescript
 import { createAgentUIStreamResponse } from 'ai';
@@ -1435,9 +1600,9 @@ export async function POST(request: Request): Promise<Response> {
 }
 ```
 
-Wire the returned `Response` into your server framework and use an AI SDK UI client to consume it. `UIMessage[]` and `ModelMessage[]` are different formats; the helper validates and converts UI messages. A raw `textStream` carries text deltas and is not the SDK UI protocol.
+Wire the returned `Response` into your server framework and use an AI SDK UI client to consume it.
 
-SDK helpers call `.stream()` with SDK arguments. `createAgentUIStreamResponse` passes the converted conversation as `prompt`, along with `options`, `abortSignal`, and callbacks that may be `undefined`. The [per-call rules](#named-arguments-and-per-call-overrides) make this work with every LLMAgent form:
+SDK helpers call `.stream()` with SDK arguments and consume the returned SDK event stream. `createAgentUIStreamResponse` passes the converted conversation as `prompt`, along with `options`, `abortSignal`, and callbacks that may be `undefined`. For LLMAgent, the [per-call rules](#named-arguments-and-per-call-overrides) apply:
 
 - The conversation in `prompt` replaces the configured prompt and is never rendered, so no `context` is required and user text is never treated as template code. The SDK's alternative `messages` form has the same literal behavior. Configured `messages` and `instructions` still apply.
 - `options` is validated by `callOptionsSchema` and passed to `prepareCall`.
@@ -1447,7 +1612,140 @@ Because a supplied `prompt` replaces the configured one, a template or script pr
 
 Use `history` with rendering context to [render only a new message](#render-only-the-new-message). Direct SDK helper calls supply an already-prepared conversation and do not automatically identify or render new turns; an application that wants that preparation must explicitly separate the new input from its stored history before generation.
 
-See the [SDK Agent interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent). The other AI components have their own operation methods or session interface and do not implement the SDK Agent interface. ImageGenerator and SpeechGenerator's `.generate()` and StreamingTranscriber's `.stream()` take their own operation inputs.
+For Template, Script, or Function, the same helper conversation is mapped into component input and validated before the configured program executes, as described below. See the [SDK Agent interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent). Specialized AI components have their own operation methods or session interface and do not implement it. ImageGenerator and SpeechGenerator's `.generate()` and StreamingTranscriber's `.stream()` take their own operation inputs.
+
+## Replacing an LLMAgent with Template, Script, or Function
+
+Replace a model-backed LLMAgent with a Template, Script, or Function by supplying the coded component directly to the same caller or SDK UI handler. All four have `.generate()` and `.stream()` and the same SDK result contracts. Configure the coded component's input mapping and public output to match the interface the application already uses. Choose its response logic and emitted message parts to suit the application; the [UI capability comparison](#what-the-chat-ui-uses) explains what each implementation supplies.
+
+**Implementation status:** direct Agent support for Template, Script, and Function, including loaded and `.asStream` forms, is planned for Phase 4. This guide describes the intended API; these methods are not available on the current coded components.
+
+### The Shared Replacement Contract
+
+| Boundary | Contract |
+| :--- | :--- |
+| SDK request | Exactly one of `prompt` or `messages`, with the SDK's string/conversation meaning |
+| Application request | `.generate({ context: ... })` or `.stream({ context: ... })` uses typed input directly; an optional `source` overrides the program for that call |
+| Component input | Configured `prepareInput` maps a conversation into call-time input, defaulting to `{ messages }`; `inputSchema` validates explicit or mapped input before configured context merges |
+| Complete result | `.generate()` returns an SDK-compatible result with the typed `.output`, `.text`, response messages, and execution metadata |
+| Streaming result | `.stream()` returns a live SDK-compatible result with text or complete-array-element streams, final-value promises, and the event stream used by UI helpers |
+| Public output | The same SDK `Output` specification as the replaced LLMAgent; text is the default |
+| Custom options | `callOptionsSchema` validates and parses `options` before `prepareInput`; configured defaults and per-call replacement follow LLMAgent's rules |
+| Tools and lifecycle | Compatible `tools`, SDK callbacks, cancellation, timeouts, and streaming transforms; no hidden conversation state |
+
+The replacement is at the **Agent boundary**: `.generate()`, `.stream()`, and SDK UI helpers. Keep the same input shape, custom-options type, public output type, and any tool declarations needed by the caller or conversation history. Model settings such as `temperature` and `stopWhen` belong to LLMAgent and are not part of the shared replacement contract.
+
+Ordinary calls retain their own arguments and return values: a Template returns text, a Script its value, and a Function its callback result. Replacing `await llm(context)` with `await template(context)` also requires accounting for that difference; the common methods always return SDK results.
+
+### Map Conversations to Component Input
+
+Configure `prepareInput` on the Template, Script, or Function when its input expects application fields rather than a conversation. It receives normalized `messages: ModelMessage[]`, parsed custom `options` when configured, and the invocation's `abortSignal`. A string `prompt` becomes one user message; message arrays retain their roles and content parts. The mapper may be synchronous or asynchronous and returns the component's call-time input.
+
+Without a mapper, a conversation call supplies `{ messages }` as input. This works for a program whose input contract accepts that field. If its `inputSchema` requires fields such as `message` or `orderId`, supply a mapper that produces them; validation rejects missing fields before execution. Ordinary calls and named calls with explicit `context` use that input directly and do not invoke `prepareInput`.
+
+The application chooses how to interpret the conversation. This example explicitly uses the latest user's text and returns the same acknowledgement through all three coded components:
+
+```typescript
+import type { ModelMessage } from 'ai';
+
+const messageInput = z.object({ message: z.string().min(1) });
+
+function lastUserText(messages: ModelMessage[]): string {
+  const content = messages.findLast(message => message.role === 'user')?.content;
+  return typeof content === 'string'
+    ? content
+    : (content ?? []).filter(part => part.type === 'text').map(part => part.text).join('\n');
+}
+
+const prepareInput = ({ messages }: { messages: ModelMessage[] }) => ({
+  message: lastUserText(messages),
+});
+
+const replyTemplate = create.Template({
+  inputSchema: messageInput,
+  prepareInput,
+  template: 'Received: {{ message }}',
+});
+
+const replyScript = create.Script({
+  inputSchema: messageInput,
+  prepareInput,
+  script: 'return "Received: " ~ message',
+});
+
+const replyFunction = create.Function({
+  inputSchema: messageInput,
+  prepareInput,
+  execute: ({ message }) => `Received: ${message}`,
+});
+
+const reply = await replyFunction.generate({ prompt: 'Hello' });
+console.log(reply.output); // Received: Hello
+
+// Explicit application input uses the same Agent result contract.
+const directReply = await replyFunction.generate({ context: { message: 'Hello' } });
+console.log(directReply.output); // Received: Hello
+```
+
+Set `chatAgent` in the preceding server handler to `replyTemplate`, `replyScript`, or `replyFunction`; the handler and SDK UI client stay the same. All three also accept the complete converted conversation supplied by the helper.
+
+`prepareInput` can instead retain the full conversation, extract structured application input, or use validated custom options. It must supply all required `inputSchema` fields itself. As with native calls, input validation is validation-only; use the mapper for coercion or normalization. Configured context supplies defaults and helpers after validation.
+
+SDK conversation content is input data. It never replaces the configured `template`, `script`, resource name, or `execute` callback. An LLMAgent's literal `prompt` override instead replaces the prompt sent to the model and skips rendering input validation. A coded component validates the mapped input because that is the input to its executed program.
+
+### Output Schemas and Structured Replacements
+
+Reuse the replaced LLMAgent's `Output` specification directly in the coded component's configuration:
+
+```typescript
+const answerSchema = z.object({ answer: z.string() });
+const answerOutput = Output.object({ schema: answerSchema });
+
+const aiAnswer = create.LLMAgent.withTemplate({
+  model,
+  inputSchema: messageInput,
+  prompt: 'Acknowledge this message: {{ message }}',
+  output: answerOutput,
+});
+
+const codedAnswer = create.Function({
+  inputSchema: messageInput,
+  prepareInput,
+  output: answerOutput,
+  execute: ({ message }) => ({ answer: `Received: ${message}` }),
+});
+
+const answerAgent = codedAnswer; // Swap for aiAnswer; the caller below stays the same.
+const answer = await answerAgent.generate({ prompt: 'Hello' });
+console.log(answer.output.answer);
+```
+
+`Output.text()` and `Output.choice(...)` require a string result. For `Output.object(...)`, `Output.array(...)`, or `Output.json()`, a Template renders JSON text, while a Script or Function returns a JSON-compatible value. Casai parses rendered JSON or serializes the returned value and applies the selected SDK output parser. Non-serializable values need an explicit conversion in the component.
+
+`inputSchema` describes the component's input; `output` describes the public Agent result. For Template, Script, and Function, `output` applies to `.generate()` and `.stream()`; ordinary calls retain their native return-value contract. Script/Function `schema` remains a separate boundary that parses the native result before Agent output validation. Set the public schema on `output` when only Agent callers need that validation. If both boundaries use transforming schemas, make the second schema accept the first boundary's parsed value so transformations are not inadvertently applied twice.
+
+For array output, `elementStream` exposes complete elements and `output` resolves to their collected array. A complete-only producer delivers its array elements after the array is ready. Standalone objects are delivered as complete values; coded components have no incremental object-update contract. An application consuming an SDK result can render items directly from `elementStream`. The chat UI instead receives SDK message parts carrying JSON text; separate item cards require an application renderer or an explicit transport for complete item data.
+
+### Agent Settings, Streaming, and Tools
+
+Supply Agent settings in the component's factory configuration, alongside its program and native validation settings:
+
+| Setting | Purpose |
+| :--- | :--- |
+| `prepareInput` | Conversation-to-input mapper; omitted means input is `{ messages }` |
+| `output` | SDK `Output` specification; defaults to `Output.text()` |
+| `callOptionsSchema`, `options` | Typed custom options and optional defaults, independent of the component's `inputSchema` |
+| `tools` | SDK tool definitions used by SDK consumers and UI history validation; defaults to `{}`; callable implementations can also be supplied in `context` |
+| `runtimeContext` | Application metadata for SDK lifecycle callbacks, separate from rendering context |
+| `id` | Optional identifier; the component always exposes `id`, with `undefined` when omitted |
+
+Each SDK method starts one component execution. Template and Script streams preserve their selected output in logical order. A Function returning a complete value emits it when ready; a streaming Function forwards its chunks. `.generate()` collects a streaming callback once when necessary, and never executes it a second time to obtain the final value. `.asStream` changes the ordinary call; all forms retain both Agent methods. Coded components need no model setting or model call to implement this interface. Ordinary complete-value calls do not construct SDK results or serialize values for Agent output.
+
+Abort signals and timeouts cover mapping, execution, and stream consumption. The mapper receives the effective signal, and asynchronous helpers must cooperate with cancellation for their work to stop. Errors propagate through the SDK result and UI error protocol; Casai does not retry a coded callback with side effects automatically.
+
+Pure coded execution reports a local execution step with zero model-token usage and no invented reasoning or tool calls. A workflow that calls models itself still incurs their real usage; metadata from a forwarded compatible SDK result is retained. Casai does not infer hidden model usage from arbitrary helper return values.
+
+The component's `tools` must match any tool parts the UI history or output uses. Declaring tools does not start a model-driven tool loop: the coded workflow chooses what to execute. Reuse their callable implementations through [context helpers](#calling-tools-from-coded-components), including in a Function callback. Only actual SDK-compatible tool events are exposed; an ordinary helper call does not create one automatically. Agent compatibility and exposing a component through `.asTool` are separate operations; the `.asStream` / `.asTool` combination remains invalid.
 
 ## Choosing Your Orchestration Strategy
 
@@ -1510,15 +1808,15 @@ Use schemas at the boundary where data enters or leaves a component:
 
 | Setting | Validates |
 | :--- | :--- |
-| `inputSchema` | Raw call-time context, or model-issued tool arguments |
+| `inputSchema` | Explicit or mapped call-time context, or model-issued tool arguments |
 | Script / Function `schema` | The returned workflow or callback value |
-| LLMAgent `output` | The generated value through an SDK output specification |
+| Agent `output` | The public value through an SDK output specification on LLMAgent, Template, Script, or Function |
 | Tool `contextSchema` | SDK tool execution context |
-| LLMAgent `callOptionsSchema` | Application-specific SDK call options |
+| Agent `callOptionsSchema` | Application-specific SDK call options on all four Agent-compatible components |
 
 Casai context schemas describe object input. Use a Zod object schema for templates/scripts, or an AI SDK object schema with a validator. Script/Function output schemas may describe primitive, array, or object results. Zod is re-exported as `z` from `casai` as well as being available from `zod`.
 
-Required input fields must be supplied by the caller. Validation happens before configured context merges, so place defaults and helpers outside required input-only fields:
+Required input fields must be present in call-time context, supplied directly or by `prepareInput` for a conversation call. Validation happens before configured context merges, so place defaults and helpers outside required input-only fields:
 
 ```typescript
 const welcome = create.LLMAgent.withTemplate({
@@ -1533,9 +1831,9 @@ await welcome({ name: 'Ada' });
 
 For ordinary Casai calls, `inputSchema` is **validation-only**: the original input is passed on after validation. Schema coercions, transforms, defaults, and unknown-key stripping do not rewrite rendering context or Function arguments. Normalize data explicitly before calling the component, or in a preparer/callback. Use `.strict()` when unknown input keys should cause validation to fail.
 
-Output `schema` on Script/Function returns the parsed value. SDK-managed tool arguments, tool execution context, LLMAgent output, and custom call options follow their respective SDK parsing contracts. Do not infer their parsing behavior from Casai's ordinary input validation.
+Output `schema` on Script/Function returns the parsed value. SDK-managed tool arguments, tool execution context, Agent output on all four compatible components, and custom call options follow their respective SDK parsing contracts. Do not infer their parsing behavior from Casai's ordinary input validation. The [replacement guide](#replacing-an-llmagent-with-template-script-or-function) explains how native `schema` and public Agent `output` form separate validation boundaries.
 
-Input validation and rendering failures reject before the model call. Output validation runs after the value is produced. Streamed partial objects may be incomplete; use the final `.output` for the completed, validated result. Handle SDK/provider errors through the operation's normal promise or streaming error contract.
+Input validation and rendering failures reject before the model call. Output validation runs after the value is produced. Array elements are validated before publication; final array validation can still reject completion. Use the final `.output` for the completed result. Handle SDK/provider errors through the operation's normal promise or streaming error contract.
 
 Prepared inputs are checked against the selected operation: model messages for LLMAgents, text or text arrays for Embedding, audio for transcription, and so on. Binary and live-stream inputs retain their native values.
 

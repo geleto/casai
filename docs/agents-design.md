@@ -1,6 +1,6 @@
-# LLMAgent API and Specialized Components: Design and Implementation
+# LLMAgent, Coded Agents, and Specialized Components: Design and Implementation
 
-Status: agreed design, awaiting implementation, with unresolved details identified below. [README.md](../README.md#agents-with-asagent) describes Phase 1: `.asAgent` on the existing Text/Object factories. [README2.md](../README2.md) is the standalone user guide to the future API from Phases 2 to 5. Phase 2 exposes a single `LLMAgent` factory, with the `.asStream` modifier selecting streaming for its ordinary call and no `.asAgent` or `.run()`, using the same language-generation core as Phase 1. [Phase 3](#phase-3-specialized-components) adds decisions, embeddings, reranking, images, transcription, speech, and voice sessions. [Phase 4](#phase-4-streaming-template-script-and-function) adds ordered streaming to Template, Script, and Function. [Phase 5](#phase-5-out-of-order-streaming) adds unordered output-stream properties with both hierarchical and flat positions, using Cascada's planned ordering integration. Script and template loops consume these streams with ordinary loop syntax. This filename distinguishes the design note from repository `AGENTS.md` instructions.
+Status: agreed design, awaiting implementation, with unresolved details identified below. [README.md](../README.md#agents-with-asagent) describes Phase 1: `.asAgent` on the existing Text/Object factories. [README2.md](../README2.md) is the standalone user guide to the future API from Phases 2 to 5. Phase 2 exposes a single `LLMAgent` factory, with the `.asStream` modifier selecting streaming for its ordinary call and no `.asAgent` or `.run()`, using the same language-generation core as Phase 1. [Phase 3](#phase-3-specialized-components) adds decisions, embeddings, reranking, images, transcription, speech, and voice sessions. [Phase 4](#phase-4-streaming-template-script-and-function) adds ordered streaming and [direct Agent support](#direct-agent-support-for-coded-components) to Template, Script, and Function. All four components then share `.generate()` / `.stream()` and the SDK/UI contract, so coded workflows can replace LLMAgents. [Phase 5](#phase-5-out-of-order-streaming) adds unordered output-stream properties with both hierarchical and flat positions, using Cascada's planned ordering integration. Script and template loops consume these streams with ordinary loop syntax. This filename distinguishes the design note from repository `AGENTS.md` instructions.
 
 Phase 2 has one language-generation factory, `LLMAgent`; `.asStream` replaces a separate streaming factory. Phase 1 retains `.asAgent` as an addition to the existing factories. Casai is in active development with demos that can be rewritten; Phase 2 does not need to preserve the Phase 1 public surface through compatibility aliases or staged deprecation.
 
@@ -8,9 +8,11 @@ The SDK reference is the installed `ai@7.0.130`. Use its exported types and sour
 
 ## Decide the Core Now
 
-Implement the SDK's basic `Agent` interface in Casai, with a shared execution core backed directly by `generateText` and `streamText`. Do not use `ToolLoopAgent` as the backend. The SDK supports custom implementations of the [Agent contract](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent); it does not require that class or any particular step count.
+All four components—LLMAgent, Template, Script, and Function—support the AI SDK `Agent` interface directly. Each component is callable and exposes `.generate()` and `.stream()` with named arguments, plus the SDK-required `version`, `id`, and `tools` properties. The methods implement the SDK call and full result/stream contracts, with additional Casai arguments for application input and supported overrides. Share the Agent request/result infrastructure internally; ordinary calls retain component-specific argument and return-value conventions. There is no public conversion helper or additional factory modifier. User documentation describes the intended API on its own, without comparisons to earlier methods or migration guidance. Explain SDK interoperability and common operations first; keep the [compatibility properties](../README2.md#agent-properties) in the reference.
 
-Both SDK functions already execute model/tool loops and parse structured output. Casai owns configuration, preparation, interface adaptation, and result augmentation. The SDK owns model requests, tool execution, termination, output parsing, stream delivery, and cancellation. There is no Casai implementation of the tool loop.
+For language generation, use a shared execution core backed directly by `generateText` and `streamText`. Do not use `ToolLoopAgent` as the backend. The SDK supports custom implementations of the [Agent contract](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent); it does not require that class or any particular step count. Phase 4's coded components implement the same contract through their own execution engines; Agent support itself makes no model request.
+
+Both SDK functions already execute model/tool loops and parse structured output. For LLMAgent, Casai owns configuration, preparation, interface adaptation, and result augmentation. The SDK owns model requests, tool execution, termination, output parsing, stream delivery, and cancellation. There is no Casai implementation of the tool loop. For coded components, Casai owns local execution and compatible result/event construction while reusing SDK output specifications and protocol contracts.
 
 Direct execution also preserves streaming settings such as `onChunk`, `onError`, and `onAbort`, which are not exposed by the installed `ToolLoopAgent` settings type. Preserve their actual `streamText` behavior and types instead of emulating them through an agent lifecycle callback.
 
@@ -90,9 +92,9 @@ For the new core, resolve inherited and local settings before selecting a fallba
 
 A one-step policy can execute tools; it does not automatically continue with another model call using their results. A step limit counts model steps, not individual tool calls. It is an upper bound, not a promise to run that many steps. Normal completion, pending external tool results, or approval requirements can end an execution earlier. SDK `prepareStep` remains available in either policy.
 
-Providing the `Agent` interface and selecting a stopping condition are independent decisions. In Phase 1, `.asAgent` supplies the interface and a multi-step fallback. In Phase 2, every language-generation component supplies the interface without a modifier. On both paths, `stopWhen` controls continuation and takes a condition such as `isStepCount(1)`, not a numeric count. No internal agent-mode flag or separate `loopCount` setting is introduced.
+Providing the `Agent` interface and selecting a stopping condition are independent decisions. In Phase 1, `.asAgent` supplies the interface and a multi-step fallback. In Phase 2, every language-generation component supplies the interface without a modifier. On both paths, `stopWhen` controls continuation and takes a condition such as `isStepCount(1)`, not a numeric count. Phase 4 makes Template, Script, and Function implement the interface directly without introducing a model-driven loop or a stopping condition. No internal agent-mode flag or separate `loopCount` setting is introduced.
 
-Accept the SDK's full `stopWhen` contract, including custom predicates and arrays of conditions. Resolve it through ordinary configuration inheritance and isolated per-call overrides, then pass it to the SDK. Do not inspect the condition to infer an agent mode or change the component's type, rendering, result shape, hooks, or SDK methods. SDK compatibility remains available with every stopping condition.
+Accept the SDK's full `stopWhen` contract, including custom predicates and arrays of conditions. Resolve it through ordinary configuration inheritance and isolated per-call overrides, then pass it to the SDK. Do not inspect the condition to infer an agent mode or change the component's type, rendering, result shape, hooks, or SDK methods. SDK compatibility remains available with every stopping condition. In particular, `createAgentUIStream` and `createAgentUIStreamResponse` must work with `isStepCount(1)`: this limits model steps per invocation, not chat turns. Tool parts can be emitted within that step; synthesis after tool execution requires another model step.
 
 ## Entry Paths and One Execution Core
 
@@ -212,7 +214,7 @@ Validate custom options before invoking `prepareCall`, preserving the SDK's pars
 
 ## Output and Result Contract
 
-The core uses modern `GenerateTextResult` / `StreamTextResult` with SDK `Output`. The Phase 2 factory accepts the same output specifications with or without `.asStream`:
+The language-generation core uses modern `GenerateTextResult` / `StreamTextResult` with SDK `Output`. Phase 4's [coded components](#direct-agent-support-for-coded-components) implement the same public result types and output specifications on `.generate()` and `.stream()`. The Phase 2 factory accepts these specifications with or without `.asStream`:
 
 | Output kind | SDK output specification |
 | :--- | :--- |
@@ -302,7 +304,7 @@ Support every existing modifier with meaningful semantics for the component. The
 - `Decision`, `Embedding`, `Reranker`, `ImageGenerator`, and `SpeechGenerator` support `.withText`, `.withTemplate`, `.withScript`, `.withFunction`, `.loadsText`, `.loadsTemplate`, `.loadsScript`, and `.asTool`.
 - `Transcriber` supports `.withScript`, `.withFunction`, `.loadsScript`, and `.asTool`. `StreamingTranscriber` supports those same preparation modifiers, but has no `.asTool`.
 - `VoiceSession` supports all seven text/script/function/loading modifiers for preparing session instructions. It has no `.asTool`.
-- `.asAgent` remains exclusive to Phase 1. `.asStream` belongs to `LLMAgent` until Phase 4 extends it to Template, Script, and Function; specialized components do not use it. None of these modifiers manufactures Agent assignability or adds a tool loop to a specialized operation.
+- The `.asAgent` factory modifier remains exclusive to Phase 1. `.asStream` belongs to `LLMAgent` until Phase 4 extends it to Template, Script, and Function; specialized components do not use it. Phase 4's coded components implement Agent directly. None of these features adds Agent assignability or a tool loop to a specialized operation.
 
 Text/template preparation targets decision text state, embedding values, the reranking query, image prompt text, speech text, or voice-session instructions. Embedding arrays remain batches; render each text/template value separately in order. Keep separately configured documents, image references, and masks intact when preparing text. `.loadsText` and `.loadsTemplate` use the normal text loader contract.
 
@@ -389,24 +391,25 @@ These open details do not reduce the required modifier support or change the sel
 
 ## Phase 4: Streaming Template, Script, and Function
 
-Planned. [README2](../README2.md#streaming) documents the agreed behavior; the open questions at the end of this section remain. Template gains streaming text output, and Script gains streaming text and structured output. `.asStream` extends to Template, Script, and Function with the same meaning as on `LLMAgent`: the ordinary call returns a promise for a live stream result.
+Planned. [README2](../README2.md#streaming) documents streaming, and the [replacement guide](../README2.md#replacing-an-llmagent-with-template-script-or-function) documents the shared SDK Agent contract. Template, Script, and Function themselves implement Agent, including loaded and streaming forms. Each exposes named `.generate()` and `.stream()` methods returning complete or live SDK results, respectively. `.asStream` extends to all three and changes only the ordinary call. Native incremental output is text or complete array elements. The exact Script live-output binding remains to be specified.
 
-| Component | Ordinary call | Ordinary call with `.asStream` | `.stream()` |
-| :--- | :--- | :--- | :--- |
-| Template | Complete text | Stream result | Stream result; same arguments as the ordinary call |
-| Script | Complete value | Stream result | Stream result; same arguments as the ordinary call |
-| Function | Callback result | Stream result returned by the callback | Not provided |
+| Component | Ordinary call | Ordinary call with `.asStream` | `.generate()` | `.stream()` |
+| :--- | :--- | :--- | :--- | :--- |
+| Template | Complete text | Native text stream result | Complete SDK result | Live SDK result |
+| Script | Complete native value | Native stream result | Complete SDK result | Live SDK result |
+| Function | Callback result | Native stream result from the callback | Complete SDK result | Live SDK result |
 
-- Template and Script add `.stream()` but no `.generate()`, and neither has ever had a `.run()` method. Without `.asStream`, the ordinary call is the complete operation; with it, the complete value is the stream result's final value, so no separate method is needed. `LLMAgent` has `.generate()` because the SDK `Agent` interface requires it.
-- Function has one operation, its callback, so it gets `.asStream` but no `.stream()`. `.asStream` requires the callback to return a stream, enforced in types and checked at runtime like `schema`. The callback may return a compatible text/structured stream result directly, such as one from `agent.stream(...)`, or any async iterable, including an async generator callback, which Casai wraps into a stream result. Native transcription results retain their separate contract and require explicit consumption or adaptation. `schema` validates the final value. A `.asStream` Function always streams, so the callback does not need to know a mode.
+- All three add `.generate()` and `.stream()` with a single named-argument object, not positional context/source arguments. They have no `.run()`. Ordinary calls keep their native input/output contracts and receive no SDK result wrapping or Agent output serialization when they return a complete value.
+- Native `.asStream` handles preserve the producer's final value and schema semantics; the Agent methods additionally apply the fixed SDK `output` contract. Without `.asStream`, Template and Script's ordinary call is the complete operation; with it, await the stream result's final value.
+- Function `.asStream` requires the callback to return a text or array-element stream, enforced in types and checked at runtime like `schema`. The callback may return a compatible stream result directly, such as one from `agent.stream(...)`, or an async iterable, including an async generator callback, which Casai wraps into a stream result. The configured output kind determines whether a yield is a text chunk or a complete array element; do not guess from its JavaScript type. Native transcription results retain their separate contract and require explicit consumption or adaptation. `schema` validates the native final value. Both Agent methods exist regardless of the modifier: `.stream()` emits a complete-value callback result when ready or forwards a streaming callback's output; `.generate()` collects a streaming callback's one execution when necessary.
 - `.asStream` cannot be combined with `.asTool`, as on `LLMAgent`.
 - Components that only stream, such as StreamingTranscriber, already stream from their ordinary call and take no modifier.
 
-LLMAgent and the Template, Script, and Function streaming forms share text/structured streaming conventions where applicable: they reuse the AI SDK property names, `textStream` and `text` for text and `partialOutputStream` and `output` for structured values, with final values as promises. A Template stream result has `textStream` and `text`; a Script stream result's `output` resolves to the returned value. String chunks from a `.asStream` Function become `textStream`, and `text` resolves to the joined chunks. These conventions do not replace StreamingTranscriber's native `fullStream` events or VoiceSession's session lifecycle.
+LLMAgent and the Template, Script, and Function streaming forms share text/array streaming conventions where applicable: `textStream` yields text chunks, while `elementStream` yields complete array elements. Final values are promises. Text chunks join into the final string; elements collect into the final array in logical order. `Output.array({ element })` defines one complete item and the array result; a yielded string is an array item when that output kind is selected. A yielded array is one element when the element schema itself describes an array. Standalone `Output.object(...)` and `Output.json()` values are complete outputs, without a native incremental-object-update protocol. LLMAgent retains the SDK's partial-output capability. Full SDK result compatibility is still required on coded Agent methods, including required partial-output getters derived from their text or complete-element source; this does not add mutable partial-object producers. These conventions do not replace StreamingTranscriber's native `fullStream` events or VoiceSession's session lifecycle.
 
 Two mechanisms decide when nested work streams, and they combine:
 
-- **The caller's mode propagates.** When a Template or Script streams, through `.stream()` or `.asStream`, the components it calls from its context run in streaming mode where they support the text/structured contract. Only output selected by template output expressions or the script's output mechanism is forwarded, subject to Cascada's ordering below. Propagation cannot switch a Function's callback; mark a Function with `.asStream` when it returns a stream.
+- **The caller's mode propagates.** When a Template or Script streams, through `.stream()` or `.asStream`, the components it calls from its context run in streaming mode where they support the text/array-element contract. Only output selected by template output expressions or the script's output mechanism is forwarded, subject to Cascada's ordering below. Propagation does not change a Function's callback: a regular callback supplies its complete value when ready, while a Function marked `.asStream` supplies incremental output.
 - **`.asStream` on a nested component** makes its ordinary call stream even under a non-streaming caller. That caller waits for the final value when it needs it, as `.asStream` LLMAgents already behave inside Phase 2 Scripts.
 
 Without either, nested components use their ordinary call, as in Phase 2, so existing behavior does not change. Template output expressions must work in both modes: an LLMAgent or other component result in an output position renders as its text, streamed when the render streams. Reading a final value such as `.output` waits for the complete value.
@@ -415,19 +418,97 @@ Phase 4 exposes ordered output. Nested work can run concurrently and produce chu
 
 Out-of-order delivery to consumers belongs to Phase 5. Before implementing Phase 4, specify cancellation and cleanup of nested producers, limits on buffered later output, and how a failed earlier position resolves or terminates delivery without hanging the stream.
 
-Decide before implementation how a Script selects what it streams incrementally, for example a `text` or `data` channel, and what a streamed structured value means: partial objects, as with `partialOutputStream`, or an ordered stream of completed elements. Cascada's concurrent evaluation makes partial values harder to define than for a single model call. The same choice decides the final value Casai derives from an async iterable of non-text values returned by a `.asStream` Function: the last yielded value or the collected elements.
+The output meanings are settled: text chunks join into one string, and an item sequence collects into an array. A Template renders JSON array text and its adapter publishes each completed, validated element. A Script must select a live text or item channel/handle for incremental output; a plain returned value becomes available only when complete. Settle the exact Script syntax/runtime binding before implementation. Reuse the same selected output in both modes: `.generate()` collects it and `.stream()` forwards it. No program mode flag or partial-object merge protocol is needed. A Function array stream likewise collects every complete yielded element, never just the last element.
+
+### Direct Agent Support for Coded Components
+
+Make every ordinary, loaded, streaming, and tool-adapted Template, Script, and Function component itself assignable to the installed `Agent<CALL_OPTIONS, TOOLS, RUNTIME_CONTEXT, OUTPUT>` interface. Expose `version: 'agent-v1'`, `id: string | undefined`, `tools`, `.generate()`, and `.stream()` on the callable. Reuse shared request normalization, lifecycle, output parsing, and result/event construction internally. The interface is built into the component, without another factory modifier or a conversion step. Factory construction starts no execution.
+
+The replacement boundary is `.generate()`, `.stream()`, `createAgentUIStream`, `createAgentUIStreamResponse`, and other consumers of the same Agent contract. Ordinary callable results retain their native shapes. A replacement must preserve the caller's application-input type when using `context`, custom-options type, output type, runtime-context type, and any tool declarations needed to validate existing UI history or render tool parts. LLMAgent model settings and stopping conditions are not part of the shared coded-component contract.
+
+The common chat integration preserves the conversation-in/message-out protocol. A Template renders text from mapped variables and helper expressions; a Script exposes selected workflow output; a Function exposes its callback output. These are distinct response producers, with no implicit model interpretation or model-driven loop. The UI helper consumes `.stream()` even when an ordinary call returns a complete value. A static Template can ignore conversation input and supply a fixed assistant reply; other programs must implement their own history and response logic. Text/JSON becomes assistant text parts. Parsed structured output does not define a client widget, and local helper calls do not create UI tool cards automatically. Forward reasoning, source, file, and tool parts only when actual compatible SDK events exist and preserve the corresponding declarations. Document these differences in [README2's UI capability comparison](../README2.md#what-the-chat-ui-uses).
+
+#### Component Configuration and Named Input
+
+| Setting | Contract |
+| :--- | :--- |
+| `prepareInput` | Optional sync/async mapper from normalized Agent conversation, parsed custom options, and the effective abort signal to native call-time input; omitted means `{ messages }` |
+| `output` | An SDK `Output` specification; omitted means `Output.text()` at runtime and in inference |
+| `callOptionsSchema`, `options` | Fixed custom-options schema and optional defaults; reuse Phase 2 validation, parsed-options, replacement, and required-options rules |
+| `tools` | Fixed typed SDK tool definitions; defaults to `{}`; reusable implementations can also be supplied explicitly as callable context helpers |
+| `runtimeContext` | Fixed SDK lifecycle metadata, inferred separately from native rendering context; defaults to `{}` |
+| `id` | Optional string; the callable always has an `id` property |
+
+Put these settings in the existing factory configuration alongside `template`, `script`, or `execute`, with ordinary inheritance semantics. The resolved mapper, schemas, SDK output, and tool types are fixed at creation. Each invocation receives its own input, options, conversation snapshot, and execution state. Agent compatibility adds methods and properties without wrapping ordinary complete-value results or making a model request. Share implementation code rather than creating a second component object per factory.
+
+Both `.generate()` and `.stream()` take one named-argument object that is a superset of the installed SDK call parameters. They accept SDK lifecycle callbacks, cancellation, timeouts, sandbox context, and streaming transforms where applicable, plus a Casai branch for explicit native input:
+
+| Call branch | Input and preparation |
+| :--- | :--- |
+| SDK conversation | Exactly one of `prompt` or `messages`; normalize and map into native input, then execute the configured program |
+| Explicit application input | `context` contains native call-time input; optional `source` overrides the template, script, resource name, or callback for that invocation; skip conversation mapping |
+
+The two branches are mutually exclusive. Reject a conversation combined with `context`, `source`, or LLMAgent-only `history`. On the explicit branch, enforce the native context requirement from `inputSchema` or Function's declared callback input. Permit omitted context only when the native input contract permits it. Do not add positional `.stream(context)` / `.generate(context)` overloads or inspect native input fields to guess the call mode. Fields such as `prompt`, `messages`, and `options` inside `context`, or in ordinary calls, remain application data.
+
+A string SDK `prompt` normalizes to one user `ModelMessage`; either array form retains all roles, media, tool identifiers, and content parts. Snapshot the conversation before asynchronous preparation. Validate and parse custom options first, then call configured `prepareInput` once with `{ messages, options, abortSignal }`, using `undefined` for absent options. The effective signal combines caller cancellation and the applicable timeout. Without a mapper, use `{ messages }` as native input and validate it normally. A component expecting other required fields needs a mapper for conversation/UI use; ordinary and explicit-context calls require no mapper. Missing required schema fields fail validation before execution.
+
+Infer the mapper's return contract from the component's raw call input, including required fields and configured-context rules. Validate mapped or explicit input through the existing `inputSchema` before configured context merges. Preserve validation-only native input semantics; options use parsed-schema semantics. Required input fields cannot be supplied only through configured context. Without an `inputSchema`, Function's declared input type controls mapper compatibility. Every component must accept both SDK branches without an extra `context` requirement in its Agent signature; configuration determines how that conversation satisfies the native input contract.
+
+For conversation calls, the configured template, script, resource name, or callback always remains the program. SDK `prompt` or `messages` is data for the mapper and cannot become a source override. LLMAgent's literal-prompt bypass of rendering/input validation does not apply here. An application may explicitly select a last user turn or retain the full conversation; Casai does not infer new-turn boundaries or discard history automatically. Ordinary calls and explicit-context Agent calls share native input preparation and execution; the latter add the public SDK output/result contract.
+
+#### Output, Results, and Execution
+
+Use the same SDK output specifications as LLMAgent. `Output.text()` and `Output.choice()` require string output. Structured Template output is rendered JSON text. Structured Script/Function output is a JSON-compatible returned value, serialized once before the SDK output parser. Reject non-serializable outputs unless the program converts them explicitly. Preserve schemas, refinements, transforms, and output metadata; do not infer an SDK `Output` specification from a native `schema`.
+
+Native Script/Function `schema` parses the component result first. Configured `output` validates/parses the public Agent result afterward and applies only to `.generate()` / `.stream()` on coded components. Ordinary calls and native `.asStream` final values retain their existing `schema` and return-value semantics. Infer each boundary independently, including transformed output types. A component used only through the Agent methods can put its public validation solely in `output`; if both boundaries transform, the public schema must accept the native parsed value. A compatible SDK result already parsed under the same output contract must retain its parsed result without running that parser's transformations again.
+
+Implement the complete `GenerateTextResult` and `StreamTextResult` contracts, including response messages, lazy final values, conversion/consumption methods, finish state, and the SDK `stream` event property. In the installed SDK, UI helpers read `result.stream`; a plain string, an async iterable, or an object with only `textStream` is not an Agent result. Use type-only SDK imports and verify assignability without assertions that hide missing fields.
+
+Expose one local execution step when wrapping a native value in an Agent result. Required SDK metadata identifies that execution as `provider: 'casai'` with `modelId: 'template'`, `'script'`, or `'function'`; it does not impersonate a model provider. Report zero model tokens for the local step, measured execution timing, and empty reasoning/tool arrays unless actual compatible events exist. Populate required `steps`/`finalStep`, response identity, and lifecycle fields consistently. Preserve real steps, tool events, and usage when forwarding a compatible SDK result under the same contract. Do not infer nested model costs from arbitrary helper values or claim that an AI-using workflow is free.
+
+Each `.generate()` or `.stream()` starts exactly one native execution. For Template and Script, select complete or streaming execution explicitly rather than consulting their ordinary-call default. For Function, respect the configured callback: a complete-value callback runs once and `.stream()` emits its value when ready; a streaming callback forwards incremental output, and `.generate()` drains that same one execution to obtain its final value. Never execute again after consumption, or split an already-complete answer into pretend incremental chunks. This fallback is specific to coded producers; LLMAgent continues to use native model streaming.
+
+After input preparation, `.stream()` yields a live result before waiting for a complete-value callback or consuming its stream. Emit valid SDK start/text/step/finish, error, and abort events and apply requested transforms with their SDK semantics. Preserve selected output order, lazy final-value behavior, and streaming error timing. Text streams append string chunks; array streams publish complete elements once and collect them in logical order for the final array. A complete-only array producer publishes its elements after the array is ready; it cannot provide earlier item availability. Standalone object values are emitted once when complete. Native producers do not emit partial-object snapshots or patches.
+
+Validate an array element before publishing it through `elementStream`, retain parsed element values, and reject invalid elements through the stream and final result. Final array bounds and native whole-result validation remain required; errors can reject completion after earlier valid items were emitted. Preserve schema transformations once per validation boundary. A whole-array transformation that changes item values or order requires buffering before publication or an explicit unsupported-contract error; do not change already-published items afterward.
+
+Adapt native output to the configured SDK `Output` parser's actual representation. In the installed SDK, `Output.array` expects a JSON object containing an `elements` array, even though its parsed result is the array itself. Template authors can render ordinary JSON array text; the adapter supplies the SDK representation. Script/Function elements likewise serialize into one correctly framed SDK document for text/UI consumption, with the public final `output` remaining an array. Do not blindly pass `JSON.stringify(nativeArray)` to the SDK array parser, concatenate separate JSON documents, or reparse already-compatible transformed SDK output. Required SDK partial-output getters may expose derived array snapshots or a final complete object; they are compatibility views, not a native object-update feature.
+
+Cancellation and timeouts cover mapping, native execution, nested cooperative producers, and consumption. The mapper receives the effective signal; applications can explicitly include it in the input their callback/helpers expect. Cancellation must close iterators and end the SDK stream even when underlying application work cannot be forcibly interrupted. Respect total/step/content timeouts where applicable and report unsupported requested capabilities instead of silently ignoring them. Native side effects are never automatically retried by the Agent implementation.
+
+Compose lifecycle callbacks once with the Phase 2 alias/order rules, reporting the local step accurately. Optional fields supplied as `undefined` by UI helpers leave configured defaults intact. `runtimeContext` remains SDK metadata, separate from mapped rendering input. Sandbox context is forwarded only to executions/events that support it; the Agent implementation must not claim that arbitrary JavaScript has been sandboxed.
+
+#### Tools, Callable Helpers, and SDK Events
+
+`tools` supplies named SDK tool definitions, including descriptions, schemas, and execution handlers where available. SDK consumers use them for tool messages and UI history validation. On LLMAgent, the SDK handles model-selected tool calls. Coded components decide which functions to invoke through their program.
+
+Reuse a callable component explicitly in context and its `.asTool` adaptation in the tool map, as in [README2's short Script and Function examples](../README2.md#calling-tools-from-coded-components). A Script calls the helper as a normal context method, such as `multiply({ a: a, b: b })`; a Template can render `{{ multiply({ a: a, b: b }) }}`. Function's callback receives the helper in its merged input. Use a normal Function for direct validated application calls and derive its tool form with `Function.asTool({ description }, helperFunction)`. This preserves one implementation and both call contracts, including the SDK tool execution options required by the tool form.
+
+The `tools` configuration does not automatically inject a reserved namespace or flatten tool names into native input. Context helpers follow normal context inheritance and input-validation ordering. A plain SDK tool is an object and may have no local handler; application code must expose an explicit callable wrapper or the underlying function to use it in context. Do not make every SDK tool callable by assuming `.execute` exists or by inventing tool execution metadata.
+
+Direct helper calls follow the helper's native validation and execution contract. They do not automatically create SDK tool-call/result events, receive SDK tool context, or apply model-driven tool approval. Only actual, schema-compatible tool events may be forwarded or recorded, and declared tool types must match them. Registering helpers in `tools` starts no tool loop.
+
+Native `.asTool` remains a separate adaptation contract: tool execution returns the native complete value and does not return the Agent stream. Tool-adapted components retain both Agent methods, but the `.asStream` / `.asTool` factory chain remains unavailable. Specialized image, embedding, speech, transcription, and session components do not gain Agent support.
 
 ### Phase 4 Verification
 
 Use mock models and the existing type-checking workflow, and register new mock-only tests in `test:local`. Cover:
 
-- `.stream()` on Template and Script with the same arguments as the ordinary call, and `.asStream` on Template, Script, and Function changing only the ordinary call.
-- The text/structured stream-result contract: `textStream` and `text` for Template output and text chunks, and `output` for a Script's returned value; native transcription streams remain separate and unconsumed.
+- Named `.generate()` / `.stream()` on Template, Script, and Function, with explicit `context` and optional `source`; `.asStream` changing only the ordinary call, and no positional-method ambiguity when application input contains `prompt`, `messages`, or `options`.
+- The text/array stream-result contract: joined `textStream` chunks and final text, complete validated `elementStream` items and their collected final array, and final native values for complete-only outputs. Include streaming JSON-array Templates, complete-object elements, string elements, nested-array elements, and empty arrays; native transcription streams remain separate and unconsumed.
 - Propagation: a streaming Template or Script streams the LLMAgents it calls and forwards selected output in logical order, while a non-streaming one leaves nested calls on their ordinary call.
 - Concurrent producers finishing out of order, incremental delivery of the available prefix, buffering at gaps, joined text matching final text, and intermediate results staying internal. Cover cancellation, failed earlier positions, and producer cleanup under the chosen lifecycle policy.
 - A nested `.asStream` component under a non-streaming caller, and output expressions that render both complete and streamed results as text.
 - Function `.asStream` with async generators, other async iterables, and returned stream results; rejection of non-stream callback results in types and at runtime; `schema` applied to the final value.
-- No `.asStream` combined with `.asTool`, no `.stream()` on Function, and promise-only streaming that does not consume a stream merely to return it.
+- No `.asStream` combined with `.asTool`; Function always having both Agent methods; tool execution retaining its complete native result; and promise-only streaming that does not consume a stream merely to return it.
+- Every supported ordinary/loaded/streaming/tool-adapted coded component directly assignable to the installed SDK Agent type, with exact mapper input, options, output, tool, and runtime-context inference; incompatible mapper results and contracts rejected without type assertions.
+- The same SDK `.generate()`/`.stream()` callers and unchanged `createAgentUIStream`/`createAgentUIStreamResponse` handlers working with LLMAgent or each coded replacement, including full event streams, generated assistant messages, and cancellation. Include a one-step LLMAgent, a static Template reply, mapped history input, and a complete-value Function reply; verify that native helper calls do not invent UI tool parts.
+- String prompts and both conversation-array forms, role/media/tool preservation, default `{ messages }` input, explicit last-turn versus full-history mappers, literal program-source markers, and required input validation before configured context merges. Missing required mapped fields fail before execution, and explicit-context calls skip the mapper.
+- Input validation-only behavior, parsed call options before mapping, native output schemas, public SDK output schemas, refinements and transforms, serialized JSON, non-serializable outputs, and no duplicate parsing of already-compatible SDK output. Ordinary calls keep raw results and do not perform Agent output parsing or serialization.
+- Complete-value and streaming callbacks executing once under each SDK mode, live handles before complete callbacks finish, selected output order, correct SDK array framing, complete-only arrays/objects, and no re-execution or unnecessary draining. Verify element validation before publication, final array bounds/errors, and schema transformations without changing already-emitted items.
+- Accurate local step/finish/callback metadata, zero local model tokens, preserved forwarded SDK usage/events, empty tool declarations, matching historical tool parts, and no invented tool loop or hidden model request.
+- Reuse of one callable implementation as a context helper and an SDK tool; Function receiving typed helpers in merged context; retained native validation, explicit SDK execution options, no implicit namespace injection, and no invented tool events from ordinary helper calls.
+- Isolation, exact optional property behavior, callback alias composition, streaming transforms, timeout/abort propagation through asynchronous mapping and producers, cleanup, and no automatic retries of native side effects.
 
 ## Phase 5: Out-of-Order Streaming
 
@@ -455,7 +536,6 @@ type UnorderedOutputStream<T> = OutputStream<UnorderedChunk<T>>;
 | :--- | :--- | :--- |
 | `textStream` | `unorderedTextStream` | String chunks; indices count chunks, not characters or bytes |
 | `elementStream` | `unorderedElementStream` | Complete elements in logical sequence, where element streaming is supported |
-| `partialOutputStream` | `unorderedPartialOutputStream` | Successive partial-output snapshots; positions are not object keys or JSON patch paths |
 
 In JavaScript, ordered streams yield their existing raw chunk types. Unordered streams yield `UnorderedChunk<T>` records in availability order. Both forms retain `ReadableStream` and async-iteration support. Accessing an unordered property must not start another model or workflow execution.
 
@@ -464,7 +544,7 @@ Keep final `.text` / `.output`, validation, usage, tools, callbacks, and metadat
 ### JavaScript Consumption and Positions
 
 ```typescript
-const result = await newsletter.stream({ topic: 'battery recycling' });
+const result = await newsletter.stream({ context: { topic: 'battery recycling' } });
 for await (const { chunk, indexpath, index } of result.unorderedTextStream) {
   previewAtPath(indexpath, chunk);
   const flatIndex = await index; // Works for both a number and a promise.
@@ -508,7 +588,7 @@ For a template, the same choice of `source` works with:
 
 The examples are alternative consumers; do not consume the same handle twice. If an unordered source delivers `world` at position 1 before `Hello ` at position 0, both loops assemble `Hello world`. No manual unwrapping, sorting, awaiting indices, or special unordered-loop syntax is required. Streaming the parent preserves Phase 4's ordered delivery unless JavaScript explicitly consumes the parent's unordered output property.
 
-The same rule applies to complete elements and partial snapshots: the loop variable receives the original value, with its logical stream position handled by Cascada. This does not define a merge of concurrent object snapshots. Loop bodies retain Cascada's usual concurrency semantics; ordered output does not impose sequential execution on unrelated external side effects.
+The same rule applies to complete array elements: the loop variable receives the original value, with its logical stream position handled by Cascada. Loop bodies retain Cascada's usual concurrency semantics; ordered output does not impose sequential execution on unrelated external side effects.
 
 Use Cascada's position-aware source protocol at the integration boundary. Preserve its source identity and position metadata through context and nested component calls; do not identify positioned streams merely by the presence of object fields named `chunk`, `index`, or `indexpath`. Ordinary async iterables yielding application objects with those fields remain ordinary value streams. JavaScript iteration of an unordered result property continues to expose the complete records.
 
@@ -520,10 +600,10 @@ The installed SDK returns real `ReadableStream` objects with async iteration and
 - Build ordered and unordered handles over the position-aware source before Cascada's ordering buffer. Wrapping an already ordered stream cannot recover earlier chunk availability. Do not drain the source or create an unused buffering branch merely to expose another property.
 - Enforce one consumer per obtained handle. Selecting a different result property does not replay consumed chunks or grant competing readers on one handle. Preserve existing SDK getter/branch behavior; independent ordered and unordered consumers need explicit supported branching with a defined buffering policy.
 - Coordinate final-value aggregation with either consumption order so final promises can complete without another execution. Position resolution must not depend on the consumer awaiting one record before it can request the rest of the source.
-- Indices belong to the selected output sequence, not to stable identifiers across text, elements, snapshots, or executions. Filtering, combining, or splitting chunks needs a defined position mapping. Arbitrary `pipeThrough()` transforms do not automatically retain Cascada's position-aware source protocol.
+- Indices belong to the selected output sequence, not to stable identifiers across text, elements, or executions. Filtering, combining, or splitting chunks needs a defined position mapping. Arbitrary `pipeThrough()` transforms do not automatically retain Cascada's position-aware source protocol.
 - Resolve cancellation, early iterator exit, failed producers, and unresolved/rejected index promises through a common source lifecycle. Do not leave an unconsumed branch or independent producer running indefinitely.
 
-Partial structured output retains the SDK's snapshot semantics and final parsing. Do not merge snapshots in arrival order, treat `indexpath` as a JSON patch path, or present complete elements as partial objects. How a Cascada Script exposes concurrent structured updates remains the Phase 4 design question.
+Unordered extensions apply to text chunks and complete array elements. Preserve the SDK's existing ordered partial-output getters on LLMAgent, without adding `unorderedPartialOutputStream` or a concurrent object-update/merge protocol. Position paths describe sequence positions, not JSON patch paths. Phase 4 still needs the exact Script binding for its selected live text or item output.
 
 Promised flat indices are an in-process JavaScript API. A network transport cannot serialize a `Promise<number>` as a useful position. Prefer immediate paths for out-of-order UI previews, or resolve indices explicitly. Existing SDK UI helpers keep their native protocol; transporting positioned workflow chunks requires an explicit application protocol or adapter.
 
@@ -547,7 +627,7 @@ A JavaScript producer providing only `at(chunk, promisedIndex)` may not supply e
 
 ### Cascada Semantics and Remaining Integration Details
 
-The proposed Cascada `stream` channel holds an append-only sequence of values. `results(value)` emits one value, multiple arguments emit multiple values, and arrays expand only when spread. `snapshot()` and `toArray()` materialize visible items in source order. This sequence-of-items contract does not by itself settle Phase 4's question of partial structured output versus completed elements.
+The proposed Cascada `stream` channel holds an append-only sequence of values. `results(value)` emits one value, multiple arguments emit multiple values, and arrays expand only when spread. `snapshot()` and `toArray()` materialize visible items in source order. This sequence-of-items contract matches Phase 4's complete-array-element output: streaming forwards the selected items, while generation collects their array. The binding exposing that live channel as a Script result remains to be specified; a snapshot itself is a materialized value, not a live handle.
 
 Preserve Cascada's source-order visibility and transactional recovery. Reads see only items visible at their source position; out-of-order delivery does not make later writes visible to earlier reads. Emissions inside a guard remain provisional until committed and are discarded on recovery, so unordered delivery must not leak rolled-back items. Poisoned items retain Cascada's item-value semantics rather than automatically becoming an iterator failure.
 
@@ -570,5 +650,5 @@ Use mock producers and the existing local/type-checking workflow; these checks n
 - Result compatibility with SDK stream types, ordinary iteration and Web Streams readers, lazy getter/branch behavior, and unchanged SDK UI/transcription event payloads.
 - One execution regardless of the selected property, final-value promises completing under unordered consumption, and no hidden eager drain or unused branch.
 - Rejection of competing readers on one handle, with explicit supported branches retaining independent consumption.
-- Snapshot and complete-element position semantics, source-order visibility, guard recovery without leaked provisional items, and poisoned-item behavior.
+- Text-chunk and complete-element position semantics, source-order visibility, guard recovery without leaked provisional items, and poisoned-item behavior; no unordered partial-object extension.
 - Cancellation, cleanup, buffer limits, and invalid or unresolved positions under the selected upstream lifecycle contract.
