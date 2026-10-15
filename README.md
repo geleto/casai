@@ -11,7 +11,7 @@
 > - **[Streaming workflows](README2.md#streaming-through-templates-and-scripts)**: Stream text and complete array elements in order, while nested value computations retain their types. Out-of-order delivery is deferred.
 > - **[Cancellation and timeouts](README2.md#cancellation-timeouts-and-usage)**: Per-call `abortSignal` and `timeout` on every component. Cancellation across nested calls and workflow usage are [future features](docs/future.md).
 >
-> This README describes the existing components and the planned [Phase 1 `.asAgent` addition](#agents-with-asagent). The [implementation design](docs/agents-design.md) tracks the five-phase roadmap.
+> This README describes the existing components. [Phase 1](#internal-core-work-phase-1) is internal core work with no new public API; [Phase 2](README2.md) introduces the replacement API. The [implementation design](docs/agents-design.md) tracks the five-phase roadmap.
 
 Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is a TypeScript AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically runs independent operations concurrently, giving you the performance of concurrent execution without the complexity of managing it.
 
@@ -77,7 +77,7 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 - [The `prompt` Property: Your Universal Input](#the-prompt-property-your-universal-input)
 - [Configuration Management](#configuration-management)
 - [The Casai Components](#the-casai-components)
-- [Agents with `.asAgent` (Phase 1, planned)](#agents-with-asagent)
+- [Internal Core Work (Phase 1)](#internal-core-work-phase-1)
 - [Agents and Specialized Components (Phase 2 and 3 design)](README2.md)
 - [Specialized Components (Phase 3 design)](docs/agents-design.md#phase-3-specialized-components)
 - [Callable Component Objects](#callable-component-objects)
@@ -198,24 +198,24 @@ This table covers the current factories. `Config` creates reusable settings and 
 | [ObjectGenerator](#objectgenerator) | Generate validated structured data | Prompt/messages or rendering context → `.object` | [SDK Output](https://ai-sdk.dev/docs/reference/ai-sdk-core/output) |
 | [ObjectStreamer](#objectstreamer) | Stream structured data | Prompt/messages or rendering context → `.partialObjectStream`, final `.object` | [SDK Output](https://ai-sdk.dev/docs/reference/ai-sdk-core/output) |
 
-Model results also retain metadata and SDK features described in their component sections. Current Object components expose Casai's object result contract; the SDK Output reference describes the modern structured-output API. [Phase 1 `.asAgent`](#agents-with-asagent) opts into modern agent results with the documented object aliases.
+Model results also retain metadata and SDK features described in their component sections. Current Object components expose Casai's object result contract; the SDK Output reference describes the modern structured-output API planned for [LLMAgent in Phase 2](README2.md#llmagent).
 
 #### Modifier Support
 
-✅ = available; ❌ = not exposed; ✅¹ = planned for Phase 1, not implemented. Checkboxes describe factory modifiers, not methods on a created component.
+✅ = available; ❌ = not exposed. Checkboxes describe current factory modifiers, not methods on a created component.
 
-| Component | [.withText](#the-default-behavior-plain-text) | [.withTemplate](#the-with-family-for-inline-content) | [.withScript](#the-with-family-for-inline-content) | [.withFunction](#the-with-family-for-inline-content) | [.loadsText](#the-loads-family-for-external-content) | [.loadsTemplate](#the-loads-family-for-external-content) | [.loadsScript](#the-loads-family-for-external-content) | [.asTool](#using-components-as-tools) | [.asAgent](#agents-with-asagent) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| [Config](#configuration-management) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| [Template](#template) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ |
-| [Script](#script) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
-| [Function](#function) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| [TextGenerator](#textgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅¹ |
-| [TextStreamer](#textstreamer) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅¹ |
-| [ObjectGenerator](#objectgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅¹ |
-| [ObjectStreamer](#objectstreamer) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅¹ |
+| Component | [.withText](#the-default-behavior-plain-text) | [.withTemplate](#the-with-family-for-inline-content) | [.withScript](#the-with-family-for-inline-content) | [.withFunction](#the-with-family-for-inline-content) | [.loadsText](#the-loads-family-for-external-content) | [.loadsTemplate](#the-loads-family-for-external-content) | [.loadsScript](#the-loads-family-for-external-content) | [.asTool](#using-components-as-tools) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| [Config](#configuration-management) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| [Template](#template) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| [Script](#script) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| [Function](#function) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| [TextGenerator](#textgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [TextStreamer](#textstreamer) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| [ObjectGenerator](#objectgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [ObjectStreamer](#objectstreamer) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 
-`Template`, `Script`, and `Function` perform their named operation by default; they do not have matching `.withTemplate`, `.withScript`, or `.withFunction` aliases. `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. For LLM factories, `.withText` is the default. Supported modifiers compose in prompt-modifier, optional `.asAgent`, optional `.asTool` order; see [Phase 1](#agents-with-asagent) for planned combinations.
+`Template`, `Script`, and `Function` perform their named operation by default; they do not have matching `.withTemplate`, `.withScript`, or `.withFunction` aliases. `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. For current LLM factories, `.withText` is the default and prompt modifiers can precede `.asTool` where supported. [Phase 1](#internal-core-work-phase-1) adds no public modifiers.
 
 ### Calling a Component
 
@@ -786,124 +786,11 @@ You can provide callbacks in the component's configuration to handle events as t
 
 ***
 
-### Agents with `.asAgent`
+### Internal Core Work (Phase 1)
 
-> **Phase 1, planned:** `.asAgent` is not implemented yet. This is an opt-in addition to the four existing LLM factories. Their ordinary forms retain their current behavior. [Phase 2](README2.md) later introduces a universal `LLMAgent` factory, with `.asStream` for a streaming ordinary call, the SDK agent interface always available, and loop behavior configured through `stopWhen`, without an `.asAgent` modifier.
+Phase 1 delivers the shared invocation deadline scope early and probes SDK final-output selection, safe result augmentation, lazy history, and cancellation through internal fixtures, with no public factories, modifiers, exports, or temporary calling API. [Phase 1b](docs/agents-design.md#phase-1b-schema-parsing-and-context-isolation) supplies merge-first parsing, private configured dependencies, configured tool defaults, and parsed values at all schema boundaries. It reuses that deadline scope without waiting for the remaining SDK probes, and relies on verified native copying and pure callbacks rather than a generic copy planner. Phase 2 builds the final base-component API directly.
 
-Add `.asAgent` to a factory to create a Casai component with a multi-step loop policy and the AI SDK [`Agent` interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent). The returned component remains callable and supports `.run()`, `.config`, rendering, validation, inheritance, and conversation history. It also exposes native `.generate()` and `.stream()` methods for SDK consumers.
-
-| Factory | Callable and `.run()` | Native `.generate()` | Native `.stream()` |
-| :--- | :--- | :--- | :--- |
-| `TextGenerator.asAgent` | Generate text | Generate | Stream |
-| `TextStreamer.asAgent` | Stream text | Generate | Stream |
-| `ObjectGenerator.asAgent` | Generate structured output | Generate | Stream |
-| `ObjectStreamer.asAgent` | Stream structured output | Generate | Stream |
-
-All four share an implementation backed by `generateText` and `streamText`. These SDK functions perform the model/tool loop. Casai implements the basic `Agent` interface directly; it does not need a `ToolLoopAgent` instance or a separate loop engine.
-
-Phase 2 reuses this core. Its `LLMAgent` factory defaults to `Output.text()` and `isStepCount(1)` unless settings were supplied or inherited. Its ordinary call and `.run()` follow the mode chosen at creation: `.asStream` makes both stream. `.generate()` and `.stream()` remain only as the SDK Agent interface, for SDK helpers such as UI streaming. Results add Casai's `value` for final application output, delivered as a value or native stream according to output kind and mode. Unrestricted loops may buffer `value` until finality is known; SDK `stream` stays live, `steps` holds completed records, and `messageHistory` holds conversation state. See [final-answer streaming](README2.md#final-answer-streaming-in-tool-loops). Phase 2 also gives every callable component `.run()`, lets Template, Script, and Function invoke fallback `tools` bindings, and removes configured `messages`. Casai implementations receive a [flat context](docs/agents-design.md#tool-execution-context) assembled from separately validated named input and tool data; Cascada accepts both object-literal and keyword calls.
-
-#### Creation and Standard Calls
-
-The examples assume an application-provided `model` and `tools` map.
-
-```typescript
-import { create } from 'casai';
-import { isStepCount } from 'ai';
-import { z } from 'zod';
-
-const agentConfig = create.Config({
-  model,
-  tools,
-  stopWhen: isStepCount(10),
-});
-
-const agent = create.TextGenerator.asAgent({}, agentConfig);
-const result = await agent('Research battery recycling.');
-console.log(result.text);
-
-const streamingAgent = create.TextStreamer.asAgent({}, agentConfig);
-const stream = await streamingAgent('Research battery recycling.');
-for await (const chunk of stream.textStream) {
-  process.stdout.write(chunk);
-}
-
-const researcher = create.ObjectGenerator.withTemplate.asAgent({
-  prompt: 'Research {{ topic }}. Answer in {{ language }}.',
-  inputSchema: z.object({ topic: z.string() }),
-  context: { language: 'English' },
-  schema: z.object({ summary: z.string(), findings: z.array(z.string()) }),
-}, agentConfig);
-
-const report = await researcher({ topic: 'battery recycling' });
-console.log(report.object.summary); // Also available as report.output.summary.
-
-const frenchReport = await researcher.run({
-  context: { topic: 'battery recycling', language: 'French' },
-  temperature: 0.4,
-  stopWhen: isStepCount(5),
-});
-```
-
-`.asAgent` supplies `isStepCount(20)` only when no stopping condition was supplied or inherited. An explicit `stopWhen` takes precedence, including through `.run()`. It limits the loop; execution can finish earlier. `isStepCount` is the AI SDK 7 name for the earlier `stepCountIs` helper. Existing text components already support multi-step execution with an explicit stopping condition; `.asAgent` adds a reusable agent contract and a convenient default policy.
-
-The modifier works after `.withText` (the default), `.withTemplate`, `.withScript`, `.withFunction`, `.loadsText`, `.loadsTemplate`, and `.loadsScript`. It is a factory modifier, as in `create.TextGenerator.withTemplate.asAgent(config, parent)`. Pass a `Config` or another component as the second argument and inspect the resolved configuration through `.config`.
-
-Calls follow the existing [component conventions](#callable-component-objects): plain-text components accept prompt strings and model messages; rendered components accept context. A configured prompt permits a no-argument call when required inputs are satisfied. Use `.run({ context, temperature, ... })` for overrides. There is no new `input` envelope, and a context field named `prompt` remains data.
-
-`inputSchema` validates raw call-time context before configured context is merged. Required fields must be supplied on the call. Loaded prompts, prompt overrides, function prompts, and validation-only input semantics keep their existing contracts.
-
-#### Overrides, Results, and Streaming
-
-`.run()` applies allowed overrides to that invocation only, following Casai's [merge rules](#property-inheritance-explained). Concurrent runs cannot change each other's settings, the component's `.config`, or its public tools. Input/output contracts and renderer setup remain fixed.
-
-The new `.asAgent` components use the modern SDK result family for both text and structured output. Results preserve steps, tool calls, usage, metadata, response methods, and streaming events. `.output` is the final parsed value, not a nested agent or result wrapper. Object variants additionally expose `.object` as an alias of `.output`, and `.partialObjectStream` as an alias of `.partialOutputStream`. Streaming final values are awaitable.
-
-These aliases retain familiar object access; they do not reproduce the old `generateObject` / `streamObject` event and callback shapes. Agent streams carry the complete modern event protocol, including tool activity. The ordinary Object components retain their existing contracts. See the [output and result contract](docs/agents-design.md#output-and-result-contract) for the precise mapping and legacy-only options.
-
-Casai calls add the existing `response.messages` and `response.messageHistory` conventions. Await a streaming result's `response` to read history, then pass history explicitly into the next call. Components do not retain conversations between invocations.
-
-Generation calls return promises. Plain-text streaming calls return the stream result immediately when no asynchronous preparation is configured, matching `TextStreamer`. Rendered/loaded prompts, function prompts, or agent call preparation (`callOptionsSchema` / `prepareCall`) use the promise path. `await component(...)` works in either case and yields the stream handle without waiting for completion. Native `.stream()` always returns a promise as required by the SDK interface.
-
-Generator variants retain `.asTool`, including `create.ObjectGenerator.withTemplate.asAgent.asTool(...)`. Direct invocation returns the full result; tool execution returns text for the Text variant and the parsed object/array/value for the Object variant. Streamer variants have no `.asTool` modifier.
-
-#### Native AI SDK Compatibility
-
-All four `.asAgent` variants expose `version`, `id`, `tools`, `.generate()`, and `.stream()`. The basic SDK `Agent` interface requires both methods, including promised native streaming. This contract is useful for UI helpers and any other consumer expecting an `Agent`; it is independent of the number of model steps and does not require `ToolLoopAgent`.
-
-```typescript
-// A streamer's native generate method performs generation directly.
-const generated = await streamingAgent.generate({
-  prompt: 'Explain battery recycling briefly.',
-});
-
-// A generator's native stream method performs real incremental streaming.
-const streamed = await agent.stream({
-  messages: [{ role: 'user', content: 'Explain battery recycling briefly.' }],
-});
-
-import { createAgentUIStreamResponse } from 'ai';
-
-// uiMessages comes from the application's chat request.
-const response = await createAgentUIStreamResponse({
-  agent: streamingAgent,
-  uiMessages,
-});
-```
-
-Each method starts one execution in its requested mode, potentially containing several model/tool steps. Generation is not converted into an artificial one-chunk stream, and streaming does not trigger a second generation. Either factory's agent works with UI helpers.
-
-Native `.generate()` delegates to `generateText()`; native `.stream()` delegates to `streamText()` through a promise-returning wrapper. Awaiting `.stream()` yields its live stream handle without waiting for completion. This mapping applies to all Phase 1 variants and both Phase 2 factories.
-
-Native calls use the configured model, tools, output, instructions, loop controls, and hooks. They bypass Casai loading/rendering, `inputSchema`, rendering-context merging, configured prompt/history insertion, and result augmentation. Supply a complete SDK `prompt` or `messages`. For example, `researcher.generate({ prompt: 'Explain recycling.' })` neither requires `topic` nor renders the configured template; it still uses the configured output schema.
-
-Shared instructions belong in `instructions`. SDK call-option validation and `prepareCall` still run on both entry paths. Native custom options use `options`; Casai uses `callOptions` in configuration or `.run()`, since `options` already configures Cascada. Required native options must be supplied explicitly; native methods do not borrow Casai `callOptions` defaults.
-
-See the [implementation design](docs/agents-design.md) for preparation, type contracts, invocation isolation, and the five-phase roadmap, or [README2.md](README2.md) for the later `LLMAgent` API. When updating demos for that API, preserve your explicit or inherited `stopWhen`, or add `isStepCount(20)` if you relied on the Phase 1 modifier's default. The Phase 2 factory defaults to one step and omits `.asAgent`.
-
-In the intended API, LLMAgent retains SDK Agent support and accepts Casai's [named context, source, and per-call settings](README2.md#named-arguments-and-per-call-overrides). Template, Script, and Function instead use native complete values and stream handles; they do not implement SDK Agent or its chat protocol.
-
-Phase 2a plans JavaScript [stream schemas and collectors](README2.md#stream-schemas), Function stream producers, and finite-stream tool collection; Phase 2b uses that infrastructure for LLMAgent `value`. These require no new Cascada features. Phase 4 adds [Cascada streaming integration](docs/agents-design.md#phase-4-cascada-streaming-integration): Template `.asStream` through future `renderStringStream`, live Script `stream`/`tstream` channels, source-order snapshots, local poison recovery inside Cascada, and strict native JavaScript output boundaries. Select child streaming explicitly, preserving ordinary nested-call contracts. See [application value replacements](README2.md#interchanging-components-in-workflows) and [cancellation and usage](docs/agents-design.md#cancellation-timeouts-and-usage).
+[Phase 2](README2.md) introduces public `LLMAgent`/`.asStream` and the shared Script, Template, and Function contracts. Specialized components follow in Phase 3; Cascada streaming integration follows in Phase 4.
 
 ***
 
@@ -1822,6 +1709,8 @@ Local input and output validation failures throw `ConfigError`. Script and Funct
 
 The `inputSchema` property validates call-time `context` before execution. Configured `context` does not satisfy missing required input fields. An omitted context is validated as an empty object: a schema whose fields are all optional accepts the call, and any other schema rejects it with an error asking for a context object. Input validation checks the supplied data without replacing it with parsed or transformed values.
 
+The [target API](README2.md#input-and-output-validation) will separate private configured dependencies, merge configured declared inputs with direct/model arguments, parse once, and execute with the returned values plus private/trusted bindings. Configuration and schema defaults can satisfy required fields, even with empty arguments. Every schema boundary uses its parsed result; native copying and non-mutating callbacks preserve shared originals without a generic pre-copy planner. Calls/configuration use schema input types and implementations/consumers receive output types. See [Phase 1b](docs/agents-design.md#phase-1b-schema-parsing-and-context-isolation). The paragraph above describes the current implementation; this plan update changes no runtime code or unrelated merge rules.
+
 -   **Applies to**: Any component that uses a `context` object (`Template`, `Script`, `Function`, and LLM components created with `.withTemplate`, `.withScript`, or `.withFunction`).
 -   **Usage**: Define the expected input data for a component using a Zod schema.
 -   **Requirement**: This property is **mandatory** when creating a tool with `.asTool`, as it defines the tool's arguments for the LLM.
@@ -1917,11 +1806,12 @@ This type safety ensures robust, predictable workflows with early error detectio
 
 ### Coming Soon
 
-- **Phase 1: `.asAgent`**: A compatible release. Add the [agent modifier](#agents-with-asagent) to the four existing Text/Object generator and streamer factories, using a shared core backed directly by `generateText` and `streamText`; existing code keeps working. The next release, Phase 2, makes the breaking changes.
-- **Phase 2: `LLMAgent`**: Introduce the [final language-generation factory](README2.md) on that core, with text output and one model step as defaults, `.asStream` for a streaming component, `.generate()` and `.stream()` only as the SDK agent interface, results whose `value` holds final output or its native stream (buffered when loop finality is unknown, while SDK `stream` stays live), and loop behavior controlled solely by `stopWhen`. Ordinary calls take inputs by position, and `.run()` takes them with per-call settings by name; Template, Script, and Function also expose `.run()` for named inputs and execution settings, and Function gains `.config`. Phase 2a also introduces JavaScript stream kinds, lazy schema validation during one consumption pass, collectors, Function stream producers, and finite-stream tool collection; Phase 2b reuses them for LLMAgent output. Streams retain ordinary consumption without a Casai replay layer. Configured `messages` are removed. The factory omits `.asAgent`.
+- **Phase 1: Internal SDK behavior probes**: Deliver the shared deadline scope early, then exercise final-output selection, safe additive result properties, lazy history, and cancellation with thin SDK Agent fixtures. Phase 1b owns the production context boundary and reuses that primitive without waiting for the remaining SDK probes. Add no intermediate API or compatibility release.
+- **Phase 1b: Schema parsing and context isolation**: Resolve configured/call input before one parse, preserve private configured helpers outside the input schema, and use parsed values at every boundary. SDK tool wrappers merge configured application defaults and advertise only missing requirements without publishing private dependencies. Rely on verified native parser copies and pure callbacks, preserving native SDK/Zod behavior for borrowed objects and shared defaults; no generic copy planner or freeze-prevention layer. See the [phase](docs/agents-design.md#phase-1b-schema-parsing-and-context-isolation).
+- **Phase 2: `LLMAgent`**: Introduce the [final language-generation factory](README2.md) on that core, with text output and one model step as defaults, `.asStream` for a streaming component, `.generate()` and `.stream()` only as the SDK agent interface, results whose `value` holds final output or its native stream (buffered when loop finality is unknown, while SDK `stream` stays live), and loop behavior controlled solely by `stopWhen`. Ordinary calls take inputs by position, and `.run()` takes them with per-call settings by name; Template, Script, and Function also expose `.run()` for named inputs and execution settings, and Function gains `.config`. Phase 2a also introduces JavaScript stream kinds, lazy schema validation during one consumption pass, collectors, Function stream producers, and finite-stream tool collection; Phase 2b reuses them for LLMAgent output. Streams retain ordinary consumption without a Casai replay layer. Configured `messages` are removed.
 - **Future features**: Cancellation across nested calls, workflow telemetry and usage, and other deferred items are recorded in [future.md](docs/future.md) and [abort.md](docs/abort.md).
 - **Phase 3: Specialized Components**: Add `Embedder`, `Reranker`, `ImageGenerator`, `Transcriber`, and `SpeechGenerator`, plus `Experimental_Decision`, `Experimental_StreamingTranscriber`, and `Experimental_VoiceSessionSetup`, which keep the prefix while their SDK features are experimental. Embeddings accept a string or string array, with per-call settings through `.run()`; streaming transcription keeps the SDK's native transcription stream. Preserve each operation's native results and lifecycle. See the [Phase 3 design](docs/agents-design.md#phase-3-specialized-components).
-- **Phase 4: Cascada Streaming Integration**: Extend Phase 2's stream contracts with Template `.asStream` through future `renderStringStream` and live Script `stream`/`tstream` channels. Casai maps native stream kinds to its schemas and uses Cascada's validation and export APIs. Cascada owns source-order snapshots, local poison recovery, and whole-value or whole-stream failure when unrecovered poison reaches native JavaScript. An actual full-stream source failure stops every consumer. Reuse the existing collectors and tool adapters. See the [Phase 4 design](docs/agents-design.md#phase-4-cascada-streaming-integration).
+- **Phase 4: Cascada Streaming Integration**: Extend Phase 2 stream contracts with Template `.asStream` and live Script `stream`/`tstream` channels. Casai maps stream kinds and schemas through native engine APIs. Cascada owns ordered snapshots, healthy complete returns or poison/failure, and stream termination at the first error. Reuse the existing collectors and tool adapters without a separate consumer-boundary protocol. See the [Phase 4 design](docs/agents-design.md#phase-4-cascada-streaming-integration).
 - **Phase 5: Out-of-Order Streaming (Deferred)**: Revisit positioned text/element delivery after the native execution and ordered stream contracts are established. Preserve Cascada ordering semantics, but settle branching, buffering, cleanup, positions, and transport before committing public properties or payloads. See the [deferred design](docs/agents-design.md#phase-5-out-of-order-streaming).
 - **Improved Type Inference for AI SDK Configuration**: Better argument type inference for AI SDK functions passed through Casai configuration objects.
 
