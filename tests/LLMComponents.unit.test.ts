@@ -45,6 +45,134 @@ describe('LLM component contracts without providers', () => {
 	const schema = z.object({ answer: z.number() });
 	const answer = '{"answer":4}';
 
+	for (const [name, factory, object] of [
+		['TextGenerator', create.TextGenerator, false], ['TextStreamer', create.TextStreamer, false],
+		['ObjectGenerator', create.ObjectGenerator, true], ['ObjectStreamer', create.ObjectStreamer, true],
+	] as const) {
+		for (const modifier of ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadsText', 'loadsTemplate', 'loadsScript'] as const) {
+			it(`${name}.${modifier} rejects constructor signals, including inherited ones`, () => {
+				const build = factory[modifier] as (config: object, parent?: { config: object }) => unknown;
+				const config = {
+					model: mockModel(answer), prompt: modifier === 'withFunction' ? () => 'question' : 'question',
+					...(object && { schema }), ...(modifier.startsWith('loads') && { loader: { load: () => 'question' } }),
+				};
+				const abortSignal = new AbortController().signal;
+				expect(() => build({ ...config, abortSignal })).to.throw(/'abortSignal' is an invocation setting/);
+				expect(() => build(config, { config: { abortSignal } })).to.throw(/'abortSignal' is an invocation setting/);
+			});
+		}
+	}
+
+	it('rejects signals in reusable Config fragments', () => {
+		const abortSignal = new AbortController().signal;
+		// @ts-expect-error Signals belong to an invocation, not reusable configuration.
+		expect(() => create.Config({ abortSignal })).to.throw(/'abortSignal' is an invocation setting/);
+		// @ts-expect-error Inherited signals are not reusable configuration either.
+		expect(() => create.Config({}, { config: { abortSignal } })).to.throw(/'abortSignal' is an invocation setting/);
+	});
+
+	for (const [name, factory, object] of [
+		['TextGenerator', create.TextGenerator, false], ['TextStreamer', create.TextStreamer, false],
+		['ObjectGenerator', create.ObjectGenerator, true], ['ObjectStreamer', create.ObjectStreamer, true],
+	] as const) {
+		for (const preparation of ['template-context', 'template-filter', 'script-context', 'function'] as const) {
+			it(`${name} rejects ${preparation} failures before model dispatch`, async () => {
+				for (const asynchronous of [false, true]) {
+					const model = mockModel(answer);
+					const failure = new Error('Preparation failed');
+					let attempts = 0;
+					const fail = () => {
+						attempts++;
+						if (asynchronous) return Promise.reject(failure);
+						throw failure;
+					};
+					const modifier = preparation === 'function' ? 'withFunction' : preparation === 'script-context' ? 'withScript' : 'withTemplate';
+					const build = factory[modifier] as unknown as (config: object) => { (): Promise<unknown>, run(config: object): Promise<unknown> };
+					const component = build({ model, ...(object && { schema }),
+						prompt: preparation === 'function' ? fail : preparation === 'script-context' ? 'return fail()'
+							: preparation === 'template-filter' ? '{{ "input" | fail }}' : '{{ fail() }}',
+						...(preparation === 'template-filter' ? { filters: { fail } } : preparation === 'function' ? {} : { context: { fail } }),
+					});
+					for (const invoke of [() => component(), () => component.run({})]) {
+						await rejects(invoke, error => preparation === 'function' ? error === failure
+							: error instanceof Error && error.message.includes(failure.message));
+					}
+					expect(attempts).to.equal(2);
+					expect(model.doGenerateCalls).to.have.length(0);
+					expect(model.doStreamCalls).to.have.length(0);
+				}
+			});
+		}
+		for (const modifier of ['loadsText', 'loadsTemplate', 'loadsScript'] as const) {
+			it(`${name}.${modifier} rejects missing resources before model dispatch`, async () => {
+				for (const asynchronous of [false, true]) {
+					const model = mockModel(answer);
+					const names: string[] = [];
+					const loader = { load: (name: string) => { names.push(name); return asynchronous ? Promise.resolve(null) : null; } };
+					const build = factory[modifier] as unknown as (config: object) => { (): Promise<unknown>, run(config: object): Promise<unknown> };
+					const component = build({ model, loader, prompt: 'configured-missing', ...(object && { schema }) });
+					expect(names).to.deep.equal([]);
+					await rejects(() => component(), /not found/);
+					await rejects(() => component.run({ prompt: 'call-missing' }), /not found/);
+					expect(names).to.deep.equal(['configured-missing', 'call-missing']);
+					expect(model.doGenerateCalls).to.have.length(0);
+					expect(model.doStreamCalls).to.have.length(0);
+				}
+			});
+		}
+		it(`${name}.loadsText prefers a matching child loader over the parent`, async () => {
+			const model = mockModel(answer);
+			const loads: string[] = [];
+			const parent = create.Config({ loader: { load: () => { loads.push('parent'); return 'Parent.'; } } });
+			const config = { model, prompt: 'shared', loader: { load: () => { loads.push('child'); return 'Child.'; } }, ...(object && { schema }) };
+			const build = factory.loadsText as unknown as (config: object, parent: { config: object }) =>
+				() => Promise<{ partialObjectStream?: AsyncIterable<unknown>, output?: unknown }>;
+			const result = await build(config, parent)();
+			const partials = result.partialObjectStream;
+			if (partials) await collect(partials);
+			await result.output;
+			expect(loads).to.deep.equal(['child']);
+			expect([...model.doGenerateCalls, ...model.doStreamCalls].map(call => call.prompt[0].content))
+				.to.deep.equal([[{ type: 'text', text: 'Child.' }]]);
+		});
+	}
+
+	for (const streaming of [false, true]) {
+		for (const object of [false, true]) {
+			for (const preparation of ['run', 'function', 'loader']) {
+				it(`${object ? 'object' : 'text'} ${streaming ? 'streamer' : 'generator'} checks cancellation after ${preparation} preparation`, async () => {
+					const controller = new AbortController();
+					const reason = { cancelled: true };
+					const model = mockModel(answer);
+					let prepared = false;
+					const prepare = async () => {
+						await Promise.resolve();
+						controller.abort(reason);
+						prepared = true;
+						return 'question';
+					};
+					const common = { model };
+					const plain = { ...common, prompt: 'question' };
+					const fn = { ...common, prompt: prepare };
+					const loaded = { ...common, prompt: 'source', loader: { load: prepare } };
+					if (preparation === 'run') controller.abort(reason);
+					const component: { run(config: { abortSignal: AbortSignal }): unknown } = preparation === 'function'
+						? object ? streaming ? create.ObjectStreamer.withFunction({ ...fn, schema }) : create.ObjectGenerator.withFunction({ ...fn, schema })
+							: streaming ? create.TextStreamer.withFunction(fn) : create.TextGenerator.withFunction(fn)
+						: preparation === 'loader'
+							? object ? streaming ? create.ObjectStreamer.loadsText({ ...loaded, schema }) : create.ObjectGenerator.loadsText({ ...loaded, schema })
+								: streaming ? create.TextStreamer.loadsText(loaded) : create.TextGenerator.loadsText(loaded)
+							: object ? streaming ? create.ObjectStreamer({ ...plain, schema }) : create.ObjectGenerator({ ...plain, schema })
+								: streaming ? create.TextStreamer(plain) : create.TextGenerator(plain);
+					await rejects(async () => component.run({ abortSignal: controller.signal }), error => error === reason);
+					expect(prepared).to.equal(preparation === 'function' || preparation === 'loader');
+					expect(model.doGenerateCalls).to.have.length(0);
+					expect(model.doStreamCalls).to.have.length(0);
+				});
+			}
+		}
+	}
+
 	for (const streaming of [false, true]) {
 		const name = streaming ? 'ObjectStreamer' : 'ObjectGenerator';
 		for (const promptType of ['template', 'script'] as const) {
@@ -65,6 +193,7 @@ describe('LLM component contracts without providers', () => {
 				const result = await component.run({ model: replacement, context: { topic: 'Runtime' }, maxOutputTokens: 25 });
 				if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 				expect(await result.object).to.deep.equal({ answer: 8 });
+				expect(await result.value).to.equal(await result.object);
 				expect(validations).to.equal(1);
 				expect(promptCalls(replacement, streaming)).to.deep.equal([[
 					{ role: 'user', content: [{ type: 'text', text: 'About Runtime' }] },
@@ -98,6 +227,7 @@ describe('LLM component contracts without providers', () => {
 				const result = await component(prompt, history, { topic: 'Runtime' });
 				if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 				expect(await result.object).to.deep.equal({ answer: 4 });
+				expect(await result.value).to.equal(await result.object);
 				const response = await result.response;
 				expect(response).not.to.have.property('messageHistory');
 				expect(response).not.to.have.property('messages');
@@ -130,6 +260,7 @@ describe('LLM component contracts without providers', () => {
 			const result = await component.run({ messages: history });
 			if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 			expect(await result.object).to.deep.equal({ answer: 4 });
+			expect(await result.value).to.equal(await result.object);
 			expect(promptCalls(model, streaming)).to.deep.equal([[
 				{ role: 'user', content: [{ type: 'text', text: 'Static instructions.' }] },
 				{ role: 'assistant', content: [{ type: 'text', text: 'Earlier reply.' }] },
@@ -203,6 +334,7 @@ describe('LLM component contracts without providers', () => {
 				const result = await component.run(prompt === undefined ? {} : { prompt });
 				if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 				else if ('text' in result) await result.text;
+				if ('object' in result) expect(result.value).to.equal(result.object);
 			}
 			expect(loaded).to.deep.equal(['default', 'override']);
 			const streaming = factoryName.endsWith('Streamer');
@@ -232,6 +364,7 @@ describe('LLM component contracts without providers', () => {
 			for (const result of results) {
 				if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 				else if ('text' in result) await result.text;
+				if ('object' in result) expect(result.value).to.equal(result.object);
 			}
 			expect(loaded).to.deep.equal(['default', 'override']);
 			expect(promptCalls(model, factoryName.endsWith('Streamer'))).to.deep.equal(['default First', 'override Runtime', 'default Configured'].map(text => [
@@ -264,6 +397,7 @@ describe('LLM component contracts without providers', () => {
 			const result = await pending;
 			if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 			else if ('text' in result) await result.text;
+			if ('object' in result) expect(result.value).to.equal(result.object);
 			expect(events).to.deep.equal(['validate', 'prompt']);
 			// @ts-expect-error Invalid schema input is also rejected at runtime.
 			await rejects(() => component.run({ context: { value: 'invalid' } }), /Input context validation failed/);
@@ -322,7 +456,7 @@ describe('LLM component contracts without providers', () => {
 				{ role: 'assistant', content: [{ type: 'text', text: 'Example answer.' }] },
 				{ role: 'user', content: [{ type: 'text', text: 'Runtime.' }] },
 			]]);
-			expect((await fixedResult.response).messageHistory).to.have.length(2);
+			expect((await fixedResult.messageHistory)).to.have.length(2);
 			expect(prompt).to.deep.equal([{ role: 'user', content: 'Example.' }, { role: 'assistant', content: 'Example answer.' }]);
 		});
 	}
@@ -349,7 +483,7 @@ describe('LLM component contracts without providers', () => {
 	}
 
 	for (const promptType of ['text', 'template', 'script', 'function'] as const) {
-		it(`should provide augmented history and preserve metadata in ${promptType} stream finish callbacks`, async () => {
+		it(`should preserve native metadata and expose separate history in ${promptType} stream finish callbacks`, async () => {
 			const model = mockModel('DONE', ['DO', 'NE']);
 			const staticMessages: ModelMessage[] = [{ role: 'user', content: [{ type: 'text', text: 'Static instructions.' }] }];
 			const history: ModelMessage[] = [{ role: 'assistant', content: 'Earlier reply.' }];
@@ -366,14 +500,15 @@ describe('LLM component contracts without providers', () => {
 			expect(callbacks[0].text).to.equal('DONE');
 			expect(callbacks[0].finishReason).to.equal('stop');
 			expect(callbacks[0].response.messages).to.deep.equal(response.messages);
-			expect(callbacks[0].response.messageHistory).to.deep.equal([history[0], ...response.messages]);
+			expect(callbacks[0].response).not.to.have.property('messageHistory');
+			expect(await result.messageHistory).to.deep.equal([history[0], { role: 'user', content: 'Input.' }, ...response.messages]);
 			expect(callbacks[0].responseMessages).to.deep.equal(await result.responseMessages);
 			expect(callbacks[0].responseMessages).to.have.length(1);
 			expect((await result.finalStep).response.messages).to.have.length(1);
 		});
 	}
 
-	it('should prefer onEnd and include every tool step in callback history without modifying SDK messages', async () => {
+	it('should prefer onEnd and retain native step messages alongside aggregate response messages', async () => {
 		const usage = {
 			inputTokens: { total: 2, noCache: 2, cacheRead: 0, cacheWrite: 0 },
 			outputTokens: { total: 3, text: 3, reasoning: 0 },
@@ -394,14 +529,13 @@ describe('LLM component contracts without providers', () => {
 			]) },
 		] });
 		let legacyCalls = 0;
-		const callbacks: { response: { messages: ModelMessage[], messageHistory: ModelMessage[], id: string }, responseMessages: ModelMessage[] }[] = [];
+		const callbacks: { response: { messages: ModelMessage[], id: string }, responseMessages: ModelMessage[] }[] = [];
 		const double = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), execute: ({ value }) => value * 2 });
 		const streamer = create.TextStreamer({
 			model, tools: { double }, stopWhen: stepCountIs(2), prompt: 'Double it.',
 			onFinish: () => { legacyCalls++; },
 			onEnd: event => {
-				const history: ModelMessage[] = event.response.messageHistory;
-				expect(history[0].content).to.equal('Earlier input.');
+				expect(event.response.messages.map(message => message.role)).to.deep.equal(['assistant']);
 				callbacks.push(event);
 			},
 		});
@@ -409,25 +543,25 @@ describe('LLM component contracts without providers', () => {
 		await collect(result.textStream);
 		expect(legacyCalls).to.equal(0);
 		expect(callbacks).to.have.length(1);
-		expect(callbacks[0].response.messages.map(message => message.role)).to.deep.equal(['user', 'assistant', 'tool', 'assistant']);
-		expect(callbacks[0].response.messageHistory).to.deep.equal((await result.response).messageHistory);
+		expect(callbacks[0].response.messages.map(message => message.role)).to.deep.equal(['assistant']);
+		expect(await result.messageHistory).to.deep.equal([{ role: 'user', content: 'Earlier input.' }, { role: 'user', content: 'Double it.' }, ...callbacks[0].responseMessages]);
 		expect(callbacks[0].response.id).to.equal('finish-response');
 		expect(callbacks[0].responseMessages).to.deep.equal(await result.responseMessages);
 		expect(callbacks[0].responseMessages).to.have.length(3);
 		expect((await result.finalStep).response.messages).to.have.length(1);
 	});
 
-	it('should isolate run-time finish callbacks and type annotated callback history', async () => {
+	it('should isolate run-time finish callbacks and type native callback responses', async () => {
 		const called: string[] = [];
 		const configured = (event: StreamTextOnFinishEvent<ToolSet>) => {
-			const history: ModelMessage[] = event.response.messageHistory;
-			expect(history[0].content).to.equal('Input.');
+			const messages: ModelMessage[] = event.response.messages;
+			expect(messages[0].role).to.equal('assistant');
 			called.push('configured');
 		};
 		const streamer = create.TextStreamer({ model: mockModel('DONE'), prompt: 'Input.', onFinish: configured });
 		const overridden = streamer.run({ onFinish: event => {
-			const history: ModelMessage[] = event.response.messageHistory;
-			expect(history[0].content).to.equal('Input.');
+			const messages: ModelMessage[] = event.response.messages;
+			expect(messages[0].role).to.equal('assistant');
 			called.push('override');
 		} });
 		await collect(overridden.textStream);
@@ -456,7 +590,10 @@ describe('LLM component contracts without providers', () => {
 		await generator.run({ prompt: '' });
 		await generator();
 		expect(promptCalls(model, false)).to.deep.equal([
-			[{ role: 'user', content: [{ type: 'text', text: 'Static input.' }] }],
+			[
+				{ role: 'user', content: [{ type: 'text', text: 'Static input.' }] },
+				{ role: 'user', content: [{ type: 'text', text: '' }] },
+			],
 			[
 				{ role: 'user', content: [{ type: 'text', text: 'Static input.' }] },
 				{ role: 'user', content: [{ type: 'text', text: 'Configured prompt.' }] },

@@ -2,6 +2,6 @@
 	"extension": ["ts"],
 	"spec": "tests/**/*.test.ts",
 	"ignore": "tests/type-safety/**/*.ts",
-	"node-option": ["import=tsx"],
+	"node-option": ["import=tsx/esm"],
 	"require": ["dotenv/config"]
 }

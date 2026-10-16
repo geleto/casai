@@ -85,12 +85,12 @@ const _wrongTextConfig: GenerateTextConfig<Record<string, never>, never> = { mod
 
 const streamConfig: StreamTextConfig<Record<string, never>, never> = {
 	model, prompt: 'Answer.',
-	onEnd: event => { expectType<string>(event.text); expectType<string>(event.response.messageHistory[0].role); },
+	onEnd: event => { expectType<string>(event.text); expectType<string>(event.response.messages[0].role); },
 };
 const stream = create.TextStreamer(streamConfig);
 expectType<AsyncIterable<string>>(stream('Answer.').textStream);
-// @ts-expect-error Exported streaming configs preserve augmented finish history types.
-const _wrongStreamConfig: StreamTextConfig<Record<string, never>, never> = { model, onEnd: event => { expectType<number>(event.response.messageHistory); } };
+// @ts-expect-error Exported streaming configs preserve native finish response types.
+const _wrongStreamConfig: StreamTextConfig<Record<string, never>, never> = { model, onEnd: event => { expectType<number>(event.response.messages); } };
 
 const arrayConfig: GenerateObjectArrayConfig<never, { length: number }> = { model, schema, output: 'array' };
 const _array = create.ObjectGenerator(arrayConfig);

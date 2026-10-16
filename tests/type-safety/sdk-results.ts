@@ -27,15 +27,15 @@ const objectGenerator = create.ObjectGenerator({ model, schema });
 const objectStreamer = create.ObjectStreamer({ model, schema });
 
 const result = streamer('Input.');
-expectType<Omit<SDKStreamTextResult<typeof tools, typeof runtimeContext, typeof output>, 'response'>>(result);
+expectType<SDKStreamTextResult<typeof tools, typeof runtimeContext, typeof output>>(result);
 expectType<PromiseLike<number>>(result.output.then(_value => _value.answer));
 expectType<PromiseLike<string>>(result.finalStep.then(_value => _value.runtimeContext.requestId));
 // @ts-expect-error Result output no longer leaks any.
 expectType<PromiseLike<string>>(result.output.then(_value => _value.answer));
 const generated = create.TextGenerator({}, parent)('Input.');
-expectType<PromiseLike<Omit<SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>, 'response'>>>(generated);
-expectEqual<Omit<typeof result, 'response'>, Omit<SDKStreamTextResult<typeof tools, typeof runtimeContext, typeof output>, 'response'>>();
-expectEqual<Omit<Awaited<typeof generated>, 'response'>, Omit<SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>, 'response'>>();
+expectType<PromiseLike<SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>>>(generated);
+expectEqual<Omit<typeof result, 'value' | 'messageHistory'>, SDKStreamTextResult<typeof tools, typeof runtimeContext, typeof output>>();
+expectEqual<Omit<Awaited<typeof generated>, 'value' | 'messageHistory'>, SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>>();
 expectEqual<Awaited<typeof generated>, PublicGenerateTextResult<typeof tools, typeof output, typeof runtimeContext>>();
 expectEqual<typeof result, PublicStreamTextResult<typeof tools, typeof output, typeof runtimeContext>>();
 // @ts-expect-error Default text output is a string.
@@ -101,12 +101,13 @@ void result.steps.then(_steps => {
 	expectEqual<(typeof _steps)[number]['staticToolCalls'][number]['input'], { query: string }>();
 });
 void result.response.then(_value => {
-	expectEqual<typeof _value.messages, ModelMessage[]>();
-	expectEqual<typeof _value.messageHistory, ModelMessage[]>();
+	expectEqual<typeof _value.messages, Awaited<SDKStreamTextResult<typeof tools, typeof runtimeContext, typeof output>['response']>['messages']>();
+	// @ts-expect-error History belongs to the result, not the SDK response.
+	expectType<unknown>(_value.messageHistory);
 });
 void generated.then(_value => {
-	expectEqual<typeof _value.response.messages, ModelMessage[]>();
-	expectEqual<typeof _value.response.messageHistory, ModelMessage[]>();
+	expectEqual<typeof _value.response.messages, SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>['response']['messages']>();
+	expectEqual<typeof _value.messageHistory, ModelMessage[]>();
 	expectEqual<typeof _value.staticToolResults[number]['output'], number>();
 });
 void result.partialOutputStream.pipeTo(new WritableStream({
@@ -146,9 +147,11 @@ expectEqual<typeof _defaultText.elementStream, AsyncIterableStream<never>>();
 
 // Object results preserve each output strategy, including partial-object streams.
 const _generatedObject = objectGenerator('Input.');
-expectEqual<Awaited<typeof _generatedObject>, GenerateObjectResult<Answer>>();
+expectEqual<Omit<Awaited<typeof _generatedObject>, 'value'>, GenerateObjectResult<Answer>>();
+expectEqual<Awaited<typeof _generatedObject>['value'], Answer>();
 const streamedObject = objectStreamer('Input.');
-expectEqual<typeof streamedObject, StreamObjectResult<DeepPartial<Answer>, Answer, never>>();
+expectEqual<Omit<typeof streamedObject, 'value'>, StreamObjectResult<DeepPartial<Answer>, Answer, never>>();
+expectEqual<typeof streamedObject.value, Promise<Answer>>();
 expectEqual<typeof streamedObject.object, Promise<Answer>>();
 expectEqual<typeof streamedObject.elementStream, never>();
 expectEqual<typeof streamedObject.fullStream, AsyncIterableStream<ObjectStreamPart<DeepPartial<Answer>>>>();
@@ -166,18 +169,21 @@ const _arrayObjects = create.ObjectStreamer({ model, schema, output: 'array' })(
 expectEqual<typeof _arrayObjects.object, Promise<Answer[]>>();
 expectEqual<typeof _arrayObjects.partialObjectStream, AsyncIterableStream<Answer[]>>();
 expectEqual<typeof _arrayObjects.elementStream, AsyncIterableStream<Answer>>();
+expectEqual<typeof _arrayObjects.value, Promise<Answer[]>>();
 const _enumObjects = create.ObjectGenerator({ model, output: 'enum', enum: ['yes', 'no'] as const })('Input.');
 expectEqual<Awaited<typeof _enumObjects>['object'], 'yes' | 'no'>();
+expectEqual<Awaited<typeof _enumObjects>['value'], 'yes' | 'no'>();
 const _jsonObjects = create.ObjectStreamer({ model, output: 'no-schema' })('Input.');
 expectEqual<typeof _jsonObjects.object, Promise<JSONValue>>();
+expectEqual<typeof _jsonObjects.value, Promise<JSONValue>>();
 expectEqual<typeof _jsonObjects.partialObjectStream, AsyncIterableStream<JSONValue>>();
 expectEqual<Awaited<typeof _generatedObject>, GenerateObjectObjectResult<Answer>>();
 expectEqual<typeof streamedObject, StreamObjectObjectResult<Answer>>();
 expectEqual<typeof _arrayObjects, StreamObjectArrayResult<Answer>>();
 expectEqual<Awaited<typeof _enumObjects>, GenerateObjectEnumResult<'yes' | 'no'>>();
 expectEqual<typeof _jsonObjects, StreamObjectNoSchemaResult>();
-expectEqual<GenerateObjectArrayResult<Answer>, GenerateObjectResult<Answer[]>>();
-expectEqual<GenerateObjectNoSchemaResult, GenerateObjectResult<JSONValue>>();
+expectEqual<Omit<GenerateObjectArrayResult<Answer>, 'value'>, GenerateObjectResult<Answer[]>>();
+expectEqual<Omit<GenerateObjectNoSchemaResult, 'value'>, GenerateObjectResult<JSONValue>>();
 expectEqual<GenerateObjectResultAll<Answer, 'yes' | 'no'>, GenerateObjectObjectResult<Answer> | GenerateObjectArrayResult<Answer> | GenerateObjectEnumResult<'yes' | 'no'> | GenerateObjectNoSchemaResult>();
 expectEqual<StreamObjectResultAll<Answer>, StreamObjectObjectResult<Answer> | StreamObjectArrayResult<Answer> | StreamObjectNoSchemaResult>();
 
@@ -289,6 +295,7 @@ const _customStream = create.TextStreamer({ onEnd: _event => {
 	expectEqual<typeof _event.output, { total: number } | undefined>();
 } }, customParent)('Input.');
 expectEqual<typeof _customStream.output, PromiseLike<{ total: number }>>();
+expectEqual<typeof _customStream.value, Promise<{ total: number }> | AsyncIterable<{ total: number }>>();
 expectEqual<typeof _customStream.partialOutputStream, AsyncIterableStream<string>>();
 expectEqual<typeof _customStream.elementStream, AsyncIterableStream<boolean>>();
 const _customGenerated = create.TextGenerator({}, customParent)('Input.');
@@ -312,6 +319,7 @@ const variantSchema = z.discriminatedUnion('kind', [
 type Variant = { kind: 'count', value: number } | { kind: 'label', value: string };
 void create.ObjectGenerator({ model, schema: variantSchema })('Input.').then(_value => {
 	expectEqual<typeof _value.object, Variant>();
+	expectEqual<typeof _value.value, Variant>();
 	if (_value.object.kind === 'count') {
 		expectEqual<typeof _value.object.value, number>();
 		// @ts-expect-error Object results expose transformed schema outputs.

@@ -650,7 +650,7 @@ describe('asTool', function () {
 				expect(turn1Result.finishReason).to.equal('stop');
 
 				// Update history
-				messageHistory = turn1Result.response.messageHistory;
+				messageHistory = turn1Result.messageHistory;
 				expect(messageHistory).to.have.lengthOf(2);
 
 				// --- TURN 2: Tool-using chat ---
@@ -662,7 +662,7 @@ describe('asTool', function () {
 				expect(turn2Result.text.toLowerCase()).to.include('75').and.to.include('sunny');
 
 				// Update history again
-				messageHistory = turn2Result.response.messageHistory;
+				messageHistory = turn2Result.messageHistory;
 
 				// The final history should contain all messages from both turns
 				expect(messageHistory).to.have.lengthOf(6);

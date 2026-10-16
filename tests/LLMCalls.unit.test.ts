@@ -52,6 +52,72 @@ const answer = '{"answer":4}';
 const factoryNames = ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const;
 
 describe('LLM call contracts without providers', () => {
+	describe('empty literal and prepared prompts', () => {
+		for (const factoryName of factoryNames) {
+			for (const modifier of ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadsText', 'loadsTemplate', 'loadsScript'] as const) {
+				it(`${factoryName}.${modifier} submits an empty user message with or without history`, async () => {
+					const model = mockModel(answer);
+					const source = modifier.includes('Script') ? 'return ""' : '';
+					const build = create[factoryName][modifier] as (config: object) => {
+						(messages?: ModelMessage[]): unknown;
+						run(config: { messages?: ModelMessage[] }): unknown;
+					};
+					const component = build({ model, ...(factoryName.startsWith('Object') && { schema }),
+						prompt: modifier === 'withFunction' ? () => '' : modifier.startsWith('loads') ? 'source' : source,
+						...(modifier.startsWith('loads') && { loader: { load: () => source } }),
+					});
+					const histories: (ModelMessage[] | undefined)[] = [undefined, [], [{ role: 'user', content: 'earlier' }]];
+					for (const history of histories) {
+						const result = await component.run(history ? { messages: history } : {});
+						await settle(result);
+						if (factoryName.startsWith('Text')) {
+							const textResult = result as { messageHistory: ModelMessage[] | Promise<ModelMessage[]>, responseMessages: ModelMessage[] | PromiseLike<ModelMessage[]> };
+							expect(await textResult.messageHistory).to.deep.equal([
+								...history ?? [], { role: 'user', content: '' }, ...await textResult.responseMessages,
+							]);
+						}
+					}
+					await settle(await component());
+					if (modifier !== 'withFunction') {
+						await settle(await component([]));
+						await settle(await component([{ role: 'user', content: 'earlier' }]));
+					}
+					expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([
+						[''], [''], ['earlier', ''], [''],
+						...(modifier === 'withFunction' ? [] : [[''], ['earlier', '']]),
+					]);
+				});
+			}
+			it(`${factoryName} accepts a configured or one-off empty literal prompt`, async () => {
+				const model = mockModel(answer);
+				const config = { model, prompt: 'configured', messages: [] };
+				const component = factoryName === 'TextGenerator' ? create.TextGenerator(config)
+					: factoryName === 'TextStreamer' ? create.TextStreamer(config)
+						: factoryName === 'ObjectGenerator' ? create.ObjectGenerator({ ...config, schema }) : create.ObjectStreamer({ ...config, schema });
+				await settle(await component(''));
+				await settle(await component.run({ prompt: '', messages: [] }));
+				expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([[''], ['']]);
+				expect(component.config.prompt).to.equal('configured');
+			});
+		}
+	});
+
+	for (const factoryName of factoryNames) {
+		it(`${factoryName} can prepare no new messages for a history-only continuation`, async () => {
+			const model = mockModel(answer);
+			const config = { model, prompt: () => [] };
+			const component = factoryName === 'TextGenerator' ? create.TextGenerator.withFunction(config)
+				: factoryName === 'TextStreamer' ? create.TextStreamer.withFunction(config)
+					: factoryName === 'ObjectGenerator' ? create.ObjectGenerator.withFunction({ ...config, schema })
+						: create.ObjectStreamer.withFunction({ ...config, schema });
+			const messages: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
+			const result = await component.run({ messages });
+			await settle(result);
+			expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([['Earlier.']]);
+			if ('messageHistory' in result) expect(await result.messageHistory).to.deep.equal([...messages, ...await result.responseMessages]);
+		});
+	}
+
 	describe('loaded templates', () => {
 		for (const factoryName of factoryNames) {
 			const streaming = factoryName.endsWith('Streamer');
@@ -198,7 +264,8 @@ describe('LLM call contracts without providers', () => {
 							: create.ObjectStreamer.loadsText({ ...config, schema });
 				await settle(await component.run({}));
 				await settle(await component.run({ prompt: 'other-empty' }));
-				expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([[''], ['']]);
+				await settle(await component.run({ prompt: '' }));
+				expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([[''], [''], ['']]);
 			});
 
 			it(`rejects invalid loaded-text run overrides before loading or calling ${factoryName}`, async () => {
@@ -210,7 +277,7 @@ describe('LLM call contracts without providers', () => {
 						: factoryName === 'ObjectGenerator' ? create.ObjectGenerator.loadsText({ ...config, schema })
 							: create.ObjectStreamer.loadsText({ ...config, schema });
 				for (const override of [
-					{ prompt: null }, { prompt: 42 }, { prompt: '' },
+					{ prompt: null }, { prompt: 42 },
 					{ prompt: [{ role: 'user', content: 'Messages are not a resource name.' }] },
 					{ messages: [{ role: 'invalid', content: 'Invalid history.' }] },
 					{ context: { unused: true } },
@@ -392,8 +459,8 @@ describe('LLM call contracts without providers', () => {
 				await settle(await component());
 				await settle(await component([{ role: 'assistant', content: 'Earlier.' }]));
 				await settle(await component('named'));
-				const response = await (await component.run({ messages: [{ role: 'user', content: 'Run.' }] })).response;
-				expect(response.messageHistory).to.deep.equal([{ role: 'user', content: 'Run.' }, ...response.messages]);
+				const result = await component.run({ messages: [{ role: 'user', content: 'Run.' }] });
+				expect(await result.messageHistory).to.deep.equal([{ role: 'user', content: 'Run.' }, ...await result.responseMessages]);
 				expect(promptTexts(model, streaming)).to.deep.equal([
 					['Configured.'],
 					['Configured.', 'Earlier.'],

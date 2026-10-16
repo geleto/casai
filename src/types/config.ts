@@ -15,8 +15,7 @@ import type {
 import type { ConfigureOptions } from 'cascada-engine';
 import type * as types from './types.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
-import type { AugmentedResponse } from './result.js';
-import type { ConfigCallbackKeys, TextCallbacks, RuntimeContextFromConfig, ObjectFinishCallback } from './callbacks.js';
+import type { ConfigCallbackKeys, TextCallbacks, ObjectFinishCallback } from './callbacks.js';
 export type { MergedConfig } from './merge.js';
 
 // Some of the hacks here are because Parameters<T> helper type only returns the last overload type
@@ -46,6 +45,18 @@ export type ToolContextFromConfig<TConfig> = types.ContextFromSchema<DeclaredTyp
 
 export type ToolsFromConfig<TConfig> = 'tools' extends keyof TConfig
 	? Extract<Required<NonNullable<TConfig['tools']>>, ToolSet> : EmptyMap;
+
+export type OutputFromConfig<T> = [NonNullable<DeclaredType<T, 'output'>>] extends [never] ? types.DefaultTextOutput : NonNullable<DeclaredType<T, 'output'>> extends infer O extends types.AIOutput ? O : types.DefaultTextOutput;
+// Unlike the SDK output generic, value accounts for a setting that can be absent at runtime.
+export type ValueOutputFromConfig<T> = T extends unknown ? 'output' extends keyof T
+	? OutputFromConfig<T> | (undefined extends T['output'] ? types.DefaultTextOutput : never)
+	: types.DefaultTextOutput : never;
+export type RuntimeContextFromConfig<T> = [NonNullable<DeclaredType<T, 'runtimeContext'>>] extends [never] ? Record<string, unknown> : NonNullable<DeclaredType<T, 'runtimeContext'>> extends infer C extends Record<string, unknown> ? C : Record<string, unknown>;
+
+export type ObjectOutputFromConfig<T> = T extends { output: 'no-schema' } ? JSONValue
+	: T extends { output: 'enum', enum: readonly (infer E)[] } ? E
+	: T extends { output: 'array' } ? types.InferSchema<DeclaredType<T, 'schema'>>[]
+	: types.InferSchema<DeclaredType<T, 'schema'>>;
 
 export type MergedTools<TParentConfig, TConfig> = ToolsFromConfig<MergedConfig<TParentConfig, TConfig>>;
 
@@ -176,30 +187,17 @@ export type GenerateTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof generateText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages'>
+> = Omit<Parameters<typeof generateText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages' | 'abortSignal'>
 	& BaseConfig
 	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT> };
-
-// The first argument of streamText
-type AugmentedStreamFinishCallback<CALLBACK> = CALLBACK extends (event: infer EVENT) => infer RESULT
-	? (event: Omit<EVENT, 'response'> & {
-		response: EVENT extends { response: infer RESPONSE } ? AugmentedResponse<RESPONSE> : never;
-	}) => RESULT
-	: never;
 
 export type StreamTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages' | 'onFinish' | 'onEnd'>
+> = Omit<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages' | 'abortSignal'>
 	& BaseConfig
-	& {
-		prompt?: PROMPT;
-		messages?: ModelMessage[] | undefined;
-		inputSchema?: types.SchemaType<INPUT>;
-		onFinish?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0]['onFinish']>;
-		onEnd?: AugmentedStreamFinishCallback<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0]['onEnd']>;
-	};
+	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT> };
 
 export type FinalGenerateTextConfigShape = Partial<ConfigShape<GenerateTextConfig<any, any, any>> & { model: LanguageModel }>;
 
@@ -231,7 +229,7 @@ export type GenerateObjectBaseConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
 	RESULT = unknown,
-> = Omit<Parameters<typeof generateObject>[0], 'output' | 'mode' | 'prompt' | 'messages' | 'onFinish'>
+> = Omit<Parameters<typeof generateObject>[0], 'output' | 'mode' | 'prompt' | 'messages' | 'onFinish' | 'abortSignal'>
 	& BaseConfig
 	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT>, onFinish?: (event: GenerateObjectEndEvent<RESULT>) => void | PromiseLike<void> };
 
@@ -300,7 +298,7 @@ export type StreamObjectBaseConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
 	RESULT = unknown,
-> = Omit<Parameters<typeof streamObject>[0], 'output' | 'mode' | 'prompt' | 'messages' | 'onFinish'>
+> = Omit<Parameters<typeof streamObject>[0], 'output' | 'mode' | 'prompt' | 'messages' | 'onFinish' | 'abortSignal'>
 	& BaseConfig
 	& {
 		//Bring back the removed onFinish and prompt properties
@@ -396,6 +394,7 @@ export type LLMRunConfig = Partial<BaseConfig> & {
 	messages?: ModelMessage[] | undefined;
 	prompt?: types.AnyPromptSource;
 	context?: types.Context;
+	abortSignal?: AbortSignal;
 };
 
 // For the .run argument - disallow all properties that ...

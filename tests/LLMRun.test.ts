@@ -119,7 +119,7 @@ describe('LLM run overrides and repeated calls', () => {
 			{ role: 'assistant', content: [{ type: 'text', text: 'Earlier reply.' }] },
 			{ role: 'user', content: [{ type: 'text', text: 'Configured prompt.' }] },
 		]);
-		expect(result.response.messageHistory[0]).to.deep.equal(messages[0]);
+		expect(result.messageHistory[0]).to.deep.equal(messages[0]);
 		await generator();
 		expect(model.doGenerateCalls[2].prompt).to.have.length(1);
 	});
@@ -156,6 +156,6 @@ describe('LLM run overrides and repeated calls', () => {
 			{ role: 'assistant', content: [{ type: 'text', text: 'Earlier reply.' }] },
 			{ role: 'user', content: [{ type: 'text', text: 'Configured prompt.' }] },
 		]);
-		expect((await result.response).messageHistory[0].role).to.equal('assistant');
+		expect((await result.messageHistory)[0].role).to.equal('assistant');
 	});
 });

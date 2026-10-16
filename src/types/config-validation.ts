@@ -10,6 +10,11 @@ import type { CallbackConfigShape, ValidateToolCallbackNames } from './callbacks
 import type { ValidateRendererInput } from './renderer-input.js';
 import type { ValidateContextValue } from './input.js';
 
+// keyof a union hides branch-only keys; reject a configured signal in any alternative.
+type ConfiguredSignalKeys<T> = T extends unknown ? Extract<keyof T, 'abortSignal'> : never;
+type ValidateConfiguredSignal<T> = NoInfer<[ConfiguredSignalKeys<T>] extends [never] ? unknown
+	: "Config Error: 'abortSignal' is an invocation setting, not constructor configuration.">;
+
 type ContextMapFromConfig<TConfig> = 'toolsContext' extends keyof TConfig
 	? [NonNullable<TConfig['toolsContext']>] extends [never] ? EmptyMap : NonNullable<TConfig['toolsContext']>
 	: EmptyMap;
@@ -48,7 +53,7 @@ export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateReso
 	? 'Config Error: These properties do not belong to any single component configuration.'
 	: Pick<TFinalConfig, 'execute' & keyof TFinalConfig> extends { execute?: DeclaredExecute<TFinalConfig> | DeclaredFunctionExecute<TFinalConfig> }
 	? ValidateToolsContext<TConfig, TFinalConfig, true>
-	: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'>;
+	: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'> & ValidateConfiguredSignal<TFinalConfig>;
 
 type MissingKeys<TFinal, TExpected> = Exclude<{ [K in keyof TExpected]-?: EmptyMap extends Pick<TExpected, K> ? never : K }[keyof TExpected], keyof TFinal>;
 // Required settings must be present for every possible value after inheritance.
@@ -169,7 +174,7 @@ export type ValidateGenerateTextConfig<
 		? ValidateToolsContext<TConfig, TFinalConfig>
 		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
-	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
+	: `Config Error: Unknown properties for this generator type: '${keyof Omit<TConfig, keyof TShape> & string}'`> & ValidateConfiguredSignal<TFinalConfig>;
 
 
 // Generic validator for the `parent` config object.
@@ -202,7 +207,7 @@ export type ValidateStreamTextConfig<
 		? ValidateToolsContext<TConfig, TFinalConfig>
 		: `Config Error: Missing required property '${MissingRequiredKeys<TFinalConfig, TRequired> & string}' in the final configuration.`
 	)
-	: `Config Error: Unknown properties for this streamer type: '${keyof Omit<TConfig, keyof TShape> & string}'`>;
+	: `Config Error: Unknown properties for this streamer type: '${keyof Omit<TConfig, keyof TShape> & string}'`> & ValidateConfiguredSignal<TFinalConfig>;
 
 
 // Generic validator for the `parent` config object.
@@ -273,7 +278,7 @@ export type ValidateObjectConfig<
 			: `Config Error: Missing required properties for output mode '${GetOutputType<TFinalConfig>}' - '${MissingRequiredKeys<TFinalConfig, TRequiredShape> & string}'`
 		)
 		: `Config Error: Unknown properties for output mode '${GetOutputType<TFinalConfig>}' - '${keyof Omit<TConfig, GetAllowedKeysForConfig<TFinalConfig>> & string}'`
-	>;
+	> & ValidateConfiguredSignal<TFinalConfig>;
 
 export type ValidateObjectParentConfig<
 	TParentConfig extends configs.ConfigShape<configs.GenerateObjectConfig<any, any, any, any> & { output?: string | undefined }>,

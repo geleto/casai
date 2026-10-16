@@ -55,9 +55,9 @@ const _wrongToolConfig: ToolConfig<{ value: number }, string> = { inputSchema: z
 const _eventSchema = z.object({ answer: z.number() });
 expectEqual<StreamObjectOnFinishEvent<typeof _eventSchema>, GenerateObjectEndEvent<{ answer: number }>>();
 type TextEnd = Parameters<StreamTextOnEndCallback<Record<string, never>, Record<string, unknown>, import('ai').OutputInterface<string, string, never>>>[0];
-expectEqual<Omit<StreamTextOnFinishEvent, 'response'>, Omit<TextEnd, 'response'>>();
-expectEqual<StreamTextOnFinishEvent['response']['messages'], ModelMessage[]>();
-expectEqual<StreamTextOnFinishEvent['response']['messageHistory'], ModelMessage[]>();
+expectEqual<StreamTextOnFinishEvent, TextEnd>();
+expectEqual<StreamTextOnFinishEvent['response']['messages'], TextEnd['response']['messages']>();
+
 
 declare const filesystem: InstanceType<typeof FileSystemLoader>;
 declare const precompiled: InstanceType<typeof PrecompiledLoader>;

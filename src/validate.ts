@@ -140,9 +140,16 @@ function validateObjectOutputProperties(config: Record<string, unknown>, isStrea
 
 // --- Configuration Validators (for Creation Time) ---
 
+function validateConfiguredSignal(config: Record<string, unknown>): void {
+	if ('abortSignal' in config) {
+		throw new ConfigError("'abortSignal' is an invocation setting. Pass it to .run() instead of constructor configuration.");
+	}
+}
+
 /** Validate reusable config fragments; component factories validate their complete contracts. */
 export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, any, any>>): void {
 	validateConfigBasics(config);
+	validateConfiguredSignal(config);
 	const kind = identifyConfigKind(config);
 	if (kind) {
 		validateConfigCompatibility(config, kind);
@@ -166,6 +173,7 @@ export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, a
  */
 export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType?: types.PromptType, isTool = false): void {
 	validateConfigBasics(config);
+	validateConfiguredSignal(config);
 	validateConfigCompatibility(config, 'Text');
 	validatePromptProperties(config, promptType, true);
 	if (config.model === undefined || config.model === null) throw new ConfigError("Text generator configs require a 'model' property.");
@@ -193,6 +201,7 @@ export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType
  */
 export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, promptType?: types.PromptType, isTool = false, isStreamer = false): void {
 	validateConfigBasics(config);
+	validateConfiguredSignal(config);
 	validateConfigCompatibility(config, 'Object');
 	validatePromptProperties(config, promptType, true);
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime callers can explicitly clear an inherited model with null.
@@ -345,7 +354,7 @@ export function validateLLMComponentCall(
 		const finalPromptMessages = Array.isArray(prompt) ? prompt : [];
 		const configuredMessages = (config as Partial<configs.TemplatePromptConfig>).messages;
 
-		const hasPromptString = typeof finalPromptString === 'string' && finalPromptString.length > 0;
+		const hasPromptString = typeof finalPromptString === 'string';
 		const hasPromptMessages = callArgs.prompt === undefined && finalPromptMessages.length > 0;
 		// Call-time history is appended to configured messages, including when it is empty.
 		const hasMessages = (callArgs.messages?.length ?? 0) > 0

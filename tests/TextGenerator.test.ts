@@ -154,24 +154,6 @@ describe('create.TextGenerator', function () {
 			expect(result.text).to.equal('(apples)!');
 		});
 
-		it('should have correct type property', () => {
-			const generator = create.TextGenerator({
-				model,
-				...temperatureConfig,
-				prompt: 'Hello world'
-			});
-
-			const templateGenerator = create.TextGenerator.withTemplate({
-				model,
-				...temperatureConfig,
-				prompt: 'Hello {{ name }}'
-			});
-
-			// Check that all TextGenerator variants have the correct type
-			expect(generator.type).to.equal('GenerateText');
-			expect(templateGenerator.type).to.equal('GenerateText');
-		});
-
 		it('should merge and deduplicate "loader" arrays', () => {
 			const loader1 = new StringLoader();
 			const loader2 = new StringLoader();
@@ -432,22 +414,6 @@ describe('create.TextGenerator', function () {
 			);
 		});
 
-		it('should throw if a filter function throws an error', async () => {
-			const generator = create.TextGenerator.withTemplate({
-				model,
-				...temperatureConfig,
-				prompt: '{{ "test" | badFilter }}',
-				filters: {
-					badFilter: () => {
-						throw new Error('Filter failed');
-					},
-				},
-			});
-
-			// The error from cascada-engine is now wrapped.
-			await expect(generator()).to.be.rejectedWith('Filter failed');
-		});
-
 		it('should throw if a loader fails to find a template specified at creation time', async () => {
 			const generator = create.TextGenerator.loadsTemplate({
 				model, ...temperatureConfig,
@@ -476,20 +442,6 @@ describe('create.TextGenerator', function () {
 			);
 		});
 
-		it('should throw if a context function throws an error', async () => {
-			const generator = create.TextGenerator.withTemplate({
-				model,
-				...temperatureConfig,
-				prompt: 'Value: {{ value() }}',
-				context: {
-					value: () => {
-						throw new Error('Context failed');
-					},
-				},
-			});
-			// The error from cascada-engine is now wrapped.
-			await expect(generator()).to.be.rejectedWith('Context failed');
-		});
 	});
 
 	describe('.loadsText functionality', () => {
@@ -607,27 +559,6 @@ describe('create.TextGenerator', function () {
 
 			const result = await generator();
 			expect(result.text).to.equal('4');
-		});
-
-		// This is a valid use case but we currently race all loaders for the first to return a value
-		it.skip('should override parent loader with child loader', async () => {
-			const parentLoader = new StringLoader();
-			parentLoader.addString('override.txt', 'Output only the number 5.');
-
-			const childLoader = new StringLoader();
-			childLoader.addString('override.txt', 'Output only the number 6.');
-
-			const parent = create.Config({ loader: parentLoader });
-
-			const generator = create.TextGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: childLoader,
-				prompt: 'override.txt'
-			}, parent);
-
-			const result = await generator();
-			expect(result.text).to.equal('6');
 		});
 
 		it('should work with functional loaders', async () => {

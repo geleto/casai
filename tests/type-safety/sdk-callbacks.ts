@@ -37,7 +37,9 @@ const streamer = create.TextStreamer({
 	},
 	onEnd: _event => {
 		expectType<number | undefined>(_event.output?.answer);
-		expectType<ModelMessage[]>(_event.response.messageHistory);
+		expectType<ModelMessage[]>(_event.response.messages);
+		// @ts-expect-error SDK callback responses have no Casai history property.
+		expectType<unknown>(_event.response.messageHistory);
 		expectEqual<(typeof _event.staticToolResults)[number]['output'], number>();
 		// @ts-expect-error Structured output stays typed in completion callbacks.
 		expectType<string>(_event.output?.answer);

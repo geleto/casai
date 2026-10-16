@@ -4,6 +4,8 @@ These files are TypeScript consumer programs, never Mocha tests. They import the
 
 Each invalid case has a descriptive `@ts-expect-error` on the failing line. If the API starts accepting it, the compiler reports an unused directive. Valid neighboring cases have no directive, so an overly restrictive API also fails. `expectEqual<Actual, Expected>()` checks exact inference, including accidental `any` or `unknown` widening; `expectType<T>(value)` checks assignability.
 
+Internal SDK wrapper checks live in `../ResultAugmentation.types.ts`. The root project compiles that file with its source settings; Mocha does not execute it. Keeping internal source imports out of this folder ensures the stricter consumer checks use the built declarations.
+
 | File | Contracts |
 | --- | --- |
 | `config-contracts.ts` | Incomplete fragments, compatible component families, required settings, unknown keys, inherited replacements, map merges, message/loader preservation, immutable run settings |
@@ -14,6 +16,8 @@ Each invalid case has a descriptive `@ts-expect-error` on the failing line. If t
 | `prompt-contracts.ts` | Every LLM prompt modifier, positional argument rules, missing prompts, run prompts, sync/async function prompts, direct versus promised stream results |
 | `sdk-callbacks.ts` | SDK callback inventory, argument and return contracts, aliases, arrays, nested maps, lifecycle/telemetry hooks, inheritance and run overrides |
 | `sdk-results.ts` | SDK result member preservation, structured outputs, tool discriminants, promises, streams, response history and response-conversion callbacks |
+| `result-augmentation.ts` | Augmented values, parsed output types, known and erased output names, output unions and inherited configurations |
+| `cancellation.ts` | Invocation-only signals, rejected constructor/inherited settings, and typed cancellation on ordinary, rendered and loaded LLM run calls |
 | `public-contracts.ts` | Factory/modifier inventory, public aliases, exported types, annotated schema inference, loaders, race groups, providers, message schemas and errors |
 | `annotation-contracts.ts` | Exported configuration annotations, schema presence, typed renderer/tool inputs and outputs, prompt kinds, tool contexts and SDK finish callbacks |
 | `renderer-call-contracts.ts` | Standalone and inherited processed config, nested renderer defaults, required bodies, positional prompt/history/context forms and exact call/run results |

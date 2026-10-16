@@ -9,9 +9,9 @@
 > - **[ImageGenerator](README2.md#imagegenerator)**: Generate and edit images.
 > - **[Transcriber](README2.md#transcriber) / [Experimental_StreamingTranscriber](README2.md#streamingtranscriber)**: Transcribe recordings or live audio; **[SpeechGenerator](README2.md#speechgenerator)** produces speech, and **[Experimental_VoiceSessionSetup](README2.md#voicesessionsetup)** prepares browser voice connections and executes server tools.
 > - **[Streaming workflows](README2.md#streaming-through-templates-and-scripts)**: Stream text and complete array elements in order, while nested value computations retain their types. Out-of-order delivery is deferred.
-> - **[Cancellation and timeouts](README2.md#cancellation-timeouts-and-usage)**: Per-call `abortSignal` and `timeout` on every component. Cancellation across nested calls and workflow usage are [future features](docs/future.md).
+> - **[Cancellation and timeouts](README2.md#cancellation-timeouts-and-usage)**: Native SDK controls remain available. [Phase 5](docs/agents-design.md#phase-5-async-call-context-and-deadlines) adds inherited end times through Cascada async call context; timeout races can precede native engine abort support.
 >
-> This README describes the existing components. [Phase 1](#internal-core-work-phase-1) is internal core work with no new public API; [Phase 2](README2.md) introduces the replacement API. The [implementation design](docs/agents-design.md) tracks the five-phase roadmap.
+> This README describes the existing components. [Phase 1](#shared-result-augmentation-phase-1) adds shared result augmentation to the existing factories; [Phase 2](README2.md) introduces the replacement API. The [implementation design](docs/agents-design.md) tracks the roadmap.
 
 Building sophisticated and efficient AI systems - from multi-step agents to RAG pipelines - requires orchestrating numerous asynchronous tasks. **Casai is a TypeScript AI orchestration library that makes this radically simpler.** It lets you define these complex workflows with clean, declarative, synchronous-style code. The engine automatically runs independent operations concurrently, giving you the performance of concurrent execution without the complexity of managing it.
 
@@ -77,7 +77,7 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 - [The `prompt` Property: Your Universal Input](#the-prompt-property-your-universal-input)
 - [Configuration Management](#configuration-management)
 - [The Casai Components](#the-casai-components)
-- [Internal Core Work (Phase 1)](#internal-core-work-phase-1)
+- [Internal Core Work (Phase 1)](#shared-result-augmentation-phase-1)
 - [Agents and Specialized Components (Phase 2 and 3 design)](README2.md)
 - [Specialized Components (Phase 3 design)](docs/agents-design.md#phase-3-specialized-components)
 - [Callable Component Objects](#callable-component-objects)
@@ -215,7 +215,7 @@ Model results also retain metadata and SDK features described in their component
 | [ObjectGenerator](#objectgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [ObjectStreamer](#objectstreamer) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 
-`Template`, `Script`, and `Function` perform their named operation by default; they do not have matching `.withTemplate`, `.withScript`, or `.withFunction` aliases. `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. For current LLM factories, `.withText` is the default and prompt modifiers can precede `.asTool` where supported. [Phase 1](#internal-core-work-phase-1) adds no public modifiers.
+`Template`, `Script`, and `Function` perform their named operation by default; they do not have matching `.withTemplate`, `.withScript`, or `.withFunction` aliases. `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. For current LLM factories, `.withText` is the default and prompt modifiers can precede `.asTool` where supported. [Phase 1](#shared-result-augmentation-phase-1) adds no public modifiers.
 
 ### Calling a Component
 
@@ -705,9 +705,24 @@ When you `await` a `TextGenerator` call, it returns a promise that resolves to a
 *   **`toolResults`**: An array of results from the executed tools across all generation steps.
 *   **`finishReason`**: The reason the model stopped generating (e.g., `'stop'`, `'tool-calls'`).
 *   **`usage`**: Token usage information for the generation.
-*   **`response`**: The raw response object, which contains:
-    *   **`messages`**: An array of the new messages from the current turn (the user prompt message and the assistant's reply).
-    *   **`messageHistory`**: The complete, updated message history, ready to be passed to the next conversational turn. It excludes static messages from the component's configuration.
+*   **`value`**: The SDK's parsed final application output. It is unavailable during unresolved tool exchanges.
+*   **`messageHistory`**: Dynamic input history, the new prompt, and generated messages across all steps. Configured static messages are excluded. Availability and rejection follow native `responseMessages`, independently of execution success.
+*   **`response`**: Native final-step response metadata, including that step's generated `messages`.
+*   **`responseMessages`**: Generated messages across all steps, excluding the input conversation.
+
+A literal or prepared prompt string, including `''`, is always submitted as a user message, even alongside empty or nonempty history. Only an absent prompt adds no message. Empty text may be rejected by the provider: [Anthropic's text block contract requires at least one character](https://platform.claude.com/docs/en/api/messages/create). For history-only continuation, use no effective prompt or have a script/function preparer return `[]`; do not use `''` to mean no new turn.
+
+TextGenerator `.asTool` returns final parsed `value`, with its type inferred from the effective output setting. Structured outputs remain structured and schema transforms are preserved. A paused or failed nested execution becomes an SDK tool error. The SDK handles model-facing tool output conversion. Inner approval requests, client tools without `execute`, and deferred results are not forwarded as outer continuation state. Use the nested component directly and retain its history when the application must resume such a pause; `.asTool` requires that run to produce final output.
+
+`NoOutputGeneratedError` messages explain why final output is unavailable. Use SDK finish reasons, including `rawFinishReason`, and tool/approval events for UI decisions; error messages are diagnostics. `messageHistory` follows native `responseMessages` availability and rejection, without a separate success check. It may expose partial or earlier messages after failure; resolution guarantees neither success nor safe continuation. Before persisting an ordinary answer, require successful `value` completion and inspect `finishReason` if truncation matters. Keep previous history after failure unless deliberately retaining partial work; persist tool/approval pauses explicitly based on their events.
+
+With `Output.object` or `Output.array`, the SDK can reject invalid structured output before returning a result, even after a local tool has executed. There is then no result-level `messageHistory`; callbacks may already have received messages. Use TextStreamer when structured workflows need a returned history handle after output parsing fails. See the [native SDK limitation](docs/agents-design.md#output-availability-and-failures).
+
+For text, `value` selects the SDK's whole final model step. It excludes earlier steps, while retaining commentary within the selected step, including text before provider-executed tools or different OpenAI Responses message phases. The SDK concatenates text blocks without inserting separators, so `value` can contain `"Let me search.The answer is 42."`.
+
+An Anthropic `rawFinishReason: 'pause_turn'` makes `value` unavailable even when the SDK normalizes it to `stop` and all server-tool results have arrived. Continue explicitly with `messageHistory`. Inspect raw finish reasons alongside normalized ones when handling provider pauses.
+
+The installed OpenAI chat adapter omits its `refusal` field from normalized content. A refusal can therefore appear as `stop` with empty text, and default text `value` succeeds with `""`, just as for an intentionally empty answer. Structured output still uses native parsing and rejects empty text that fails its parser. This is an accepted SDK limitation; the normalized result cannot identify the lost refusal.
 
 ***
 
@@ -774,21 +789,33 @@ The result object also contains several promises that resolve **after** the stre
 *   **`toolCalls`**: A promise that resolves to an array of any tool calls made.
 *   **`finishReason`**: A promise that resolves to the reason the model stopped generating.
 *   **`usage`**: A promise that resolves to the final token usage.
-*   **`response`**: A promise that resolves to the raw response object, which contains:
-    *   **`messages`**: An array of the new messages from the current turn (the user prompt message and the assistant's reply).
-    *   **`messageHistory`**: The complete, updated message history, ready to be passed to the next conversational turn. It excludes static messages from the component's configuration.
+*   **`response`**: Native final-step response metadata, including that step's generated `messages`.
+*   **`responseMessages`**: Generated messages across all steps, excluding input history.
+*   **`messageHistory`**: A cached promise of the dynamic conversation, excluding configured static messages.
+
+**Final application output:** `value` is an async iterable for text/array output and a promise for object/JSON/choice output. Default text can arrive incrementally when effective settings disable continuation under the provider's declared protocol. If the provider unexpectedly causes another step, `value` fails after any prefix already delivered. If text blocks overlap, Casai delivers the stable prefix, then waits for final output to deliver the rest in SDK content order; other cases await final parsed output. SDK stream transforms such as `smoothStream` feed both the stream views and final output and do not by themselves disable incremental delivery. SDK event and partial-output streams remain available throughout. SDK completion failures, aborts, and error finish reasons reject `value`. History independently follows native message availability and rejection, including messages retained after failures or legitimate tool pauses.
+
+The installed SDK has a continuation limitation: if a later `prepareStep` or model call throws before returning a stream, it can report the error through `onError`/events while its result promises resolve with earlier completed steps. Casai preserves that behavior: history remains available, and `value` follows the eligibility of the SDK-reported final step. See the [documented SDK exception](docs/agents-design.md#output-availability-and-failures). Generation also has a native cancellation limitation: aborting while a tool runs can still return a result when a stopping condition ends the loop. A cooperative tool's abort becomes a tool error; an uncooperative tool may return normally. Casai follows the SDK-reported final step rather than adding an abort listener; a `tool-calls` ending still has no final `value`.
+
+SDK output specifications usually type their output name as `string`. Because custom parsers can return any value, `value` then has a union of possible iterable/promise types, including for object and array outputs. Default text and literal output names stay precise. Narrow an ambiguous `value` by checking its async-iterable capability, or use the native `result.output` promise when you only need the completed value.
+
+If the configuration's `output` type is optional or includes `undefined`, `value` also includes the default text alternative. Native SDK result-property types remain unchanged.
+
+Custom output delivery follows `Output.name`: `text` yields the parsed value, `array` iterates the parsed value, and other names return its promise. A custom `array` parser must return an iterable or async iterable. Repeated `value` access reuses one execution and parse; it does not restore consumed custom iterators or add replay buffering. Native SDK streams retain their own replay behavior.
 
 **Callbacks for Fine-Grained Control:**
 You can provide callbacks in the component's configuration to handle events as they happen.
-*   **`onFinish`**: Called when the stream is complete, containing the final `text`, `usage`, and `response` (with `messages` and `messageHistory`).
+*   **`onFinish`**: Called when the stream is complete, with native SDK fields, including final `text`, `usage`, `response`, and `responseMessages`. Read dynamic history from the returned result.
 *   **`onError`**: Called if an error occurs during streaming.
 *   **`onChunk`**: Called for each individual chunk processed in the stream.
 
 ***
 
-### Internal Core Work (Phase 1)
+### Shared Result Augmentation (Phase 1)
 
-Phase 1 delivers the shared invocation deadline scope early and probes SDK final-output selection, safe result augmentation, lazy history, and cancellation through internal fixtures, with no public factories, modifiers, exports, or temporary calling API. [Phase 1b](docs/agents-design.md#phase-1b-schema-parsing-and-context-isolation) supplies merge-first parsing, private configured dependencies, configured tool defaults, and parsed values at all schema boundaries. It reuses that deadline scope without waiting for the remaining SDK probes, and relies on verified native copying and pure callbacks rather than a generic copy planner. Phase 2 builds the final base-component API directly.
+All four LLM factories share result augmentation. TextGenerator and TextStreamer expose final application output through `value` and dynamic continuation history through `messageHistory`. ObjectGenerator and ObjectStreamer expose `value` as an alias for their native `object` property, preserving its value/promise type and stream-consumption requirements. The SDK object APIs do not return generated messages, so object history is deferred until LLMAgent replaces them. Native SDK fields, methods, streams, and callback payloads retain their meanings. All prompt renderers and `.run()` use the same implementation; plain streamers still return a live result immediately. [Phase 1b](docs/agents-design.md#phase-1b-schema-parsing-and-context-isolation) supplies merge-first parsing, private dependencies, configured tool defaults, and parsed values at schema boundaries. Shared deadlines wait for Phase 5 and Cascada async call context. Phase 2 builds LLMAgent on this augmentation.
+
+The added properties are lazy and non-enumerable, like the SDK's result getters. Spreading, `Object.assign`, and JSON serialization do not read or copy them. Read them explicitly when building application data to serialize.
 
 [Phase 2](README2.md) introduces public `LLMAgent`/`.asStream` and the shared Script, Template, and Function contracts. Specialized components follow in Phase 3; Cascada streaming integration follows in Phase 4.
 
@@ -862,11 +889,12 @@ const extractorTool = create.ObjectGenerator.withTemplate.asTool({
 
 #### Return Value
 When you `await` an `ObjectGenerator` call, it returns a promise that resolves to a result object from the Vercel AI SDK's [`generateObject`](https://sdk.vercel.ai/docs/ai-sdk-core/generating-objects#generateobject) function. Key properties include:
+*   **`value`**: The same parsed value as `object`, including arrays, enum values, and schema-free JSON. Casai does not parse it again.
 *   **`object`**: The generated and validated JSON object.
 *   **`usage`**: Token usage information.
 *   **`finishReason`**: The reason the model stopped generating.
 
-**Important Note**: Unlike `TextGenerator`, the return value for `ObjectGenerator` **does not** include `messages` or `messageHistory`. While you can provide a `messages` history to give the model context for its generation, its purpose is to produce a final, structured data object, not to continue a conversation.
+ObjectGenerator accepts input `messages`, but the SDK does not return generated messages for this operation. Casai does not reconstruct them from the parsed object, so there is no `messageHistory` on its result.
 
 **Use it for**: Data extraction, structured responses, or enum-based classification. [See Vercel docs on object generation](https://sdk.vercel.ai/docs/ai-sdk-core/generating-objects#generateobject) for return details.
 
@@ -933,12 +961,13 @@ The result object from an `ObjectStreamer` call is returned without waiting for 
 *   **`textStream`**: A stream of text chunks (for `output: 'no-schema'`).
 
 **Promises for Final Data:**
-The result object also contains promises that resolve **after** the stream has finished.
+The result object also contains promises that resolve **after** the stream has finished. Consume one native stream (`partialObjectStream`, `elementStream`, `textStream`, or `fullStream`) to drive completion; awaiting a final promise alone does not drain the stream. These are alternative consumers of the same native stream, not independent replayable views.
+*   **`value`**: The same promise as `object`, resolving to the complete parsed value, including the full array in array mode.
 *   **`object`**: A promise that resolves to the full, validated JavaScript object.
 *   **`finishReason`**: A promise that resolves to the reason the model stopped generating.
 *   **`usage`**: A promise that resolves to the final token usage.
 
-**Important Note**: Unlike `TextStreamer`, the final resolved values from an `ObjectStreamer` **do not** include `messages` or `messageHistory`. The focus is on delivering the structured data, not managing conversational state.
+ObjectStreamer accepts input `messages`, but the SDK returns no generated messages for this operation. Its result has no `messageHistory`; this is deferred until LLMAgent replaces the object factories.
 
 **Use it for**: Live dashboards, incremental JSON builds, or array streaming. [See Vercel docs on object streaming](https://sdk.vercel.ai/docs/ai-sdk-core/streaming-objects#streamobject) for streaming specifics.
 
@@ -1000,6 +1029,8 @@ The `_toolCallOptions` object contains:
 - **`messages`**: `ModelMessage[]` - The message history sent to the LLM that triggered this tool call. Does not include the system prompt or the assistant's response.
 - **`abortSignal`**: `AbortSignal` (optional) - A signal to gracefully cancel the operation if the overall request is aborted.
 - **`context`**: The tool-specific value described by `contextSchema`, or `undefined` when no tool context is configured.
+
+TextGenerator and ObjectGenerator tools forward this `abortSignal` to their nested SDK call. Cancellation waits for prompt preparation to finish before the pre-dispatch check; it does not interrupt Cascada rendering or automatically reach calls launched by that rendering. For direct LLM calls, pass the signal through `.run({ abortSignal })`. Constructor configuration and reusable `Config` fragments reject it.
 
 You can use this context within your tool's template or script to add logging or change its behavior.
 ```typescript
@@ -1142,7 +1173,7 @@ const component = create.Template.loadsTemplate({
     *   **`WebLoader`**: (Browser only) Loads files over HTTP from a given base URL.
     *   **`PrecompiledLoader`**: Loads templates and scripts precompiled with Cascada's precompile functions (such as `precompileTemplateStringAsync` and `precompileScriptString` with `format: 'esm'`), keyed by name, for optimal performance. Plain-text prompts loaded with `.loadsText` need a loader that returns source text.
 
-*   **Custom Loaders**: You can create a custom loader by providing either a simple asynchronous function or a more structured class. If a loader can't find an asset, it should return `null` to allow fallback to the next loader in the chain.
+*   **Custom Loaders**: You can create a custom loader by providing either a simple asynchronous function or a more structured class. If a loader can't find an asset, it should return `null` to allow fallback to the next loader in the chain. Thrown errors and rejected promises stop the sequential chain and propagate to the caller.
 
     **Example: Functional Loader**
     A loader can be a simple function. For more control, it can return a `LoaderSource` object (`{ src, path, noCache }`) to provide metadata for caching and error reporting.
@@ -1429,21 +1460,21 @@ const result = chatAgent(newUserInput, chatHistory);
 
 ### Understanding the Response: `messages` vs. `messageHistory`
 
-This section describes the current TextGenerator/TextStreamer implementation. The intended LLMAgent API preserves SDK response message fields and adds top-level [`messageHistory`](README2.md#conversational-ai-managing-message-history), so SDK callers can append generated messages without duplicating input history.
+TextGenerator and TextStreamer preserve SDK response fields and expose continuation history at the top level of the result.
 
-To make chat loops easy, the response object from `TextGenerator` and `TextStreamer` separates the turn's new messages from the full, ready-to-use history.
+- **`response.messages`** contains generated messages from the final step.
+- **`responseMessages`** contains generated messages across all steps, including tool exchanges.
+- **`messageHistory`** contains the dynamic input history, the new prompt, and all generated messages. Configured static messages are excluded so they are not duplicated on the next call.
 
-*   **`response.messages`**: The *delta* for the current turn. This includes the message generated from the input `prompt` and every generated message, including tool calls, tool results, and the final assistant reply.
-*   **`response.messageHistory`**: The *complete* dynamic history (input messages + delta), **excluding** any static messages from the component's configuration. This is the state you use for the next API call.
+Caller history arrays are shallow-copied when the call or `.run()` starts, before asynchronous validation or prompt loading/rendering. Appending to or clearing an input array later does not change that invocation's request or result history. Message objects and their content remain shared. For TextStreamer, await `messageHistory` and the native SDK metadata properties. History follows native `responseMessages` availability and rejection; it may retain partial messages after failure and does not certify success or safe continuation. Completion callbacks keep their SDK payloads.
 
-Response history arrays reflect the messages submitted for that call. Appending to or clearing the caller's input array later does not rewrite an earlier response's history.
-
-| Property                  | Purpose                               | What it Contains                                                         | Primary Use Case                                |
-| ------------------------- | ------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------- |
-| `config.messages`         | Static Base Layer                     | System prompts, fixed instructions.                                      | Defining the agent's core personality/behavior. |
-| `messages` (argument)     | Dynamic Input History                 | The `messageHistory` from the previous turn.                             | Continuing a conversation.                      |
-| `response.messages`       | Delta of the Current Turn             | The new prompt message + the LLM's reply message.                        | Logging or displaying the latest exchange.      |
-| `response.messageHistory` | Dynamic Output History (Next State)   | The input `messages` argument + `response.messages`. **Excludes config.** | Storing and feeding into the next API call.     |
+| Property | Contents | Use |
+| --- | --- | --- |
+| `config.messages` | Static instructions and examples | Reused configuration |
+| `messages` argument | Earlier dynamic conversation | Continuing a conversation |
+| `response.messages` | Final-step generated messages | Inspecting the final step |
+| `responseMessages` | Generated messages across all steps | Appending model/tool messages yourself |
+| `messageHistory` | Dynamic input + new prompt + all generated messages | Passing the next call's history |
 
 With AI SDK 7, `toolCalls` and `toolResults` include all steps, even after the agent produces its final answer. Use `finalStep.toolCalls` to inspect the final step. The SDK's `responseMessages` contains all generated messages without the input prompt, while `steps[i].response.messages` remains specific to that step. For `TextStreamer`, await these SDK properties.
 
@@ -1528,8 +1559,7 @@ let dynamicHistory = [];
     process.stdout.write('\n');
 
     // 5. Once the stream is finished, update the history for the next turn
-    const { response } = result;
-    dynamicHistory = (await response).messageHistory;
+    dynamicHistory = await result.messageHistory;
   }
 })().catch(console.error);
 ```
@@ -1806,16 +1836,17 @@ This type safety ensures robust, predictable workflows with early error detectio
 
 ### Coming Soon
 
-- **Phase 1: Internal SDK behavior probes**: Deliver the shared deadline scope early, then exercise final-output selection, safe additive result properties, lazy history, and cancellation with thin SDK Agent fixtures. Phase 1b owns the production context boundary and reuses that primitive without waiting for the remaining SDK probes. Add no intermediate API or compatibility release.
+- **Phase 1: Shared result augmentation (implemented)**: All four LLM factories expose `value`; TextGenerator/TextStreamer also expose top-level `messageHistory`. Object results retain native completion and stream-consumption contracts. Native response fields and callback payloads are preserved; the old response augmentation is removed. Phase 1b owns the context boundary independently.
 - **Phase 1b: Schema parsing and context isolation**: Resolve configured/call input before one parse, preserve private configured helpers outside the input schema, and use parsed values at every boundary. SDK tool wrappers merge configured application defaults and advertise only missing requirements without publishing private dependencies. Rely on verified native parser copies and pure callbacks, preserving native SDK/Zod behavior for borrowed objects and shared defaults; no generic copy planner or freeze-prevention layer. See the [phase](docs/agents-design.md#phase-1b-schema-parsing-and-context-isolation).
 - **Phase 2: `LLMAgent`**: Introduce the [final language-generation factory](README2.md) on that core, with text output and one model step as defaults, `.asStream` for a streaming component, `.generate()` and `.stream()` only as the SDK agent interface, results whose `value` holds final output or its native stream (buffered when loop finality is unknown, while SDK `stream` stays live), and loop behavior controlled solely by `stopWhen`. Ordinary calls take inputs by position, and `.run()` takes them with per-call settings by name; Template, Script, and Function also expose `.run()` for named inputs and execution settings, and Function gains `.config`. Phase 2a also introduces JavaScript stream kinds, lazy schema validation during one consumption pass, collectors, Function stream producers, and finite-stream tool collection; Phase 2b reuses them for LLMAgent output. Streams retain ordinary consumption without a Casai replay layer. Configured `messages` are removed.
 - **Future features**: Cancellation across nested calls, workflow telemetry and usage, and other deferred items are recorded in [future.md](docs/future.md) and [abort.md](docs/abort.md).
 - **Phase 3: Specialized Components**: Add `Embedder`, `Reranker`, `ImageGenerator`, `Transcriber`, and `SpeechGenerator`, plus `Experimental_Decision`, `Experimental_StreamingTranscriber`, and `Experimental_VoiceSessionSetup`, which keep the prefix while their SDK features are experimental. Embeddings accept a string or string array, with per-call settings through `.run()`; streaming transcription keeps the SDK's native transcription stream. Preserve each operation's native results and lifecycle. See the [Phase 3 design](docs/agents-design.md#phase-3-specialized-components).
 - **Phase 4: Cascada Streaming Integration**: Extend Phase 2 stream contracts with Template `.asStream` and live Script `stream`/`tstream` channels. Casai maps stream kinds and schemas through native engine APIs. Cascada owns ordered snapshots, healthy complete returns or poison/failure, and stream termination at the first error. Reuse the existing collectors and tool adapters without a separate consumer-boundary protocol. See the [Phase 4 design](docs/agents-design.md#phase-4-cascada-streaming-integration).
-- **Phase 5: Out-of-Order Streaming (Deferred)**: Revisit positioned text/element delivery after the native execution and ordered stream contracts are established. Preserve Cascada ordering semantics, but settle branching, buffering, cleanup, positions, and transport before committing public properties or payloads. See the [deferred design](docs/agents-design.md#phase-5-out-of-order-streaming).
+- **Phase 5: Async Call Context and Deadlines (Deferred)**: Use Cascada's context and telemetry foundation to inherit absolute end times and call ancestry, including through JavaScript. Bound Function/Script/Template waits with timeout races and adapt deadlines to signals at SDK boundaries. Native engine abort can follow later. See the [Phase 5 design](docs/agents-design.md#phase-5-async-call-context-and-deadlines).
+- **Phase 6: Out-of-Order Streaming (Deferred)**: Revisit positioned text/element delivery after the native execution and ordered stream contracts are established. Preserve Cascada ordering semantics, but settle branching, buffering, cleanup, positions, and transport before committing public properties or payloads. See the [deferred design](docs/agents-design.md#phase-6-out-of-order-streaming).
 - **Improved Type Inference for AI SDK Configuration**: Better argument type inference for AI SDK functions passed through Casai configuration objects.
 
-All five phases are planned; the new APIs above are not available exports yet. Phases 1–3 do not depend on new Cascada features. SDK/JavaScript cancellation is implemented first; engine interruption and automatic nested propagation remain upstream work.
+Phase 1 result augmentation is integrated into all four LLM factories. The planned LLMAgent and other new factories are not available exports yet. Phases 1-3 do not depend on new Cascada features. Native SDK controls and explicit cooperative JavaScript signals remain available. Phase 5 adds shared deadlines and automatic nested propagation once Cascada async call context exists; actual engine interruption is a separate capability.
 
 ### Longer-Term Roadmap
 - **OpenTelemetry/MLflow integration**: MLflow's tracing, which captures your app's entire execution, including prompts, retrievals, tool calls.

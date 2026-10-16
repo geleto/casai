@@ -2,11 +2,13 @@ import type { ModelMessage, Schema, GenerateObjectEndEvent, StreamTextOnEndCallb
 import { z } from 'zod';
 import type { ILoaderAny } from 'cascada-engine';
 import type { RaceGroup, RaceLoader } from '../loaders.js';
-import type { AugmentedResponse } from './result.js';
 import type { EmptyMap } from './merge.js';
 import type { ComponentCall } from './input.js';
 
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;
+
+// The omitted SDK output has a known kind; explicit specifications keep their native types.
+export type DefaultTextOutput = AIOutput<string, string, never> & { name: 'text' };
 
 // Template types
 export type Context = Record<string, any>;
@@ -144,12 +146,8 @@ export type PromptFunction<PR extends string | ModelMessage[] = string | ModelMe
 export type StreamObjectOnFinishEvent<SCHEMA extends z.ZodTypeAny | Schema<any>> =
 	GenerateObjectEndEvent<InferSchema<SCHEMA>>;
 
-type SDKStreamTextOnFinishEvent<TOOLS extends ToolSet, OUTPUT extends AIOutput, RUNTIME_CONTEXT extends Record<string, unknown>> = Parameters<StreamTextOnEndCallback<TOOLS, RUNTIME_CONTEXT, OUTPUT>>[0];
-
 export type StreamTextOnFinishEvent<TOOLS extends ToolSet = Record<string, never>, OUTPUT extends AIOutput = AIOutput<string, string, never>, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
-	Omit<SDKStreamTextOnFinishEvent<TOOLS, OUTPUT, RUNTIME_CONTEXT>, 'response'> & {
-		response: AugmentedResponse<SDKStreamTextOnFinishEvent<TOOLS, OUTPUT, RUNTIME_CONTEXT>['response']>;
-	};
+	Parameters<StreamTextOnEndCallback<TOOLS, RUNTIME_CONTEXT, OUTPUT>>[0];
 
 export type EmptyObject = Record<string, never>;
 

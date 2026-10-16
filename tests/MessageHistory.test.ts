@@ -57,10 +57,11 @@ describe('Message history across tool steps', () => {
 				const result = await call();
 				const response = await result.response;
 				const messages: ModelMessage[] = [{ role: 'user', content: 'Input.' }, ...(await result.responseMessages)];
-				expect(response.messages).to.deep.equal(messages);
-				expect(response.messageHistory).to.deep.equal(messages);
-				// Augmented messages include user input as well as SDK response messages.
-				expect(response.messages.filter(message => message.role === 'user')).to.have.length(1);
+				expect(response.messages).to.deep.equal(await result.responseMessages);
+				expect(await result.messageHistory).to.deep.equal(messages);
+				// Native response messages contain only generated content.
+				expect(response.messages.map(message => message.role)).to.deep.equal(['assistant']);
+				expect(response).not.to.have.property('messageHistory');
 				expect((await result.finalStep).response.messages).to.deep.equal(messages.slice(1));
 			});
 		}
@@ -92,8 +93,8 @@ describe('Message history across tool steps', () => {
 		const streamer = create.TextStreamer({ model, prompt: 'Input.', maxRetries: 0, onError: () => undefined });
 		const result = streamer();
 		const response = result.response;
-		expect(result.response).to.equal(response);
-		await rejects(response, /No output generated/);
+		await rejects(async () => await response, /No output generated/);
+		await rejects(result.messageHistory);
 	});
 
 	for (const streaming of [false, true]) {
@@ -112,14 +113,14 @@ describe('Message history across tool steps', () => {
 				const generatedMessages = steps.flatMap(step => step.response.messages);
 				const roles = [...Array.from({ length: toolSteps }, () => ['assistant', 'tool']).flat(), 'assistant'];
 
-				expect(response.messages.map(message => message.role)).to.deep.equal(['user', ...roles]);
-				expect(response.messages[0]).to.deep.equal({ role: 'user', content: 'Use double.' });
-				expect(response.messages.slice(1)).to.deep.equal(generatedMessages);
-				expect(response.messageHistory).to.deep.equal([...history, ...response.messages]);
+				expect(response.messages.map(message => message.role)).to.deep.equal(['assistant']);
+				const conversation = await result.messageHistory;
+				expect(conversation).to.deep.equal([...history, { role: 'user', content: 'Use double.' }, ...generatedMessages]);
+				expect(generatedMessages.map(message => message.role)).to.deep.equal(roles);
 				expect(history).to.have.lengthOf(2);
-				expect(response.messageHistory).not.to.include(system);
+				expect(conversation).not.to.include(system);
 				expect(response.messages).to.equal(response.messages);
-				expect(response.messageHistory).to.equal(response.messageHistory);
+				expect(await result.messageHistory).to.equal(conversation);
 				expect(await result.response).to.equal(response);
 				expect(response.id).to.equal('final-response');
 				expect(response.timestamp).to.deep.equal(new Date('2026-01-01'));
@@ -133,12 +134,12 @@ describe('Message history across tool steps', () => {
 
 				// Reusing the history sends every call/result pair exactly once.
 				const nextModel = toolLoopModel(0);
-				const next = await component.run({ model: nextModel, prompt: 'Continue.', messages: response.messageHistory });
+				const next = await component.run({ model: nextModel, prompt: 'Continue.', messages: conversation });
 				expect(await next.text).to.equal('DONE');
 				const nextCall = streaming ? nextModel.doStreamCalls[0] : nextModel.doGenerateCalls[0];
 				expect(nextCall.prompt.map(message => message.role)).to.deep.equal(['system', 'user', 'assistant', 'user', ...roles, 'user']);
-				expect((await next.response).messageHistory).to.deep.equal([
-					...response.messageHistory,
+				expect(await next.messageHistory).to.deep.equal([
+					...conversation,
 					{ role: 'user', content: 'Continue.' },
 					...(await next.responseMessages),
 				]);

@@ -1,6 +1,7 @@
 import type { FlexibleSchema } from 'ai';
 import type { FunctionPromptInput, FunctionPromptShape } from '../types/function-prompt.js';
 import { streamObject } from "ai";
+import { augmentObjectResult } from '../augment-result.js';
 import type { LanguageModel, ModelMessage } from "ai";
 
 import * as results from '../types/result.js'
@@ -541,7 +542,8 @@ function _createObjectStreamer<
 
 	return _createLLMComponent(
 		merged as configs.OptionalPromptConfig & { model: LanguageModel, prompt: string, schema: types.SchemaType<any> },
-		streamObject as (config: configs.OptionalPromptConfig) => any
+		request => augmentObjectResult(streamObject(request as Parameters<typeof streamObject>[0])),
+		{ type: 'StreamObject', streaming: true },
 	) as unknown as StreamObjectPromiseReturn<TConfig, 'async-template', OUTPUT, PROMPT, TConfigShape>;
 }
 

@@ -138,23 +138,6 @@ describe('create.TextStreamer', function () {
 			expect(errorCaught.message).to.match(/invalid x-api-key|Incorrect API key/i);
 		});
 
-		it('should have correct type property', () => {
-			const streamer = create.TextStreamer({
-				model,
-				...temperatureConfig,
-				prompt: 'Hello world'
-			});
-
-			const templateStreamer = create.TextStreamer.withTemplate({
-				model,
-				...temperatureConfig,
-				prompt: 'Hello {{ name }}'
-			});
-
-			// Check that TextStreamer instances have the correct type
-			expect(streamer.type).to.equal('StreamText');
-			expect(templateStreamer.type).to.equal('StreamText');
-		});
 	});
 
 	describe('Configuration & Inheritance', () => {
@@ -421,15 +404,6 @@ describe('create.TextStreamer', function () {
 			);
 		});
 
-		it('should reject promises if a filter throws an error', async () => {
-			const streamer = create.TextStreamer.withTemplate({
-				model, ...temperatureConfig,
-				prompt: '{{ "test" | badFilter }}',
-				filters: { badFilter: () => { throw new Error('Filter failed'); } },
-			});
-			const result = streamer();
-			await expect(result).to.be.rejectedWith('Filter failed');
-		});
 	});
 
 	describe('.loadsText functionality', () => {

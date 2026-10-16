@@ -2,6 +2,7 @@
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { jsonSchema } from 'ai';
 import type { ModelMessage } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { create, ConfigError, race, z } from './cascada';
@@ -162,14 +163,59 @@ describe('Regressions across component boundaries', () => {
 		}
 
 		for (const streaming of [false, true]) {
-			it(`validates the replacement rather than the configured message prompt for ${streaming ? 'streams' : 'generators'}`, async () => {
+			it(`uses an empty replacement rather than the configured message prompt for ${streaming ? 'streams' : 'generators'}`, async () => {
 				const mock = model();
 				const prompt: ModelMessage[] = [{ role: 'user', content: 'Configured input.' }];
 				const component = streaming ? create.TextStreamer({ model: mock, prompt }) : create.TextGenerator({ model: mock, prompt });
-				await rejects(async () => await component(''), ConfigError);
-				expect(mock.doGenerateCalls).to.have.length(0);
-				expect(mock.doStreamCalls).to.have.length(0);
+				const result = await component('');
+				await result.messageHistory;
+				const calls = streaming ? mock.doStreamCalls : mock.doGenerateCalls;
+				expect(calls).to.have.length(1);
+				expect(calls[0].prompt.map(({ role, content }) => ({ role, content }))).to.deep.equal([{ role: 'user', content: [{ type: 'text', text: '' }] }]);
 			});
+		}
+	});
+
+	describe('sequential text loaders', () => {
+		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+			for (const run of [false, true]) {
+				for (const outcome of ['miss', 'throw', 'reject'] as const) {
+					it(`${factory}.loadsText ${run ? 'run' : 'call'} ${outcome === 'miss' ? 'falls back after a miss' : `propagates a loader ${outcome} without fallback`}`, async () => {
+						const mock = model('{"n":1}');
+						const failure = new Error('Loader error');
+						const loads: string[] = [];
+						const loader = [
+							{ load: () => {
+								loads.push('first');
+								if (outcome === 'throw') throw failure;
+								return outcome === 'reject' ? Promise.reject(failure) : null;
+							} },
+							{ load: () => { loads.push('fallback'); return 'Input.'; } },
+						];
+						const config = { model: mock, loader, prompt: 'input.txt' };
+						const objectConfig = { ...config, schema: z.object({ n: z.number() }) };
+						const component = factory === 'TextGenerator' ? create.TextGenerator.loadsText(config)
+							: factory === 'TextStreamer' ? create.TextStreamer.loadsText(config)
+								: factory === 'ObjectGenerator' ? create.ObjectGenerator.loadsText(objectConfig)
+									: create.ObjectStreamer.loadsText(objectConfig);
+						const invoke = () => run ? component.run({ prompt: 'input.txt' }) : component();
+						if (outcome === 'miss') {
+							const result = await invoke();
+							if ('partialObjectStream' in result) for await (const _part of result.partialObjectStream) { /* Native object streams require consumption. */ }
+							expect(await ('object' in result ? result.value : result.output)).to.deep.equal(factory.startsWith('Object') ? { n: 1 } : '{"n":1}');
+							const calls = factory.endsWith('Streamer') ? mock.doStreamCalls : mock.doGenerateCalls;
+							expect(calls).to.have.length(1);
+							expect(calls[0].prompt[0].content).to.deep.equal([{ type: 'text', text: 'Input.' }]);
+						} else {
+							await rejects(invoke, error => error === failure);
+							expect(mock.doGenerateCalls).to.have.length(0);
+							expect(mock.doStreamCalls).to.have.length(0);
+						}
+						// A failure must not be mistaken for a missing source.
+						expect(loads).to.deep.equal(outcome === 'miss' ? ['first', 'fallback'] : ['first']);
+					});
+				}
+			}
 		}
 	});
 
@@ -213,7 +259,106 @@ describe('Regressions across component boundaries', () => {
 	});
 
 	describe('conversation snapshots', () => {
+		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+			for (const modifier of ['withTemplate', 'withScript', 'withFunction', 'loadsTemplate', 'loadsScript'] as const) {
+				it(`snapshots ${factory}.${modifier} run prompt before asynchronous validation`, async () => {
+					let release!: () => void;
+					const gate = new Promise<void>(resolve => { release = resolve; });
+					const inputSchema = jsonSchema<Record<string, unknown>>({ type: 'object' }, {
+						validate: async input => { await gate; return { success: true, value: input as Record<string, unknown> }; },
+					});
+					const mock = model('{"answer":4}');
+					const build = create[factory][modifier] as (config: object) => {
+						run(config: { prompt: string | (() => string), context: object }): Promise<{
+							messageHistory?: ModelMessage[] | Promise<ModelMessage[]>;
+							partialObjectStream?: AsyncIterable<unknown>;
+							value: unknown;
+						}>;
+					};
+					const prompt = (word: string) => modifier === 'withFunction' ? () => word
+						: modifier === 'withScript' ? `return "${word}"` : word;
+					const component = build({ model: mock, inputSchema, prompt: prompt('configured'),
+						...(factory.startsWith('Object') && { schema: z.object({ answer: z.number() }) }),
+						...(modifier.startsWith('loads') && { loader: { load: (name: string) => modifier === 'loadsScript' ? `return "${name}"` : name } }),
+					});
+					const settings = { prompt: prompt('first'), context: {} };
+					const pending = component.run(settings);
+					settings.prompt = prompt('second');
+					release();
+					const result = await pending;
+					const stream = result.partialObjectStream;
+					if (stream) for await (const _part of stream) { /* drain */ }
+					if (result.messageHistory) await result.messageHistory;
+					await result.value;
+					const request = factory.endsWith('Streamer') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
+					expect(request.prompt.map(message => message.content)).to.deep.equal([[{ type: 'text', text: 'first' }]]);
+				});
+			}
+		}
+
+		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+			it(`snapshots ${factory}.run() history before preparation without configured messages`, async () => {
+				const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
+				const original = [...history];
+				let release!: () => void;
+				const gate = new Promise<void>(resolve => { release = resolve; });
+				const mock = model('{"answer":4}');
+				const config = { model: mock, prompt: async () => { await gate; return 'Input.'; } };
+				const schema = z.object({ answer: z.number() });
+				const component = factory === 'TextGenerator' ? create.TextGenerator.withFunction(config)
+					: factory === 'TextStreamer' ? create.TextStreamer.withFunction(config)
+						: factory === 'ObjectGenerator' ? create.ObjectGenerator.withFunction({ ...config, schema })
+							: create.ObjectStreamer.withFunction({ ...config, schema });
+				const pending = component.run({ messages: history });
+				history.splice(0, history.length, { role: 'user', content: 'Changed after invocation.' });
+				release();
+				const result = await pending;
+				if ('partialObjectStream' in result) for await (const _part of result.partialObjectStream) { /* drain */ }
+				if ('messageHistory' in result) await result.messageHistory;
+				await result.value;
+				const request = factory.endsWith('Streamer') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
+				expect(request.prompt.map(message => message.content)).to.deep.equal([
+					[{ type: 'text', text: 'Earlier.' }], [{ type: 'text', text: 'Input.' }],
+				]);
+				if ('messageHistory' in result) expect(await result.messageHistory).to.deep.equal([
+					...original, { role: 'user', content: 'Input.' }, ...await result.responseMessages,
+				]);
+				expect(history).to.deep.equal([{ role: 'user', content: 'Changed after invocation.' }]);
+			});
+		}
+
 		for (const streaming of [false, true]) {
+			for (const renderer of ['template', 'script', 'loaded-text']) {
+				for (const entry of ['call', 'call-with-source', 'run']) {
+					it(`snapshots history at ${renderer} ${entry} entry for ${streaming ? 'streams' : 'generators'}`, async () => {
+						const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
+						const original = [...history];
+						const mock = model();
+						const config = { model: mock, messages: [{ role: 'user', content: 'Configured.' } satisfies ModelMessage] };
+						const component = renderer === 'template'
+							? streaming ? create.TextStreamer.withTemplate({ ...config, prompt: 'Input.' }) : create.TextGenerator.withTemplate({ ...config, prompt: 'Input.' })
+							: renderer === 'script'
+								? streaming ? create.TextStreamer.withScript({ ...config, prompt: 'return "Input."' }) : create.TextGenerator.withScript({ ...config, prompt: 'return "Input."' })
+								: streaming ? create.TextStreamer.loadsText({ ...config, prompt: 'source', loader: { load: async () => 'Input.' } }) : create.TextGenerator.loadsText({ ...config, prompt: 'source', loader: { load: async () => 'Input.' } });
+						const invoke: {
+							(history: ModelMessage[]): ReturnType<typeof component>;
+							(source: string, history: ModelMessage[]): ReturnType<typeof component>;
+						} = component;
+						const source = renderer === 'script' ? 'return "Input."' : renderer === 'template' ? 'Input.' : 'source';
+						const pending = entry === 'call' ? invoke(history)
+							: entry === 'call-with-source' ? invoke(source, history) : component.run({ messages: history });
+						history.splice(0, history.length, { role: 'user', content: 'Changed after invocation.' });
+						const result = await pending;
+						await result.text;
+						const request = streaming ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
+						expect(request.prompt.map(message => message.content)).to.deep.equal([
+							[{ type: 'text', text: 'Configured.' }], [{ type: 'text', text: 'Earlier.' }], [{ type: 'text', text: 'Input.' }],
+						]);
+						expect(await result.messageHistory).to.deep.equal([...original, { role: 'user', content: 'Input.' }, ...await result.responseMessages]);
+					});
+				}
+			}
+
 			for (const loaded of [false, true]) {
 				it(`includes empty ${loaded ? 'loaded' : 'rendered'} prompts in ${streaming ? 'streamed' : 'generated'} history when submitted to the SDK`, async () => {
 					const mock = model();
@@ -224,8 +369,8 @@ describe('Regressions across component boundaries', () => {
 					const result = await call();
 					await result.text;
 					const response = await result.response;
-					expect(response.messages).to.deep.equal([{ role: 'user', content: '' }, ...(await result.responseMessages)]);
-					expect(response.messageHistory).to.deep.equal(response.messages);
+					expect(response.messages).to.deep.equal(await result.responseMessages);
+					expect(await result.messageHistory).to.deep.equal([{ role: 'user', content: '' }, ...response.messages]);
 				});
 			}
 			it(`keeps ${streaming ? 'streamed' : 'generated'} history consistent with the submitted request`, async () => {
@@ -236,7 +381,7 @@ describe('Regressions across component boundaries', () => {
 				await result.text;
 				history.push({ role: 'assistant', content: 'Added after the request.' });
 				const response = await result.response;
-				expect(response.messageHistory).to.deep.equal([...originalHistory, ...response.messages]);
+				expect(await result.messageHistory).to.deep.equal([...originalHistory, { role: 'user', content: 'Input.' }, ...response.messages]);
 			});
 
 			it(`snapshots function-returned messages for ${streaming ? 'streamed' : 'generated'} response metadata`, async () => {
@@ -247,7 +392,7 @@ describe('Regressions across component boundaries', () => {
 				const result = await component();
 				await result.text;
 				prompt.push({ role: 'user', content: 'Added after the request.' });
-				expect((await result.response).messages).to.deep.equal([...originalPrompt, ...(await result.responseMessages)]);
+				expect(await result.messageHistory).to.deep.equal([...originalPrompt, ...(await result.responseMessages)]);
 			});
 
 			it(`snapshots configured message prompts for ${streaming ? 'streamed' : 'generated'} response metadata`, async () => {
@@ -258,7 +403,7 @@ describe('Regressions across component boundaries', () => {
 				const result = await component();
 				await result.text;
 				prompt.push({ role: 'user', content: 'Added after the request.' });
-				expect((await result.response).messages).to.deep.equal([...originalPrompt, ...(await result.responseMessages)]);
+				expect(await result.messageHistory).to.deep.equal([...originalPrompt, ...(await result.responseMessages)]);
 			});
 
 			it(`keeps ${streaming ? 'streamed' : 'generated'} history consistent while an async prompt is pending`, async () => {
@@ -283,21 +428,22 @@ describe('Regressions across component boundaries', () => {
 				const submitted = call.prompt.slice(1).map(({ role, content }) => ({
 					role, content: typeof content === 'string' ? content : content.map(part => part.type === 'text' ? part.text : '').join(''),
 				}));
-				expect((await result.response).messageHistory).to.deep.equal([...submitted, ...(await result.responseMessages)]);
+				expect(await result.messageHistory).to.deep.equal([...submitted, ...(await result.responseMessages)]);
 			});
 		}
 
-		it('keeps saved stream callback history consistent with the returned response', async () => {
+		it('keeps callback responses native while snapshotting dynamic history', async () => {
 			const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
 			const originalHistory = [...history];
-			let callbackResponse: { messages: ModelMessage[], messageHistory: ModelMessage[] } | undefined;
+			let callbackResponse: { messages: ModelMessage[] } | undefined;
 			const component = create.TextStreamer({ model: model(), onEnd: event => { callbackResponse = event.response; } });
 			const result = component('Input.', history);
 			await result.text;
 			history.length = 0;
 			const response = await result.response;
-			expect(callbackResponse?.messageHistory).to.deep.equal([...originalHistory, ...response.messages]);
-			expect(response.messageHistory).to.deep.equal(callbackResponse?.messageHistory);
+			expect(callbackResponse?.messages).to.deep.equal(response.messages);
+			expect(callbackResponse).not.to.have.property('messageHistory');
+			expect(await result.messageHistory).to.deep.equal([...originalHistory, { role: 'user', content: 'Input.' }, ...response.messages]);
 		});
 	});
 });

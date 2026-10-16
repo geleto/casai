@@ -1,8 +1,8 @@
 // Consumer-only tool input, execution-context and toolsContext contracts.
 import { create, z } from 'casai';
 import type { ComponentTool, FunctionToolConfig, TemplateToolConfig, ScriptToolConfig } from 'casai';
-import { tool as sdkTool } from 'ai';
-import type { JSONValue, LanguageModel, Tool, ToolExecutionOptions } from 'ai';
+import { Output, tool as sdkTool } from 'ai';
+import type { InferToolOutput, JSONValue, LanguageModel, Tool, ToolExecutionOptions } from 'ai';
 import type { LoaderInterface } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
 
@@ -435,3 +435,44 @@ create.Function({}, parsedTool);
 const rawConversionFunction = create.Function({ inputSchema: rawRendererInput, execute: ({ value }) => value.length });
 // @ts-expect-error Conversion to a tool must check the implementation against parsed SDK input.
 create.Function.asTool({}, rawConversionFunction);
+
+// Text tools return the parsed application value selected by the final merged output setting.
+const parsedTextOutput = Output.object({ schema: z.object({ answer: z.string().transform(Number) }) });
+const parsedTextConfig = { model, inputSchema, output: parsedTextOutput, prompt: 'Answer' };
+const parsedTextTools = [
+	create.TextGenerator.asTool(parsedTextConfig),
+	create.TextGenerator.withText.asTool(parsedTextConfig),
+	create.TextGenerator.withTemplate.asTool(parsedTextConfig),
+	create.TextGenerator.withScript.asTool({ ...parsedTextConfig, prompt: 'return "Answer"' }),
+	create.TextGenerator.loadsText.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
+	create.TextGenerator.loadsTemplate.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
+	create.TextGenerator.loadsScript.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
+	create.TextGenerator.withFunction.asTool({ ...parsedTextConfig, prompt: () => 'Answer' }),
+];
+for (const parsedTextTool of parsedTextTools) {
+	expectEqual<InferToolOutput<typeof parsedTextTool>, { answer: number }>();
+	expectType<PromiseLike<{ answer: number }>>(parsedTextTool.execute({ value: 1 }, noContext));
+	// @ts-expect-error Parsed application output is not raw JSON text.
+	expectType<PromiseLike<string>>(parsedTextTool.execute({ value: 1 }, noContext));
+}
+const parsedTextParent = create.Config(parsedTextConfig);
+const inheritedParsedTextTools = [
+	create.TextGenerator.asTool({}, parsedTextParent),
+	create.TextGenerator.withTemplate.asTool({}, parsedTextParent),
+	create.TextGenerator.withScript.asTool({}, parsedTextParent),
+	create.TextGenerator.loadsText.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
+	create.TextGenerator.loadsTemplate.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
+	create.TextGenerator.loadsScript.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
+	create.TextGenerator.withFunction.asTool({ prompt: () => 'Answer' }, parsedTextParent),
+];
+for (const inheritedTextTool of inheritedParsedTextTools) {
+	expectEqual<InferToolOutput<typeof inheritedTextTool>, { answer: number }>();
+	expectType<PromiseLike<{ answer: number }>>(inheritedTextTool.execute({ value: 1 }, noContext));
+}
+const overriddenTextTool = create.TextGenerator.asTool({ output: Output.array({ element: z.string().transform(Number) }) }, parsedTextParent);
+expectEqual<InferToolOutput<typeof overriddenTextTool>, number[]>();
+expectType<PromiseLike<number[]>>(overriddenTextTool.execute({ value: 1 }, noContext));
+declare const optionalTextOutput: { output?: typeof parsedTextOutput };
+const optionalTextTool = create.TextGenerator.asTool({ model, inputSchema, prompt: 'Answer', ...optionalTextOutput });
+expectEqual<InferToolOutput<typeof optionalTextTool>, string | { answer: number }>();
+expectType<PromiseLike<string | { answer: number }>>(optionalTextTool.execute({ value: 1 }, noContext));

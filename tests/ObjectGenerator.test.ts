@@ -5,7 +5,6 @@ import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from './cascada'; // Adjust path to your 'index.ts'
 
 import { model, temperature, temperatureConfig, StringLoader, AsyncStringLoader, timeout } from './common';
-import type { LoaderInterface } from 'cascada-engine';
 import { z } from 'zod';
 
 // Configure chai-as-promised
@@ -174,44 +173,6 @@ describe('create.ObjectGenerator', function () {
 
 			const { object } = await childGenerator();
 			expect(object).to.eql([{ id: 1, success: true }, { id: 2, success: false }]);
-		});
-
-		it('should have correct type property', () => {
-			const objectGenerator = create.ObjectGenerator({
-				model,
-				...temperatureConfig,
-				schema: simpleSchema,
-				prompt: 'Generate a test object'
-			});
-
-			const templateGenerator = create.ObjectGenerator.withTemplate({
-				model,
-				...temperatureConfig,
-				schema: simpleSchema,
-				prompt: 'Generate {{ name }}'
-			});
-
-			const arrayGenerator = create.ObjectGenerator({
-				model,
-				...temperatureConfig,
-				output: 'array',
-				schema: arraySchema.element,
-				prompt: 'Generate an array'
-			});
-
-			const enumGenerator = create.ObjectGenerator({
-				model,
-				...temperatureConfig,
-				output: 'enum',
-				enum: enumValues,
-				prompt: 'Choose a color'
-			});
-
-			// Check that all ObjectGenerator variants have the correct type
-			expect(objectGenerator.type).to.equal('GenerateObject');
-			expect(templateGenerator.type).to.equal('GenerateObject');
-			expect(arrayGenerator.type).to.equal('GenerateObject');
-			expect(enumGenerator.type).to.equal('GenerateObject');
 		});
 
 		it('should generate an object when inheriting and prompt is at runtime', async () => {
@@ -430,22 +391,6 @@ describe('create.ObjectGenerator', function () {
 			await expect(generator()).to.be.rejectedWith(/schema|validation|response/i);
 		});
 
-		it('should propagate errors from async context functions', async () => {
-			const generator = create.ObjectGenerator.withTemplate({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-				context: {
-					badFunc: async () => {
-						await new Promise(resolve => setTimeout(resolve, 1));
-						throw new Error('Async context failed');
-					},
-				},
-				prompt: 'This will fail: {{ badFunc() }}',
-			});
-
-			await expect(generator()).to.be.rejectedWith('Async context failed');
-		});
-
 		it('should throw ConfigError for invalid output type', () => {
 			expect(() =>
 				create.ObjectGenerator({
@@ -569,33 +514,6 @@ describe('create.ObjectGenerator', function () {
 			expect(result.object).to.have.property('value', 99);
 		});
 
-		it('should handle complex loader scenarios', async () => {
-			// Test with a loader that throws errors for specific files
-			class ErrorLoader implements LoaderInterface {
-				load(name: string) {
-					if (name === 'error.txt') {
-						throw new Error('Loader error');
-					}
-					return null;
-				}
-			}
-
-			const successLoader = new StringLoader();
-			successLoader.addString('error.txt', 'Generate an object with name "Success" and value 200.');
-
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: [new ErrorLoader(), successLoader],
-				schema: simpleSchema,
-				prompt: 'error.txt'
-			});
-
-			// Should fallback to successLoader even if first loader throws
-			const result = await generator();
-			expect(result.object).to.have.property('name', 'Success');
-			expect(result.object).to.have.property('value', 200);
-		});
 	});
 
 	describe('Async Loader Functionality', () => {

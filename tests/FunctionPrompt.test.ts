@@ -306,11 +306,11 @@ describe('withFunction prompts', () => {
 				],
 			]);
 			const response = await result.response;
-			expect(response.messages).to.have.lengthOf(2);
-			expect(response.messages[0]).to.deep.equal(promptMessages[0]);
-			expect(response.messages[1].role).to.equal('assistant');
-			expect(response.messageHistory).to.have.lengthOf(3);
-			expect(response.messageHistory.slice(0, 2)).to.deep.equal([...history, ...promptMessages]);
+			expect(response.messages).to.have.lengthOf(1);
+			expect(response.messages[0].role).to.equal('assistant');
+			const conversation = await result.messageHistory;
+			expect(conversation).to.have.lengthOf(3);
+			expect(conversation.slice(0, 2)).to.deep.equal([...history, ...promptMessages]);
 		});
 
 		it('should stream from a replacement callback for one run', async () => {

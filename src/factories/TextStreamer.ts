@@ -1,10 +1,11 @@
 import type { FlexibleSchema } from 'ai';
 import type { FunctionPromptInput, FunctionPromptShape } from '../types/function-prompt.js';
-import { streamText } from "ai";
+import { streamTextWithResult } from '../augment-result.js';
 import type { ToolSet, ModelMessage } from "ai";
 
 import * as results from '../types/result.js';
 import * as configs from '../types/config.js';
+import type { OutputFromConfig, ValueOutputFromConfig, RuntimeContextFromConfig } from '../types/config.js';
 import type { RequiredInheritedConfig, RequiredModelConfig, ValidateStreamTextConfig, ValidateStreamTextParentConfig } from '../types/config-validation.js';
 import * as utils from '../types/utils.js';
 import * as types from '../types/types.js';
@@ -14,7 +15,7 @@ import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateTextLLMConfig } from "../validate.js";
 import type { Provisional, ResolvedConfig } from '../types/provisional.js';
 import type { EmptyMap } from '../types/merge.js';
-import type { CallbackConfigShape, TextCallbackInput, OutputFromConfig, RuntimeContextFromConfig, ParentToolSelectionInput } from '../types/callbacks.js';
+import type { CallbackConfigShape, TextCallbackInput, ParentToolSelectionInput } from '../types/callbacks.js';
 
 type CommonConfig = configs.TextConfigShape<configs.StreamTextConfig<ToolSet, never, types.AnyPromptSource>>;
 
@@ -29,7 +30,7 @@ type StreamTextReturn<
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
 	IsAsync extends boolean = false
-> = LLMCallSignature<TConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<configs.ToolsFromConfig<TConfig>, OutputFromConfig<TConfig>, RuntimeContextFromConfig<TConfig>>, IsAsync>, PType, PROMPT, configs.TextRunConfig<TConfigShape, configs.ToolsFromConfig<TConfig>, TConfig, true>>;
+> = LLMCallSignature<TConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<configs.ToolsFromConfig<TConfig>, OutputFromConfig<TConfig>, RuntimeContextFromConfig<TConfig>, ValueOutputFromConfig<TConfig>>, IsAsync>, PType, PROMPT, configs.TextRunConfig<TConfigShape, configs.ToolsFromConfig<TConfig>, TConfig, true>>;
 
 type StreamTextPromiseReturn<
 	TConfig extends configs.BaseConfig, // & configs.OptionalPromptConfig,
@@ -51,7 +52,7 @@ type StreamTextWithParentReturn<
 	FINAL_TOOLS extends ToolSet = configs.MergedTools<TParentConfig, ResolvedConfig<TConfig>>,
 	TFinalConfig extends configs.BaseConfig = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>> & configs.BaseConfig,
 	IsAsync extends boolean = false
-> = LLMCallSignature<TFinalConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<FINAL_TOOLS, OutputFromConfig<TFinalConfig>, RuntimeContextFromConfig<TFinalConfig>>, IsAsync>, PType, PROMPT, configs.TextRunConfig<TConfigShape, FINAL_TOOLS, TFinalConfig, true>>;
+> = LLMCallSignature<TFinalConfig, utils.ConditionalPromise<results.StreamTextResultAugmented<FINAL_TOOLS, OutputFromConfig<TFinalConfig>, RuntimeContextFromConfig<TFinalConfig>, ValueOutputFromConfig<TFinalConfig>>, IsAsync>, PType, PROMPT, configs.TextRunConfig<TConfigShape, FINAL_TOOLS, TFinalConfig, true>>;
 
 type StreamTextWithParentPromiseReturn<
 	TConfig extends Partial<configs.BaseConfig>, // configs.OptionalPromptConfig
@@ -372,7 +373,8 @@ function _createTextStreamer<
 
 	return _createLLMComponent(
 		merged as configs.StreamTextConfig<ToolSet, Record<string, any>> & configs.OptionalPromptConfig,
-		streamText as (config: configs.StreamTextConfig<ToolSet, Record<string, any>> & configs.OptionalPromptConfig) => any
+		(request, conversation) => streamTextWithResult(request as Parameters<typeof streamTextWithResult>[0], conversation),
+		{ type: 'StreamText', streaming: true },
 	) as unknown as StreamTextPromiseReturn<TConfig, TOOLS, types.RequiredPromptType, string, CommonConfig>;
 }
 

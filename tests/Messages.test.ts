@@ -32,8 +32,8 @@ describe('Messages, Conversation & Integration', function () {
 
 				const result = await generator('Reply with "OK".');
 
-				expect(result.response).to.have.property('messageHistory');
-				const history = result.response.messageHistory;
+				expect(result).to.have.property('messageHistory');
+				const history = result.messageHistory;
 
 				// config system + (user + system + assistant)
 				expect(history).to.have.lengthOf(2);
@@ -41,7 +41,7 @@ describe('Messages, Conversation & Integration', function () {
 				expect(history[1].role).to.equal('assistant');
 
 				// Check memoization (identity check)
-				const history2 = result.response.messageHistory;
+				const history2 = result.messageHistory;
 				expect(history).to.equal(history2);
 			});
 
@@ -56,15 +56,14 @@ describe('Messages, Conversation & Integration', function () {
 				// consume stream to resolve the response promise
 				await result.consumeStream();
 
-				const response = await result.response;
-				expect(response).to.have.property('messageHistory');
+				expect(result).to.have.property('messageHistory');
 
-				const history = response.messageHistory;
+				const history = await result.messageHistory;
 				expect(history).to.have.lengthOf(2); // (user + assistant), config excluded
 				expect(history[0].role).to.equal('user');
 
 				// Check memoization (identity check)
-				const history2 = response.messageHistory;
+				const history2 = await result.messageHistory;
 				expect(history).to.equal(history2);
 			});
 		});
@@ -131,8 +130,8 @@ describe('Messages, Conversation & Integration', function () {
 				const result = await generator('Reply only with "OK".');
 
 				expect(result.text.trim()).to.match(/^ok\.?/i);
-				expect(result.response).to.have.property('messageHistory');
-				const history = result.response.messageHistory;
+				expect(result).to.have.property('messageHistory');
+				const history = result.messageHistory;
 				expect(history).to.have.lengthOf(2); // user, assistant (config excluded)
 				expect(history[0].content).to.equal('Reply only with "OK".');
 			});
@@ -149,8 +148,8 @@ describe('Messages, Conversation & Integration', function () {
 				const result = await generator({ instruction: 'Execute' });
 
 				expect(result.text).to.equal('Confirmed');
-				expect(result.response).to.have.property('messageHistory');
-				const history = result.response.messageHistory;
+				expect(result).to.have.property('messageHistory');
+				const history = result.messageHistory;
 				expect(history[0].content).to.equal('The user instruction is: Execute. Reply only with "Confirmed", without any other text or punctuation, preserving the case.');
 			});
 
@@ -166,8 +165,8 @@ describe('Messages, Conversation & Integration', function () {
 				);
 
 				expect(result.text).to.equal('script-token-raven');
-				expect(result.response).to.have.property('messageHistory');
-				const history = result.response.messageHistory;
+				expect(result).to.have.property('messageHistory');
+				const history = result.messageHistory;
 				expect(history[0].content).to.equal('Output exactly script-token-raven and nothing else.');
 			});
 
@@ -181,8 +180,8 @@ describe('Messages, Conversation & Integration', function () {
 					`return [{ role: "user", content: "What is the configured answer?" }]`
 				);
 				expect(result.text).to.include('script-answer-raven');
-				expect(result.response).to.have.property('messageHistory');
-				const history = result.response.messageHistory;
+				expect(result).to.have.property('messageHistory');
+				const history = result.messageHistory;
 				expect(history).to.have.lengthOf(2); // user, assistant (config excluded)
 				expect(history[0].role).to.equal('user');
 			});
@@ -194,8 +193,8 @@ describe('Messages, Conversation & Integration', function () {
 				});
 				const result = await generator(`return [{ role: "user", content: "Output only the number 2." }]`);
 				expect(result.text).to.equal('2');
-				expect(result.response).to.have.property('messageHistory');
-				const history = result.response.messageHistory;
+				expect(result).to.have.property('messageHistory');
+				const history = result.messageHistory;
 				expect(history).to.have.lengthOf(2); // user, assistant
 			});
 
@@ -212,12 +211,12 @@ describe('Messages, Conversation & Integration', function () {
 				`;
 				const result = await generator(script, argMessages);
 
-				const history = result.response.messageHistory;
+				const history = result.messageHistory;
 				expect(history.map((m: ModelMessage) => m.role)).to.deep.equal(['user', 'user', 'assistant']);
 				expect(history[0].content).to.equal('Previous turn.');
 				expect(history[1].content).to.equal('Say ONLY "PONG".');
 
-				const msgs = result.response.messages;
+				const msgs = result.messageHistory.slice(argMessages.length);
 				expect(msgs).to.have.lengthOf(2);
 				expect(msgs[0].role).to.equal('user');
 				expect(msgs[0].content).to.equal('Say ONLY "PONG".');
@@ -237,12 +236,12 @@ describe('Messages, Conversation & Integration', function () {
 				// First arg undefined so the configured script runs; second arg passes messages
 				const result = await generator(argMessages);
 
-				const history = result.response.messageHistory;
+				const history = result.messageHistory;
 				expect(history.map((m: ModelMessage) => m.role)).to.deep.equal(['user', 'user', 'assistant']);
 				expect(history[0].content).to.equal('Prev user.');
 				expect(history[1].content).to.equal('Return only 123');
 
-				const msgs = result.response.messages;
+				const msgs = result.messageHistory.slice(argMessages.length);
 				expect(msgs).to.have.lengthOf(2);
 				expect(msgs[0].role).to.equal('user');
 				expect(msgs[0].content).to.equal('Return only 123');
@@ -258,11 +257,11 @@ describe('Messages, Conversation & Integration', function () {
 				const script = `return [{ role: "user", content: "Output only the number 7" }]`;
 				const result = await generator(script, argMessages);
 
-				const history = result.response.messageHistory;
+				const history = result.messageHistory;
 				expect(history.map((m: ModelMessage) => m.role)).to.deep.equal(['user', 'user', 'assistant']);
 				expect(history[1].content).to.match(/Output only the number 7/i);
 
-				const msgs = result.response.messages;
+				const msgs = result.messageHistory.slice(argMessages.length);
 				expect(msgs).to.have.lengthOf(2);
 				expect(msgs[0].role).to.equal('user');
 				expect(msgs[0].content).to.match(/Output only the number 7/i);
@@ -294,7 +293,7 @@ describe('Messages, Conversation & Integration', function () {
 				const result = await agent('count');
 				expect(result.text).to.equal('1');
 
-				const conversationHistory = result.response.messageHistory;
+				const conversationHistory = result.messageHistory;
 				expect(conversationHistory).to.be.an('array').with.lengthOf(2);
 				expect(conversationHistory[0].role).to.equal('user');
 				expect(conversationHistory[1].role).to.equal('assistant');
@@ -303,12 +302,12 @@ describe('Messages, Conversation & Integration', function () {
 			it('should continue a conversation using history and a new prompt', async () => {
 				const firstTurn = await agent('count');
 				expect(firstTurn.text).to.equal('1');
-				const historyAfterFirst = firstTurn.response.messageHistory;
+				const historyAfterFirst = firstTurn.messageHistory;
 
 				const result = await agent('count', historyAfterFirst);
 				expect(result.text).to.equal('2');
 
-				const conversationHistory = result.response.messageHistory;
+				const conversationHistory = result.messageHistory;
 				expect(conversationHistory).to.be.an('array').with.lengthOf(4);
 				expect(conversationHistory[2].role).to.equal('user');
 				expect(conversationHistory[3].role).to.equal('assistant');
@@ -322,8 +321,8 @@ describe('Messages, Conversation & Integration', function () {
 					messages: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
 				});
 				const firstTurn = await baseAgent('count');
-				const secondTurn = await baseAgent('count', firstTurn.response.messageHistory);
-				const conversationHistory = secondTurn.response.messageHistory;
+				const secondTurn = await baseAgent('count', firstTurn.messageHistory);
+				const conversationHistory = secondTurn.messageHistory;
 
 				const agentWithMemory = create.TextGenerator({
 					model,
@@ -332,7 +331,7 @@ describe('Messages, Conversation & Integration', function () {
 				});
 				const result = await agentWithMemory(conversationHistory);
 				expect(result.text).to.include('2');
-				expect(result.response).to.have.property('messageHistory');
+				expect(result).to.have.property('messageHistory');
 			});
 
 			const streamAgent = create.TextStreamer({
@@ -346,8 +345,7 @@ describe('Messages, Conversation & Integration', function () {
 				const streamedText = await streamToString(result.textStream);
 				expect(streamedText).to.equal('1');
 
-				const response = await result.response;
-				const conversationHistory = response.messageHistory;
+				const conversationHistory = await result.messageHistory;
 				expect(conversationHistory).to.be.an('array').with.lengthOf(2);
 				expect(conversationHistory[0].role).to.equal('user');
 				expect(conversationHistory[1].role).to.equal('assistant');
@@ -358,13 +356,13 @@ describe('Messages, Conversation & Integration', function () {
 				const firstText = await streamToString(firstTurn.textStream);
 				expect(firstText).to.equal('1');
 
-				const historyAfterFirst = (await firstTurn.response).messageHistory;
+				const historyAfterFirst = (await firstTurn.messageHistory);
 
 				const secondTurn = streamAgent('count', historyAfterFirst);
 				const secondText = await streamToString(secondTurn.textStream);
 				expect(secondText).to.equal('2');
 
-				const conversationHistory = (await secondTurn.response).messageHistory;
+				const conversationHistory = (await secondTurn.messageHistory);
 				expect(conversationHistory).to.be.an('array').with.lengthOf(4);
 				expect(conversationHistory[2].role).to.equal('user');
 				expect(conversationHistory[3].role).to.equal('assistant');
@@ -414,7 +412,7 @@ describe('Messages, Conversation & Integration', function () {
 
 				// --- BETWEEN TURNS: Update the message history ---
 				// Append the assistant's message (with tool_call) and the tool's result message
-				const turn1ResponseMessages = turn1Result.response.messages;
+				const turn1ResponseMessages = turn1Result.responseMessages;
 				messages.push(...turn1ResponseMessages);
 
 				// At this point, `messages` looks like this:
@@ -497,8 +495,8 @@ describe('Messages, Conversation & Integration', function () {
 				expect(turn1Result.text.trim()).to.match(/^ok\.?/i);
 
 				// 2. Update the history after the first turn
-				// `response.messageHistory` contains the full history (old messages + new ones from this turn)
-				messageHistory = turn1Result.response.messageHistory;
+				// `messageHistory` contains the full history (old messages + new ones from this turn)
+				messageHistory = turn1Result.messageHistory;
 
 				expect(messageHistory).to.have.lengthOf(2); // [user prompt, assistant reply]
 				expect(messageHistory[0].role).to.equal('user');
@@ -525,7 +523,7 @@ describe('Messages, Conversation & Integration', function () {
 				expect(turn2Result.steps[1].finishReason).to.equal('stop'); // Step 2 was the final text generation
 
 				// 3. Update the history again after the complex tool-use turn
-				messageHistory = turn2Result.response.messageHistory;
+				messageHistory = turn2Result.messageHistory;
 
 				// The final history should contain all messages from both turns
 				// Turn 1 (2 messages) + Turn 2 (4 messages: user, assistant+tool_call, tool_result, final_assistant_reply)
@@ -570,7 +568,7 @@ describe('Messages, Conversation & Integration', function () {
 				const toolResult = await llmWeatherTool.execute(toolInput, {
 					context: undefined,
 					toolCallId: result.toolCalls[0].toolCallId,
-					messages: result.response.messageHistory,
+					messages: result.messageHistory,
 				});
 
 				expect(toolResult).to.deep.equal({
@@ -591,9 +589,9 @@ describe('Messages, Conversation & Integration', function () {
 
 				// Have a conversation (concise prompts + concise replies)
 				const res1 = await chatAgent('Order: large pizza.');
-				const history1 = res1.response.messageHistory;
+				const history1 = res1.messageHistory;
 				const res2 = await chatAgent('Add: pepperoni and mushrooms.', history1);
-				const finalHistory = res2.response.messageHistory;
+				const finalHistory = res2.messageHistory;
 
 				// Extract from the conversation
 				const extractionAgent = create.ObjectGenerator.withTemplate({

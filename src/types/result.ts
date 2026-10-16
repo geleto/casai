@@ -1,44 +1,30 @@
-import {
-	GenerateObjectResult, StreamObjectResult, JSONValue, DeepPartial,
-} from 'ai';
-import type {
-	GenerateTextResult,
-	StreamTextResult,
-	ToolExecutionOptions,
-	ToolSet,
-	ModelMessage,
-} from 'ai';
+import type { JSONValue, DeepPartial, ToolExecutionOptions, GenerateObjectResult, GenerateTextResult, InferGenerateOutput, ModelMessage, OutputInterface, StreamObjectResult, StreamTextResult, ToolSet } from 'ai';
 
-import type { InferSchema, SchemaType } from './types.js';
+import type { DefaultTextOutput, InferSchema, SchemaType } from './types.js';
 import type { ContextSchemaConfig, DeclaredType, ToolContextFromConfig } from './config.js';
 
-import { AIOutput } from './types.js';
-export { AIOutput };
-
-// Result types
-export type {
-	// Keep object-related exports as-is
-	GenerateTextResult,
-	StreamTextResult,
-} from 'ai';
+export type { AIOutput } from './types.js';
+export type { GenerateTextResult, StreamTextResult } from 'ai';
 
 export type ScriptResult = JSONValue;//@todo - remove, RESULT can be any type (union, etc...)
 
-export type AugmentedResponse<RESPONSE> = Omit<RESPONSE, 'messages'> & {
-	messages: ModelMessage[];
-	messageHistory: ModelMessage[];
+type ElementValues<V> = V extends AsyncIterable<infer E> | Iterable<infer E> ? AsyncIterable<E> : never;
+type StreamValueForName<N extends string, V> = string extends N ? Promise<V> | AsyncIterable<V> | ElementValues<V>
+	: N extends 'text' ? AsyncIterable<V> : N extends 'array' ? ElementValues<V> : Promise<V>;
+// Distribute over output unions before deciding delivery. An erased name can denote any custom output kind.
+type StreamValue<O extends OutputInterface> = O extends unknown ? StreamValueForName<O['name'], InferGenerateOutput<O>> : never;
+
+// V includes any default output alternative without changing the SDK's O-based property types.
+export type GenerateTextResultAugmented<T extends ToolSet = ToolSet, O extends OutputInterface = DefaultTextOutput, C extends Record<string, unknown> = Record<string, unknown>, V extends OutputInterface = O> =
+	GenerateTextResult<T, C, O> & { readonly value: InferGenerateOutput<V>, readonly messageHistory: ModelMessage[] };
+
+export type StreamTextResultAugmented<T extends ToolSet = ToolSet, O extends OutputInterface = DefaultTextOutput, C extends Record<string, unknown> = Record<string, unknown>, V extends OutputInterface = O> =
+	StreamTextResult<T, C, O> & { readonly value: StreamValue<V>, readonly messageHistory: Promise<ModelMessage[]> };
+
+export type GenerateObjectResultAugmented<O> = GenerateObjectResult<O> & { readonly value: O };
+export type StreamObjectResultAugmented<P, O, E> = StreamObjectResult<P, O, E> & {
+	readonly value: Promise<O>;
 };
-
-// Augmented text result types with lazy messages and messageHistory.
-export type GenerateTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput<string, string, never>, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
-	Omit<GenerateTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>, 'response'> & {
-		response: AugmentedResponse<GenerateTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>['response']>;
-	};
-
-export type StreamTextResultAugmented<TOOLS extends ToolSet = ToolSet, OUTPUT extends AIOutput = AIOutput<string, string, never>, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
-	Omit<StreamTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>, 'response'> & {
-		response: Promise<AugmentedResponse<Awaited<StreamTextResult<TOOLS, RUNTIME_CONTEXT, OUTPUT>['response']>>>;
-	};
 
 //these are returned in a Promise
 export type GenerateObjectResultAll<
@@ -50,10 +36,10 @@ export type GenerateObjectResultAll<
 	| GenerateObjectEnumResult<ENUM>
 	| GenerateObjectNoSchemaResult;
 
-export type GenerateObjectObjectResult<OUTPUT> = GenerateObjectResult<OUTPUT>;
-export type GenerateObjectArrayResult<OUTPUT> = GenerateObjectResult<OUTPUT[]>;
-export type GenerateObjectEnumResult<ENUM extends string> = GenerateObjectResult<ENUM>;
-export type GenerateObjectNoSchemaResult = GenerateObjectResult<JSONValue>;
+export type GenerateObjectObjectResult<OUTPUT> = GenerateObjectResultAugmented<OUTPUT>;
+export type GenerateObjectArrayResult<OUTPUT> = GenerateObjectResultAugmented<OUTPUT[]>;
+export type GenerateObjectEnumResult<ENUM extends string> = GenerateObjectResultAugmented<ENUM>;
+export type GenerateObjectNoSchemaResult = GenerateObjectResultAugmented<JSONValue>;
 
 export type StreamObjectResultAll<OUTPUT> =
 	| StreamObjectObjectResult<OUTPUT>
@@ -62,9 +48,9 @@ export type StreamObjectResultAll<OUTPUT> =
 
 //These are returned as is without a promise, many of the properties are promises,
 //this allows accessing individual fields as they arrive, rather than waiting for the entire object to complete.
-export type StreamObjectObjectResult<OUTPUT> = StreamObjectResult<DeepPartial<OUTPUT>, OUTPUT, never>;
-export type StreamObjectArrayResult<OUTPUT> = StreamObjectResult<OUTPUT[], OUTPUT[], AsyncIterableStream<OUTPUT>>;
-export type StreamObjectNoSchemaResult = StreamObjectResult<JSONValue, JSONValue, never>;
+export type StreamObjectObjectResult<OUTPUT> = StreamObjectResultAugmented<DeepPartial<OUTPUT>, OUTPUT, never>;
+export type StreamObjectArrayResult<OUTPUT> = StreamObjectResultAugmented<OUTPUT[], OUTPUT[], AsyncIterableStream<OUTPUT>>;
+export type StreamObjectNoSchemaResult = StreamObjectResultAugmented<JSONValue, JSONValue, never>;
 
 type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>;
 

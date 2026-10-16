@@ -1,7 +1,5 @@
-import type { generateText, streamText, generateObject, streamObject, GenerateObjectEndEvent, JSONValue, ToolSet, GenericToolApprovalFunction, SingleToolApprovalFunction, ToolApprovalStatus } from 'ai';
-import type { AIOutput, InferSchema } from './types.js';
-import type { AugmentedResponse } from './result.js';
-import type { DeclaredType, ToolsFromConfig } from './config.js';
+import type { generateText, streamText, generateObject, streamObject, GenerateObjectEndEvent, ToolSet, GenericToolApprovalFunction, SingleToolApprovalFunction, ToolApprovalStatus } from 'ai';
+import type { ObjectOutputFromConfig, OutputFromConfig, RuntimeContextFromConfig, ToolsFromConfig } from './config.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
 import type { ValidateResolved } from './provisional.js';
 import type { StrictUnionSubtype } from './utils.js';
@@ -18,24 +16,13 @@ export type CallbackConfigShape<T> = T extends unknown ? {
 	: K extends 'model' ? EmptyMap extends Pick<T, K> ? T[K] | undefined : T[K] : T[K]
 } : never;
 
-export type OutputFromConfig<T> = [NonNullable<DeclaredType<T, 'output'>>] extends [never] ? AIOutput<string, string, never> : NonNullable<DeclaredType<T, 'output'>> extends infer O extends AIOutput ? O : AIOutput<string, string, never>;
-export type RuntimeContextFromConfig<T> = [NonNullable<DeclaredType<T, 'runtimeContext'>>] extends [never] ? Record<string, unknown> : NonNullable<DeclaredType<T, 'runtimeContext'>> extends infer C extends Record<string, unknown> ? C : Record<string, unknown>;
-
-type AugmentFinish<F> = F extends (event: infer E extends { response: unknown }) => infer R
-	? (event: Omit<E, 'response'> & { response: AugmentedResponse<E['response']> }) => R : never;
-
 export type TextCallbacks<T, TOOLS extends ToolSet = ToolsFromConfig<T>, Streaming extends boolean = false,
 	SDK = Streaming extends true
 	? Parameters<typeof streamText<TOOLS, RuntimeContextFromConfig<T>, OutputFromConfig<T>>>[0]
 	: Parameters<typeof generateText<TOOLS, RuntimeContextFromConfig<T>, OutputFromConfig<T>>>[0],
 > = {
-	[K in ConfigCallbackKeys & keyof SDK]?: Streaming extends true ? K extends 'onEnd' | 'onFinish' ? AugmentFinish<SDK[K]> : SDK[K] : SDK[K]
+	[K in ConfigCallbackKeys & keyof SDK]?: SDK[K]
 };
-
-export type ObjectOutputFromConfig<T> = T extends { output: 'no-schema' } ? JSONValue
-	: T extends { output: 'enum', enum: readonly (infer E)[] } ? E
-	: T extends { output: 'array' } ? InferSchema<DeclaredType<T, 'schema'>>[]
-	: InferSchema<DeclaredType<T, 'schema'>>;
 
 export type ObjectFinishCallback<RESULT, Streaming extends boolean = false> =
 	(event: GenerateObjectEndEvent<RESULT>) => ReturnType<NonNullable<Parameters<Streaming extends true ? typeof streamObject : typeof generateObject>[0]['onFinish']>>;

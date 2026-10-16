@@ -8,6 +8,20 @@ import type { ToolExecutionOptions } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
 
 describe('Config merging', () => {
+	it('preserves correlated alternatives when a union overrides different fields', () => {
+		const parent = { a: 1 as const, b: 1 as const };
+		const alternatives: ({ a: 2 } | { b: 2 })[] = [{ a: 2 }, { b: 2 }];
+		const results = alternatives.map(child => {
+			const merged = mergeConfigs(parent, child);
+			if (false) {
+				// @ts-expect-error No input branch changes both fields.
+				const _impossible: typeof merged = { a: 2, b: 2 };
+			}
+			return merged;
+		});
+		expect(results).to.deep.equal([{ a: 2, b: 1 }, { a: 1, b: 2 }]);
+	});
+
 	it('should preserve parent map types and values when child maps are explicitly undefined', () => {
 		const parent = {
 			context: { offset: 4 }, filters: { upper: (text: string) => text.toUpperCase() },

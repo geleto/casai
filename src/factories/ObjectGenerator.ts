@@ -2,10 +2,12 @@ import type { FlexibleSchema } from 'ai';
 import type { FunctionPromptInput, FunctionPromptShape } from '../types/function-prompt.js';
 import { attachRendererTool } from '../renderer-tool.js';
 import { generateObject } from "ai";
+import { augmentObjectResult } from '../augment-result.js';
 import type { LanguageModel, ModelMessage } from "ai";
 
 import * as results from '../types/result.js'
 import * as configs from '../types/config.js';
+import type { ObjectOutputFromConfig } from '../types/config.js';
 import * as utils from '../types/utils.js';
 import * as types from '../types/types.js';
 
@@ -14,7 +16,7 @@ import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateObjectLLMConfig } from "../validate.js";
 import type { Provisional, ResolvedConfig } from '../types/provisional.js';
 import type { EmptyMap } from '../types/merge.js';
-import type { ObjectCallbackShape, ObjectCallbackInput, ObjectOutputFromConfig, ObjectRunConfig } from '../types/callbacks.js';
+import type { ObjectCallbackShape, ObjectCallbackInput, ObjectRunConfig } from '../types/callbacks.js';
 import type { ValidateObjectConfig, ValidateObjectParentConfig } from '../types/config-validation.js';
 
 type CommonGenerateObjectObjectConfig = configs.GenerateObjectObjectConfig<Record<string, any>, any, types.AnyPromptSource>;
@@ -1049,7 +1051,8 @@ function _createObjectGenerator<
 
 	return _createLLMComponent(
 		merged as configs.OptionalPromptConfig & { model: LanguageModel, prompt: string, schema: types.SchemaType<any> },
-		generateObject as (config: configs.OptionalPromptConfig) => any
+		request => generateObject(request as Parameters<typeof generateObject>[0]).then(augmentObjectResult),
+		{ type: 'GenerateObject', streaming: false },
 	) as unknown as GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, PROMPT, TConfigShape>;
 }
 
@@ -1070,7 +1073,8 @@ function _createObjectGeneratorAsTool<
 		GenerateObjectReturn<TConfig, 'async-template', OUTPUT, ENUM, PROMPT, TConfigShape> & { config: TConfig };
 	return attachRendererTool<INPUT, ObjectOutputFromConfig<TConfig>, TConfig, typeof renderer>(renderer,
 		async context =>
-			(await (renderer as unknown as (context: INPUT) => Promise<results.GenerateObjectObjectResult<ObjectOutputFromConfig<TConfig>>>)(context)).object,
+			(await (renderer as unknown as { run(config: configs.LLMRunConfig): Promise<results.GenerateObjectObjectResult<ObjectOutputFromConfig<TConfig>>> })
+				.run({ context, ...(context._toolCallOptions.abortSignal && { abortSignal: context._toolCallOptions.abortSignal }) })).object,
 	);
 
 }

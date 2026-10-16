@@ -19,12 +19,12 @@ type SpreadValue<A, B, K extends PropertyKey> = K extends keyof B
 	? EmptyMap extends Pick<B, K> ? K extends keyof A ? A[K] | OptionalValue<B, K> : B[K] : B[K]
 	: Value<A, K>;
 
-/** Object spread that preserves optional properties and possible parent values. */
-export type MergedProperties<A, B> = {
+/** Object spread per union branch, preserving optional properties and possible parent values. */
+export type MergedProperties<A, B> = A extends unknown ? B extends unknown ? {
 	[K in keyof A]: SpreadValue<A, B, K>;
 } & {
 	[K in keyof B]: SpreadValue<A, B, K>;
-};
+} : never : never;
 
 // An optional finite map can be absent, so its new entries are optional.
 type MapValue<T> = [NonNullable<T>] extends [never] ? EmptyMap : NonNullable<T> extends object
@@ -46,9 +46,9 @@ type MergedValue<A, B, K extends PropertyKey> = K extends 'loader'
 	: SpreadValue<A, B, K>
 	: SpreadValue<A, B, K>;
 
-/** The shared config merge policy, matching mergeConfigs at runtime. */
-export type MergedConfig<A, B> = {
+/** The shared config merge policy per union branch, matching mergeConfigs at runtime. */
+export type MergedConfig<A, B> = A extends unknown ? B extends unknown ? {
 	[K in keyof A]: MergedValue<A, B, K>;
 } & {
 	[K in keyof B]: MergedValue<A, B, K>;
-};
+} : never : never;
