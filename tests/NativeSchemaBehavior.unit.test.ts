@@ -1,4 +1,4 @@
-// Native dependency probes for Phase 1b. No Casai protection is implemented here.
+// Native dependency probes for Phase 2. No Casai protection is implemented here.
 import assert from 'node:assert/strict';
 import { Output, ToolLoopAgent } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';

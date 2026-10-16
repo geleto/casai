@@ -12,7 +12,7 @@ This audit covers the current implementation and its consumers, not implementati
 | Final values, native result members, history, ownership, failure, retries, and transforms | `augment-result.ts`, `ResultAugmentation.unit.test.ts`, `LLMSurface.unit.test.ts`, result type fixtures |
 | SDK tool adaptation, cancellation, approvals, and downstream model output | `renderer-tool.ts`, generator adapters, `FunctionTool.test.ts`, `ToolContext.test.ts`, augmentation and tool consumer fixtures |
 | Template, Script, Function, loaded resources, and result consumers | Their factory/engine implementations, loader processing, `Engines.unit.test.ts`, `Workflow.unit.test.ts`, augmentation integration tests, loader/regression tests |
-| Native limitations and later requirements | Current README, `README2.md`, `agents-design.md`, `abort.md`, native SDK characterization tests |
+| Native limitations and later requirements | Current README, `README2.md`, `plan.md`, `abort.md`, native SDK characterization tests |
 
 The surface matrix exercises 448 combinations of LLM factory/modifier, standalone/inherited configuration, call/run entry, configured static messages, and dynamic history. It checks native request order, parsed output, result timing, callback payloads, response fields, and dynamic history. The context-only function call form explicitly rejects positional history; its `.run()` history path is exercised separately. Another matrix combines automatic/callback retries, three transform choices, and successful/error endings against both native SDK and Casai execution.
 
@@ -84,7 +84,7 @@ Follow-up verification passed: 1,121 mock-only tests; all sixteen provider cases
 
 ## Explicit boundaries
 
-Merge-first application-input parsing, configured tool-default projection, and the corresponding parsed context types belong to Phase 1b. Stream collection in Cascada and inherited deadlines remain in their documented later phases. Native schema freezing, eager structured-generation rejection, generation cancellation during a tool, continuation-setup behavior, and custom iterator consumption retain their documented accepted contracts. They are characterized limitations, not silently excluded current bugs.
+Merge-first application-input parsing, configured tool-default projection, and the corresponding parsed context types belong to Phase 2. Stream collection in Cascada and inherited deadlines remain in their documented later phases. Native schema freezing, eager structured-generation rejection, generation cancellation during a tool, continuation-setup behavior, and custom iterator consumption retain their documented accepted contracts. They are characterized limitations, not silently excluded current bugs.
 
 ## Initial audit verification
 
@@ -98,7 +98,7 @@ All actionable findings are resolved. No user decision remains pending; the acce
 
 ## Final whole-surface pass
 
-The subsequent pass re-read the exported factory and modifier dispatch paths, shared configuration/preparation/validation boundaries, result augmentation, tool adapters, Cascada consumers, loaders, public types, and the current-versus-planned documentation. It found no new actionable Phase 1 defect or simplification that would reduce total complexity while preserving supported behavior. Native limitations and the Phase 1b/4/5 handoffs above remain deliberate boundaries, not new findings.
+The subsequent pass re-read the exported factory and modifier dispatch paths, shared configuration/preparation/validation boundaries, result augmentation, tool adapters, Cascada consumers, loaders, public types, and the current-versus-planned documentation. It found no new actionable Phase 1 defect or simplification that would reduce total complexity while preserving supported behavior. Native limitations and the handoffs to Phases 2, 6, and 7 above remain deliberate boundaries, not new findings.
 
 An additional temporary probe exercised 336 overlapping invocations across 42 factory/modifier/output combinations. Eight calls shared each component, mixing ordinary calls and `.run()`, inherited static messages, distinct contexts and histories, asynchronous preparation, and default or parsed structured output. Text consumers also interleaved native views with final promises, closed early, and reread `value`. All assertions passed: one execution per call, correct values and history, and unchanged configured message arrays. The temporary probe was removed after verification; existing permanent cases retain the individual regression guarantees.
 
