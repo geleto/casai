@@ -277,7 +277,7 @@ describe('create.ObjectGenerator', function () {
 			const generator = create.ObjectGenerator.withTemplate({
 				model, ...temperatureConfig,
 				schema: simpleSchema,
-				context: { name: 'Config', value: 1 },
+				inputSchema: z.object({ name: z.string(), value: z.number() }), context: { name: 'Config', value: 1 },
 				prompt: 'Generate an object with name "{{ name }}" and value {{ value }}.',
 			});
 			// Runtime context ({ name: 'Runtime' }) overrides the key from the config context.
@@ -308,7 +308,7 @@ describe('create.ObjectGenerator', function () {
 			model, ...temperatureConfig,
 			schema: simpleSchema,
 			prompt: 'Generate an object with name "{{ name }}" and value {{ value }}.',
-			context: { name: 'Default', value: 0 },
+			inputSchema: z.object({ name: z.string(), value: z.number() }), context: { name: 'Default', value: 0 },
 		});
 
 		it('handles call with no arguments: generator()', async () => {

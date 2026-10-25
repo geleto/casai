@@ -4,7 +4,9 @@
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
 		"outDir": "./dist",
-		"rootDir": "./src"
+		"rootDir": "./src",
+		"incremental": true,
+		"tsBuildInfoFile": "./dist/.tsbuildinfo"
 	},
 	"include": ["src/**/*"],
 	"exclude": ["tests/**/*", "node_modules", "dist"]

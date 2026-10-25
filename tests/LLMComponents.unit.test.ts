@@ -3,7 +3,7 @@ import { rejects } from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { ModelMessage, ToolSet } from 'ai';
-import { jsonSchema, stepCountIs } from 'ai';
+import { jsonSchema, Output, stepCountIs } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { create, z } from './cascada';
 import type { StreamTextOnFinishEvent } from './cascada';
@@ -44,6 +44,24 @@ function promptCalls(model: MockLanguageModelV3, streaming: boolean): unknown[] 
 describe('LLM component contracts without providers', () => {
 	const schema = z.object({ answer: z.number() });
 	const answer = '{"answer":4}';
+
+	it('rejects erased iterable model outputs on tool execution without consuming them', async () => {
+		let acquired = 0;
+		const source = { async *[Symbol.asyncIterator]() { acquired++; yield 1; } };
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-arguments -- Explicit erasure prevents inference from the validator's iterable output.
+		const outputSchema = jsonSchema<unknown>({ type: 'object', properties: {}, additionalProperties: false }, {
+			validate: () => ({ success: true, value: source }),
+		});
+		const tools = [
+			create.TextGenerator.asTool({ model: mockModel('{}'), prompt: 'ready', inputSchema: z.object({}), output: Output.object({ schema: outputSchema }) }),
+			create.ObjectGenerator.asTool({ model: mockModel('{}'), prompt: 'ready', inputSchema: z.object({}), schema: outputSchema }),
+		];
+		for (const component of tools) {
+			expect((await component()).value).to.equal(source);
+			await rejects(async () => { await component.execute({}, { toolCallId: 'output', messages: [], context: undefined }); }, /requires textStreamSchema/);
+		}
+		expect(acquired).to.equal(0);
+	});
 
 	for (const [name, factory, object] of [
 		['TextGenerator', create.TextGenerator, false], ['TextStreamer', create.TextStreamer, false],
@@ -93,7 +111,7 @@ describe('LLM component contracts without providers', () => {
 							: preparation === 'template-filter' ? '{{ "input" | fail }}' : '{{ fail() }}',
 						...(preparation === 'template-filter' ? { filters: { fail } } : preparation === 'function' ? {} : { context: { fail } }),
 					});
-					for (const invoke of [() => component(), () => component.run({})]) {
+					for (const invoke of [() => component(), () => component.run({ context: { topic: undefined } })]) {
 						await rejects(invoke, error => preparation === 'function' ? error === failure
 							: error instanceof Error && error.message.includes(failure.message));
 					}
@@ -190,6 +208,7 @@ describe('LLM component contracts without providers', () => {
 				const component = promptType === 'template'
 					? streaming ? create.ObjectStreamer.withTemplate(template) : create.ObjectGenerator.withTemplate(template)
 					: streaming ? create.ObjectStreamer.withScript(script) : create.ObjectGenerator.withScript(script);
+				const call = component as (...args: unknown[]) => ReturnType<typeof component>;
 				const result = await component.run({ model: replacement, context: { topic: 'Runtime' }, maxOutputTokens: 25 });
 				if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 				expect(await result.object).to.deep.equal({ answer: 8 });
@@ -201,11 +220,11 @@ describe('LLM component contracts without providers', () => {
 				const calls = streaming ? replacement.doStreamCalls : replacement.doGenerateCalls;
 				expect(calls[0].maxOutputTokens).to.equal(25);
 				// @ts-expect-error Invalid schema input is also rejected at runtime.
-				await rejects(() => component.run({ context: { topic: 1 } }), /Input context validation failed/);
+				await rejects(() => component.run({ context: { topic: 1 } }), /Application input validation failed/);
 				// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
-				await rejects(() => component.run({}), /context object is required/);
+				await rejects(() => component.run({ context: { topic: undefined } }), /Application input validation failed/);
 				expect(calls).to.have.length(1);
-				const second = await component({ topic: 'Next' });
+				const second = await call({ topic: 'Next' });
 				if ('partialObjectStream' in second) await collect(second.partialObjectStream);
 				expect(await second.object).to.deep.equal({ answer: 4 });
 				expect(validations).to.equal(2);
@@ -217,14 +236,15 @@ describe('LLM component contracts without providers', () => {
 				const model = mockModel(answer);
 				const messages: ModelMessage[] = [{ role: 'user', content: [{ type: 'text', text: 'Static instructions.' }] }];
 				const history: ModelMessage[] = [{ role: 'assistant', content: 'Earlier reply.' }];
-				const common = { model, schema, messages, context: { topic: 'Configured' } };
+				const common = { model, schema, messages, inputSchema: z.object({ topic: z.string() }), context: { topic: 'Configured' } };
 				const template = { ...common, prompt: 'Original {{ topic }}' };
 				const script = { ...common, prompt: 'return "Original " ~ topic' };
 				const component = promptType === 'template'
 					? streaming ? create.ObjectStreamer.withTemplate(template) : create.ObjectGenerator.withTemplate(template)
 					: streaming ? create.ObjectStreamer.withScript(script) : create.ObjectGenerator.withScript(script);
+				const call = component as (...args: unknown[]) => ReturnType<typeof component>;
 				const prompt = promptType === 'template' ? 'Override {{ topic }}' : 'return "Override " ~ topic';
-				const result = await component(prompt, history, { topic: 'Runtime' });
+				const result = await call(prompt, history, { topic: 'Runtime' });
 				if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 				expect(await result.object).to.deep.equal({ answer: 4 });
 				expect(await result.value).to.equal(await result.object);
@@ -351,13 +371,14 @@ describe('LLM component contracts without providers', () => {
 				return `return "${name} " ~ topic`;
 			} };
 			const model = mockModel(answer);
-			const config = { model, loader, prompt: 'default', context: { topic: 'Configured' } };
+			const config = { model, loader, prompt: 'default', inputSchema: z.object({ topic: z.string() }), context: { topic: 'Configured' } };
 			const component = factoryName === 'TextGenerator' ? create.TextGenerator.loadsScript(config)
 				: factoryName === 'TextStreamer' ? create.TextStreamer.loadsScript(config)
 					: factoryName === 'ObjectGenerator' ? create.ObjectGenerator.loadsScript({ ...config, schema })
 						: create.ObjectStreamer.loadsScript({ ...config, schema });
+			const call = component as (...args: unknown[]) => ReturnType<typeof component>;
 			const results = [
-				await component({ topic: 'First' }),
+				await call({ topic: 'First' }),
 				await component.run({ prompt: 'override', context: { topic: 'Runtime' } }),
 				await component(),
 			];
@@ -384,7 +405,7 @@ describe('LLM component contracts without providers', () => {
 				},
 			});
 			const model = mockModel(answer);
-			const config = { model, inputSchema, prompt: (context: Record<string, number>) => {
+			const config = { model, inputSchema, prompt: (context: { value: number }) => {
 				events.push('prompt');
 				return `Value ${context.value}`;
 			} };
@@ -393,14 +414,14 @@ describe('LLM component contracts without providers', () => {
 					: factoryName === 'ObjectGenerator' ? create.ObjectGenerator.withFunction({ ...config, schema })
 						: create.ObjectStreamer.withFunction({ ...config, schema });
 			const pending = component({ value: 2 });
-			expect(events).to.deep.equal(['validate']);
+			expect(events).not.to.include('prompt');
 			const result = await pending;
 			if ('partialObjectStream' in result) await collect(result.partialObjectStream);
 			else if ('text' in result) await result.text;
 			if ('object' in result) expect(result.value).to.equal(result.object);
 			expect(events).to.deep.equal(['validate', 'prompt']);
 			// @ts-expect-error Invalid schema input is also rejected at runtime.
-			await rejects(() => component.run({ context: { value: 'invalid' } }), /Input context validation failed/);
+			await rejects(() => component.run({ context: { value: 'invalid' } }), /Application input validation failed/);
 			expect(events).to.deep.equal(['validate', 'prompt', 'validate']);
 			expect(promptCalls(model, factoryName.endsWith('Streamer'))).to.have.length(1);
 		});
@@ -464,18 +485,18 @@ describe('LLM component contracts without providers', () => {
 	for (const object of [false, true]) {
 		it(`should forward tool execution metadata by identity for ${object ? 'object' : 'text'} generators`, async () => {
 			const options = { toolCallId: 'metadata', messages: [{ role: 'user' as const, content: 'Tool conversation.' }], abortSignal: new AbortController().signal, context: undefined };
-			const input = { value: 2, _toolCallOptions: { toolCallId: 'spoofed' } };
-			const inputSchema = z.object({ value: z.number() }).passthrough();
+			const input = { value: 2, _toolOptions: { toolCallId: 'spoofed' } };
+			const inputSchema = z.object({ value: z.number() });
 			const model = mockModel(object ? answer : 'DONE');
 			const config = { model, inputSchema, description: 'Metadata tool', context: { prefix: 'Configured' }, prompt: (context: Record<string, unknown>) => {
-				expect(context._toolCallOptions).to.equal(options);
+				expect(context._toolOptions).to.deep.equal({ toolCallId: options.toolCallId, messages: options.messages, ...('abortSignal' in options ? { abortSignal: options.abortSignal } : {}) });
 				return `${String(context.prefix)} ${String(context.value)}`;
 			} };
 			const tool = object ? create.ObjectGenerator.withFunction.asTool({ ...config, schema }) : create.TextGenerator.withFunction.asTool(config);
 			expect(await tool.execute(input, options)).to.deep.equal(object ? { answer: 4 } : 'DONE');
 			expect(tool.description).to.equal('Metadata tool');
-			expect(tool.inputSchema).to.equal(inputSchema);
-			expect(input._toolCallOptions.toolCallId).to.equal('spoofed');
+			expect(tool.config.inputSchema).to.equal(inputSchema);
+			expect(input._toolOptions.toolCallId).to.equal('spoofed');
 			expect(promptCalls(model, false)).to.deep.equal([[
 				{ role: 'user', content: [{ type: 'text', text: 'Configured 2' }] },
 			]]);

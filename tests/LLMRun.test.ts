@@ -37,7 +37,7 @@ describe('LLM run overrides and repeated calls', () => {
 				const config = { model, inputSchema, context: { name: 'Configured', greeting: 'Hello' } };
 				const template = { ...config, prompt: '{{ greeting }} {{ name }}' };
 				const script = { ...config, prompt: 'return greeting ~ " " ~ name' };
-				const functionConfig = { ...config, prompt: ({ greeting, name }: Record<string, string>) => `${greeting} ${name}` };
+				const functionConfig = { ...config, prompt: ({ greeting, name }: { greeting: string; name: string }) => `${greeting} ${name}` };
 				const component = promptType === 'template'
 					? streaming ? create.TextStreamer.withTemplate(template) : create.TextGenerator.withTemplate(template)
 					: promptType === 'script'
@@ -52,9 +52,9 @@ describe('LLM run overrides and repeated calls', () => {
 				expect(await (await invoke({ name: 'Bob' })).text).to.equal('OK');
 				expect(validations).to.equal(2);
 				// @ts-expect-error Invalid schema input is also rejected at runtime.
-				await rejects(() => component.run({ context: { name: 123 } }), /Input context validation failed/);
+				await rejects(() => component.run({ context: { name: 123 } }), /Application input validation failed/);
 				// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
-				await rejects(() => component.run({}), /context object is required|Input context validation failed/);
+				await rejects(() => component.run({ context: { name: undefined } }), /context object is required|Application input validation failed/);
 				expect(component.config.context.name).to.equal('Configured');
 			});
 		}

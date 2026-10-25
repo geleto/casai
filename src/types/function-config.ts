@@ -1,8 +1,21 @@
-import type { ToolExecutionOptions } from 'ai';
+import type { ApplicationShape, CollectedResult, ExecutionContext, ToolExecutionContext } from './application.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
 import type * as types from './types.js';
 import type * as configs from './config.js';
 import type { DeclaredType, ToolContextFromConfig } from './config.js';
+import type { ResolvedConfig } from './provisional.js';
+
+// Specialize required/optional inference before checking a call. An optional
+// inference slot alone removes explicit undefined from conditional schemas.
+// Factories intersect specializations so each generic signature is defined once.
+export type InputSchemaSetting<S, Required extends boolean> = Required extends true
+	? { inputSchema: S } : { inputSchema?: S };
+
+// Optional properties in annotated configs declare a schema contract. A present
+// property whose value can be undefined still describes a conditional schema.
+export type DeclaredSchemaValue<A, K extends PropertyKey, S, D = ResolvedConfig<A>> =
+	K extends keyof D ? EmptyMap extends Pick<D, K>
+		? [NonNullable<S>] extends [never] ? undefined : NonNullable<S> : S : S;
 
 type PropertyType<T, K extends PropertyKey> = K extends keyof T ? T[K] : undefined;
 // A required present branch preserves undefined in values supplied to context.
@@ -20,43 +33,19 @@ type ConfiguredContextOf<T> = Extract<PropertyType<T, 'context'>, Record<string,
 export type ExecuteOf<T> = Extract<PropertyType<T, 'execute'>, (...args: any) => any>;
 
 // A parent's optional schema keys state its contract, so they merge as present.
-type DeclaredKeys = 'schema' | 'contextSchema';
-export type DeclaredConfig<T> = Omit<T, DeclaredKeys> & { [K in DeclaredKeys & keyof T]: DeclaredType<T, K> };
+// Normalize each alternative separately; Omit on the union would erase branch-only settings.
+type DeclaredKeys = 'schema' | 'toolContextSchema';
+export type DeclaredConfig<T> = T extends unknown ? Omit<T, DeclaredKeys> & { [K in DeclaredKeys & keyof T]: DeclaredType<T, K> } : never;
 
-type OpenInput = Record<string, any>;
-type ContextKeys<T> = [NonNullable<ContextOf<T>>] extends [never] ? never : keyof NonNullable<ContextOf<T>>;
+export type DeclaredInput<T, AsTool extends boolean = false> = AsTool extends true ? ToolExecutionContext<T> : ExecutionContext<T>;
+export type CallInput<T> = ApplicationShape<T>;
 
-// Without an input schema, execute's own parameter defines the input; an untyped one leaves it open.
-// The wrapper always merges an object, so optional/nullable callback parameters still require their fields.
-type ExecuteInput<T> = ExecuteOf<T> extends (input: infer INPUT, ...args: any) => any
-	? unknown extends INPUT ? OpenInput : [NonNullable<INPUT>] extends [never] ? OpenInput : NonNullable<INPUT>
-	: OpenInput;
-
-type InputWithoutContext<INPUT, KEYS extends PropertyKey> = INPUT extends unknown ? Omit<INPUT, KEYS> : never;
-type ExecuteCallInput<INPUT, KEYS extends PropertyKey> = INPUT extends unknown
-	? Omit<INPUT, KEYS> & Partial<Pick<INPUT, KEYS & keyof INPUT>> : never;
-
-type SchemaInput<TInputSchema, T, AsTool extends boolean = false> = TInputSchema extends types.SchemaType<any>
-	? AsTool extends true ? types.InferSchema<TInputSchema> : types.InferContextInputSchema<TInputSchema>
-	: InputWithoutContext<ExecuteInput<T>, ContextKeys<T>>;
-
-// What execute receives: the schema input or, without a schema, the input execute declares, plus configured context.
-export type DeclaredInput<T, AsTool extends boolean = false> = types.InputWithContext<SchemaInput<InputSchemaOf<T>, T, AsTool>, ContextOf<T>, InputSchemaOf<T>, AsTool extends true ? false : true>;
-
-// What callers pass: the schema input or, without a schema, what execute needs; configured fields become optional.
-type SchemaCallInput<TInputSchema, T> = TInputSchema extends types.SchemaType<any>
-	? types.InputWithContext<types.InferContextInputSchema<TInputSchema>, ContextOf<T>, TInputSchema, true, true>
-	: ExecuteCallInput<ExecuteInput<T>, ContextKeys<T>>;
-export type CallInput<T> = SchemaCallInput<InputSchemaOf<T>, T>;
-
-type DeclaredOutput<TOutputSchema> = TOutputSchema extends types.SchemaType<any>
-	? PromiseLike<types.InferInputSchema<TOutputSchema, any>> | types.InferInputSchema<TOutputSchema, any>
-	: unknown;
+type DeclaredOutput<S, Present = Exclude<S, undefined>> = [Present] extends [never] ? unknown
+	: PromiseLike<types.InferInputSchema<Present, any>> | types.InferInputSchema<Present, any>;
 
 // The execute a config defines through its declared schemas and context.
 export type DeclaredExecute<T> = (
-	input: DeclaredInput<T, true>,
-	options: ToolExecutionOptions<NoInfer<ToolContextFromConfig<T>>>,
+	input: DeclaredInput<T, true>
 ) => DeclaredOutput<OutputSchemaOf<T>>;
 
 export type DeclaredFunctionExecute<T> = (input: DeclaredInput<T>) => DeclaredOutput<OutputSchemaOf<T>>;
@@ -72,11 +61,14 @@ type ChildDeclarations<TInputSchema, TOutputSchema, CONTEXT, TContextSchema> =
 	& ([TInputSchema] extends [never] ? EmptyMap : { inputSchema: TInputSchema })
 	& ([TOutputSchema] extends [never] ? EmptyMap : { schema: TOutputSchema })
 	& ([CONTEXT] extends [undefined] ? EmptyMap : { context: CONTEXT })
-	& ([TContextSchema] extends [never] ? EmptyMap : { contextSchema: TContextSchema });
+	& ([TContextSchema] extends [never] ? EmptyMap : { toolContextSchema: TContextSchema });
 
 // The schemas and context a child's inline execute sees before the child config itself is inferred.
-export type ChildDefinition<TParentDefinition, TInputSchema, TOutputSchema, CONTEXT, TContextSchema> =
-	MergedConfig<Omit<TParentDefinition, 'execute'>, ChildDeclarations<TInputSchema, TOutputSchema, CONTEXT, TContextSchema>>;
+export type ChildDefinition<TParentDefinition, TInputSchema, TOutputSchema, CONTEXT, TContextSchema, Actual = EmptyMap> =
+	TParentDefinition extends unknown ? MergedConfig<Omit<TParentDefinition, 'execute'>, ChildDeclarations<
+		DeclaredSchemaValue<Actual, 'inputSchema', TInputSchema>,
+		DeclaredSchemaValue<Actual, 'schema', TOutputSchema>, CONTEXT,
+		DeclaredSchemaValue<Actual, 'toolContextSchema', TContextSchema>>> : never;
 
 // Without an input schema, callback annotations define input fields beyond configured context.
 interface BivariantFunctionExecuteContext<T> {
@@ -90,16 +82,16 @@ export type FunctionExecuteContext<T, TActual = EmptyMap> = InputSchemaOf<T> ext
 	? { execute?: (input: DeclaredInput<T>) => DeclaredOutput<OutputSchemaOf<T>> }
 	: BivariantFunctionExecuteContext<MergedConfig<T, Pick<TActual, 'execute' & keyof TActual>>>;
 
-export interface ToolExecuteContext<T> {
-	execute?: (input: DeclaredInput<T, true>, options: ToolExecutionOptions<NoInfer<ToolContextFromConfig<T>>>) => DeclaredOutput<OutputSchemaOf<T>>;
-}
+export type ToolExecuteContext<T> = {
+	execute?: (input: DeclaredInput<T, true>) => DeclaredOutput<OutputSchemaOf<T>>;
+} & configs.ToolProperties<types.InferSchema<InputSchemaOf<T>>, CollectedResult<T>, ToolContextFromConfig<T>>;
 
 // A reusable fragment may become an ordinary Function or an SDK tool. Explicit callback
 // annotations select one contract; the consuming factory checks that choice after merging.
 type FragmentExecute<T> = {
-	callback(input: DeclaredInput<T> | DeclaredInput<T, true>, options: ToolExecutionOptions<ToolContextFromConfig<T>>): DeclaredOutput<OutputSchemaOf<T>>;
+	callback(input: DeclaredInput<T> | DeclaredInput<T, true>): DeclaredOutput<OutputSchemaOf<T>>;
 }['callback'];
 
 export type FragmentExecuteContext<T, TActual = EmptyMap,
 	TResolved = MergedConfig<T, Pick<TActual, 'execute' & keyof TActual>>,
-> = 'contextSchema' extends keyof T ? ToolExecuteContext<TResolved> : { execute?: FragmentExecute<TResolved> };
+> = 'toolContextSchema' extends keyof T ? ToolExecuteContext<TResolved> : { execute?: FragmentExecute<TResolved> } & Pick<configs.ToolProperties<any, any, ToolContextFromConfig<TResolved>>, 'description'>;

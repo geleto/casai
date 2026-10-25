@@ -31,7 +31,7 @@ export class TemplateEngine<
 		}
 
 		try {
-			const options = { ...this.config.options, autoescape: this.config.options?.autoescape ?? false };
+			const options = { ...this.config.renderOptions, autoescape: this.config.renderOptions?.autoescape ?? false };
 			const loader = (this.config.loader as types.CascadaLoaders | undefined) ?? null;
 			this.env = new cascada.AsyncEnvironment(loader, options);
 
@@ -67,9 +67,7 @@ export class TemplateEngine<
 		}
 
 		try {
-			const mergedContext = contextOverride
-				? { ...this.config.context ?? {}, ...contextOverride }
-				: this.config.context ?? {};
+			const mergedContext = contextOverride ?? {};
 
 			if ('debug' in this.config && this.config.debug) {
 				console.log('[DEBUG] TemplateEngine.render - merged context:', mergedContext);

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect } from 'chai';
 import { MockLanguageModelV3 } from 'ai/test';
 import { create, ConfigError, z } from './cascada';
@@ -6,6 +7,28 @@ describe('Config validation', () => {
 	const model = new MockLanguageModelV3();
 	const schema = z.object({ value: z.number() });
 	const inputSchema = z.object({ name: z.string() });
+
+	it('rejects obsolete object generation mode in fragments, factories and inherited settings', () => {
+		for (const mode of ['auto', 'json', 'tool', undefined]) {
+			const settings = { model, schema, prompt: 'Answer.', mode };
+			for (const construct of [
+				() => create.Config(settings as never),
+				() => create.ObjectGenerator(settings as never),
+				() => create.ObjectStreamer(settings as never),
+				() => create.ObjectGenerator({} as never, { config: settings } as never),
+				() => create.ObjectStreamer({} as never, { config: settings } as never),
+			]) expect(construct).to.throw(ConfigError, "'mode' is not supported");
+		}
+	});
+
+	it('rejects obsolete object generation mode in run settings', async () => {
+		const generator = create.ObjectGenerator({ model, schema, prompt: 'Answer.' });
+		const streamer = create.ObjectStreamer({ model, schema, prompt: 'Answer.' });
+		await assert.rejects(generator.run({ mode: 'tool' } as never), { name: 'ConfigError', message: /'mode' is not supported/ });
+		expect(() => streamer.run({ mode: 'json' } as never)).to.throw(ConfigError, "'mode' is not supported");
+		expect(model.doGenerateCalls).to.have.length(0);
+		expect(model.doStreamCalls).to.have.length(0);
+	});
 
 	describe('Partial configurations', () => {
 		it('should identify Functions and Scripts before their shared output schema', async () => {
@@ -26,8 +49,6 @@ describe('Config validation', () => {
 			const shared = create.Config({ model });
 			expect(create.TextGenerator({ prompt: 'Answer.' }, shared)).to.be.a('function');
 			expect(create.ObjectGenerator({ schema, prompt: 'Answer.' }, shared)).to.be.a('function');
-			const objectSettings = create.Config({ model, mode: 'json' });
-			expect(create.ObjectGenerator({ schema, prompt: 'Answer.' }, objectSettings)).to.be.a('function');
 		});
 
 		for (const [output, makeFragment] of [
@@ -86,7 +107,6 @@ describe('Config validation', () => {
 			{ name: 'script and execute', config: { script: 'return 1', execute: () => 1 }, error: /script.*Function/ },
 			{ name: 'model and execute', config: { model, execute: () => 1 }, error: /model.*Function/ },
 			{ name: 'output and execute', config: { output: 'array', execute: () => 1 }, error: /output.*Function/ },
-			{ name: 'tools and execute', config: { tools: {}, execute: () => 1 }, error: /tools.*Function/ },
 			{ name: 'template and script', config: { template: 'Hello', script: 'return 1' }, error: /both 'template' and 'script'/ },
 			{ name: 'template and model', config: { template: 'Hello', model }, error: /model.*Template/ },
 			{ name: 'template and schema', config: { template: 'Hello', schema }, error: /schema.*Template/ },
@@ -94,8 +114,6 @@ describe('Config validation', () => {
 			{ name: 'script and output', config: { script: 'return 1', output: 'array' }, error: /output.*Script/ },
 			{ name: 'object output and tools', config: { output: 'array', tools: {} }, error: /tools.*Object/ },
 			{ name: 'model/schema and tools', config: { model, schema, tools: {} }, error: /tools.*Object/ },
-			{ name: 'shared schema and tools', config: { schema, tools: {} }, error: /any single component/ },
-			{ name: 'shared schema and tool contexts', config: { schema, toolsContext: {} }, error: /any single component/ },
 		];
 		for (const { name, config, error } of conflicts) {
 			it(`should reject ${name} in standalone and inherited fragments`, () => {
@@ -110,7 +128,7 @@ describe('Config validation', () => {
 			expect(() => create.Config({ execute: () => 1 } as never, template)).to.throw(ConfigError, /template.*Function/);
 			expect(() => create.Config({ template: 'Hello' } as never, fn)).to.throw(ConfigError, /template.*Function/);
 			const shared = create.Config({ schema });
-			expect(() => create.Config({ tools: {} } as never, shared)).to.throw(ConfigError, /any single component/);
+			expect(() => create.Config({ tools: {} }, shared)).not.to.throw();
 		});
 
 		it('should enforce the same compatibility rules in concrete factories', () => {
@@ -128,8 +146,6 @@ describe('Config validation', () => {
 			{ name: 'unknown output mode', config: { output: 'invalid' }, error: /Invalid 'output' mode/ },
 			{ name: 'non-array enum', config: { enum: 'YES' }, error: /enum.*string array/ },
 			{ name: 'non-string enum entries', config: { output: 'enum', enum: ['YES', 42] }, error: /enum.*string array/ },
-			{ name: 'non-object Template input schema', config: { template: 'Hello', inputSchema: z.string() }, error: /inputSchema.*Zod object/ },
-			{ name: 'non-object Script input schema', config: { script: 'return 1', inputSchema: z.string() }, error: /inputSchema.*Zod object/ },
 			{ name: 'non-array messages', config: { messages: 'Hello' }, error: /invalid message objects/ },
 			{ name: 'null messages', config: { messages: null }, error: /invalid message objects/ },
 			{ name: 'invalid message content', config: { messages: [{ role: 'user', content: 42 }] }, error: /invalid message objects/ },

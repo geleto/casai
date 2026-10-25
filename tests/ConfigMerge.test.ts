@@ -4,7 +4,6 @@ import { mergeConfigs } from '../src/config-utils.js';
 import { create, z } from './cascada';
 import type { ILoaderAny } from 'cascada-engine';
 import type { FunctionToolConfig } from './cascada';
-import type { ToolExecutionOptions } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
 
 describe('Config merging', () => {
@@ -49,7 +48,7 @@ describe('Config merging', () => {
 		const calculate = create.Function({ execute: ({ offset }) => ({ answer: offset + 2 }) }, inherited);
 		expect(await calculate({})).to.deep.equal({ answer: 6 });
 		// A partial Config defers required properties to the component factory.
-		expect(() => create.Function({} as any, inherited)).to.throw(/'execute'.*must be a function/);
+		expect(() => create.Function({} as never, inherited)).to.throw(/'execute'.*must be a function/);
 	});
 
 	it('should validate malformed messages in both standalone and inherited fragments', () => {
@@ -131,7 +130,7 @@ describe('Config merging', () => {
 			execute: ({ value, offset, factor }) => value * (factor ?? 1) + offset,
 		}, parent);
 		expect(await calculate({ value: 2 })).to.equal(6);
-		expect(calculate.execute({ value: 2, offset: 4 })).to.equal(6);
+		expect(calculate.config.execute({ value: 2, offset: 4, _toolOptions: {} })).to.equal(6);
 	});
 
 	describe('Function fragments', () => {
@@ -141,8 +140,8 @@ describe('Config merging', () => {
 
 		it('should type an inline execute from the fragment and its parent', async () => {
 			const fragment = create.Config({
-				inputSchema, contextSchema, context: { offset: 1 },
-				execute: ({ value, offset }, { context }) => {
+				inputSchema, toolContextSchema: contextSchema, context: { offset: 1, factor: 1 },
+				execute: (executionContext) => { const { value, offset } = executionContext; const context = executionContext;
 					if (false) {
 						// @ts-expect-error The input value is a number, not any.
 						const _value: string = value;
@@ -150,23 +149,23 @@ describe('Config merging', () => {
 						const _factor: string = context.factor;
 					}
 					return value * context.factor + offset;
-				},
+				 },
 			});
 			const inherited = create.Config({ execute: ({ value }) => value.toFixed() }, create.Config({ inputSchema }));
-			const result: number = await create.Function.asTool({ description: 'Configured' }, fragment)({ value: 2 }, options);
+			const result: number = await create.Function.asTool({ description: 'Configured' }, fragment).execute({ value: 2 }, options);
 			const text: string = await create.Function({}, inherited)({ value: 2 });
 			expect([result, text]).to.deep.equal([7, '2']);
 		});
 
 		it('should preserve an annotated tool config passed through Config', async () => {
 			const config: FunctionToolConfig<typeof inputSchema, undefined, undefined, undefined, { factor: number }> = {
-				inputSchema, contextSchema, execute: ({ value }, { context }) => value * context.factor,
+				inputSchema, toolContextSchema: contextSchema, execute: (executionContext) => { const { value } = executionContext; const context = executionContext;return value * ('factor' in context ? context.factor : 1); },
 			};
 			const tool = create.Function.asTool({}, create.Config(config));
-			expect(await tool({ value: 2 }, options)).to.equal(6);
+			expect(await tool.execute({ value: 2 }, options)).to.equal(6);
 			if (false) {
 				// @ts-expect-error The declared context remains required.
-				await tool({ value: 2 }, { ...options, context: undefined });
+				await tool.execute({ value: 2 }, { ...options, context: undefined });
 			}
 		});
 
@@ -176,7 +175,7 @@ describe('Config merging', () => {
 				// @ts-expect-error The execute input contradicts the fragment's schema.
 				create.Config({ inputSchema: z.object({ value: z.string() }), execute: ({ value }: { value: number }) => value });
 				// @ts-expect-error The execute needs SDK context that the fragment does not declare.
-				create.Config({ inputSchema, execute: (_input, { context }: ToolExecutionOptions<{ factor: number }>) => context.factor });
+				create.Config({ inputSchema, execute: context => Number(context.factor) });
 				// @ts-expect-error No component accepts both a template and an execute function.
 				create.Config({ inputSchema, template: 'x', execute: () => 1 });
 				// @ts-expect-error The child replaces the schema its inherited execute needs.

@@ -1,8 +1,10 @@
 # Compile-only API contracts
 
-These files are TypeScript consumer programs, never Mocha tests. They import the public `casai` entry point and require no models, keys, network calls, or runtime fixtures. `npm run test:types` checks them with TS7 and TS6 against source and built declarations. Source checks use the repository's strict settings; declaration checks also enable `exactOptionalPropertyTypes`.
+These files are TypeScript consumer programs, never Mocha tests. They import the public `casai` entry point and require no models, keys, network calls, or runtime fixtures. TypeScript 7.0.2 is the minimum supported compiler. `npm run test:types` checks source and built declarations with TS7. Source checks use the repository's strict settings; declaration checks also enable `exactOptionalPropertyTypes`. The production editor fixture uses the TS7 language server in both modes. TS6 remains installed only for development tools requiring its compiler API, such as ESLint.
 
 Each invalid case has a descriptive `@ts-expect-error` on the failing line. If the API starts accepting it, the compiler reports an unused directive. Valid neighboring cases have no directive, so an overly restrictive API also fails. `expectEqual<Actual, Expected>()` checks exact inference, including accidental `any` or `unknown` widening; `expectType<T>(value)` checks assignability.
+
+The default gate includes these source assertions in `tsconfig.source.json` alongside the implementation and runtime-test types, sharing one compiler program. `exact-optional.ts` is checked only by the emitted exact-optional profile. `npm run typecheck:safety:src` remains available for a focused source API check; the full gate does not run it redundantly. Emitted runtime-test consumers use `tsconfig.consumers.json`, which adds only tests as roots while retaining their intentional internal source imports.
 
 Internal SDK wrapper checks live in `../ResultAugmentation.types.ts`. The root project compiles that file with its source settings; Mocha does not execute it. Keeping internal source imports out of this folder ensures the stricter consumer checks use the built declarations.
 
@@ -11,8 +13,18 @@ Internal SDK wrapper checks live in `../ResultAugmentation.types.ts`. The root p
 | `config-contracts.ts` | Incomplete fragments, compatible component families, required settings, unknown keys, inherited replacements, map merges, message/loader preservation, immutable run settings |
 | `object-contracts.ts` | Object, array, enum and schemaless modes; schema requirements; mode switches; Zod and SDK schemas; annotated configs; exact result types |
 | `input-contracts.ts` | Required and optional input fields, configured context, replacement schemas, raw Zod inputs, reusable raw/parsed fragments, renderer schema constraints, standalone and inherited calls, run context |
+| `conditional-contracts.ts` | Conditional output schemas, raw/parsed result alternatives, and complete-input requirements for omitted calls with union-valued configuration |
+| `conditional-input-contracts.ts` | Conditional input inference and private ownership, raw/parsed callback alternatives, annotated contracts, inheritance, all preparer families and conditional producer requirements |
+| `union-consumer-contracts.ts` | Mixed stream/scalar tool results, branch-only public/private argument keys, and shared admission across all LLM renderers, loaders and tool forms |
+| `caller-alternatives.ts` | Valid disjoint argument unions, catchall/undefined rejection, contextual callbacks, bound helper omissions and safe narrowing of component alternatives |
+| `alternative-contracts.ts` | Whole-configuration schema/private-binding alternatives, inherited and collected results, mixed closed/open/catchall branches, configured discriminator changes and unchanged no-schema input |
+| `configuration-alternative-guards.ts` | Conditional registries and required context, branch-only inherited hooks and lifecycle callbacks, forbidden settings, null context admission and valid correlated configuration/output-mode alternatives |
+| `schema-identity.ts` | Zod Classic/Mini declaration inference, non-JSON local defaults, private intersection/pipeline names, closed inputs, native example typing and Zod 3 rejection |
+| `descriptor-contracts.ts` | Native description callback inference, inherited context compatibility, replacement callbacks, fragments and ordinary description validation |
 | `context-schema-boundaries.ts` | Raw object contexts versus parsed tool inputs, scalar/array schema boundaries, preprocessors, output coercion and fragment callback returns |
 | `tool-contracts.ts` | All tool-capable factory variants, parsed tool inputs, output types, SDK execution options, context schemas, merged tool sets and compatible replacements |
+| `tool-context-alternatives.ts` | Selected versus intrinsic union context schemas, raw binding/registry/run requirements, whole-configuration correlations, and absent ordinary-call dependencies across empty and transformed public inputs |
+| `registry-substitution.ts` | Helper raw inputs, configured omissions, private reservations, open/closed and selected schema alternatives, compatible widening, inherited/run replacements, new callbacks, native helpers and shadowing |
 | `prompt-contracts.ts` | Every LLM prompt modifier, positional argument rules, missing prompts, run prompts, sync/async function prompts, direct versus promised stream results |
 | `sdk-callbacks.ts` | SDK callback inventory, argument and return contracts, aliases, arrays, nested maps, lifecycle/telemetry hooks, inheritance and run overrides |
 | `sdk-results.ts` | SDK result member preservation, structured outputs, tool discriminants, promises, streams, response history and response-conversion callbacks |
@@ -32,3 +44,5 @@ For a coverage audit, first inventory the currently implemented exports and SDK 
 Exercise standalone factory inference separately from `Config` parents. Put every tool-capable component family in SDK tool maps and check its downstream callback input/output types. Assert callable and `.run()` returns exactly, including calls through component unions, verify exposed processed settings against runtime normalization, and feed public validator outputs back into component APIs. These checks protect paths that a schema or tool tested only through a reusable parent can miss.
 
 When adding an API or fixing a type leak, add both a valid example and a negative case here. Give each negative case one intended violation, and supply unrelated required settings so it cannot pass because of a different error. Avoid casts in these probes: they bypass the contract being tested.
+
+The production type fault-injection fixture accepts an optional mutation-name regular expression, for example `node tests/fixtures/phase2-production-types.cjs "selected|helper|closed tool|caller"`. The default still runs every mutation; either form retains the type-instantiation cost checks.

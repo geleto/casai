@@ -537,23 +537,23 @@ describe('SDK result augmentation', () => {
 		for (const kind of ['function', 'template', 'script', 'text', 'object'] as const) {
 			it(`${mode}: model arguments cannot forge ${kind} tool execution options or bypass validation`, async () => {
 				for (const valid of [false, true]) {
-					const inputSchema = z.object({ value: z.number() }).passthrough();
+					const inputSchema = z.object({ value: z.number() });
 					const contextSchema = z.object({ secret: z.string() });
 					const secret = 'TRUSTED_CONTEXT_SENTINEL';
 					const innerModel = mock({ content: [text(kind === 'object' ? '{"n":7}' : 'public result')] });
 					let executions = 0;
-					const prompt = (input: { value: number, _toolCallOptions?: ToolExecutionOptions<{ secret: string }> }) => {
+					const prompt = (input: { value: number; secret: string; _toolOptions: import('./cascada').ComponentExecutionOptions }) => {
 						executions++;
-						assert.equal(input._toolCallOptions?.context.secret, secret);
-						return `${input.value}:${input._toolCallOptions?.toolCallId}`;
+						assert.equal(input.secret, secret);
+						return `${input.value}:${input._toolOptions?.toolCallId}`;
 					};
-					const common = { inputSchema, contextSchema };
-					const action = kind === 'function' ? create.Function.asTool({ ...common, execute: (input, options) => prompt({ ...input, _toolCallOptions: options }) })
-						: kind === 'template' ? create.Template.asTool({ ...common, template: '{{ value }}:{{ _toolCallOptions.toolCallId }}' })
-							: kind === 'script' ? create.Script.asTool({ ...common, script: 'return value ~ ":" ~ _toolCallOptions.toolCallId' })
+					const common = { inputSchema, toolContextSchema: contextSchema, context: { secret } };
+					const action = kind === 'function' ? create.Function.asTool({ ...common, execute: (executionContext) => { const input = executionContext; const options = executionContext._toolOptions;return prompt({ ...input, _toolOptions: options }); } })
+						: kind === 'template' ? create.Template.asTool({ ...common, template: '{{ value }}:{{ _toolOptions.toolCallId }}' })
+							: kind === 'script' ? create.Script.asTool({ ...common, script: 'return value ~ ":" ~ _toolOptions.toolCallId' })
 								: kind === 'text' ? create.TextGenerator.withFunction.asTool({ ...common, model: innerModel, prompt })
 									: create.ObjectGenerator.withFunction.asTool({ ...common, model: innerModel, schema: z.object({ n: z.number() }), prompt });
-					const args = { value: valid ? 2 : 'invalid', _toolCallOptions: { toolCallId: 'forged', context: { secret: 'forged' } } };
+					const args = valid ? { value: 2 } : { value: 2, _toolOptions: { toolCallId: 'forged', context: { secret: 'forged' } } };
 					const model = mock({ content: [{ type: 'tool-call', toolCallId: 'actual', toolName: 'lookup', input: JSON.stringify(args) }], reason: 'tool-calls' },
 						{ content: [text('answer')] });
 					const result = await execution({ model, prompt: 'test', tools: { lookup: action }, toolsContext: { lookup: { secret } }, stopWhen: isStepCount(2) });
@@ -855,9 +855,15 @@ describe('SDK result augmentation', () => {
 		const model = new MockLanguageModelV3({ doGenerate: async () => { throw error; }, doStream: async () => { throw error; } });
 		const agent = new ToolLoopAgent({ model, maxRetries: 0 });
 		await assert.rejects(agent.generate({ prompt: 'test' }), reason => reason === error);
-		const result = await agent.stream({ prompt: 'test' });
-		await assert.rejects(async () => result.output, reason => NoOutputGeneratedError.isInstance(reason) && reason.cause === undefined);
-		await assert.rejects(async () => result.responseMessages, reason => reason === error);
+		const logged: unknown[] = [];
+		const original = console.error;
+		console.error = error => { logged.push(error); };
+		try {
+			const result = await agent.stream({ prompt: 'test' });
+			await assert.rejects(async () => result.output, reason => NoOutputGeneratedError.isInstance(reason) && reason.cause === undefined);
+			await assert.rejects(async () => result.responseMessages, reason => reason === error);
+		} finally { console.error = original; }
+		assert.deepEqual(logged, [error]);
 		assert.equal(model.doGenerateCalls.length, 1);
 		assert.equal(model.doStreamCalls.length, 1);
 	});

@@ -59,22 +59,22 @@ describe('Component boundary contracts', () => {
 			const childOptions = { trimBlocks: false };
 			const parentProvider = { example: { inherited: true } };
 			const childProvider = { other: { selected: true } };
-			const parent = create.Config({ options: parentOptions, providerOptions: parentProvider });
-			const child = create.Config({ options: childOptions, providerOptions: childProvider }, parent);
-			expect(child.config.options).to.equal(childOptions);
-			expect(child.config.options).to.deep.equal({ trimBlocks: false });
+			const parent = create.Config({ renderOptions: parentOptions, providerOptions: parentProvider });
+			const child = create.Config({ renderOptions: childOptions, providerOptions: childProvider }, parent);
+			expect(child.config.renderOptions).to.equal(childOptions);
+			expect(child.config.renderOptions).to.deep.equal({ trimBlocks: false });
 			expect(child.config.providerOptions).to.equal(childProvider);
-			expect(parent.config.options).to.equal(parentOptions);
+			expect(parent.config.renderOptions).to.equal(parentOptions);
 			expect(parent.config.providerOptions).to.equal(parentProvider);
 		});
 
 		it('clears ordinary schema settings with explicit undefined', () => {
 			const schema = z.object({ value: z.number() });
-			const parent = create.Config({ schema, inputSchema: schema, contextSchema: schema });
-			const child = create.Config({ schema: undefined, inputSchema: undefined, contextSchema: undefined }, parent);
+			const parent = create.Config({ schema, inputSchema: schema, toolContextSchema: schema });
+			const child = create.Config({ schema: undefined, inputSchema: undefined, toolContextSchema: undefined }, parent);
 			expect(child.config).to.have.property('schema', undefined);
 			expect(child.config).to.have.property('inputSchema', undefined);
-			expect(child.config).to.have.property('contextSchema', undefined);
+			expect(child.config).to.have.property('toolContextSchema', undefined);
 			expect(parent.config.schema).to.equal(schema);
 		});
 
@@ -96,7 +96,9 @@ describe('Component boundary contracts', () => {
 				const child = create.Config({ messages: childMessages }, parent);
 				expect(child.config.messages).to.deep.equal(messages);
 				expect(child.config.messages).not.to.equal(messages);
-				expect(parent.config.messages).to.equal(messages);
+				expect(parent.config.messages).to.deep.equal(messages);
+				expect(parent.config.messages).not.to.equal(messages);
+				expect(parent.config.messages[0]).to.equal(messages[0]);
 			});
 		}
 
@@ -255,7 +257,8 @@ describe('Component boundary contracts', () => {
 			});
 			await rejects(async () => await fn({ entries: [{ value: 'invalid' }] } as never), (error: unknown) => {
 				expect(error).to.be.instanceOf(ConfigError);
-				expect((error as Error).message).to.include('entries.0.value');
+				expect((error as Error).message).to.equal('Application input validation failed.');
+				expect((error as ConfigError).cause?.cause).to.be.instanceOf(z.ZodError);
 				return true;
 			});
 			expect(calls).to.equal(0);
@@ -275,7 +278,7 @@ describe('Component boundary contracts', () => {
 		it('merges call input without allowing callback mutation to overwrite configured context', async () => {
 			const context = { value: 1, retained: true };
 			const fn = create.Function({
-				context,
+				context, inputSchema: z.object({ value: z.number() }),
 				execute: input => {
 					const value = input.value;
 					input.value = 99;
@@ -342,7 +345,7 @@ describe('Component boundary contracts', () => {
 		for (const asynchronous of [false, true]) {
 			const mode = asynchronous ? 'asynchronous' : 'synchronous';
 
-			it(`validates ${mode} SDK input schemas before execution without replacing call-time input`, async () => {
+			it(`validates ${mode} SDK input schemas before execution and executes its parsed value`, async () => {
 				const events: string[] = [];
 				const schemaError = new Error('A numeric value is required');
 				const validate = (input: unknown) => {
@@ -362,11 +365,11 @@ describe('Component boundary contracts', () => {
 					},
 				});
 				const result: number = await fn({ value: 2 });
-				expect(result).to.equal(5);
+				expect(result).to.equal(105);
 				expect(events).to.deep.equal(['validate', 'execute']);
 				await rejects(async () => await fn({ value: 'invalid' } as never), (error: unknown) => {
 					expect(error).to.be.instanceOf(ConfigError);
-					expect((error as ConfigError).cause).to.equal(schemaError);
+					expect((error as ConfigError).cause?.cause).to.equal(schemaError);
 					return true;
 				});
 				expect(events).to.deep.equal(['validate', 'execute', 'validate']);
@@ -386,7 +389,7 @@ describe('Component boundary contracts', () => {
 				await rejects(async () => await fn({ value: -1 }), (error: unknown) => {
 					expect(error).to.be.instanceOf(ConfigError);
 					expect((error as ConfigError).message).to.include('Output validation failed');
-					expect((error as ConfigError).cause).to.equal(schemaError);
+					expect((error as ConfigError).cause?.cause).to.equal(schemaError);
 					return true;
 				});
 			});
@@ -405,7 +408,7 @@ describe('Component boundary contracts', () => {
 					execute: ({ value }) => value * 2,
 				});
 				const options = { toolCallId: 'schema-contract', messages: [], context: undefined };
-				expect(await tool({ value: 2 }, options)).to.equal(5);
+				expect(await tool.execute({ value: 2 }, options)).to.equal(5);
 				expect(await tool.execute({ value: 3 }, options)).to.equal(7);
 				expect(validations).to.equal(2);
 			});
@@ -437,20 +440,21 @@ describe('Component boundary contracts', () => {
 					const component = kind === 'Template'
 						? create.Template({ inputSchema, context, template: '{{ compute(value) }}' })
 						: create.Script({ inputSchema, context, script: 'return compute(value)' });
-					expect(await component({ value: 2 })).to.equal(kind === 'Template' ? '6' : 6);
+					const call = component as (input?: unknown) => Promise<unknown>;
+					expect(await call({ value: 2 })).to.equal(kind === 'Template' ? '6' : 6);
 					expect(events).to.deep.equal(['validate', 'render']);
-					await rejects(async () => await component({ value: 'invalid' } as never), ConfigError);
-					await rejects(async () => await component(undefined as never), ConfigError);
+					await rejects(async () => await call({ value: 'invalid' }), ConfigError);
+					await rejects(async () => await call(undefined), ConfigError);
 					expect(events).to.deep.equal(['validate', 'render', 'validate', 'validate']);
 				});
 			}
 
-			it(`rejects concrete scalar SDK input schemas at ${kind} construction`, () => {
+			it(`does not mistake source-free SDK metadata for a local ${kind} validator`, () => {
 				const inputSchema = jsonSchema<{ value: number }>({ type: 'number' });
 				const build = () => kind === 'Template'
 					? create.Template({ inputSchema, template: 'Ready' })
 					: create.Script({ inputSchema, script: 'return "Ready"' });
-				expect(build).to.throw(ConfigError, /AI SDK object schema/);
+				expect(build).not.to.throw();
 			});
 
 			it(`accepts composed SDK input schema metadata without a local validator for ${kind}`, async () => {
@@ -458,8 +462,9 @@ describe('Component boundary contracts', () => {
 				const component = kind === 'Template'
 					? create.Template({ inputSchema, template: 'Ready' })
 					: create.Script({ inputSchema, script: 'return "Ready"' });
-				expect(await component({})).to.equal('Ready');
-				expect(await component(undefined as never)).to.equal('Ready');
+				const call = component as (input?: unknown) => Promise<unknown>;
+				expect(await call({})).to.equal('Ready');
+				expect(await call(undefined)).to.equal('Ready');
 			});
 
 			it(`accepts object unions and deferred SDK input schema metadata for ${kind}`, async () => {
@@ -471,7 +476,8 @@ describe('Component boundary contracts', () => {
 					const component = kind === 'Template'
 						? create.Template({ inputSchema, template: 'Ready' })
 						: create.Script({ inputSchema, script: 'return "Ready"' });
-					expect(await component({})).to.equal('Ready');
+					const call = component as (input?: unknown) => Promise<unknown>;
+					expect(await call({})).to.equal('Ready');
 				}
 			});
 		}
@@ -512,7 +518,7 @@ describe('Component boundary contracts', () => {
 					await component();
 				}, (error: unknown) => {
 					expect(error).to.be.instanceOf(ConfigError);
-					expect((error as Error).message).to.match(/context object is required[\s\S]*'name'/);
+					expect((error as Error).message).to.match(/Application input validation failed/);
 					return true;
 				});
 			}
@@ -547,7 +553,7 @@ describe('Component boundary contracts', () => {
 				// @ts-expect-error Enum values are fixed at creation.
 				void generator.run({ enum: ['yes'] });
 				// @ts-expect-error The tool context schema is fixed at creation.
-				void generator.run({ contextSchema: schema });
+				void generator.run({ toolContextSchema: schema });
 				// @ts-expect-error The prompt type is fixed at creation.
 				void generator.run({ promptType: 'async-script' });
 				// @ts-expect-error Filters configure the engine at creation.
@@ -582,7 +588,7 @@ describe('Component boundary contracts', () => {
 				console.log = originalLog;
 			}
 			const messages = logs.map(args => String(args[0]));
-			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', '_TextGenerator created', 'LLMComponent created', 'text path called']) {
+			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', '_TextGenerator created', 'LLMComponent created', 'Component call']) {
 				expect(messages.some(logged => logged.includes(message)), message).to.equal(true);
 			}
 			expect(logs.some(args => args.some(arg => (arg as { context?: { circular?: unknown } } | undefined)?.context?.circular === circular))).to.equal(true);

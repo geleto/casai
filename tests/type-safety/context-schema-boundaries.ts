@@ -23,13 +23,10 @@ const arrayFragment = create.Config({ inputSchema: arrayInput, execute: () => 1 
 create.Function({}, scalarFragment);
 // @ts-expect-error Inherited raw array schemas remain unsupported by ordinary Function.
 create.Function({}, arrayFragment);
-const parsedScalarTool = create.Function.asTool({}, scalarFragment);
-const parsedArrayTool = create.Function.asTool({}, arrayFragment);
-void parsedScalarTool.execute({ value: 'parsed' }, { toolCallId: 'call', messages: [], context: undefined });
-void parsedArrayTool.execute({ value: 'parsed' }, { toolCallId: 'call', messages: [], context: undefined });
-// @ts-expect-error Parsed-only SDK tools still expose object input to execute.
-void parsedScalarTool.execute('raw', { toolCallId: 'call', messages: [], context: undefined });
-
+// @ts-expect-error Component tools retain the ordinary object-input caller.
+create.Function.asTool({}, scalarFragment);
+// @ts-expect-error Component tools retain the ordinary object-input caller.
+create.Function.asTool({}, arrayFragment);
 // @ts-expect-error Text function prompts dispatch an object context.
 create.TextGenerator.withFunction({ model, inputSchema: scalarInput, prompt: () => 'Input.' });
 // @ts-expect-error Text stream function prompts dispatch an object context.
@@ -46,11 +43,12 @@ create.TextGenerator.withFunction.asTool({ model, inputSchema: scalarInput, prom
 // @ts-expect-error Object function-prompt tool wrappers retain an ordinary context caller.
 create.ObjectGenerator.withFunction.asTool({ model, schema: z.object({ answer: z.number() }), inputSchema: arrayInput, prompt: () => 'Input.' });
 
-const unknownInput = z.preprocess(value => value, z.object({ value: z.string() }));
+// A declared raw object before a transform keeps public ownership discoverable.
+const unknownInput = z.object({ value: z.string() }).transform(value => value);
 const preprocessed = create.Function({ inputSchema: unknownInput, context: { prefix: 'value=' }, execute: ({ value, prefix }) => {
-	expectEqual<typeof value, unknown>();
+	expectEqual<typeof value, string>();
 	expectEqual<typeof prefix, string>();
-	return prefix + String(value);
+	return prefix + value;
 } });
 void preprocessed({ value: 'input' });
 // @ts-expect-error Unknown preprocess input still uses an object context at the component boundary.
@@ -60,9 +58,9 @@ void preprocessed(['input']);
 // @ts-expect-error Numeric preprocess input is not a component object context.
 void preprocessed(123);
 const preprocessedPrompt = create.TextGenerator.withFunction({ model, inputSchema: unknownInput, context: { prefix: 'value=' }, prompt: ({ value, prefix }) => {
-	expectEqual<typeof value, unknown>();
+	expectEqual<typeof value, string>();
 	expectEqual<typeof prefix, string>();
-	return prefix + String(value);
+	return prefix + value;
 } });
 void preprocessedPrompt({ value: 'input' });
 // @ts-expect-error Unknown preprocess input does not enable positional string function-prompt contexts.
@@ -101,12 +99,12 @@ void intersectionFunction({ left:'L' });
 void intersectionFunction({ left:'L', right:'wrong' });
 interface TreeInput {value:string;children?:TreeInput[]|undefined}
 const treeInput: z.ZodType<TreeInput, TreeInput> = z.lazy(()=>z.object({ value:z.string(), children:z.array(treeInput).optional() }));
-const treeFunction = create.Function({ inputSchema:treeInput, execute:input=>{expectEqual<typeof input, TreeInput>();return input.value;} });
+const treeFunction = create.Function({ inputSchema:treeInput, execute:input=>{expectEqual<typeof input.value, string>();return input.value;} });
 void treeFunction({ value:'root', children:[{ value:'child' }] });
 // @ts-expect-error Recursive input schemas retain nested field types.
 void treeFunction({ value:'root', children:[{ value:123 }] });
 const defaultInput = z.object({ value:z.number().default(1) });
-const defaultFunction = create.Function({ inputSchema:defaultInput, execute:({ value })=>{expectEqual<typeof value, number|undefined>();return value ?? 0;} });
+const defaultFunction = create.Function({ inputSchema:defaultInput, execute:({ value })=>{expectEqual<typeof value, number>();return value ?? 0;} });
 void defaultFunction();
 void defaultFunction({});
 // @ts-expect-error Defaulted raw fields may be omitted but present values stay numeric.

@@ -25,7 +25,7 @@ void template();
 const _wrongTemplate: TemplateConfig<{ name: string }> = { template: '{{ name }}', inputSchema: z.object({ name: z.number() }) };
 
 const templateToolConfig: TemplateToolConfig<{ name: string }, { tenant: string }> = {
-	template: '{{ name }}', inputSchema, contextSchema,
+	template: '{{ name }}', inputSchema, toolContextSchema: contextSchema,
 };
 const templateTool = create.Template.asTool(templateToolConfig);
 declare const executionOptions: ToolExecutionOptions<{ tenant: string }>;
@@ -50,7 +50,7 @@ expectType<Promise<{ length: string }>>(script('return { length: name.length }',
 const _wrongScript: ScriptConfig<{ name: string }, { length: number }> = { schema: z.object({ length: z.string() }) };
 
 const scriptToolConfig: ScriptToolConfig<{ name: string }, { length: number }, { tenant: string }> & { script: string, schema: typeof schema } = {
-	script: 'return { length: name.length }', inputSchema, schema, contextSchema,
+	script: 'return { length: name.length }', inputSchema, schema, toolContextSchema: contextSchema,
 };
 const scriptTool = create.Script.asTool(scriptToolConfig);
 expectType<PromiseLike<{ length: number }>>(scriptTool.execute({ name: 'Ada' }, executionOptions));
@@ -104,10 +104,10 @@ expectEqual<Awaited<ReturnType<typeof _enumGenerator>>['object'], 'short' | 'lon
 // @ts-expect-error Annotated enum choices must remain in the declared output union.
 const _wrongEnumConfig: GenerateObjectEnumConfig<never, 'short' | 'long'> = { model, output: 'enum', enum: ['other'] };
 
-const noSchemaConfig: GenerateObjectNoSchemaConfig<never> = { model, output: 'no-schema', mode: 'json' };
+const noSchemaConfig: GenerateObjectNoSchemaConfig<never> = { model, output: 'no-schema' };
 const _noSchema = create.ObjectGenerator(noSchemaConfig);
 expectEqual<Awaited<ReturnType<typeof _noSchema>>['object'], JSONValue>();
-// @ts-expect-error Annotated schemaless generation cannot use tool mode.
+// @ts-expect-error Annotated configurations do not expose the removed mode setting.
 const _wrongNoSchemaConfig: GenerateObjectNoSchemaConfig<never> = { model, output: 'no-schema', mode: 'tool' };
 
 const objectStreamConfig: StreamObjectObjectConfig<never, { length: number }> = { model, schema };

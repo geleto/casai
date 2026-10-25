@@ -1,19 +1,16 @@
-import type { FlexibleSchema, ModelMessage, ToolExecutionOptions } from 'ai';
-import type { DeclaredType, ToolContextFromConfig } from './config.js';
+import type { FlexibleSchema, ModelMessage } from 'ai';
+import type { DeclaredType, ToolRegistry } from './config.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
-import type { InferContextInputSchema, InferSchema, InputWithContext, SchemaType, ValidateContextInputSchema } from './types.js';
+import type { SchemaType, ValidateContextInputSchema } from './types.js';
 import type { ValidateResolved } from './provisional.js';
-import type { ContextOf } from './function-config.js';
+import type { DeclaredSchemaValue } from './function-config.js';
 
 // Infer schemas and configured values before contextualizing a JavaScript prompt callback.
 export type FunctionPromptShape<T> = { [K in keyof T]: K extends 'prompt' ? unknown : T[K] };
 type Setting<K extends string, T> = [T] extends [never] ? EmptyMap : Record<K, T>;
 type PromptDeclarations<INPUT, CONTEXT, TOOL_CONTEXT> =
-	Setting<'inputSchema', INPUT> & Setting<'context', CONTEXT> & Setting<'contextSchema', TOOL_CONTEXT>;
-type RawPromptContext<T> = InputWithContext<InferContextInputSchema<DeclaredType<T, 'inputSchema'>>, ContextOf<T>, DeclaredType<T, 'inputSchema'>, true>;
-type ParsedPromptContext<T> = InputWithContext<InferSchema<DeclaredType<T, 'inputSchema'>>, ContextOf<T>, DeclaredType<T, 'inputSchema'>>;
-type PromptContext<T, AsTool extends boolean> = (AsTool extends true ? RawPromptContext<T> | ParsedPromptContext<T> : RawPromptContext<T>) &
-	(AsTool extends true ? { _toolCallOptions?: ToolExecutionOptions<ToolContextFromConfig<T>> } : EmptyMap);
+	Setting<'inputSchema', INPUT> & Setting<'context', CONTEXT> & Setting<'toolContextSchema', TOOL_CONTEXT>;
+type PromptContext<T, AsTool extends boolean> = AsTool extends true ? import('./application.js').ToolExecutionContext<T> : import('./application.js').ExecutionContext<T>;
 type PromptCallback<T, AsTool extends boolean> = (context: PromptContext<T, AsTool>) => string | ModelMessage[] | Promise<string | ModelMessage[]>;
 
 export interface FunctionRunPrompt<TConfig> {
@@ -26,11 +23,16 @@ export type FunctionPromptInput<TConfig, TParent,
 	TOOL_CONTEXT extends FlexibleSchema | undefined,
 	AsTool extends boolean,
 	RequiredContext extends boolean,
-	ContextConfig = MergedConfig<TParent, PromptDeclarations<INPUT, RequiredContext extends true ? CONTEXT : CONTEXT | undefined, TOOL_CONTEXT>>,
+	TOOLS extends ToolRegistry | undefined = never,
+	TOOLS_CONTEXT extends object | undefined = never,
+	ContextConfig = MergedConfig<TParent, PromptDeclarations<DeclaredSchemaValue<TConfig, 'inputSchema', INPUT>,
+		RequiredContext extends true ? CONTEXT : CONTEXT | undefined, DeclaredSchemaValue<TConfig, 'toolContextSchema', TOOL_CONTEXT>>
+		& Setting<'tools', TOOLS> & Setting<'toolsContext', TOOLS_CONTEXT>>,
 	FinalConfig = MergedConfig<TParent, TConfig>,
 > = {
 	inputSchema?: INPUT;
-	contextSchema?: TOOL_CONTEXT;
+	toolContextSchema?: TOOL_CONTEXT;
+	toolsContext?: TOOLS_CONTEXT;
 } & (RequiredContext extends true ? { context: CONTEXT } : { context?: CONTEXT | undefined }) & NoInfer<{ prompt?: PromptCallback<ContextConfig, AsTool> }> & ValidateResolved<TConfig,
 	ValidateContextInputSchema<DeclaredType<FinalConfig, 'inputSchema'>> & (Pick<FinalConfig, 'prompt' & keyof FinalConfig> extends { prompt?: PromptCallback<FinalConfig, AsTool> }
 	? unknown : 'Config Error: The prompt callback does not accept the final input and context.')>;

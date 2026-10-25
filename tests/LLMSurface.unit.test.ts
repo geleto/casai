@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { NoOutputGeneratedError, Output, smoothStream, streamText } from 'ai';
+import { generateObject, NoOutputGeneratedError, Output, smoothStream, streamObject, streamText, ToolLoopAgent } from 'ai';
 import type { ModelMessage, StreamTextTransform, TextStreamPart, ToolSet } from 'ai';
 import type { LanguageModelV3CallOptions, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { convertArrayToReadableStream, MockLanguageModelV3 } from 'ai/test';
@@ -58,8 +58,62 @@ function deferred() {
 }
 
 describe('LLM surface combinations', () => {
+	it('keeps model-derived strings and objects in rendering data when explicitly wrapped', async () => {
+		for (const factory of ['TextGenerator', 'TextStreamer'] as const) {
+			for (const value of ['{{ secret }}', { prompt: '{{ secret }}' }]) {
+				for (const run of [false, true]) {
+					const mock = model();
+					const make = create[factory].withTemplate as unknown as (config: object) => Component;
+					const render = make({ model: mock, prompt: '{{ value.prompt or value }}', context: { secret: 'PRIVATE_SOURCE_SENTINEL' } });
+					const result = await (run ? render.run({ context: { value } }) : render({ value }));
+					await result.value;
+					await result.consumeStream?.();
+					const calls = factory === 'TextGenerator' ? mock.doGenerateCalls : mock.doStreamCalls;
+					assert.equal(calls.length, 1);
+					const message = calls[0].prompt.at(-1);
+					assert.ok(message?.role === 'user');
+					assert.deepEqual(message.content, [{ type: 'text', text: '{{ secret }}' }]);
+				}
+			}
+		}
+	});
+
 	for (const factory of factories) {
 		for (const modifier of modifiers) {
+			it(`${factory}.${modifier}: rejects a cleared model before preparation`, async () => {
+				const mock = model();
+				let prepared = 0;
+				const make = create[factory][modifier] as unknown as (config: object) => Component;
+				const component = make({ model: mock, ...(factory.startsWith('Object') && { schema: z.object({ n: z.string() }) }),
+					prompt: modifier === 'withFunction' ? () => { prepared++; return 'go'; } : 'go',
+					...(modifier.startsWith('loads') && { loader: { load: () => { prepared++; return 'go'; } } }),
+				});
+				for (const value of [undefined, null]) {
+					await assert.rejects(async () => component.run({ model: value }), error => ConfigError.isInstance(error) && error.message.includes("require a 'model'"));
+				}
+				assert.equal(prepared, 0);
+				assert.equal(mock.doGenerateCalls.length + mock.doStreamCalls.length, 0);
+			});
+
+			it(`${factory}.${modifier}: undefined run prompt retains configured source`, async () => {
+				const mock = model();
+				const source = modifier === 'withScript' || modifier === 'loadsScript' ? "return 'configured'" : 'configured';
+				const make = create[factory][modifier] as unknown as (config: object) => Component;
+				const component = make({ model: mock, ...(factory.startsWith('Object') && { schema: z.object({ n: z.string().transform(Number) }) }),
+					prompt: modifier === 'withFunction' ? () => 'configured' : modifier.startsWith('loads') ? 'source' : source,
+					...(modifier.startsWith('loads') && { loader: { load: () => source } }),
+				});
+				const result = await component.run({ prompt: undefined });
+				const partials = result.partialObjectStream;
+				if (partials) for await (const _part of partials) { /* Drain native object output. */ }
+				await result.value;
+				await result.consumeStream?.();
+				const calls = factory.endsWith('Streamer') ? mock.doStreamCalls : mock.doGenerateCalls;
+				assert.equal(calls.length, 1);
+				assert.equal(calls[0].prompt.at(-1)?.role, 'user');
+				assert.deepEqual(calls[0].prompt.at(-1)?.content, [{ type: 'text', text: 'configured' }]);
+			});
+
 			it(`${factory}.${modifier}: inheritance, entry, static messages and history`, async () => {
 				for (const parent of [false, true]) for (const run of [false, true]) {
 					for (const withStatic of [false, true]) for (const withHistory of [false, true]) {
@@ -108,6 +162,23 @@ describe('LLM surface combinations', () => {
 							...(withStatic ? [[{ type: 'text', text: 'static' }]] : []),
 							...(withHistory ? [[{ type: 'text', text: 'earlier' }]] : []), [{ type: 'text', text: 'turn' }],
 						]);
+						// Compare the public path with the native SDK using the same prepared conversation.
+						const nativeModel = model();
+						const nativeMessages: ModelMessage[] = [];
+						if (withStatic) nativeMessages.push({ role: 'user', content: 'static' });
+						if (withHistory) nativeMessages.push(...history);
+						nativeMessages.push({ role: 'user', content: 'turn' });
+						const agent = new ToolLoopAgent({ model: nativeModel, output: Output.object({ schema }) });
+						const native = object
+							? streaming ? streamObject({ model: nativeModel, messages: nativeMessages, schema })
+								: await generateObject({ model: nativeModel, messages: nativeMessages, schema })
+							: streaming ? await agent.stream({ messages: nativeMessages }) : await agent.generate({ messages: nativeMessages });
+						if ('partialObjectStream' in native) for await (const _part of native.partialObjectStream) { /* Drive native object completion. */ }
+						assert.deepEqual(await result.value, 'object' in native ? await native.object : await native.output);
+						const nativeCalls = streaming ? nativeModel.doStreamCalls : nativeModel.doGenerateCalls;
+						assert.equal(nativeCalls.length, 1);
+						assert.deepEqual(calls[0].prompt, nativeCalls[0].prompt);
+						assert.deepEqual(calls[0].responseFormat, nativeCalls[0].responseFormat);
 						assert.equal('value' in { ...result }, false);
 						assert.equal(observed.length, 1);
 						assert.equal('messageHistory' in observed[0], false);

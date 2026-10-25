@@ -3,7 +3,7 @@ import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { model, temperature, temperatureConfig, StringLoader, AsyncStringLoader, timeout } from './common';
-import { create, ConfigError } from './cascada';
+import { create, ConfigError, z } from './cascada';
 
 // Configure chai-as-promised
 chai.use(chaiAsPromised);
@@ -194,7 +194,7 @@ describe('create.TextGenerator', function () {
 				model,
 				...temperatureConfig,
 				prompt: 'Only write the word and number separated by a space and nothing else. The word is {{ word }} and the number is {{ num }}.',
-				context: { word: 'config', num: 1 },
+				inputSchema: z.object({ word: z.string(), num: z.number() }), context: { word: 'config', num: 1 },
 			});
 			const result = await generator({ word: 'runtime' });
 			expect(result.text).to.equal('runtime 1');
@@ -298,7 +298,7 @@ describe('create.TextGenerator', function () {
 				...temperatureConfig,
 				loader: testLoader,
 				prompt: 'my-prompt',
-				context: { name: 'StringLoader' },
+				inputSchema: z.object({ name: z.string() }), context: { name: 'StringLoader' },
 			});
 
 			const result = await generator({ name: 'StringLoader' });
@@ -323,7 +323,7 @@ describe('create.TextGenerator', function () {
 			model,
 			...temperatureConfig,
 			prompt: 'Output exactly this text and nothing else: default-{{ val }}',
-			context: { val: 'A' },
+			inputSchema: z.object({ val: z.string() }), context: { val: 'A' },
 		});
 
 		it('handles call with no arguments: generator()', async () => {
@@ -354,7 +354,7 @@ describe('create.TextGenerator', function () {
 			const generatorWithoutPrompt = create.TextGenerator.withTemplate({
 				model,
 				...temperatureConfig,
-				context: { val: 'A' },
+				inputSchema: z.object({ val: z.string() }), context: { val: 'A' },
 			});
 
 			it('handles call with prompt: generator(prompt)', async () => {

@@ -27,6 +27,7 @@ const fn = create.Function({
 });
 void fn({ value: 1 });
 void fn({ value: 1, label: 'one' });
+// @ts-expect-error Private configured dependencies cannot be supplied through public arguments.
 void fn({ value: 1, offset: 3 });
 // @ts-expect-error Schema-based Function calls preserve configured extra-field types when overriding them.
 void fn({ value: 1, offset: 'wrong' });
@@ -41,8 +42,8 @@ void fn();
 // @ts-expect-error Input is an object, not a scalar.
 void fn(1);
 // @ts-expect-error Function.execute exposes its implementation and requires configured fields.
-void fn.execute({ value: 1 });
-expectEqual<ReturnType<typeof fn.execute>, number>();
+void fn.config.execute({ value: 1 });
+expectEqual<ReturnType<typeof fn.config.execute>, number>();
 
 const inherited = create.Function({}, fn);
 void inherited({ value: 2 });
@@ -92,6 +93,7 @@ const inferred = create.Function({
 	execute: ({ value, offset }: { value: number, offset: number }) => value + offset,
 });
 void inferred({ value: 1 });
+// @ts-expect-error The same boundary applies without an input schema.
 void inferred({ value: 1, offset: 3 });
 // @ts-expect-error Execute's unconfigured input fields remain required without a schema.
 void inferred({});
@@ -101,7 +103,7 @@ const schemaRequiresConfigured = create.Function({
 	inputSchema: z.object({ value: z.number(), offset: z.number() }),
 	context: { offset: 2 }, execute: ({ value, offset }) => value + offset,
 });
-// @ts-expect-error Configured context does not satisfy required input-schema fields at call time.
+// Configured public fields satisfy omitted caller requirements.
 void schemaRequiresConfigured({ value: 1 });
 void schemaRequiresConfigured({ value: 1, offset: 3 });
 
@@ -121,49 +123,47 @@ create.Function({ schema: z.number(), execute: () => 'wrong' });
 
 const transformedInput = z.object({ value: z.string().transform(Number), fallback: z.string().default('default') });
 const rawFunction = create.Function({ inputSchema: transformedInput, execute: ({ value, fallback: _fallback }) => {
-	expectEqual<typeof value, string>();
-	expectEqual<typeof _fallback, string | undefined>();
+	expectEqual<typeof value, number>();
+	expectEqual<typeof _fallback, string>();
 	return value;
 } });
 void rawFunction({ value: '1' });
 // @ts-expect-error Ordinary Function input is validated but not replaced by parsed schema output.
 void rawFunction({ value: 1 });
-const rawInputFragment = create.Config({ inputSchema: transformedInput, execute: ({ value }: { value: string, fallback?: string | undefined }) => value.length });
+// @ts-expect-error Implementations consume parsed values on every entry path.
+create.Config({ inputSchema: transformedInput, execute: ({ value }: { value: string, fallback?: string | undefined }) => value.length });
 const parsedInputFragment = create.Config({ inputSchema: transformedInput, execute: ({ value }: { value: number, fallback: string }) => value });
-const rawFragmentFunction = create.Function({}, rawInputFragment);
-void rawFragmentFunction({ value: '1' });
 const parsedFragmentTool = create.Function.asTool({}, parsedInputFragment);
 void parsedFragmentTool.execute({ value: 1, fallback: 'parsed' }, { toolCallId: 'call', messages: [], context: undefined });
-// @ts-expect-error A reusable parsed-input implementation cannot consume ordinary raw Function input.
+// The shared parsed implementation works on ordinary and tool paths.
 create.Function({}, parsedInputFragment);
-// @ts-expect-error A reusable raw-input implementation cannot consume parsed SDK tool input.
-create.Function.asTool({}, rawInputFragment);
+
 create.Config({ inputSchema: transformedInput, execute: ({ value }) => {
-	expectEqual<typeof value, string | number>();
+	expectEqual<typeof value, number>();
 	return String(value);
 } });
 const rawPromptParent = create.Config({ model, inputSchema: transformedInput, context: { prefix: 'value=' } });
 const rawText = create.TextGenerator.withFunction({ prompt: ({ value, fallback: _fallback, prefix }) => {
-	expectEqual<typeof value, string>();
-	expectEqual<typeof _fallback, string | undefined>();
+	expectEqual<typeof value, number>();
+	expectEqual<typeof _fallback, string>();
 	expectEqual<typeof prefix, string>();
-	return prefix + value;
+	return `${prefix}${value}`;
 } }, rawPromptParent);
 const rawTextStream = create.TextStreamer.withFunction({ prompt: ({ value, fallback: _fallback, prefix }) => {
-	expectEqual<typeof value, string>();
-	expectEqual<typeof _fallback, string | undefined>();
+	expectEqual<typeof value, number>();
+	expectEqual<typeof _fallback, string>();
 	expectEqual<typeof prefix, string>();
-	return prefix + value;
+	return `${prefix}${value}`;
 } }, rawPromptParent);
 const rawObject = create.ObjectGenerator.withFunction({ schema: z.object({ answer: z.number() }), prompt: ({ value, prefix }) => {
-	expectEqual<typeof value, string>();
+	expectEqual<typeof value, number>();
 	expectEqual<typeof prefix, string>();
-	return prefix + value;
+	return `${prefix}${value}`;
 } }, rawPromptParent);
 const rawObjectStream = create.ObjectStreamer.withFunction({ schema: z.object({ answer: z.number() }), prompt: ({ value, prefix }) => {
-	expectEqual<typeof value, string>();
+	expectEqual<typeof value, number>();
 	expectEqual<typeof prefix, string>();
-	return prefix + value;
+	return `${prefix}${value}`;
 } }, rawPromptParent);
 void rawText({ value: '1' });
 void rawTextStream({ value: '1' });
@@ -241,6 +241,7 @@ void spreadObject({ value: 1 });
 void spreadObjectStream({ value: 1 });
 void spreadTextTool({ value: 1 });
 void spreadObjectTool({ value: 1 });
+// @ts-expect-error Optional private bindings remain protected.
 void spreadText({ value: 1, offset: 2 });
 void spreadText.run({ context: { value: 1 }, prompt: ({ offset }) => {
 	expectEqual<typeof offset, number | undefined>();
@@ -252,7 +253,7 @@ void spreadObject({ value: 1, offset: 'wrong' });
 void spreadTextStream.run({ context: { value: 1, offset: 'wrong' } });
 const transformedOutput = create.Function({ schema: z.string().transform(Number), execute: () => '123' });
 expectEqual<ReturnType<typeof transformedOutput>, Promise<number>>();
-expectType<string>(transformedOutput.execute());
+expectType<string>(transformedOutput.config.execute());
 // @ts-expect-error Function implementations return unparsed output-schema input.
 create.Function({ schema: z.string().transform(Number), execute: () => 123 });
 const _defaultedOutput = create.Function({ schema: z.number().default(123), execute: () => undefined });
@@ -261,9 +262,9 @@ const outputSchema = z.string().transform(Number);
 const annotatedConfig: FunctionConfig<typeof transformedInput, typeof outputSchema, undefined> = {
 	inputSchema: transformedInput, schema: outputSchema,
 	execute: ({ value, fallback }) => {
-		expectEqual<typeof value, string>();
-		expectEqual<typeof fallback, string | undefined>();
-		return value + (fallback ?? '');
+		expectEqual<typeof value, number>();
+		expectEqual<typeof fallback, string>();
+		return `${value}${fallback ?? ''}`;
 	},
 };
 const annotatedFunction = create.Function(annotatedConfig);
@@ -317,18 +318,18 @@ void template();
 void script();
 const objectUnion = z.union([inputSchema, replacementInput]);
 const objectRecord = z.record(z.string(), z.number());
-// @ts-expect-error Template runtime validation requires ZodObject, even when a union outputs objects.
+// Supported source-free object schemas preserve native parsing.
 create.Template({ inputSchema: objectUnion, template: 'Ready' });
-// @ts-expect-error Script runtime validation requires ZodObject, even when a record outputs an object.
+// Supported source-free object schemas preserve native parsing.
 create.Script({ inputSchema: objectRecord, script: 'return 1' });
 // @ts-expect-error Array schemas are not renderer object schemas.
 create.Template({ inputSchema: z.array(z.number()), template: 'Ready' });
-// @ts-expect-error Whole-object transforms are ZodPipe instances rather than renderer ZodObject inputs.
+// Supported source-free object schemas preserve native parsing.
 create.Script({ inputSchema: inputSchema.transform(value => value), script: 'return 1' });
 const unsupportedParent = create.Config({ inputSchema: objectUnion });
-// @ts-expect-error Inherited renderer schemas must have a supported runtime constructor.
+// Supported source-free object schemas preserve native parsing.
 create.Template({ template: 'Ready' }, unsupportedParent);
-// @ts-expect-error Inherited Script schemas must have a supported runtime constructor too.
+// Supported source-free object schemas preserve native parsing.
 create.Script({ script: 'return 1' }, unsupportedParent);
 create.Template({ inputSchema, template: 'Ready' }, unsupportedParent);
 create.Script({ inputSchema, script: 'return 1' }, unsupportedParent);
@@ -346,8 +347,8 @@ const optionalScript = create.Script({ inputSchema: optionalInput, script: 'retu
 declare const optionalPromptOverride: string | undefined;
 void optionalTemplate(optionalPromptOverride);
 void optionalScript(optionalPromptOverride);
-const templateDefaults = create.Template({ template: '{{ name }}', context: { name: 'Original', count: 1, enabled: true } });
-const scriptDefaults = create.Script({ script: 'return name', context: { name: 'Original', count: 1, enabled: true } });
+const templateDefaults = create.Template({ template: '{{ name }}', inputSchema: z.object({ name: z.string(), count: z.number(), enabled: z.boolean() }), context: { name: 'Original', count: 1, enabled: true } });
+const scriptDefaults = create.Script({ script: 'return name', inputSchema: z.object({ name: z.string(), count: z.number(), enabled: z.boolean() }), context: { name: 'Original', count: 1, enabled: true } });
 void templateDefaults({ name: 'Changed', count: 2, enabled: false });
 void scriptDefaults({ name: 'Changed', count: 2, enabled: false });
 // @ts-expect-error String renderer defaults still constrain primitive override types.
@@ -356,12 +357,12 @@ void templateDefaults({ name: 123 });
 void scriptDefaults({ count: 'wrong' });
 // @ts-expect-error Boolean renderer defaults reject text overrides.
 void templateDefaults({ enabled: 'wrong' });
-const llmDefaults = create.TextStreamer.withTemplate({ model, prompt: '{{ name }}', context: { name: 'Original', count: 1 } });
+const llmDefaults = create.TextStreamer.withTemplate({ model, prompt: '{{ name }}', inputSchema: z.object({ name: z.string(), count: z.number() }), context: { name: 'Original', count: 1 } });
 void llmDefaults({ name: 'Changed', count: 2 });
 void llmDefaults.run({ context: { name: 'Changed', count: 2 } });
 // @ts-expect-error LLM text renderers retain configured primitive types too.
 void llmDefaults({ count: 'wrong' });
-const configuredPrompt = create.TextGenerator.withFunction({ model, context: { prefix: 'value=' }, prompt: ({ prefix }) => {
+const configuredPrompt = create.TextGenerator.withFunction({ model, inputSchema: z.object({ prefix: z.string() }).passthrough(), context: { prefix: 'value=' }, prompt: ({ prefix }) => {
 	expectEqual<typeof prefix, string>();
 	return prefix.toUpperCase();
 } });
@@ -376,20 +377,20 @@ const configuredChild = create.TextGenerator.withFunction({}, configuredPrompt);
 void configuredChild({ prefix: 'child=' });
 // @ts-expect-error Inheritance retains configured prompt input override types.
 void configuredChild({ prefix: 123 });
-const optionalConfiguredPrompt = create.TextGenerator.withFunction({ model, context: maybeContext, prompt: ({ offset }) => String(offset ?? 0) });
+const optionalConfiguredPrompt = create.TextGenerator.withFunction({ model, inputSchema: z.object({ offset: z.number().optional() }), context: maybeContext, prompt: ({ offset }) => String(offset ?? 0) });
 void optionalConfiguredPrompt();
 void optionalConfiguredPrompt({ offset: 3 });
 // @ts-expect-error A maybe-absent configured context still has typed present fields.
 void optionalConfiguredPrompt({ offset: 'wrong' });
 const fixedContext: { prefix: 'fixed' } = { prefix: 'fixed' };
-const fixedPrompt = create.TextGenerator.withFunction({ model, context: fixedContext, prompt: ({ prefix }) => {
+const fixedPrompt = create.TextGenerator.withFunction({ model, inputSchema: z.object({ prefix: z.literal('fixed') }), context: fixedContext, prompt: ({ prefix }) => {
 	expectEqual<typeof prefix, 'fixed'>();
 	return prefix;
 } });
 void fixedPrompt({ prefix: 'fixed' });
 // @ts-expect-error Explicitly narrow configured context annotations keep their declared allowed values.
 void fixedPrompt({ prefix: 'different' });
-const enumPrompt = create.ObjectGenerator.withFunction({ model, output: 'enum', enum: ['YES', 'NO'], context: { prefix: 'value=' }, prompt: ({ prefix }) => {
+const enumPrompt = create.ObjectGenerator.withFunction({ model, output: 'enum', enum: ['YES', 'NO'], inputSchema: z.object({ prefix: z.string() }), context: { prefix: 'value=' }, prompt: ({ prefix }) => {
 	expectEqual<typeof prefix, string>();
 	return prefix;
 }, onFinish: _event => {
@@ -406,7 +407,9 @@ void textTemplate({ value: 1 });
 void textTemplate('{{ value }}', messages, { value: 1 });
 void textScript({ value: 1 });
 void textFunction({ value: 1 });
+// @ts-expect-error Configured fields not declared in inputSchema stay private.
 void textFunction({ value: 1, prefix: 'override=' });
+// @ts-expect-error The same private boundary applies to run.
 void textFunction.run({ context: { value: 1, prefix: 'override=' } });
 // @ts-expect-error Configured fields outside the input schema retain their types on rendered calls.
 void textFunction({ value: 1, prefix: 123 });
@@ -460,20 +463,25 @@ const variantDefaults = { text: 123, count: 'default', shared: true };
 const variantFunction = create.Function({ inputSchema: variants, context: variantDefaults, execute: input => {
 	if (input.kind === 'text') {
 		expectEqual<typeof input.text, string>();
-		expectEqual<typeof input.count, string>();
+		// @ts-expect-error Parsing strips the inactive public branch field.
+		expectType<unknown>(input.count);
 	} else {
-		expectEqual<typeof input.text, number>();
+		// @ts-expect-error Parsing strips the inactive public branch field.
+		expectType<unknown>(input.text);
 		expectEqual<typeof input.count, number>();
 	}
 	return input.shared;
 } });
+// @ts-expect-error The shallow merge retains a configured field outside the selected closed union branch.
 void variantFunction({ kind: 'text', text: 'input' });
+// @ts-expect-error The shallow merge retains a configured field outside the selected closed union branch.
 void variantFunction({ kind: 'count', count: 1 });
 const variantPrompt = create.TextGenerator.withFunction({ model, inputSchema: variants, context: variantDefaults, prompt: input => {
 	if (input.kind === 'text') expectEqual<typeof input.text, string>();
 	else expectEqual<typeof input.count, number>();
 	return String(input.shared);
 } });
+// @ts-expect-error The shallow merge retains a configured field outside the selected closed union branch.
 void variantPrompt({ kind: 'text', text: 'input' });
 
 // @ts-expect-error Union inputs retain their selected branch's required fields.
@@ -482,8 +490,10 @@ void variantFunction({ kind:'text' });
 void variantFunction({ kind:'text', text:123 });
 // @ts-expect-error Configured fields outside the selected schema branch retain their types.
 void variantFunction({ kind:'text', text:'input', count:123 });
+// @ts-expect-error The shallow merge retains a configured field outside the selected closed union branch.
 void variantPrompt.run({ context:{ kind:'text', text:'input' } });
 const inheritedVariant = create.Function({}, variantFunction);
+// @ts-expect-error The shallow merge retains a configured field outside the selected closed union branch.
 void inheritedVariant({ kind:'count', count:2 });
 // @ts-expect-error Inherited union schema inputs keep branch field types.
 void inheritedVariant({ kind:'count', count:'wrong' });
@@ -502,16 +512,21 @@ const unionConfiguredFunction = create.Function({ inputSchema, context:unionConf
 	return input.value + input.common;
 } });
 void unionConfiguredFunction({ value:1 });
+// @ts-expect-error Configured private fields cannot be replaced by public arguments.
 void unionConfiguredFunction({ value:1, common:2 });
+// @ts-expect-error Configured private fields cannot be replaced by public arguments.
 void unionConfiguredFunction({ value:1, mode:'prefix', prefix:'new', common:2 });
 // @ts-expect-error Replacing a union discriminator requires its full correlated context branch.
 void unionConfiguredFunction({ value:1, mode:'offset' });
 // @ts-expect-error Shared context overrides must preserve the field's type in every branch.
 void unionConfiguredFunction({ value:1, common:'wrong' });
 
-// Different component families retain common context calls when selected as a union.
-const functionOrScript = Math.random() > 0.5 ? fn : create.Script({ inputSchema, schema: z.number(), script: 'return value' });
-const _unionResult = functionOrScript({ value: 1 });
+// Different component families may require selecting the concrete caller first.
+const scripted = create.Script({ inputSchema, schema: z.number(), script: 'return value' });
+const functionOrScript = Math.random() > 0.5 ? fn : scripted;
+// @ts-expect-error Different generic call contracts require narrowing.
+void functionOrScript({ value: 1 });
+const _unionResult = Math.random() > 0.5 ? fn({ value: 1 }) : scripted({ value: 1 });
 expectEqual<typeof _unionResult, Promise<number>>();
 // @ts-expect-error Every selected component requires the numeric input field.
 void functionOrScript({ value: 'wrong' });
@@ -520,6 +535,7 @@ void functionOrScript();
 // @ts-expect-error Component unions retain object context guards.
 void functionOrScript([1]);
 const mixedInputFunctionOrScript = Math.random() > 0.5 ? fn : create.Script({ schema: z.number(), script: 'return value' });
+// @ts-expect-error Required and optional components may need narrowing.
 void mixedInputFunctionOrScript({ value: 1 });
 // @ts-expect-error A possibly selected required-input Function still requires context.
 void mixedInputFunctionOrScript();

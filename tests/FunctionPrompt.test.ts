@@ -73,7 +73,7 @@ describe('withFunction prompts', () => {
 			const generator = create.TextGenerator.withFunction({
 				model,
 				prompt: context => {
-					expect(context).to.deep.equal({});
+					expect(context).to.deep.equal({ _toolOptions: {} });
 					return 'Output exactly FN_NOARGS and nothing else.';
 				},
 			});
@@ -154,11 +154,11 @@ describe('withFunction prompts', () => {
 			});
 
 			// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
-			await expect(generator()).to.be.rejectedWith(ConfigError, 'Input context validation failed');
+			await expect(generator({ marker: undefined })).to.be.rejectedWith(ConfigError, 'Application input validation failed');
 			// @ts-expect-error Invalid schema input is also rejected at runtime.
-			await expect(generator({ marker: 3 })).to.be.rejectedWith(ConfigError, 'Input context validation failed');
+			await expect(generator({ marker: 3 })).to.be.rejectedWith(ConfigError, 'Application input validation failed');
 			// @ts-expect-error Missing schema input is also rejected at runtime.
-			await expect(generator.run({ context: {} })).to.be.rejectedWith(ConfigError, 'Input context validation failed');
+			await expect(generator.run({ context: { marker: undefined } })).to.be.rejectedWith(ConfigError, 'Application input validation failed');
 			expect(promptCalls).to.equal(0);
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
@@ -169,7 +169,7 @@ describe('withFunction prompts', () => {
 			const generator = create.TextGenerator.withFunction({
 				model,
 				context: { prefix: 'Configured' },
-				inputSchema: z.object({ marker: z.string() }),
+				inputSchema: z.object({ marker: z.string(), prefix: z.string() }),
 				prompt: originalPrompt,
 			});
 
@@ -197,7 +197,7 @@ describe('withFunction prompts', () => {
 				.to.be.rejectedWith(ConfigError, "The 'prompt' property must be a function");
 			await expect(generator.run({
 				prompt: () => [{ role: 'invalid', content: 'Invalid message' }] as never,
-			})).to.be.rejectedWith(ConfigError, 'Output validation failed');
+			})).to.be.rejectedWith(ConfigError, 'Prompt output validation failed');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
 
@@ -217,7 +217,8 @@ describe('withFunction prompts', () => {
 
 			// @ts-expect-error Function prompts accept context, not a string override.
 			await expect(generator('Replacement')).to.be.rejectedWith(ConfigError, 'only accept a context object');
-			await expect(generator([{ role: 'user', content: 'Replacement' }] as never))
+			// @ts-expect-error An array cannot serve as function context.
+			await expect(generator([{ role: 'user', content: 'Replacement' }]))
 				.to.be.rejectedWith(ConfigError, 'only accept a context object');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
@@ -235,7 +236,7 @@ describe('withFunction prompts', () => {
 			});
 
 			await expect(failingGenerator()).to.be.rejectedWith(failure);
-			await expect(invalidGenerator()).to.be.rejectedWith(ConfigError, 'Output validation failed');
+			await expect(invalidGenerator()).to.be.rejectedWith(ConfigError, 'Prompt output validation failed');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
 
@@ -246,7 +247,7 @@ describe('withFunction prompts', () => {
 			const tool = create.TextGenerator.withFunction.asTool({
 				inputSchema: z.object({ marker: z.string() }),
 				prompt: context => {
-					expect(context._toolCallOptions).to.equal(options);
+					expect(context._toolOptions).to.deep.equal({ toolCallId: options.toolCallId, messages: options.messages, ...('abortSignal' in options ? { abortSignal: options.abortSignal } : {}) });
 					return `${context.prefix} ${context.marker}`;
 				},
 			}, parent);
@@ -336,7 +337,7 @@ describe('withFunction prompts', () => {
 			const generator = create.ObjectGenerator.withFunction({
 				model,
 				schema: itemSchema,
-				context: { name: 'Configured', value: 7 },
+				inputSchema: itemSchema, context: { name: 'Configured', value: 7 },
 				prompt: describeItem,
 			});
 
@@ -373,7 +374,7 @@ describe('withFunction prompts', () => {
 				schema: itemSchema,
 				inputSchema: z.object({ name: z.string() }),
 				prompt: (context: Context) => {
-					expect(context._toolCallOptions).to.equal(options);
+					expect(context._toolOptions).to.deep.equal({ toolCallId: options.toolCallId, messages: options.messages, ...('abortSignal' in options ? { abortSignal: options.abortSignal } : {}) });
 					return describeItem(context);
 				},
 			}, parent);
@@ -390,7 +391,7 @@ describe('withFunction prompts', () => {
 			const parent = create.ObjectGenerator.withFunction({
 				model,
 				schema: itemSchema,
-				context: { name: 'Parent', value: 11 },
+				inputSchema: itemSchema, context: { name: 'Parent', value: 11 },
 				prompt: describeItem,
 			});
 			const child = create.ObjectGenerator.withFunction({ context: { name: 'Child', value: 15 } }, parent);
@@ -493,7 +494,7 @@ describe('withFunction prompts', () => {
 				model,
 				output: 'array',
 				schema: itemSchema,
-				context: { value: 11 },
+				context: { value: 11 }, inputSchema: z.object({ name: z.string(), value: z.number() }),
 				prompt,
 			});
 			const child = create.ObjectStreamer.withFunction({ context: { value: 17 } }, parent);

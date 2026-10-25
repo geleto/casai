@@ -1,7 +1,7 @@
 // --- Core Factories ---
 export { Template } from './factories/Template.js';
 export { Script } from './factories/Script.js';
-export { Function } from './factories/Function.js'; // Added missing factory
+export { Function } from './factories/Function.js';
 export { TextGenerator } from './factories/TextGenerator.js';
 export { TextStreamer } from './factories/TextStreamer.js';
 export { ObjectGenerator } from './factories/ObjectGenerator.js';
@@ -20,7 +20,7 @@ export { z } from 'zod';
 // --- Configuration Types ---
 export type {
 	// Standalone Component Configs
-	TemplateConfig, // Correctly exporting the main TemplateConfig
+	TemplateConfig,
 	TemplateToolConfig,
 	ScriptConfig,
 	ScriptToolConfig,
@@ -42,7 +42,7 @@ export type {
 	FunctionPromptConfig,
 	// Other
 	ToolConfig,
-	ContextSchemaConfig,
+	ToolContextSchemaConfig,
 	ConfigProvider
 } from './types/config.js';
 
@@ -86,3 +86,7 @@ export { ConfigError } from './validate.js';
 
 // --- Public Utilities & Associated Types ---
 export { race, type RaceGroup, type RaceLoader } from './loaders.js';
+
+export type { ComponentExecutionOptions } from './execution.js';
+export { textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './streams.js';
+export type { StreamSchema } from './streams.js';

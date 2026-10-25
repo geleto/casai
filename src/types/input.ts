@@ -1,35 +1,20 @@
-import type { DeclaredType } from './config.js';
 import type { EmptyMap } from './merge.js';
-import type { InferContextInputSchema, InputWithContext } from './types.js';
-import type { ContextOf } from './function-config.js';
 import type { ModelMessage } from 'ai';
 
-// Input schemas validate call-time input before configured context is merged.
-export type ConfiguredCallContext<TConfig, INPUT, CONTEXT = NonNullable<ContextOf<TConfig>>> = [CONTEXT] extends [never]
-	? EmptyMap : Partial<Omit<CONTEXT, keyof INPUT>>;
+import type { ApplicationShape, CanOmitApplicationInput, CheckApplication } from './application.js';
+export type CallContext<TConfig> = ApplicationShape<TConfig>;
 
-type WidenPrimitive<T> = T extends string ? string : T extends number ? number
-	: T extends boolean ? boolean : T extends bigint ? bigint : T extends symbol ? symbol : T;
-type WidenContextValue<T> = T extends (...args: never[]) => unknown ? T
-	: T extends Date | RegExp | ReadonlyMap<unknown, unknown> | ReadonlySet<unknown> | PromiseLike<unknown> ? T
-	: T extends readonly (infer ELEMENT)[] ? readonly WidenContextValue<ELEMENT>[]
-	: T extends object ? { [K in keyof T]: WidenContextValue<T[K]> } : WidenPrimitive<T>;
-type RendererContext<T> = { [K in keyof T]: WidenContextValue<T[K]> };
-// Text renderers have runtime defaults; JavaScript callbacks retain their declared accepted values.
-type CallConfiguredContext<TConfig> = [Extract<DeclaredType<TConfig, 'prompt'>, (...args: never[]) => unknown>] extends [never]
-	? RendererContext<NonNullable<ContextOf<TConfig>>> : NonNullable<ContextOf<TConfig>>;
-export type CallContext<TConfig> = InputWithContext<InferContextInputSchema<DeclaredType<TConfig, 'inputSchema'>>, CallConfiguredContext<TConfig>, DeclaredType<TConfig, 'inputSchema'>, true, true>;
-
-export type ContextArguments<TConfig, INPUT = CallContext<TConfig>> = EmptyMap extends CallContext<TConfig>
-	? [context?: INPUT]
+export type ContextArguments<TConfig, INPUT = CallContext<TConfig>> = CanOmitApplicationInput<TConfig> extends true
+	? [context?: INPUT | undefined]
 	: [context: INPUT];
 
 // Arrays are dispatched as messages and functions cannot serve as context objects.
 export type ValidateContextValue<T> = 0 extends (1 & T) ? unknown
 	: [Extract<T, readonly unknown[] | ((...args: never[]) => unknown)>] extends [never] ? unknown : never;
 
-type RendererArguments<TConfig, Key extends string> = TConfig extends Record<Key, string>
-	? (EmptyMap extends CallContext<TConfig> ? [promptOrContext?: string | CallContext<TConfig>] : ContextArguments<TConfig>)
+// Omission must be valid across the whole configuration, not just one branch.
+type RendererArguments<TConfig, Key extends string> = [TConfig] extends [Record<Key, string>]
+	? (CanOmitApplicationInput<TConfig> extends true ? [promptOrContext?: string | CallContext<TConfig> | undefined] : ContextArguments<TConfig>)
 	| [prompt: string, ...args: ContextArguments<TConfig>]
 	: [prompt: string, ...args: ContextArguments<TConfig>];
 
@@ -44,22 +29,38 @@ type ValidateMessageArguments<TArgs extends unknown[]> = ValidateMessageArgument
 	& ValidateContextValue<Exclude<TArgs[1], readonly unknown[]>>
 	& ValidateContextValue<TArgs[2]>;
 
+type ContextArgument<A extends unknown[]> = A extends [infer F, ...infer Rest]
+	? F extends string | readonly unknown[] | undefined ? Rest extends [infer Second, ...infer Tail]
+		? Second extends readonly unknown[] | undefined ? Tail extends [infer Third] ? NonNullable<Third> : EmptyMap : Second
+		: EmptyMap : F : EmptyMap;
+
+type Keys<T> = T extends unknown ? keyof T : never;
+type ContextKeys<Args extends unknown[], FirstKeys extends PropertyKey> = [Exclude<Args[0], string | readonly unknown[] | undefined>] extends [never]
+	? Keys<ContextArgument<Args>> : FirstKeys;
+
 // Reflection sees an uninstantiated rest array; actual calls infer finite tuples and receive validation.
-type ValidateArguments<TArgs extends unknown[], TAllowed, Messages extends boolean> = number extends TArgs['length'] ? unknown
-	: [TArgs] extends [TAllowed] ? Messages extends true ? ValidateMessageArguments<TArgs> : ValidateRendererArguments<TArgs> : never;
-type TailForFirst<TAllowed extends unknown[], TFirst> = TAllowed extends [unknown?, ...infer REST]
+type ValidateArguments<TArgs extends unknown[], TAllowed, Messages extends boolean, TConfig, FirstKeys extends PropertyKey> = number extends TArgs['length'] ? unknown
+	: [TArgs] extends [TAllowed] ? (Messages extends true ? ValidateMessageArguments<TArgs> : ValidateRendererArguments<TArgs>) &
+	([TConfig] extends [never] ? unknown : CheckApplication<TConfig, ContextArgument<TArgs>, ContextKeys<TArgs, FirstKeys>>) : never;
+type TailForFirst<TAllowed extends unknown[], TFirst> = unknown extends TFirst ? [] : TAllowed extends [unknown?, ...infer REST]
 	? [TFirst] extends [TAllowed[0]] ? REST : never : never;
 
-// A syntactic first parameter preserves required input when TypeScript combines component unions.
-export type ComponentCall<TAllowed extends unknown[], TResult, Messages extends boolean = false> = [] extends TAllowed
-	? <TFirst = undefined, TRest extends unknown[] = []>(first?: TFirst & NoInfer<TAllowed[0] & ValidateArguments<[TFirst, ...TRest], TAllowed, Messages>>, ...rest: TRest & NoInfer<TailForFirst<TAllowed, TFirst>>) => TResult
-	: <TFirst = undefined, TRest extends unknown[] = []>(first: TFirst & NoInfer<TAllowed[0] & ValidateArguments<[TFirst, ...TRest], TAllowed, Messages>>, ...rest: TRest & NoInfer<TailForFirst<TAllowed, TFirst>>) => TResult;
+// Capture supplied keys separately: contextual callbacks can infer a partial
+// schema shape, but omitted configured fields must not become supplied input.
+type CallSignature<TAllowed extends unknown[], TResult, Messages extends boolean, TConfig> =
+	([] extends TAllowed ? () => TResult : unknown)
+	& (<First extends TAllowed[0], Rest extends unknown[] = [], K extends PropertyKey = never>(first: First & (Partial<Record<K, unknown>> | undefined),
+		...rest: Rest & NoInfer<TailForFirst<TAllowed, First> & ValidateArguments<[First, ...Rest], TAllowed, Messages, TConfig, K>>) => TResult);
 
-// One signature keeps unions of renderer families callable with their common arguments.
+type CallSignatures<TAllowed extends unknown[], TResult, Messages extends boolean, TConfig> = TAllowed extends unknown
+	? (signature: CallSignature<TAllowed, TResult, Messages, TConfig>) => void : never;
+export type ComponentCall<TAllowed extends unknown[], TResult, Messages extends boolean = false, TConfig = never> =
+	CallSignatures<TAllowed, TResult, Messages, TConfig> extends (signature: infer Signature) => void ? Signature : never;
+
 export type RendererCall<TConfig, TResult, Key extends string> =
-	ComponentCall<RendererArguments<TConfig, Key>, TResult>;
+	ComponentCall<RendererArguments<TConfig, Key>, TResult, false, TConfig>;
 
-// A one-off run must supply required input too; configured context cannot replace it.
-export type RunContext<TConfig> = EmptyMap extends CallContext<TConfig>
+// Named calls use the same configured-default completeness check as shorthand.
+export type RunContext<TConfig> = CanOmitApplicationInput<TConfig> extends true
 	? { context?: CallContext<TConfig> }
 	: { context: CallContext<TConfig> };

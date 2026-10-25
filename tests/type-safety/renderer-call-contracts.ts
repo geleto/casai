@@ -1,6 +1,6 @@
 // Compile-only renderer boundaries: defaults may change, call arguments follow runtime dispatch.
 import { create, z } from 'casai';
-import type { LanguageModel, ModelMessage, JSONValue } from 'ai';
+import type { LanguageModel, ModelMessage } from 'ai';
 import type { ILoaderAny } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
 
@@ -33,19 +33,19 @@ create.Script({}, optionalBody);
 const namedTemplate = create.Template.loadsTemplate({ loader });
 const namedScript = create.Script.loadsScript({ loader });
 expectType<Promise<string>>(namedTemplate('source.njk'));
-expectType<Promise<JSONValue>>(namedScript('source.casc'));
+expectType<Promise<unknown>>(namedScript('source.casc'));
 // @ts-expect-error A named template without a configured name requires a name when called.
 void namedTemplate();
 // @ts-expect-error A named script without a configured name requires a name when called.
 void namedScript();
 
 // Const inference must not lock renderer defaults to array lengths or nested literal values.
-const template = create.Template({ template: '{{ list }} {{ settings.label }}', context: { list: [1, 2], settings: { label: 'first', flags: [true] } } });
-const script = create.Script({ script: 'return settings.label', context: { list: [1, 2], settings: { label: 'first', flags: [true] } } });
-const renderedText = create.TextGenerator.withTemplate({ model, prompt: '{{ list }}', context: { list: [1, 2], nested: { value: 1 } } });
-const renderedStream = create.TextStreamer.withScript({ model, prompt: 'return nested.value', context: { list: [1, 2], nested: { value: 1 } } });
-const renderedObject = create.ObjectGenerator.withScript({ model, schema, prompt: 'return nested.value', context: { list: [1, 2], nested: { value: 1 } } });
-const renderedObjectStream = create.ObjectStreamer.withTemplate({ model, schema, prompt: '{{ list }}', context: { list: [1, 2], nested: { value: 1 } } });
+const template = create.Template({ template: '{{ list }} {{ settings.label }}', inputSchema: z.object({ list: z.array(z.number()), settings: z.object({ label: z.string(), flags: z.array(z.boolean()) }) }), context: { list: [1, 2], settings: { label: 'first', flags: [true] } } });
+const script = create.Script({ script: 'return settings.label', inputSchema: z.object({ list: z.array(z.number()), settings: z.object({ label: z.string(), flags: z.array(z.boolean()) }) }), context: { list: [1, 2], settings: { label: 'first', flags: [true] } } });
+const renderedText = create.TextGenerator.withTemplate({ model, prompt: '{{ list }}', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
+const renderedStream = create.TextStreamer.withScript({ model, prompt: 'return nested.value', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
+const renderedObject = create.ObjectGenerator.withScript({ model, schema, prompt: 'return nested.value', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
+const renderedObjectStream = create.ObjectStreamer.withTemplate({ model, schema, prompt: '{{ list }}', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
 void template({ list: [3], settings: { label: 'next', flags: [false, true] } });
 void script({ list: [], settings: { label: 'next', flags: [] } });
 void renderedText({ list: [3], nested: { value: 2 } });
@@ -61,6 +61,7 @@ void renderedText({ nested: { value: 'wrong' } });
 // @ts-expect-error Nested streamer run context retains number fields.
 void renderedStream.run({ context: { nested: { value: 'wrong' } } });
 const callbackContext = create.Template({ template: '{{ calculate(2) }}', context: { calculate: (value: number) => value + 1, date: new Date() } });
+// @ts-expect-error Function and Date dependencies are private unless explicitly declared public.
 void callbackContext({ calculate: (value: number) => value * 2, date: new Date() });
 // @ts-expect-error Renderer context widening preserves callable argument contracts.
 void callbackContext({ calculate: (value: string) => value.length });
@@ -108,21 +109,23 @@ const loaderParent = create.Config({ loader });
 const _inheritedTemplate = create.Template({ template: 'Hello' }, loaderParent);
 expectEqual<typeof _inheritedTemplate.config.loader, ILoaderAny[]>();
 
-// Components selected at runtime keep the call forms shared by their renderer families.
+// Select concrete components when their generic call contracts differ.
 declare const chooseTemplate: boolean;
-const mixedRenderer = chooseTemplate ? create.Template({ template: 'Ready' }) : create.Script({ script: 'return "Ready"' });
+const templateRenderer = create.Template({ template: 'Ready' });
+const scriptRenderer = create.Script({ script: 'return "Ready"' });
+const mixedRenderer = chooseTemplate ? templateRenderer : scriptRenderer;
 interface RendererInput { topic: string }
 declare const rendererInput: RendererInput;
 void mixedRenderer();
-void mixedRenderer(rendererInput);
-void mixedRenderer('Ready', rendererInput);
-const mixedLLM = chooseTemplate
-	? create.TextGenerator.withTemplate({ model, prompt: '{{ topic }}' })
-	: create.ObjectStreamer.withScript({ model, schema, prompt: 'return topic' });
+void (chooseTemplate ? templateRenderer(rendererInput) : scriptRenderer(rendererInput));
+void (chooseTemplate ? templateRenderer('Ready', rendererInput) : scriptRenderer('Ready', rendererInput));
+const textRenderer = create.TextGenerator.withTemplate({ model, prompt: '{{ topic }}' });
+const objectRenderer = create.ObjectStreamer.withScript({ model, schema, prompt: 'return topic' });
+const mixedLLM = chooseTemplate ? textRenderer : objectRenderer;
 void mixedLLM();
-void mixedLLM(rendererInput);
-void mixedLLM(messages, rendererInput);
-void mixedLLM('{{ topic }}', messages, rendererInput);
+void (chooseTemplate ? textRenderer(rendererInput) : objectRenderer(rendererInput));
+void (chooseTemplate ? textRenderer(messages, rendererInput) : objectRenderer(messages, rendererInput));
+void (chooseTemplate ? textRenderer('{{ topic }}', messages, rendererInput) : objectRenderer('{{ topic }}', messages, rendererInput));
 void mixedLLM.run({ context: rendererInput });
 const mixedScriptFunction = chooseTemplate ? create.Script({ script: 'return 1', schema: z.number() }) : create.Function({ execute: () => 1 });
 expectType<Promise<number>>(mixedScriptFunction());

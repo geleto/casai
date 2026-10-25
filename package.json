@@ -28,6 +28,7 @@
 	],
 	"files": [
 		"dist",
+		"!dist/.tsbuildinfo",
 		"README.md",
 		"LICENSE"
 	],
@@ -44,29 +45,41 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json",
-		"build:tsc": "tsc -p tsconfig.build.json",
+		"build": "tsc -b tsconfig.build.json",
+		"build:tsc": "tsc -b tsconfig.build.json",
 		"clean": "rimraf dist",
-		"lint": "eslint src tests",
-		"typecheck": "tsc --noEmit",
-		"typecheck:src": "tsc --noEmit --customConditions casai-source",
-		"typecheck:ts6": "tsc6 --noEmit --customConditions casai-source",
-		"typecheck:safety:src": "tsc -p tests/type-safety/tsconfig.source.json",
-		"typecheck:safety:ts6": "tsc6 -p tests/type-safety/tsconfig.source.json",
-		"typecheck:exact": "tsc -p tests/type-safety && tsc6 -p tests/type-safety",
-		"test": "npm run test:types && mocha",
-		"test:types": "npm run typecheck:src && npm run typecheck:ts6 && npm run typecheck:safety:src && npm run typecheck:safety:ts6 && npm run build && npm run typecheck && npm run typecheck:exact",
-		"test:local": "npm run test:file -- tests/ComponentContracts.unit.test.ts tests/ConfigMerge.test.ts tests/ConfigValidation.test.ts tests/Engines.unit.test.ts tests/FactoryInference.test.ts tests/Function.test.ts tests/FunctionPrompt.test.ts tests/FunctionTool.test.ts tests/ResultAugmentation.unit.test.ts tests/LLMCalls.unit.test.ts tests/LLMComponents.unit.test.ts tests/LLMSurface.unit.test.ts tests/LLMRun.test.ts tests/Loaders.coverage.test.ts tests/MessageHistory.test.ts tests/NativeSchemaBehavior.unit.test.ts tests/ProviderResults.unit.test.ts tests/README.examples.test.ts tests/Regressions.unit.test.ts tests/ToolContext.test.ts tests/Workflow.unit.test.ts tests/loaders-unit.test.ts tests/messages-unit.test.ts",
+		"lint": "node --max-old-space-size=8192 node_modules/eslint/bin/eslint.js src tests",
+		"typecheck": "tsc -p tsconfig.consumers.json --incremental --tsBuildInfoFile node_modules/.cache/casai/consumers.tsbuildinfo",
+		"typecheck:src": "tsc -p tsconfig.source.json --incremental --tsBuildInfoFile node_modules/.cache/casai/source.tsbuildinfo",
+		"typecheck:safety:src": "tsc -p tests/type-safety/tsconfig.source.json --incremental --tsBuildInfoFile node_modules/.cache/casai/safety-source.tsbuildinfo",
+		"typecheck:exact": "tsc -p tests/type-safety --incremental --tsBuildInfoFile node_modules/.cache/casai/safety-exact.tsbuildinfo",
+		"test": "npm run test:local",
+		"test:live": "npm run test:file -- tests/Loaders.test.ts tests/Messages.test.ts tests/ObjectGenerator.test.ts tests/ObjectStreamer.test.ts tests/Script.test.ts tests/TextGenerator.test.ts tests/TextStreamer.test.ts tests/Tools.test.ts",
+		"test:types": "npm run typecheck:src && npm run build && npm run typecheck && npm run typecheck:exact",
+		"test:local": "mocha",
 		"test:file": "mocha --no-config --node-option import=tsx/esm --node-option conditions=casai-source --require dotenv/config",
 		"test:coverage": "c8 npm run test:local -- --timeout 10000 --reporter dot && c8 check-coverage --include src/augment-result.ts --per-file --lines 100 --statements 100 --functions 100 --branches 98",
-		"test:watch": "mocha --watch",
+		"test:phase2-production": "node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
+		"test:package": "npm run build && node tests/fixtures/phase2-package-consumer.cjs",
+		"test:watch": "npm run test:local -- --watch",
 		"check": "npm run test:types && npm run lint && npm run test:coverage",
 		"start": "tsx examples/story.ts"
 	},
 	"c8": {
 		"all": true,
-		"include": ["src/*.ts", "src/factories/*.ts", "src/types/config.ts", "src/types/merge.ts", "src/types/schemas.ts"],
-		"reporter": ["text", "json", "json-summary", "html"],
+		"include": [
+			"src/*.ts",
+			"src/factories/*.ts",
+			"src/types/config.ts",
+			"src/types/merge.ts",
+			"src/types/schemas.ts"
+		],
+		"reporter": [
+			"text",
+			"json",
+			"json-summary",
+			"html"
+		],
 		"check-coverage": true,
 		"lines": 99,
 		"statements": 99,
@@ -95,19 +108,22 @@
 		"mocha": "^12.0.3",
 		"rimraf": "^6.1.3",
 		"tsx": "^4.23.15",
-		"typescript-eslint": "^8.71.1"
+		"typescript": "npm:@typescript/typescript6@^6.0.2",
+		"typescript-eslint": "^8.71.1",
+		"vscode-jsonrpc": "^10.0.0",
+		"zod": "4.6.5"
 	},
 	"engines": {
 		"node": ">=24",
 		"npm": ">=9.0.0"
 	},
 	"dependencies": {
-		"cascada-engine": "^0.6.2",
-		"ts-node": "^10.9.2",
-		"typescript": "npm:@typescript/typescript6@^6.0.2"
+		"@ai-sdk/provider-utils": "^5.0.56",
+		"cascada-engine": "^0.6.2"
 	},
 	"peerDependencies": {
-		"ai": "^7.0.0"
+		"ai": "^7.0.130",
+		"zod": "^4.6.5"
 	},
 	"overrides": {
 		"mocha": {

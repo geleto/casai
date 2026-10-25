@@ -17,8 +17,8 @@ const schema = z.object({ answer: z.number() });
 const output = Output.object({ schema });
 const runtimeContext = { requestId: 'request' };
 const lookup = create.Function.asTool({
-	inputSchema: z.object({ query: z.string() }), contextSchema: z.object({ factor: z.number() }),
-	execute: ({ query }, { context }) => query.length * context.factor,
+	inputSchema: z.object({ query: z.string() }), context: { factor: 1 }, toolContextSchema: z.object({ factor: z.number() }),
+	execute: ({ query, factor }) => query.length * factor,
 });
 const tools = { lookup };
 const parent = create.Config({ model, tools, toolsContext: { lookup: { factor: 2 } }, output, runtimeContext });

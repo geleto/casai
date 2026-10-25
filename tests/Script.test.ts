@@ -58,7 +58,7 @@ describe('create.Script', function () {
 
 		it('merges and overrides context at runtime', async () => {
 			const scriptRunner = create.Script({
-				context: { user: 'Alice', role: 'admin' },
+				inputSchema: z.object({ user: z.string() }), context: { user: 'Alice', role: 'admin' },
 				script: `return { message: "User: " + user + ", Role: " + role }`
 			});
 			const result = await scriptRunner({ user: 'Bob' });

@@ -28,13 +28,13 @@ create.Config({ output: 'enum' });
 create.Config({ output: 'no-schema' });
 create.Config({ model, schema, output: undefined });
 create.Config({ model, schema, output: 'array', schemaName: 'Answer', schemaDescription: 'The answer' });
-create.Config({ model, output: 'enum', enum: ['YES', 'NO'] as const, mode: 'tool' });
-create.Config({ model, output: 'no-schema', mode: 'json' });
+create.Config({ model, output: 'enum', enum: ['YES', 'NO'] as const });
+create.Config({ model, output: 'no-schema' });
 // @ts-expect-error Enum fragments cannot declare an object schema.
 create.Config({ output: 'enum', enum: ['YES'], schema });
 // @ts-expect-error Schemaless fragments cannot declare an object schema.
 create.Config({ output: 'no-schema', schema });
-// @ts-expect-error Schemaless fragments accept only JSON mode.
+// @ts-expect-error Fragments cannot configure the removed mode setting.
 create.Config({ output: 'no-schema', mode: 'tool' });
 // @ts-expect-error Array fragments cannot declare enum alternatives.
 create.Config({ output: 'array', enum: ['YES'] });
@@ -56,9 +56,9 @@ create.Config({ script: 'return 1', output: 'array' });
 create.Config({ output: 'array', tools: {} });
 // @ts-expect-error An object schema and text-generation tools fit no single component.
 create.Config({ model, schema, tools: {} });
-// @ts-expect-error A shared schema and tools fit no single component.
+// Coded components may combine output schemas with tools.
 create.Config({ schema, tools: {} });
-// @ts-expect-error A shared schema and tool contexts fit no single component.
+// Incomplete fragments may declare tool context before their registry.
 create.Config({ schema, toolsContext: {} });
 // @ts-expect-error Inheriting unrelated context does not make incompatible fragment settings valid.
 create.Config({ template: 'Hello', model }, parent);
@@ -66,7 +66,7 @@ create.Config({ template: 'Hello', model }, parent);
 create.Config({ model }, create.Config({ template: 'Hello' }));
 // @ts-expect-error Compatibility is checked when the incompatible setting comes from the parent.
 create.Config({ template: 'Hello' }, modelOnly);
-// @ts-expect-error Inherited schemas still prohibit text-generation tools.
+// A coded child may add a registry to an inherited output schema.
 create.Config({ tools: {} }, schemaOnly);
 // @ts-expect-error Unknown properties cannot be hidden in a generic fragment.
 create.Config({ unknownSetting: true });
@@ -311,7 +311,7 @@ void text.run({ enum: ['YES'] });
 // @ts-expect-error A run cannot change the input schema.
 void stream.run({ inputSchema });
 // @ts-expect-error A run cannot introduce an SDK tool context schema.
-void text.run({ contextSchema: inputSchema });
+void text.run({ toolContextSchema: inputSchema });
 // @ts-expect-error A run cannot change its prompt rendering mode.
 void text.run({ promptType: 'async-template' });
 // @ts-expect-error A run cannot introduce a loader.
@@ -319,7 +319,7 @@ void stream.run({ loader: { load: (name: string) => name } });
 // @ts-expect-error A run cannot change renderer filters.
 void text.run({ filters: { upper: (value: string) => value.toUpperCase() } });
 // @ts-expect-error A run cannot change renderer options.
-void stream.run({ options: { autoescape: true } });
+void stream.run({ renderOptions: { autoescape: true } });
 // @ts-expect-error Unknown run properties are rejected.
 void text.run({ unknownSetting: true });
 // @ts-expect-error Run generation settings keep their declared value types.

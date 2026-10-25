@@ -2,9 +2,13 @@
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import type { ModelMessage } from 'ai';
+import { generateText, isStepCount } from 'ai';
+import type { ModelMessage, Tool } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { create, ConfigError, ScriptError, TemplateError, race, z } from './cascada';
+import { create, ConfigError, TemplateError, race, z } from './cascada';
+import { modelFor } from './fixtures/phase2-security-sdk.js';
+import { _createLLMComponent } from '../src/llm-component.js';
+import { validateMessagesArray } from '../src/validate.js';
 
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -52,6 +56,154 @@ const answer = '{"answer":4}';
 const factoryNames = ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const;
 
 describe('LLM call contracts without providers', () => {
+	it('validates invocation history once in addition to native SDK validation', async () => {
+		let reads = 0;
+		const messages: ModelMessage[] = [{ get role() { reads++; return 'user' as const; }, content: 'earlier' }];
+		validateMessagesArray(messages);
+		const validationReads = reads;
+		reads = 0;
+		await generateText({ model: mockModel('done'), messages: [...messages, { role: 'user', content: 'go' }] });
+		const nativeReads = reads;
+		const component = create.TextGenerator({ model: mockModel('done'), prompt: 'go' });
+		for (const call of [() => component(messages), () => component.run({ messages })]) {
+			reads = 0;
+			await call();
+			expect(reads).to.equal(nativeReads + validationReads);
+		}
+	});
+
+	it('passes native model settings without leaking component settings or outer tool metadata', async () => {
+		const settings = {
+			model: mockModel('done'), prompt: 'go', context: { db: 'private' }, inputSchema: z.object({}),
+			toolContextSchema: z.object({}), loader: [], filters: {}, renderOptions: {}, debug: false,
+			description: 'outer', title: 'outer', deferLoading: true, metadata: { source: 'outer' }, strict: true,
+			inputExamples: [{ input: {} }], needsApproval: true, onInputStart: () => undefined,
+			onInputDelta: () => undefined, onInputAvailable: () => undefined, toModelOutput: () => undefined,
+			schema, output: 'object', enum: ['choice'], maxOutputTokens: 7,
+			providerOptions: { mock: { inner: true } }, futureSdkOption: { retained: true },
+		};
+		const component = _createLLMComponent(settings, request => request, { type: 'test', streaming: false });
+		const request = await component();
+		for (const key of ['context', 'inputSchema', 'toolContextSchema', 'promptType', 'loader', 'filters', 'renderOptions', 'debug',
+			'description', 'title', 'deferLoading', 'metadata', 'strict', 'inputExamples', 'needsApproval',
+			'onInputStart', 'onInputDelta', 'onInputAvailable', 'toModelOutput']) expect(request).not.to.have.property(key);
+		for (const key of ['model', 'schema', 'output', 'enum', 'maxOutputTokens', 'providerOptions', 'futureSdkOption'] as const) {
+			expect(request[key]).to.equal(settings[key]);
+		}
+		expect(request.prompt).to.equal('go');
+	});
+
+	for (const factoryName of factoryNames) it(`${factoryName} checks cancellation before invocation history validation`, async () => {
+		const reason = new Error('already cancelled');
+		const abortSignal = AbortSignal.abort(reason);
+		let reads = 0;
+		const model = mockModel(answer);
+		const factory = create[factoryName] as (config: object) => { run(settings: object): unknown };
+		const component = factory({ model, prompt: 'go', ...(factoryName.startsWith('Object') ? { schema } : {}) });
+		for (const role of ['user', 'invalid']) {
+			const messages = [{ get role() { reads++; return role; }, content: 'earlier' }];
+			await rejects(async () => { await component.run({ messages, abortSignal }); }, error => error === reason);
+		}
+		expect(reads).to.equal(0);
+		expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
+	});
+
+	for (const factoryName of factoryNames) it(`${factoryName} checks cancellation before parsing, preparation and dispatch`, async () => {
+		const reason = new Error('already cancelled');
+		const abortSignal = AbortSignal.abort(reason);
+		let parsed = 0, prepared = 0;
+		const model = mockModel(answer);
+		const factory = create[factoryName].withFunction as (config: object) => { run(settings: object): unknown };
+		const component = factory({ model, inputSchema: z.object({ value: z.number().transform(value => { parsed++; return value; }) }),
+			prompt: () => { prepared++; return 'go'; }, ...(factoryName.startsWith('Object') ? { schema } : {}) });
+		for (const value of [1, 'invalid']) {
+			await rejects(async () => await component.run({ context: { value }, abortSignal }), error => error === reason);
+		}
+		expect(parsed).to.equal(0);
+		expect(prepared).to.equal(0);
+		expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
+	});
+
+	for (const factoryName of factoryNames) it(`${factoryName} validates every alternative of run settings`, async () => {
+		const model = mockModel(answer);
+		const factory = create[factoryName].withTemplate as (config: object) => unknown;
+		const child = factory({ model, prompt: 'Value {{ value }}', inputSchema: z.looseObject({ value: z.number() }),
+			context: { value: 1, user: 'private' }, ...(factoryName.startsWith('Object') ? { schema } : {}) }) as { run(settings: object): Promise<unknown> };
+		const calls = factoryName.endsWith('Streamer') ? model.doStreamCalls : model.doGenerateCalls;
+		for (const user of ['admin', undefined]) {
+			await rejects(child.run({ context: { value: 2, user } }), /Private input keys: user/);
+		}
+		await rejects(child.run({ context: { value: 'invalid' } }), /Application input validation failed/);
+		expect(calls).to.have.length(0);
+		await settle(await child.run({ maxOutputTokens: 16 }));
+		await settle(await child.run({ context: { value: 2, extra: 'allowed' } }));
+		expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([['Value 1'], ['Value 2']]);
+	});
+
+	for (const factoryName of factoryNames) it(`${factoryName} normalizes run keywords and rejects mixed settings`, async () => {
+		const model = mockModel(answer);
+		const factory = create[factoryName].withTemplate as (config: object) => unknown;
+		const child = factory({ model, prompt: 'Topic {{ topic }}', ...(factoryName.startsWith('Object') ? { schema } : {}) });
+		const owner = create.Script({ context: { child }, script: 'return child.run(context={ topic: "x" }, temperature=0.9)' });
+		await settle(await owner());
+		const calls = factoryName.endsWith('Streamer') ? model.doStreamCalls : model.doGenerateCalls;
+		expect(calls).to.have.length(1);
+		expect(calls[0].temperature).to.equal(0.9);
+		expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([['Topic x']]);
+		const invalid = child as { run(...args: unknown[]): Promise<unknown> };
+		await rejects(invalid.run({ context: { topic: 'x' } }, { temperature: 0.9, __hasKeywordArgs: true }), ConfigError);
+		await rejects(invalid.run({}, {}), ConfigError);
+		await rejects(invalid.run(42), ConfigError);
+		await rejects(invalid.run(null), ConfigError);
+		expect(calls).to.have.length(1);
+	});
+
+	it('classifies malformed call envelopes as configuration errors', async () => {
+		const component = create.TextGenerator.withTemplate({ model: mockModel(answer), prompt: 'hello' }) as (...args: unknown[]) => Promise<unknown>;
+		for (const args of [[42], [null], [{}, {}], [[], []], ['source', {}, {}], ['source', [], []]]) {
+			await rejects(component(...args), ConfigError);
+		}
+	});
+
+	for (const factoryName of ['TextGenerator', 'ObjectGenerator'] as const) it(`${factoryName} keeps providerOptions on the inner model only`, async () => {
+		const model = mockModel(answer);
+		const providerOptions = { mock: { inner: true } };
+		const build = create[factoryName].withTemplate.asTool as (config: object) => Tool & { bindToolContext(context: unknown): { tool: Tool; context: unknown } };
+		const component = build({ model, prompt: 'Topic {{ topic }}', inputSchema: z.object({ topic: z.string() }),
+			providerOptions, ...(factoryName.startsWith('Object') ? { schema } : {}) });
+		for (const operation of [component, component.bindToolContext({}).tool]) {
+			expect(operation).not.to.have.property('providerOptions');
+			const outer = modelFor({ topic: 'x' });
+			await generateText({ model: outer, prompt: 'go', tools: { probe: operation }, stopWhen: isStepCount(2) });
+			expect(outer.doGenerateCalls[0].tools?.[0]).not.to.have.property('providerOptions');
+		}
+		const calls = factoryName.endsWith('Streamer') ? model.doStreamCalls : model.doGenerateCalls;
+		expect(calls).to.have.length(2);
+		for (const call of calls) expect(call.providerOptions).to.deep.equal(providerOptions);
+		const coded = create.Function.asTool({ inputSchema: z.object({}), providerOptions, execute: () => 1 });
+		expect(coded.providerOptions).to.equal(providerOptions);
+		expect(coded.bindToolContext({}).tool.providerOptions).to.equal(providerOptions);
+	});
+
+	for (const factoryName of factoryNames) for (const modifier of ['withTemplate', 'withScript'] as const) {
+		it(`${factoryName}.${modifier} preserves history with Cascada keyword context`, async () => {
+			const model = mockModel(answer);
+			const source = modifier === 'withTemplate' ? 'Topic {{ topic }}' : 'return "Topic " + topic';
+			const factory = create[factoryName][modifier] as (config: object) => unknown;
+			const child = factory({ model, prompt: source, ...(factoryName.startsWith('Object') ? { schema } : {}) });
+			const history = [{ role: 'user', content: 'earlier' }];
+			for (const call of ['child(history, topic="x")', 'child(source, history, topic="x")']) {
+				const script = create.Script({ context: { child, source, history }, script: `return ${call}` });
+				await settle(await script());
+			}
+			expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([
+				['earlier', 'Topic x'], ['earlier', 'Topic x'],
+			]);
+			const ambiguous = create.Script({ context: { child, history }, script: 'return child(history, { topic: "x" }, topic="y")' });
+			await rejects(ambiguous(), /context object or named arguments/);
+		});
+	}
+
 	describe('empty literal and prepared prompts', () => {
 		for (const factoryName of factoryNames) {
 			for (const modifier of ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadsText', 'loadsTemplate', 'loadsScript'] as const) {
@@ -128,13 +280,14 @@ describe('LLM call contracts without providers', () => {
 					return `${name}: {{ greeting }} {{ name }}`;
 				} };
 				const model = mockModel(answer);
-				const config = { model, loader, prompt: 'default', context: { greeting: 'Hello', name: 'Configured' } };
+				const config = { model, loader, prompt: 'default', inputSchema: z.object({ greeting: z.string(), name: z.string() }), context: { greeting: 'Hello', name: 'Configured' } };
 				const component = factoryName === 'TextGenerator' ? create.TextGenerator.loadsTemplate(config)
 					: factoryName === 'TextStreamer' ? create.TextStreamer.loadsTemplate(config)
 						: factoryName === 'ObjectGenerator' ? create.ObjectGenerator.loadsTemplate({ ...config, schema })
 							: create.ObjectStreamer.loadsTemplate({ ...config, schema });
-				await settle(await component({ name: 'First' }));
-				await settle(await component('other', { name: 'Second' }));
+				const call = component as (...args: unknown[]) => ReturnType<typeof component>;
+				await settle(await call({ name: 'First' }));
+				await settle(await call('other', { name: 'Second' }));
 				await settle(await component.run({ prompt: 'other', context: { greeting: 'Hi' } }));
 				await settle(await component());
 				expect(promptTexts(model, streaming)).to.deep.equal([
@@ -155,7 +308,7 @@ describe('LLM call contracts without providers', () => {
 		it('keeps HTML literal in LLM prompts even when escaping is requested', async () => {
 			const model = mockModel('DONE');
 			const generator = create.TextGenerator.withTemplate({
-				model, prompt: '{{ value }}', context: { value: '<b> & "text"' }, options: { autoescape: true },
+				model, prompt: '{{ value }}', context: { value: '<b> & "text"' }, renderOptions: { autoescape: true },
 			});
 			await generator();
 			expect(promptTexts(model)).to.deep.equal([['<b> & "text"']]);
@@ -164,7 +317,7 @@ describe('LLM call contracts without providers', () => {
 		it('reports malformed script prompt output as a configuration validation error', async () => {
 			const model = mockModel('DONE');
 			const generator = create.TextGenerator.withScript({ model, prompt: 'return [{content: "Invalid message"}]' });
-			await rejects(() => generator(), (error: unknown) => error instanceof ConfigError && error.message.includes('Output validation failed'));
+			await rejects(() => generator(), (error: unknown) => error instanceof ConfigError && error.message.includes('Prompt output validation failed'));
 			expect(model.doGenerateCalls).to.have.length(0);
 		});
 
@@ -174,7 +327,7 @@ describe('LLM call contracts without providers', () => {
 				model,
 				loader: { load: (name: string) => name === 'signature' ? '-- {{ author | upper }}' : null },
 				filters: { upper: (value: string) => value.toUpperCase() },
-				options: { trimBlocks: true },
+				renderOptions: { trimBlocks: true },
 				context: { author: 'ada' },
 				prompt: '{% if true %}\n{{ "Summary" | upper }}{% endif %}\n{% include "signature" with context %}',
 			});
@@ -197,7 +350,7 @@ describe('LLM call contracts without providers', () => {
 
 		it('should apply engine options such as throwOnUndefined before calling the model', async () => {
 			const model = mockModel('DONE');
-			const generator = create.TextGenerator.withTemplate({ model, options: { throwOnUndefined: true }, prompt: 'Hello {{ missing }}' });
+			const generator = create.TextGenerator.withTemplate({ model, renderOptions: { throwOnUndefined: true }, prompt: 'Hello {{ missing }}' });
 			await rejects(() => generator(), TemplateError);
 			expect(model.doGenerateCalls).to.have.length(0);
 		});
@@ -207,13 +360,13 @@ describe('LLM call contracts without providers', () => {
 			const template = create.TextGenerator.withTemplate({ model });
 			const script = create.TextGenerator.withScript({ model });
 			await rejects(() => (template as unknown as (context: object) => Promise<unknown>)({ topic: 'tests' }), (error: unknown) => {
-				expect(error).to.be.instanceOf(TemplateError);
-				expect((error as Error).message).to.match(/No template prompt provided/);
+				expect(error).to.be.instanceOf(ConfigError);
+				expect((error as Error).message).to.match(/Prompt source must be a string/);
 				return true;
 			});
 			await rejects(() => (script as unknown as (context: object) => Promise<unknown>)({ topic: 'tests' }), (error: unknown) => {
-				expect(error).to.be.instanceOf(ScriptError);
-				expect((error as Error).message).to.match(/No script provided/);
+				expect(error).to.be.instanceOf(ConfigError);
+				expect((error as Error).message).to.match(/Prompt source must be a string/);
 				return true;
 			});
 			expect(model.doGenerateCalls).to.have.length(0);
@@ -562,7 +715,7 @@ describe('LLM call contracts without providers', () => {
 			for (const component of [template, script, generator]) {
 				await rejects(async () => await (component as (input: object) => Promise<unknown>)(invalid), (error: unknown) => {
 					expect(error).to.be.instanceOf(ConfigError);
-					expect((error as Error).message).to.match(/Input context validation failed[\s\S]*value/);
+					expect((error as Error).message).to.match(/Application input validation failed/);
 					return true;
 				});
 			}
@@ -572,10 +725,10 @@ describe('LLM call contracts without providers', () => {
 			expect(await generator.execute(invalid, options)).to.equal('DONE');
 			expect(promptTexts(model)).to.deep.equal([['Value two']]);
 
-			// A Function tool is its own execute function.
+			// Native execute accepts already-parsed arguments; ordinary calls validate raw input.
 			const fn = create.Function.asTool({ inputSchema, execute: ({ value }) => `Value ${value}` });
-			expect(fn.execute).to.equal(fn);
-			expect(await fn(invalid, options)).to.equal('Value two');
+			expect(fn.execute).not.to.equal(fn);
+			expect(await fn.execute(invalid, options)).to.equal('Value two');
 		});
 
 		it('should let the SDK reject invalid model-issued input before the tool runs', async () => {

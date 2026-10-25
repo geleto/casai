@@ -1,12 +1,13 @@
 import type { JSONValue, DeepPartial, ToolExecutionOptions, GenerateObjectResult, GenerateTextResult, InferGenerateOutput, ModelMessage, OutputInterface, StreamObjectResult, StreamTextResult, ToolSet } from 'ai';
 
-import type { DefaultTextOutput, InferSchema, SchemaType } from './types.js';
-import type { ContextSchemaConfig, DeclaredType, ToolContextFromConfig } from './config.js';
+import type { DefaultTextOutput, InferSchema } from './types.js';
+import type { DeclaredType, ToolContextFromConfig } from './config.js';
+import type { FunctionTool } from '@ai-sdk/provider-utils';
 
 export type { AIOutput } from './types.js';
 export type { GenerateTextResult, StreamTextResult } from 'ai';
 
-export type ScriptResult = JSONValue;//@todo - remove, RESULT can be any type (union, etc...)
+export type ScriptResult = unknown;
 
 type ElementValues<V> = V extends AsyncIterable<infer E> | Iterable<infer E> ? AsyncIterable<E> : never;
 type StreamValueForName<N extends string, V> = string extends N ? Promise<V> | AsyncIterable<V> | ElementValues<V>
@@ -54,13 +55,12 @@ export type StreamObjectNoSchemaResult = StreamObjectResultAugmented<JSONValue, 
 
 type AsyncIterableStream<T> = AsyncIterable<T> & ReadableStream<T>;
 
-// A tool's input follows its final input schema; INPUT is only the fallback for configs without one.
-export type ComponentToolFromConfig<INPUT, OUTPUT, TConfig> = ComponentTool<
-	InferSchema<DeclaredType<TConfig, 'inputSchema'>, INPUT>, OUTPUT, ToolContextFromConfig<TConfig>>;
-
-export interface ComponentTool<INPUT, OUTPUT, TOOL_CONTEXT = undefined> extends ContextSchemaConfig<TOOL_CONTEXT> {
-	description?: string;
-	inputSchema: SchemaType<INPUT>;
+// Native descriptor arguments are parsed. Ordinary calls retain raw input types.
+export type ComponentToolFromConfig<INPUT, OUTPUT, TConfig> = ComponentTool<InferSchema<DeclaredType<TConfig, 'inputSchema'>, INPUT>, OUTPUT, ToolContextFromConfig<TConfig>> & {
+	bindToolContext: import('./application.js').BindToolContext<TConfig, OUTPUT>;
+};
+export type ComponentTool<INPUT, OUTPUT, TOOL_CONTEXT = undefined> =
+	Omit<FunctionTool<INPUT, OUTPUT, TOOL_CONTEXT>, 'execute' | 'outputSchema'> & {
+	type: 'function';
 	execute: (input: INPUT, options: ToolExecutionOptions<TOOL_CONTEXT>) => PromiseLike<OUTPUT>;
-	type?: 'function';
-}
+};

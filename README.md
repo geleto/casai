@@ -3,7 +3,7 @@
 > **API design:** See [README2.md](README2.md) for the intended API. These features are not yet implemented:
 >
 > - **[LLMAgent](README2.md#llmagent)**: Unify text and structured-output generation and streaming, with [`.asStream`](README2.md#streaming-with-asstream) for a streaming ordinary call, optional tool loops, and AI SDK UI integration.
-> - **[Composable components](README2.md#common-component-contracts)**: Share context helpers, input schemas, and application value contracts across LLMAgent, Template, Script, and Function. Use an explicit value adapter to replace a model operation inside a workflow. LLMAgent alone implements SDK Agent and its chat UI protocol.
+> - **[LLMAgent composition](README2.md#common-component-contracts)**: Extend the coded components' context helpers, input schemas, and application value contracts to LLMAgent. LLMAgent alone will implement SDK Agent and its chat UI protocol.
 > - **[Experimental_Decision](README2.md#decision)**: Answer choice, boolean, and scoring questions.
 > - **[Embedder](README2.md#embedder) / [Reranker](README2.md#reranker)**: Generate vectors and rank retrieved documents for search and RAG.
 > - **[ImageGenerator](README2.md#imagegenerator)**: Generate and edit images.
@@ -41,6 +41,10 @@ Instead of forcing you into rigid graphs or `async/await` hell, Casai is built o
 *   **🧩 Composable & Reusable Components.** Treat every piece of your AI workflow - from a simple generator to a multi-step agent - as a small, callable, and reusable component. This lets you build sophisticated systems from simple, testable parts, avoiding monolithic agent definitions.
 
 *   **💡 Logic vs. Capabilities: A Clear Separation of Concerns.** Define your high-level orchestration **logic** in a script or template. Provide the concrete **capabilities** it uses - like tools, APIs, and data sources - in a separate `context` object. This keeps your workflows clean, readable, and easy to maintain.
+
+TypeScript consumers require **TypeScript 7.0.2 or newer**. Casai verifies source, published declarations and editor inference with TS7. The TS6 development dependency supports internal tools such as ESLint; TS6 consumer compatibility is not maintained.
+
+Each component checks every alternative of a union-valued input against its complete schema and configured defaults. A variable holding different components may require narrowing before calling it, even when they accept the same particular input. Call the selected concrete component inside the corresponding branch; do not cast away its input checks. This restriction concerns TypeScript call inference, not configuration inheritance or runtime behavior.
 
 ### Built on a Solid Foundation
 
@@ -95,11 +99,13 @@ Casai is built on the **[Cascada engine](https://github.com/geleto/cascada)** - 
 
 ## Installation
 
-Requires Node.js 24 or later.
+The Phase 2 development branch requires an unreleased Cascada build with `makeSharedIterable`. Published `cascada-engine@0.6.2` does not export it. Release also requires the newer chain-resolution compiler/renderer integration; see the [remaining integration gates](docs/phase2-review.md#production-integration-2026-10-20). `npm run test:package` checks a packed installation without workspace links.
 
-Install a Vercel AI SDK 7.x version
+Requires Node.js 24 or later, AI SDK `^7.0.130`, and Zod `^4.6.5`. The AI SDK and Zod are peer dependencies; these minimum versions are tested with Casai.
+
+Install the supported AI SDK and Zod versions:
 ```bash
-npm install ai
+npm install "ai@^7.0.130" "zod@^4.6.5"
 ```
 
 Install Casai
@@ -181,7 +187,7 @@ console.log(JSON.stringify(result, null, 2));
 
 ## Components: The Heart of Casai
 
-At the core of *Casai* are **components** - versatile objects that transform inputs into outputs. They are the building blocks for your workflows, designed to be both powerful and easy to compose. Every component is created using the `create` factory and is callable with `()`. LLM components also offer an advanced `.run()` method for runtime overrides.
+At the core of *Casai* are **components** - versatile objects that transform inputs into outputs. They are the building blocks for your workflows, designed to be both powerful and easy to compose. Every component is created using the `create` factory and is callable with `()`. Components also offer `.run()` for named inputs and invocation settings.
 
 ### Component Overview
 
@@ -224,7 +230,7 @@ const result = await component({ topic: 'AI' });                    // Standard 
 const result = await component.run({ context: { topic: 'AI' }, temperature: 0.9 }); // Advanced override
 ```
 
-The standard call can only set optional arguments for `prompt`, `context`, and `messages` - which covers the majority of use cases. The `.run()` method allows you to override any LLM parameter for advanced scenarios.
+The standard LLM call accepts `prompt`, `context`, and `messages` according to its rendering mode. The `.run()` method also accepts generation settings; schemas and renderer configuration stay fixed.
 
 All components can be considered **renderers**, as they all produce an output (rendering text, data, or a stream). However, `Script` and `Function` components can also act as powerful **orchestrators**, defining and coordinating complex, multi-step workflows.
 
@@ -316,7 +322,9 @@ Configured inline templates and scripts are compiled for reuse; syntax errors ar
 #### Advanced Overrides with the `.run()` Method
 For advanced scenarios where you need to temporarily adjust LLM parameters for a single call without creating a new component, Casai provides the `.run()` method.
 
-This method is available specifically on **LLM components** (`TextGenerator`, `TextStreamer`, `ObjectGenerator`, and `ObjectStreamer`). It accepts a single configuration object where you can override properties like `model`, `temperature`, and `maxOutputTokens`, or replace configured tools with implementations that have compatible input, output, and SDK context types. Create a new component to add tools or change their contracts.
+LLM components accept generation overrides such as `model`, `temperature`, and `maxOutputTokens`, or replacement tools with compatible contracts. Template, Script, and Function also have `.run()`: pass application data under `context`, an optional `toolsContext` map and `abortSignal`; Template and Script additionally accept `template` and `script`, respectively. These are invocation settings and never change the component's `.config`.
+
+Omitting an LLM `.run()` prompt or supplying `prompt: undefined` retains the configured source. An explicit empty string replaces it. This fallback is specific to `prompt`: other replacement settings retain the normal merge rule, so `system: undefined` clears a configured system prompt, while `model: undefined` fails with `ConfigError` because a model is required. Configuration inheritance and context-value merging are unchanged.
 
 **Overridable Properties**
 
@@ -338,12 +346,12 @@ Properties that are fundamental to the component's setup, compilation, or return
 
 *   `schema`
 *   `inputSchema`
-*   `contextSchema`
+*   `toolContextSchema`
 *   `promptType`
 *   `output` (for `ObjectGenerator`/`Streamer`)
 *   `enum` (for `ObjectGenerator`)
 *   `filters`
-*   `options`
+*   `renderOptions`
 *   `loader`
 
 **Example:**
@@ -411,28 +419,42 @@ const component = create.TextGenerator.withTemplate({
 
 `create.Config` accepts incomplete configurations so that children can supply required properties later. It checks supplied properties for compatibility after merging with its parent. For example, a `schema` can be shared by a Function, Script, or ObjectGenerator, but combining `template` with `execute` is rejected. Concrete component factories then check required properties such as `model` or `execute`.
 
+Pass a choice between complete configurations through the parent argument. This preserves the relationship between each configuration's schema and defaults when inferring the child's callback:
+
+```typescript
+const choice = useText
+  ? { inputSchema: z.object({ value: z.string().transform(Number) }), context: { value: '4' } }
+  : { inputSchema: z.object({ value: z.number() }), context: { value: 4 } };
+
+const component = create.Function({ execute: ({ value }) => value * 2 }, { config: choice });
+```
+
+The parent may also be an existing `Config` or component. Spreading a whole configuration alternative into the child's settings is not a supported inference pattern; use parent-child merging for that case.
+
 ### Property Inheritance Explained
 
 A child configuration inherits properties it omits; supplied properties either replace inherited values or merge with them, according to the rules below. These rules apply to parent `Config` objects, component inheritance, and [allowed `.run()` overrides](#advanced-overrides-with-the-run-method). A `.run()` override applies only to that call.
 
 | Properties | Merging Strategy |
 | :--- | :--- |
-| All other properties, including `model`, `prompt`, `template`, `script`, `schema`, `inputSchema`, `contextSchema`, `execute`, `options`, and `providerOptions` | **Replace**: The child's entire value replaces the parent's, including when the value is an object. |
+| All other properties, including `model`, `prompt`, `template`, `script`, `schema`, `inputSchema`, `toolContextSchema`, `execute`, `renderOptions`, and `providerOptions` | **Replace**: The child's entire value replaces the parent's, including when the value is an object. |
 | `context`, `filters`, `tools`, `toolsContext` | **Shallow merge by key**: Keep keys unique to the parent; the child replaces values at matching keys. |
 | `messages` | **Concatenate**: Parent messages come first, followed by child messages. |
 | `loader` | **Merge loader chains**: Child loaders take priority; named `race()` groups combine and duplicate loader instances are removed. |
 
 #### Detailed Merging Strategies
 
-1. **Replace other properties.** A child can replace a property with a new value. For example, a new `schema` replaces the inherited schema, and a new `options` object replaces the entire inherited options object. The resulting configuration must still satisfy the component's requirements.
+1. **Replace other properties.** A child can replace a property with a new value. For example, a new `schema` replaces the inherited schema, and a new `renderOptions` object replaces the entire inherited rendering settings object. The resulting configuration must still satisfy the component's requirements. The obsolete top-level `options` key is rejected, including in reusable configuration and run settings; use `renderOptions`.
 
-2. **Merge maps by key.** `context` and `filters` retain inherited entries unless the child supplies the same key. `tools` and `toolsContext` follow the same rule, using tool names as keys. Each matching entry is replaced in full, including nested objects and each tool's context value. Values are not recursively merged.
+2. **Merge maps by key.** `context` and `filters` retain inherited entries unless the child supplies the same key. `tools` and `toolsContext` follow the same rule, using tool names as keys. Each matching entry is replaced in full, including nested objects and each tool's context value. Values are not recursively merged. Casai copies these four map containers at creation and inheritance, so replacing an entry in the original settings does not retarget an existing component. Nested resources remain shared: changing a referenced resource's state is distinct from replacing its binding. These snapshots do not deep-copy or freeze resources, and component configuration remains immutable by contract.
 
-3. **Append messages.** A child's `messages` array is appended to the inherited array. This preserves the order of configured conversation messages.
+3. **Append messages.** A child's `messages` array is appended to the inherited array. Casai copies the array at creation and inheritance, including when only one side provides messages. Later additions or replacements in the original array do not change the component. Message objects and their nested content remain shared.
 
 4. **Merge loaders.** Child loaders are searched before parent loaders. Loaders in named `race()` groups with the same name are combined into one group, and duplicate loader instances are removed.
 
 #### Nested Context Values
+
+Configuration snapshots read enumerable getters during construction. A getter on a context field is captured then, rather than evaluated for each invocation; a throwing getter fails construction. Supply request-specific values through call input or tool context, or configure a function that the implementation calls during execution. Do not use a configuration getter to read request-local state.
 
 Context merging preserves top-level keys unique to the parent. A nested object at a matching key is replaced:
 
@@ -523,10 +545,11 @@ Let's explore each component in detail.
 #### How to Create It
 *   **Providing the Template Directly**: This is the default behavior. The `template` property contains the template string.
     ```typescript
-    import { create } from 'casai';
+    import { create, z } from 'casai';
 
     const component = create.Template({
       template: 'Hi {{ name }}! Today is {{ currentDay }}.',
+      inputSchema: z.looseObject({ name: z.string() }),
       context: { name: 'User' }
     });
     ```
@@ -555,6 +578,8 @@ You can call any `Template` with a new template and context.
     ```typescript
     const otherFileResult = await fileComponent('goodbye_email.njk'); // Loads and renders a different file
     ```
+Only declared public names can override configured values. The example declares `name` and uses an open schema to retain unrelated variables such as `currentDay`; a plain `z.object` would strip those extras.
+
 **Use it for**: Generating HTML, dynamic reports, email templates, or any task needing flexible, non-LLM rendering where the final output is a string.
 
 #### Using as a Tool (`.asTool`)
@@ -824,6 +849,8 @@ The added properties are lazy and non-enumerable, like the SDK's result getters.
 ### ObjectGenerator
 **What it does**: Produces structured data with Vercel's [`generateObject` function](https://sdk.vercel.ai/docs/reference/ai-sdk-core/generate-object), validated by a Zod schema. It follows the same creation and calling patterns as `TextGenerator`.
 
+ObjectGenerator and ObjectStreamer use the SDK's JSON output format. The obsolete `mode` setting is not supported in configuration or `.run()`.
+
 #### How to Create It
 Like `TextGenerator`, it can operate on a single `prompt` or be given a conversational history via the `messages` property, making it useful for extracting structured data from a dialogue.
 
@@ -1000,9 +1027,9 @@ You can define the function's logic in two ways:
     });
     ```
 
-With an `inputSchema` or output `schema`, `execute` must accept the schema input (plus configured `context`) and return the schema output. Without an `inputSchema`, callers pass what `execute` declares, with configured `context` fields optional; without an output `schema`, the result is `execute`'s return type.
+Callers supply the **input type** of `inputSchema`; `execute` receives its **parsed output**, together with private configured dependencies and `_toolOptions`. Similarly, `execute` returns the output `schema`'s input type and callers receive its parsed output. Configured values named by `inputSchema` can satisfy required input fields. Other configured fields remain private, including on ordinary calls. Without an output `schema`, the result is `execute`'s return type.
 
-A `Function` or `Function.asTool` can inherit from a `Config` or another `Function`. A child can replace `inputSchema`, `schema`, or `execute`, and its configured `context` merges by key. `Function.asTool` can also replace `contextSchema`. TypeScript checks the final `execute`, inherited or supplied, against the final configuration: if a change no longer matches the inherited callback's input, configured context, SDK context, or return type, the child must supply a compatible `execute`.
+A `Function` or `Function.asTool` can inherit from a `Config` or another `Function`. A child can replace `inputSchema`, `schema`, or `execute`, and its configured `context` merges by key. `Function.asTool` can also replace `toolContextSchema`. TypeScript checks the final implementation against the resolved configuration. Every component exposes that configuration through `.config`; `component.config.execute` remains the original Function implementation.
 
 A `Config` can hold a partial `Function` configuration, including `execute`. Its callback is typed from the schemas and context that `Config` declares and must not contradict them; anything it leaves out is checked when a `Function` completes the configuration. Components that supply their own implementation, such as generators, templates, and their tools, reject `execute` in their own config and in a parent.
 
@@ -1014,58 +1041,26 @@ A powerful feature of Casai is the ability to expose almost any component as a t
 **How it Works:**
 You can convert a component into a tool by appending the `.asTool` modifier to its factory call. This pattern applies to `TextGenerator`, `ObjectGenerator`, `Template`, `Script`, and `Function` components.
 
-When using `.asTool`, you must provide two additional properties in the configuration:
--   **`description`**: A string explaining what the tool does. The LLM uses this to decide when to call the tool.
--   **`inputSchema`**: A Zod schema defining the arguments the tool accepts. This property is mandatory for tools.
+Tools require **`inputSchema`**, using a supported AI SDK schema. An optional **`description`** explains the operation to the model. Native tool properties and callbacks, including `strict`, approvals and `toModelOutput`, retain their SDK meanings.
 
 **Key Limitation:**
 Streaming components (`TextStreamer` and `ObjectStreamer`) **cannot** be used as tools. The Vercel AI SDK's tool-use protocol requires a single, resolved response (a `Promise`), not a real-time stream.
 
-**Accessing Tool Call Context:**
-When a tool is created from a template, script, or function-prompt (`.withFunction`) component, a special `_toolCallOptions` object is automatically injected into its `context`, providing metadata like the `toolCallId` and the `messages` history that triggered the call.
+### Public input and private context
 
-The `_toolCallOptions` object contains:
-- **`toolCallId`**: `string` - The unique ID for this specific tool call. Useful for logging or streaming updates.
-- **`messages`**: `ModelMessage[]` - The message history sent to the LLM that triggered this tool call. Does not include the system prompt or the assistant's response.
-- **`abortSignal`**: `AbortSignal` (optional) - A signal to gracefully cancel the operation if the overall request is aborted.
-- **`context`**: The tool-specific value described by `contextSchema`, or `undefined` when no tool context is configured.
-
-TextGenerator and ObjectGenerator tools forward this `abortSignal` to their nested SDK call. Cancellation waits for prompt preparation to finish before the pre-dispatch check; it does not interrupt Cascada rendering or automatically reach calls launched by that rendering. For direct LLM calls, pass the signal through `.run({ abortSignal })`. Constructor configuration and reusable `Config` fragments reject it.
-
-You can use this context within your tool's template or script to add logging or change its behavior.
-```typescript
-const loggingSummarizer = create.TextGenerator.withTemplate.asTool({
-  model: openai('gpt-4o-mini'),
-  description: 'Summarizes text and logs the call ID.',
-  inputSchema: z.object({ text: z.string() }),
-  prompt: `
-    SYSTEM LOG: Starting summarization for tool call ID {{ _toolCallOptions.toolCallId }}.
-    TASK: Provide a concise, one-sentence summary of: {{ text }}
-  `,
-});
-
-// To use the tool, provide it to an LLM component:
-const agent = create.TextGenerator({
-  model: openai('gpt-4o'),
-  tools: { summarize: loggingSummarizer },
-  prompt: "Please summarize this for me: 'Casai is an AI orchestration library...'",
-});
-
-// The LLM will decide whether to call the tool to fulfill the request
-(async () => {
-    const chatResult = await agent();
-    console.log('Model-Driven Result:', chatResult.toolCalls);
-})();
-```
-**Typed Tool Context:**
-Use `contextSchema` to declare data supplied to a tool through the generator's `toolsContext` map. Callback context, direct calls, and `.execute()` are inferred from the schema without explicit type arguments.
+`inputSchema` is the application input boundary. Casai selects configured values under its named root properties, overlays caller arguments, then parses the complete input once. Required fields can come from configuration. Caller values, including explicit `undefined`, take precedence. Open schemas can accept unrelated extra fields; they cannot replace known private bindings. Typed closed shapes reject undeclared keys for both strict and stripping schemas; runtime stripping still follows the schema.
 
 ```typescript
 const multiply = create.Function.asTool({
-    inputSchema: z.object({ value: z.number() }),
-    contextSchema: z.object({ factor: z.number() }),
-    execute: ({ value }, { context }) => value * context.factor
+    inputSchema: z.object({ value: z.string().transform(Number) }),
+    context: { value: '2', factor: 1 },
+    toolContextSchema: z.object({ factor: z.number(), value: z.string().optional() }),
+    execute: ({ value, factor, _toolOptions }) => value * factor
 });
+
+await multiply();                         // 2: configured public default
+await multiply({ value: '4' });           // 4: raw input is parsed
+await multiply.run({ context: { value: '5' } });
 
 const generator = create.TextGenerator({
     model,
@@ -1075,32 +1070,98 @@ const generator = create.TextGenerator({
 });
 ```
 
-`contextSchema` is **not a schema for Casai's configured `context`**. It describes the separate SDK execution context supplied through `toolsContext`. Configured `context` enriches input and supplies template/script variables; `inputSchema` validates call-time input. `Function.asTool` callbacks receive SDK context as `options.context`; `Template`, `Script`, and generator tools expose it through `_toolCallOptions.context`.
+Casai tools require explicitly declared top-level input fields. Unknown arguments are rejected **before parsing or preprocessing**, including with ordinary `z.object` schemas that would otherwise strip them. Open-root/catchall tool schemas are rejected. Use a named object shape at the root; root `z.record` schemas (including enum-keyed records) are unsupported because their metadata describes a catchall. Put dynamic data inside a declared field:
 
-The AI SDK validates and parses tool context before execution. Calling a Casai tool directly or calling `.execute()` skips this context validation, so direct callers must supply an already valid value.
-
-The SDK likewise validates model-issued tool input against `inputSchema` and reports invalid input as a tool error without running the tool, so `.execute()` does not validate input again. Calling a `Template`, `Script`, or generator tool directly validates its input like any other component call. A `Function.asTool` is its own `.execute()`, so a direct call skips input validation too.
-
-A child keeps its parent's inferred SDK context unless it supplies `contextSchema`. For `Function.asTool`, an incompatible replacement also requires an `execute` callback that accepts the new context. `Template`, `Script`, and generator tools can replace the schema without a callback.
-
-`tools` and `toolsContext` both merge by tool name under parent configs and `.run()` overrides. Children can add one tool and its context without restating inherited entries. Each supplied context entry replaces that tool's entire value; its individual fields are not merged. The final context map must match the final tool set, including replacement tools.
-
-`Config` accepts partial fragments, including a context map before its tools are supplied. Creating a generator or streamer checks that the final merged map is complete. `.run()` can replace a configured tool with another implementation with compatible input, output, and SDK context types. Create a new component to add tools or change those types, so tool calls and results remain accurately typed.
-
-```typescript
-const child = create.TextGenerator({
-    tools: { anotherTool },
-    toolsContext: { anotherTool: { label: 'child' } },
-    prompt: 'Use the available tools.'
-}, create.Config(generator.config));
-
-// Retains anotherTool's context for this run:
-await child.run({ toolsContext: { multiply: { factor: 5 } } });
+```ts
+const save = create.Function.asTool({
+    inputSchema: z.object({ attributes: z.record(z.string(), z.string()) }),
+    context: { db },
+    execute: ({ attributes, db }) => db.save(attributes),
+});
+await save({ attributes: { color: 'blue' } });
+// save({ attributes: {}, db: anotherDb }) is rejected.
 ```
 
-**Type migration:** Tools without `contextSchema` now infer `undefined` for SDK context. Use `ToolExecutionOptions<undefined>` for options passed to these tools. When forwarding options from a plain SDK `tool()` wrapper, pass `{ ...options, context: undefined }`. Tools that need execution context should declare a `contextSchema`.
+This applies to the tool's direct caller, `.run()`, SDK calls and injected helpers. Ordinary non-tool components and native third-party tools retain their schema behavior. SDK/Standard tool schemas need explicit closed object input metadata (`additionalProperties: false`); Casai enforces the names locally, independently of provider `strict` mode. Schema types with erased or unknown raw input still rely on runtime enforcement.
 
-**Use it for**: Creating modular, reusable, and type-safe functions that empower an autonomous agent to decide which actions to take.
+`toolContextSchema` validates incoming SDK tool context, not `config.context`. Implementations receive a flat context with precedence **arguments > tool context > configuration**. Public defaults from either trusted source participate in the application parse. Private dependencies stay outside public SDK arguments. All callable components must have enough configuration for ordinary calls too; the example configures a fallback `factor` for that reason.
+
+Create or customize a tool through its component factory. The component itself is the tool; do not spread it into a new descriptor (`{ ...component }`). Spreading loses its callable identity and internal binding capability, and Casai registries reject these copies. To change configuration while retaining the implementation and schemas, use inheritance:
+
+```ts
+const describedMultiply = create.Function.asTool(
+    { description: 'Scale a value' },
+    multiply, // parent component
+);
+```
+
+Only Casai configuration uses `toolContextSchema`. The returned SDK descriptor exposes the same schema as native `contextSchema`; the native spelling is rejected at the top level of Casai configuration. Explicit native SDK tools keep their normal API.
+
+Ordinary tool-component calls validate raw input. The SDK descriptor's `.execute(input, options)` is the native parsed-input entry point; the SDK has already parsed its arguments and context. Trusted forwarding passes dependencies through configuration or a tool's context, while forwarded application arguments cross the same private-field guard as any other call.
+
+Casai preserves a callable field named `then` during its own input and context preparation. JavaScript Promise results, native SDK context validation and Cascada argument resolution retain their native thenable behavior. Cascada invokes a callable `then` on an argument object as a Promise handler before the receiving component runs. With an async Casai callable or injected helper in that field, argument validation can reject without settling the outer call; the resulting unhandled rejection terminates Node under its default settings. Forward the function itself and construct the input object in host code when needed. Casai retains asynchronous argument errors rather than changing these callables to throw synchronously.
+
+Thenable tool-context entries (objects with callable `then`, including promises) are unsupported for Casai tool binding. This applies to `toolsContext`, `bindToolContext` and schema-produced tool context. Casai binding selects defaults from the context data, while native SDK context validation resolves thenables; injected and SDK execution can therefore receive different private values. Resolve the context before binding so both paths receive the same stable object. A thenable client can instead be a field inside an ordinary context object.
+
+Configuration, tool context, and executable source are trusted application channels. Do not copy model arguments into them: doing so promotes untrusted data into application authority. Forward model data as ordinary component input.
+
+A named public object is public as a whole: do not put nested secrets inside it. Casai reserves actual private keys (including own `undefined`) and discoverable optional context output declarations. Closed tool input also rejects undeclared root names that have no private value at runtime. For ordinary open components, an absent name known only to a TypeScript type or an opaque transform cannot be discovered at runtime. Do not use arbitrary accepted extras as trusted identity. Provider `strict` mode is a generation setting, not a substitute for this local boundary or a runtime validator.
+
+Casai component schemas support Zod 4 Classic/Mini, SDK schemas and Standard Schema. Directly supplied Zod 3 schemas are rejected for component input, output, tool context and stream elements, including the `schema` setting of ObjectGenerator and ObjectStreamer. Native third-party tools and SDK output specifications such as `output: Output.object({ schema })` retain the SDK's own support. Zod 4 declaration discovery works across package installations: object shapes, optional/nullable/default/prefault/catch/readonly/nonoptional wrappers, declared pipeline outputs, and known union/intersection members. Arbitrary transforms do not declare their output names. Discovery never runs validation or preprocessing callbacks; lazy schema getters resolve through the native cache. Use a pipeline ending in an explicit object schema when transformed output needs declared private names.
+
+Local validation alone does not require JSON Schema conversion. Separating public input from configured dependencies, declared tool context or registered helpers also requires discoverable input declarations. For an opaque Standard/SDK schema, supply explicit object input metadata alongside its validator; a Standard Schema vendor without a JSON converter cannot supply these declarations automatically. Casai reports a `ConfigError` with this guidance when metadata is unavailable. Supported Zod declarations include object wrappers, preprocessors, lazy objects, object intersections and one-level object unions. Casai reads declarations without converting individual fields, so local Date/function/custom fields remain usable with private dependencies. Lazy schema getters resolve through Zod's cache; validation/preprocessing callbacks are not run for discovery. Arbitrary metadata composition is not supported. Selecting configured or bound public defaults for a tool additionally requires metadata that permits the [documented projection](docs/plan.md#schema-capability-and-public-signature-gate). Root union tools cannot have public defaults; their ordinary component equivalents and private-only tool bindings remain supported. Known incompatible tool configurations are rejected by TypeScript; dynamic metadata failures remain lazy and occur before provider dispatch.
+
+On TextGenerator/ObjectGenerator tools, `providerOptions` configures the inner model request only. On Function/Script/Template tools it configures the native tool descriptor. The retiring LLM factories have no separate setting for outer tool-provider options.
+
+### Binding and registered tools
+
+Template, Script, Function, and existing text generators can use `tools` and `toolsContext`. Executable tools become context helpers, with native input validation and the invocation's cancellation signal. An existing context property shadows a helper, even when its value is `undefined` or `null`. Plain SDK tools keep their native scalar/array argument support.
+
+`tools` and `toolsContext` merge by tool name. A context entry replaces that tool's whole value. Setting a tool entry to `null` or `undefined` removes it; an inherited context entry for that removed tool stays in `.config` but is not executed. Newly supplied unknown context names are errors. Object factories gain no preparation-tool registry in this phase.
+
+When retaining a Function body or function preparer, replacements must preserve the helper calls that callback was allowed to make. Accepting more raw input values is compatible; requiring a formerly omitted field, narrowing an open field, or making a formerly public argument private is not. A schema default can preserve an omission previously supplied by configuration, but replacements must also preserve accepted explicit values, including `undefined`. Supply a new callback when it needs to use a different helper contract. Model-only tool registries follow the SDK descriptor contract.
+
+Casai owners bind each tool to its selected context before SDK execution. A binding is fixed across steps and must stay equivalent across approval continuation. A new invocation can select a different context without changing the component. When registering directly with the AI SDK, bind explicitly if incoming context supplies public defaults:
+
+```typescript
+const bound = multiply.bindToolContext({ factor: 3, value: '6' });
+// Pass this matching pair to generateText/streamText/ToolLoopAgent:
+const settings = {
+    tools: { multiply: bound.tool },
+    toolsContext: { multiply: bound.context }
+};
+```
+
+Private-only native context can use the bare descriptor. Native SDK validation still owns its lifecycle boundaries; binding does not suppress SDK context parsing or history revalidation. History revalidation uses the same raw-key rule: root keys introduced by an input transform are rejected if they are not declared raw input names, even where native stripping could discard them and apply defaults. The native descriptor executor still accepts parsed input.
+
+### Invocation metadata and effects
+
+Every component body and function preparer receives reserved `_toolOptions`, typed as `ComponentExecutionOptions`: native tool options with `context` omitted, since its fields are already flat. Ordinary calls receive `{}` or their explicit `abortSignal`; tool calls receive real tool metadata. Injected registered tools inherit native options, including the signal and sandbox, with a fresh `toolCallId` and `messages: []`. Their trusted context comes from their own `toolsContext` entry. Caller input cannot replace that metadata. Native SDK executors retain their two-argument signature.
+
+Pass cancellation through `.run({ abortSignal })`. Casai checks it before starting application preparation and again before execution/dispatch, preserving the signal's reason. It forwards the signal to registered tools and nested model calls. Preparation already in progress is awaited normally; Casai does not interrupt Cascada or automatically forward cancellation to arbitrary context functions. Native SDK validation before a descriptor's executor retains native behavior. Reusable configuration rejects `abortSignal`.
+
+Casai's preparation does not mutate shared configuration or data. Schema callbacks must also be pure; structured transforms return new objects and copy paths they change. Native parser reference behavior is preserved, including shared defaults and `.readonly()` freezing. Prefer factories returning fresh structured defaults where sharing is unwanted.
+
+Components may deliberately hold and mutate state, including objects in `context` or an MCP client's session state. Prefer pure components; when effects are necessary, sequence those calls with Cascada's `!` operator. Configuration settings such as schemas, sources, tool definitions and model options must not be mutated after construction. This is an authoring contract, without freezing, proxies or mutation detection.
+
+For example, `context: { session }` shares the same `session` object with the implementation. A component can call `session.increment()` and retain the changed state across calls. Context merging creates fresh top-level objects, so assigning `ctx.count = 1` inside the implementation changes only that invocation's object. Keep persistent state in a referenced object or closure. Replacing `component.config.context.session` does not update existing tool bindings: they capture their selected top-level values. Create a new component/binding to replace those dependencies or public defaults consistently. The `!` operator orders accesses on its selected Cascada path; it does not refresh snapshots or synchronize independent executions. The host owns concurrent access to shared state.
+
+### JavaScript streams
+
+Function and Script can return JavaScript async iterables. Declare root streams explicitly with `textStreamSchema()` or `streamSchema(elementSchema)`. Elements are validated lazily, so consumers may receive a valid prefix before a later error. Ordinary calls return the live iterable; tool execution collects a declared root stream into a string or array before returning to the SDK. Undeclared tool iterables fail before iteration; nested application values are not recursively consumed.
+
+```typescript
+import { create, z, streamSchema, collectStream, toReadableStream } from 'casai';
+
+const numbers = create.Function({
+    schema: streamSchema(z.string().transform(Number)),
+    execute: async function* () { yield '1'; yield '2'; }
+});
+const values = await collectStream(await numbers()); // [1, 2]
+const webStream = toReadableStream(await numbers());
+```
+
+Use `collectTextStream` for text and `toReadableStream` for explicit web-stream conversion. The bridge advances its producer only when read; construction and an idle reader do not prefetch. Cancellation closes that iterator, not the entire source. Each view follows its producer's single-use or re-iterable rules. Cascada's exported `makeSharedIterable` provides opt-in sharing with its native retention and owner-disposal semantics; Casai adds no automatic replay. Native Cascada stream channels are a later phase.
 
 ## Template and Script Properties
 
@@ -1256,14 +1317,14 @@ const generator = create.TextGenerator.loadsText({
 // and FileSystemLoader concurrently, using the first successful result.
 ```
 
-### options
+### renderOptions
 Fine-tune the Cascada engine with extras like `autoescape` or `trimBlocks`:
 
 Standalone templates default `autoescape` to `false` and honor an explicit `true` for HTML output. LLM prompt renderers always disable autoescaping. Configured inline scripts compile once per component; named text, templates, and scripts use environment caches that respect loader updates and `noCache`.
 
 ```typescript
 const component = create.Template({
-  options: {
+  renderOptions: {
     autoescape: false,
     trimBlocks: true
   },
@@ -1733,13 +1794,19 @@ Casai integrates with Zod to provide automatic, runtime validation for both the 
 
 AI SDK schemas created with `jsonSchema` are also supported. For local input and output checks in Template, Script, and Function components, supply the schema's `validate` callback; it can be synchronous or asynchronous. JSON schema metadata alone does not perform local validation in these components. Output validation returns the parsed value, including transformations.
 
-Local input and output validation failures throw `ConfigError`. Script and Function output validation failures preserve the original schema error in `cause`. Script and template rendering failures throw `ScriptError` and `TemplateError` respectively. Unexpected exceptions thrown by schema callbacks propagate unchanged.
+Casai-owned input, context, output and stream-element validation failures throw `ConfigError` with a stage-only summary and the original error in `cause` for trusted diagnostics. Script and template rendering failures throw `ScriptError` and `TemplateError` respectively. Native SDK-owned boundaries retain their native errors.
+
+Use `ConfigError.isInstance(error)` to recognize Casai configuration errors across compatible package copies. Like the SDK's error guards, it checks a shared brand; `instanceof ConfigError` remains specific to the constructor from the imported copy.
+
+Streaming error diagnostics can contain private context in the error or its `cause`. Without an explicit `onError`, the SDK's `streamText` and `streamObject` log the full error with `console.error`, which can expose those values to server logs and external log collectors. For sensitive context, set `onError` on the streaming component and log only deliberately selected safe information, for example `onError: () => console.error('Model stream failed')`. The UI stream's separate `onError` callback does not replace this execution handler. Native `ToolLoopAgent` currently exposes no public `onError` option; its default logging remains native behavior. Casai does not scrub diagnostic causes.
 
 ### Ensuring Type-Safe Inputs with `inputSchema`
 
-The `inputSchema` property validates call-time `context` before execution. Configured `context` does not satisfy missing required input fields. An omitted context is validated as an empty object: a schema whose fields are all optional accepts the call, and any other schema rejects it with an error asking for a context object. Input validation checks the supplied data without replacing it with parsed or transformed values.
+Casai selects configured values under the schema's declared public names, merges caller input over those values, and validates the complete input once. Configuration and schema defaults can satisfy required fields, including with an empty call. Execution uses the parsed result together with private dependencies; transforms that remove or rename public fields are respected. Calls and configuration use schema input types, while implementations receive schema output types. See [public input and private context](#public-input-and-private-context).
 
-The [target API](README2.md#input-and-output-validation) will separate private configured dependencies, merge configured declared inputs with direct/model arguments, parse once, and execute with the returned values plus private/trusted bindings. Configuration and schema defaults can satisfy required fields, even with empty arguments. Every schema boundary uses its parsed result; native copying and non-mutating callbacks preserve shared originals without a generic pre-copy planner. Calls/configuration use schema input types and implementations/consumers receive output types. See [Phase 2](docs/plan.md#schema-parsing-and-context-isolation). The paragraph above describes the current implementation; this plan update changes no runtime code or unrelated merge rules.
+Schema callbacks must be pure and leave received/shared data unchanged. Native parser copying and shared-reference behavior are preserved, including Zod's `.readonly()` freezing behavior; Casai adds no generic cloning or freezing layer.
+
+For `z.preprocess`, declaration discovery follows the next schema's input declarations, matching native input metadata, to select configured defaults; output transforms can still rename or remove those fields. The callback receives the parsed output type. A preprocessor's raw input is normally `unknown`, so its value restrictions and required fields are enforced at runtime, while identifiable private names remain protected in call types.
 
 -   **Applies to**: Any component that uses a `context` object (`Template`, `Script`, `Function`, and LLM components created with `.withTemplate`, `.withScript`, or `.withFunction`).
 -   **Usage**: Define the expected input data for a component using a Zod schema.
@@ -1751,17 +1818,15 @@ import { z } from 'zod';
 const userProcessor = create.Script({
   inputSchema: z.object({
     userId: z.string(),
-    db: z.object({
-      getUser: z.function(),
-    }),
   }),
+  context: { db: { getUser: (id: string) => ({ id }) } },
   script: `
     return db.getUser(userId)
   `
 });
 
 // This will succeed
-await userProcessor({ userId: '123', db: { getUser: (id) => ({ id }) } });
+await userProcessor({ userId: '123' });
 
 // This will throw a validation error at runtime
 await userProcessor({ user_id: '123' });
@@ -1837,7 +1902,7 @@ This type safety ensures robust, predictable workflows with early error detectio
 ### Coming Soon
 
 - **Phase 1: Result augmentation (implemented)**: All four LLM factories expose `value`; TextGenerator/TextStreamer also expose top-level `messageHistory`. Native SDK result fields, callbacks, completion, and stream consumption remain intact; legacy response augmentation is removed.
-- **Phase 2: Existing component foundations**: Apply merge-first schema parsing, private dependency binding, configured tool defaults, and parsed values to current components. Add the final `.run()`/`.config`, execution-option, tool-binding, and keyword-call contracts to Template, Script, and Function. Introduce JavaScript stream schemas, lazy validation, collectors, Function producers, and finite-stream tool collection. Preserve native parser behavior and ordinary stream consumption without a copy planner or replay layer. See the [Phase 2 design](docs/plan.md#phase-2-existing-component-foundations).
+- **Phase 2: Existing component foundations**: Apply merge-first schema parsing, private dependency binding, configured tool defaults, and parsed values to current components. Keep shorthand calls primary and configure required execution values they cannot supply. Rename Cascada settings to `renderOptions` across current rendering paths, without aliases; use canonical `.config`, one tool descriptor/execution path, and Cascada-owned named-resource caching. Add the final `.run()`/`.config`, execution-option, tool-binding, and keyword-call contracts to Template, Script, and Function. Introduce JavaScript stream schemas, lazy validation, collectors, Function producers, and finite-stream tool collection. Preserve native parser behavior and ordinary stream consumption without a copy planner or replay layer. See the [Phase 2 design](docs/plan.md#phase-2-existing-component-foundations).
 - **Phase 3: LLMAgent**: Replace the four LLM factories with the [final language-generation API](README2.md), reusing earlier foundations. Default to text and one model step, with `.asStream`, the SDK Agent interface, basic conversation history, custom options/hooks, and completed streaming-tool output. Keep SDK events live while `value` buffers when finality requires it. Configured `messages` are removed; `stopWhen` controls continuation. See the [Phase 3 design](docs/plan.md#phase-3-llmagent).
 - **Phase 4: Tool continuations**: Add `resume()` and `.run()` approval/external-result inputs over existing conversation history. Match pending calls, encode SDK response messages, and avoid re-executing externally completed calls. This convenience does not gate the initial LLMAgent release or later independent work. See the [Phase 4 design](docs/plan.md#phase-4-tool-continuations).
 - **Phase 5: Specialized AI components**: Add `Embedder`, `Reranker`, `ImageGenerator`, `Transcriber`, and `SpeechGenerator`, plus `Experimental_Decision`, `Experimental_StreamingTranscriber`, and `Experimental_VoiceSessionSetup`, which keep the prefix while their SDK features are experimental. Preserve each operation's native results and lifecycle. See the [Phase 5 design](docs/plan.md#phase-5-specialized-ai-components).

@@ -5,8 +5,7 @@ import { execFile } from 'node:child_process';
 import { posix } from 'node:path';
 import { promisify } from 'node:util';
 import { create, ConfigError, ScriptError, TemplateError, z } from './cascada';
-import { _createTemplate } from '../src/factories/Template';
-import { createFunctionPromptRenderer, createScriptPromptRenderer, createTemplatePromptRenderer } from '../src/prompt-renderers';
+import { createPromptRenderer } from '../src/prompt-renderers';
 import { Loader, Script as CascadaScript, type LoaderInterface, type LoaderSource } from 'cascada-engine';
 import { jsonSchema } from 'ai';
 
@@ -44,7 +43,7 @@ describe('Template and Script deterministic coverage', () => {
 		});
 
 		it('uses one-off templates and contexts without changing subsequent calls', async () => {
-			const render = create.Template({ template: '{{ greeting }} {{ name }}', context: { greeting: 'Hi', name: 'Original' } });
+			const render = create.Template({ template: '{{ greeting }} {{ name }}', inputSchema: z.object({ name: z.string() }), context: { greeting: 'Hi', name: 'Original' } });
 			expect(await render('Override {{ name }}', { name: 'Ada' })).to.equal('Override Ada');
 			expect(await render({ name: 'Bob' })).to.equal('Hi Bob');
 			expect(await render()).to.equal('Hi Original');
@@ -52,7 +51,7 @@ describe('Template and Script deterministic coverage', () => {
 		});
 
 		it('honors autoescape when explicitly enabled for standalone templates', async () => {
-			const render = create.Template({ template: '{{ value }}', context: { value: '<tag a="b"> & text' }, options: { autoescape: true } });
+			const render = create.Template({ template: '{{ value }}', context: { value: '<tag a="b"> & text' }, renderOptions: { autoescape: true } });
 			expect(await render()).to.equal('&lt;tag a=&quot;b&quot;&gt; &amp; text');
 			expect(await render('{{ value }}')).to.equal('&lt;tag a=&quot;b&quot;&gt; &amp; text');
 		});
@@ -60,12 +59,12 @@ describe('Template and Script deterministic coverage', () => {
 		it('defaults autoescape to false for standalone templates', async () => {
 			const render = create.Template({ template: '{{ value }}', context: { value: '<tag> & text' } });
 			expect(await render()).to.equal('<tag> & text');
-			const undefinedOption = create.Template({ template: '{{ value }}', context: { value: '<tag> & text' }, options: { autoescape: undefined } });
+			const undefinedOption = create.Template({ template: '{{ value }}', context: { value: '<tag> & text' }, renderOptions: { autoescape: undefined } });
 			expect(await undefinedOption()).to.equal('<tag> & text');
 		});
 
 		it('forwards whitespace options to the Cascada environment', async () => {
-			const render = create.Template({ template: 'A\n  {% if true %}\nB\n  {% endif %}\nC', options: { trimBlocks: true, lstripBlocks: true } });
+			const render = create.Template({ template: 'A\n  {% if true %}\nB\n  {% endif %}\nC', renderOptions: { trimBlocks: true, lstripBlocks: true } });
 			expect(await render()).to.equal('A\nB\nC');
 		});
 
@@ -83,14 +82,14 @@ describe('Template and Script deterministic coverage', () => {
 		it('loads a different named template for a one-off call', async () => {
 			const render = create.Template.loadsTemplate({
 				loader: memoryLoader({ initial: 'Hi {{ name }}', alternate: 'Bye {{ name }}' }),
-				template: 'initial', context: { name: 'Original' },
+				template: 'initial', inputSchema: z.object({ name: z.string() }), context: { name: 'Original' },
 			});
 			expect(await render('alternate', { name: 'Ada' })).to.equal('Bye Ada');
 			expect(await render()).to.equal('Hi Original');
 		});
 
 		it('loads a named template supplied only at call time', async () => {
-			const render = _createTemplate({ loader: memoryLoader({ greeting: 'Hello {{ name }}' }) }, 'async-template-name');
+			const render = create.Template.loadsTemplate({ inputSchema: z.object({ name: z.string() }), loader: memoryLoader({ greeting: 'Hello {{ name }}' }) });
 			expect(await render('greeting', { name: 'Ada' })).to.equal('Hello Ada');
 		});
 
@@ -160,7 +159,7 @@ describe('Template and Script deterministic coverage', () => {
 		});
 
 		it('reports an undefined template value when throwOnUndefined is enabled', async () => {
-			const render = create.Template({ template: '{{ missing }}', options: { throwOnUndefined: true } });
+			const render = create.Template({ template: '{{ missing }}', renderOptions: { throwOnUndefined: true } });
 			await rejects(() => render(), TemplateError);
 		});
 
@@ -171,8 +170,7 @@ describe('Template and Script deterministic coverage', () => {
 				context: { name: 'Configured', touch: () => ++calls },
 			});
 			await rejects(() => render({ name: 42 } as never), ConfigError);
-			// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
-			await rejects(() => render(), ConfigError);
+			await rejects(() => render({ name: undefined } as never), ConfigError);
 			expect(calls).to.equal(0);
 			expect(await render({ name: 'Ada' })).to.equal('1 Ada');
 		});
@@ -243,7 +241,7 @@ describe('Template and Script deterministic coverage', () => {
 		}
 
 		it('keeps script and context overrides local to one invocation', async () => {
-			const run = create.Script({ script: 'return { name: name, greeting: greeting }', context: { name: 'Original', greeting: 'Hi' } });
+			const run = create.Script({ script: 'return { name: name, greeting: greeting }', inputSchema: z.object({ name: z.string(), greeting: z.string() }), context: { name: 'Original', greeting: 'Hi' } });
 			expect(await run('return greeting ~ " " ~ name', { name: 'Ada' })).to.equal('Hi Ada');
 			expect(await run()).to.deep.equal({ name: 'Original', greeting: 'Hi' });
 			expect(run.config.context).to.deep.equal({ name: 'Original', greeting: 'Hi' });
@@ -252,7 +250,7 @@ describe('Template and Script deterministic coverage', () => {
 		it('loads a different named script for a one-off call', async () => {
 			const run = create.Script.loadsScript({
 				loader: memoryLoader({ 'initial.casc': 'return "Hi " ~ name', 'alternate.casc': 'return "Bye " ~ name' }),
-				script: 'initial.casc', context: { name: 'Original' },
+				script: 'initial.casc', inputSchema: z.object({ name: z.string() }), context: { name: 'Original' },
 			});
 			expect(await run('alternate.casc', { name: 'Ada' })).to.equal('Bye Ada');
 			expect(await run()).to.equal('Hi Original');
@@ -333,7 +331,7 @@ describe('Template and Script deterministic coverage', () => {
 			await rejects(() => run(), (error: unknown) => {
 				expect(error).to.be.instanceOf(ConfigError);
 				expect((error as ConfigError).message).to.include('Output validation failed');
-				expect((error as ConfigError).cause).to.be.instanceOf(z.ZodError);
+				expect((error as ConfigError).cause?.cause).to.be.instanceOf(z.ZodError);
 				return true;
 			});
 		});
@@ -352,7 +350,7 @@ describe('Template and Script deterministic coverage', () => {
 			const schema = jsonSchema<number>({ type: 'number' }, { validate: () => ({ success: false, error: failure }) });
 			await rejects(() => create.Script({ script: 'return "invalid"', schema })(), (error: unknown) => {
 				expect(error).to.be.instanceOf(ConfigError);
-				expect((error as ConfigError).cause).to.equal(failure);
+				expect((error as ConfigError).cause?.cause).to.equal(failure);
 				return true;
 			});
 		});
@@ -365,18 +363,18 @@ describe('Template and Script deterministic coverage', () => {
 		it('preserves an unexpected asynchronous AI SDK validator rejection', async () => {
 			const failure = new Error('Validation service unavailable');
 			const schema = jsonSchema<number>({ type: 'number' }, { validate: async () => { throw failure; } });
-			await rejects(() => create.Script({ script: 'return 5', schema })(), error => error === failure);
+			await rejects(() => create.Script({ script: 'return 5', schema })(), error => error instanceof ConfigError && error.cause?.cause === failure);
 		});
 
 		it('reports the same output validation contract for Scripts and Functions', async () => {
 			const failure = new Error('Validation unavailable');
 			const schema = jsonSchema<number>({ type: 'number' }, { validate: async () => ({ success: false, error: failure }) });
-			const calls = [create.Script({ script: 'return 1', schema }), create.Function({ execute: () => 1, schema })];
+			const calls = [() => create.Script({ script: 'return 1', schema }).run({}), () => create.Function({ execute: () => 1, schema }).run({})];
 			for (const call of calls) {
-				await rejects(async () => { await call({}); }, (error: unknown) => {
+				await rejects(async () => { await call(); }, (error: unknown) => {
 					expect(error).to.be.instanceOf(ConfigError);
-					expect((error as ConfigError).message).to.equal('Output validation failed.\nValidation unavailable');
-					expect((error as ConfigError).cause).to.equal(failure);
+					expect((error as ConfigError).message).to.equal('Output validation failed.');
+					expect((error as ConfigError).cause?.cause).to.equal(failure);
 					return true;
 				});
 			}
@@ -385,9 +383,9 @@ describe('Template and Script deterministic coverage', () => {
 		it('preserves unexpected exceptions thrown by Zod output transforms', async () => {
 			const failure = new Error('Transform unavailable');
 			const schema = z.number().transform((): number => { throw failure; });
-			const calls = [create.Script({ script: 'return 1', schema }), create.Function({ execute: () => 1, schema })];
+			const calls = [() => create.Script({ script: 'return 1', schema }).run({}), () => create.Function({ execute: () => 1, schema }).run({})];
 			for (const call of calls) {
-				await rejects(async () => { await call({}); }, error => error === failure);
+				await rejects(async () => { await call(); }, error => error instanceof ConfigError && error.cause?.cause === failure);
 			}
 		});
 
@@ -398,8 +396,7 @@ describe('Template and Script deterministic coverage', () => {
 				context: { name: 'Configured', touch: (name: string) => { calls++; return name; } },
 			});
 			await rejects(() => run({ name: 42 } as never), ConfigError);
-			// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
-			await rejects(() => run(), ConfigError);
+			await rejects(() => run({ name: undefined } as never), ConfigError);
 			expect(calls).to.equal(0);
 			expect(await run({ name: 'Ada' })).to.equal('Ada');
 		});
@@ -438,11 +435,12 @@ describe('Template and Script deterministic coverage', () => {
 				const render = kind === 'template'
 					? create.Template.loadsTemplate({ template: 'greeting', loader })
 					: create.Script.loadsScript({ script: 'greeting', loader });
-				const results = Promise.all([render({ name: 'Ada' }), render({ name: 'Bob' })]);
+				const call = render as (input: { name: string }) => Promise<unknown>;
+				const results = Promise.all([call({ name: 'Ada' }), call({ name: 'Bob' })]);
 				await started;
 				release();
 				expect(await results).to.deep.equal(['Hello Ada', 'Hello Bob']);
-				expect(await render({ name: 'Cal' })).to.equal('Hello Cal');
+				expect(await call({ name: 'Cal' })).to.equal('Hello Cal');
 				expect(loads).to.equal(1);
 			});
 
@@ -463,8 +461,8 @@ describe('Template and Script deterministic coverage', () => {
 		it('rejects a second argument after a context object', async () => {
 			const render = create.Template({ template: 'Hello' }) as unknown as (context: object, extra: object) => Promise<string>;
 			const run = create.Script({ script: 'return "Hello"' }) as unknown as (context: object, extra: object) => Promise<unknown>;
-			await rejects(() => render({ name: 'Ada' }, { name: 'Extra' }), /Second argument must be undefined/);
-			await rejects(() => run({ name: 'Ada' }, { name: 'Extra' }), /Second argument must be undefined/);
+			await rejects(() => render({ name: 'Ada' }, { name: 'Extra' }), /Unexpected/);
+			await rejects(() => run({ name: 'Ada' }, { name: 'Extra' }), /Unexpected/);
 		});
 
 		it('requires a name at call time when a loading component has none configured', async () => {
@@ -479,12 +477,12 @@ describe('Template and Script deterministic coverage', () => {
 			}
 			await rejects(() => (render as unknown as (context: object) => Promise<string>)({ name: 'Ada' }), (error: unknown) => {
 				expect(error).to.be.instanceOf(ConfigError);
-				expect((error as Error).message).to.match(/template string must be provided/);
+				expect((error as Error).message).to.match(/template source must be provided/);
 				return true;
 			});
 			await rejects(() => (run as unknown as (context: object) => Promise<unknown>)({ name: 'Ada' }), (error: unknown) => {
 				expect(error).to.be.instanceOf(ConfigError);
-				expect((error as Error).message).to.match(/script string must be provided/);
+				expect((error as Error).message).to.match(/script source must be provided/);
 				return true;
 			});
 			expect(await render('greeting', { name: 'Ada' })).to.equal('Hello Ada');
@@ -519,74 +517,29 @@ describe('Template and Script deterministic coverage', () => {
 		});
 	});
 
-	describe('Prompt renderer contracts', () => {
-		it('preserves HTML in template prompts even when autoescape is requested', async () => {
-			const render = createTemplatePromptRenderer({ context: { value: '<tag a="b"> & text' }, options: { autoescape: true } }, '{{ value }}', 'async-template');
-			expect(await render()).to.equal('<tag a="b"> & text');
-			expect(await render('{{ value }}')).to.equal('<tag a="b"> & text');
-		});
-
-		it('preserves HTML in script text prompts even when autoescape is requested', async () => {
-			const render = createScriptPromptRenderer({ context: { value: '<tag> & text' }, options: { autoescape: true } }, 'text body\nbody(value)\nreturn body.snapshot()', 'async-script');
-			expect(await render()).to.equal('<tag> & text');
-		});
-
-		it('loads a one-off named script prompt and retains the configured prompt', async () => {
-			const run = createScriptPromptRenderer({
-				loader: memoryLoader({ initial: 'return "Initial " ~ name', alternate: 'return "Alternate " ~ name' }),
-				context: { name: 'Ada' },
-			}, 'initial', 'async-script-name');
-			expect(await run('alternate')).to.equal('Alternate Ada');
-			expect(await run()).to.equal('Initial Ada');
-		});
-
-		it('creates a template renderer before its prompt is supplied', async () => {
-			const render = createTemplatePromptRenderer({ context: { name: 'Ada' } }, undefined, 'async-template');
-			expect(await render('Hi {{ name }}')).to.equal('Hi Ada');
-		});
-
-		it('creates a script renderer before its prompt is supplied', async () => {
-			const run = createScriptPromptRenderer({ context: { name: 'Ada' } }, undefined, 'async-script');
-			expect(await run('return "Hi " ~ name')).to.equal('Hi Ada');
-		});
-
-		it('validates script prompts independently of the LLM output schema', async () => {
-			const run = createScriptPromptRenderer({ schema: z.object({ answer: z.number() }) }, 'return "Prompt text"', 'async-script');
-			expect(await run()).to.equal('Prompt text');
-		});
-
-		it('accepts message arrays as script prompt results', async () => {
-			const run = createScriptPromptRenderer({}, 'return [{ role: "user", content: "Hello" }]', 'async-script');
-			expect(await run()).to.deep.equal([{ role: 'user', content: 'Hello' }]);
-		});
-
-		for (const source of ['return 42', 'return [{ role: "unknown", content: "Hello" }]']) {
-			it(`rejects an invalid script prompt result from ${source}`, async () => {
-				const run = createScriptPromptRenderer({}, source, 'async-script');
-				await rejects(() => run(), /validation failed/);
+	describe('Prepared prompt renderer contracts', () => {
+		for (const promptType of ['async-template', 'async-script', 'function'] as const) {
+			it(promptType + ' consumes prepared context without remerging configuration', async () => {
+				let validations = 0;
+				const config = { context: { value: 'raw' }, inputSchema: z.object({ value: z.string() }).refine(() => { validations++; return true; }),
+					renderOptions: { autoescape: true }, promptType,
+					prompt: promptType === 'async-template' ? '{{ value }}' : promptType === 'async-script' ? 'return value' : (context: Record<string, unknown>) => String(context.value) };
+				const render = createPromptRenderer(config);
+				expect(await render(undefined, { value: '<prepared>' })).to.equal('<prepared>');
+				expect(validations).to.equal(0);
 			});
 		}
-
-		it('leaves raw input validation to the LLM component for every renderer', async () => {
-			let validations = 0;
-			const config = { context: { name: 'Ada' }, inputSchema: z.object({ requiredOnlyAtCallTime: z.string() }).refine(() => { validations++; return true; }) };
-			const template = createTemplatePromptRenderer(config, '{{ name }}', 'async-template');
-			const script = createScriptPromptRenderer(config, 'return name', 'async-script');
-			const fn = createFunctionPromptRenderer(config, context => String(context.name));
-			expect(await template()).to.equal('Ada');
-			expect(await script()).to.equal('Ada');
-			expect(await fn()).to.equal('Ada');
-			expect(validations).to.equal(0);
+		it('loads an override without replacing its configured source', async () => {
+			const render = createPromptRenderer({ loader: memoryLoader({ initial: 'return "Initial " ~ name', alternate: 'return "Alternate " ~ name' }), prompt: 'initial', promptType: 'async-script-name' });
+			expect(await render('alternate', { name: 'Ada' })).to.equal('Alternate Ada');
+			expect(await render(undefined, { name: 'Ada' })).to.equal('Initial Ada');
 		});
-
-		it('validates function prompts independently of the LLM output schema', async () => {
-			const render = createFunctionPromptRenderer({ schema: z.object({ answer: z.number() }), context: { name: 'Ada' } }, context => `Hello ${context.name}`);
-			expect(await render()).to.equal('Hello Ada');
-		});
-
-		it('rejects a function prompt that returns an unsupported value', async () => {
-			const render = createFunctionPromptRenderer({}, (() => 42) as never);
-			await rejects(async () => { await render(); }, /validation failed/);
+		it('accepts prepared message arrays and rejects invalid prompt outputs', async () => {
+			const render = createPromptRenderer({ promptType: 'async-script', prompt: 'return [{ role: "user", content: "Hello" }]' });
+			expect(await render(undefined, {})).to.deep.equal([{ role: 'user', content: 'Hello' }]);
+			await rejects(() => render('return 42', {}), /validation failed/);
+			const fn = createPromptRenderer({ promptType: 'function', prompt: () => 42 });
+			await rejects(() => fn(undefined, {}), /validation failed/);
 		});
 	});
 });

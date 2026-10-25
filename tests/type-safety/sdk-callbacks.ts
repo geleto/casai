@@ -10,8 +10,8 @@ const schema = z.object({ answer: z.number() });
 const output = Output.object({ schema });
 const runtimeContext = { requestId: 'request' };
 const lookup = create.Function.asTool({
-	inputSchema: z.object({ query: z.string() }), contextSchema: z.object({ factor: z.number() }),
-	execute: ({ query }, { context }) => query.length * context.factor,
+	inputSchema: z.object({ query: z.string() }), context: { factor: 1 }, toolContextSchema: z.object({ factor: z.number() }),
+	execute: ({ query, factor }) => query.length * factor,
 });
 const tools = { lookup };
 const toolsContext = { lookup: { factor: 2 } };
@@ -118,7 +118,7 @@ create.TextGenerator({ tools: { extra }, prepareStep: () => ({ activeTools: ['lo
 		} else expectType<string>(call.input.query);
 	}
 } }, parent);
-const replacement = create.Function.asTool({ inputSchema: z.object({ query: z.number() }), contextSchema: z.object({ factor: z.number() }), execute: ({ query }) => String(query) });
+const replacement = create.Function.asTool({ inputSchema: z.object({ query: z.number() }), toolContextSchema: z.object({ factor: z.number() }), execute: ({ query }) => String(query) });
 create.TextGenerator({ tools: { lookup: replacement }, onEnd: _event => {
 	expectType<number>(_event.staticToolCalls[0].input.query);
 	// @ts-expect-error Replaced tools change callback inputs.

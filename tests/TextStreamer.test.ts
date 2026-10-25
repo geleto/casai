@@ -2,7 +2,7 @@
 import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { create, ConfigError } from './cascada';
+import { create, ConfigError, z } from './cascada';
 import type { StreamTextResult } from './cascada';
 import { model, temperature, temperatureConfig, modelName, StringLoader, AsyncStringLoader, createProvider, timeout } from './common';
 import { streamText } from 'ai';
@@ -353,7 +353,7 @@ describe('create.TextStreamer', function () {
 		const streamerWithPrompt = create.TextStreamer.withTemplate({
 			model, ...temperatureConfig,
 			prompt: 'Output exactly this text and nothing else: stream-{{ val }}',
-			context: { val: 'A' },
+			inputSchema: z.object({ val: z.string() }), context: { val: 'A' },
 		});
 
 		it('handles call with no arguments: streamer()', async () => {

@@ -147,8 +147,8 @@ create.ObjectStreamer({ model, output: 'enum', enum: choices });
 // @ts-expect-error Enum output inherited from a fragment is also unavailable to streamers.
 create.ObjectStreamer({}, enumParent);
 
-// Schemaless results remain JSONValue and accept only JSON generation mode.
-const schemaless = create.ObjectGenerator({ model, output: 'no-schema', mode: 'json', prompt: 'Answer.' });
+// Schemaless results remain JSONValue.
+const schemaless = create.ObjectGenerator({ model, output: 'no-schema', prompt: 'Answer.' });
 const schemalessStream = create.ObjectStreamer({ model, output: 'no-schema' });
 expectType<Promise<JSONValue>>(schemaless('Answer.').then(result => result.object));
 expectEqual<Awaited<ReturnType<typeof schemaless>>['object'], JSONValue>();
@@ -170,40 +170,35 @@ create.ObjectGenerator({ model, output: 'no-schema', schema });
 create.ObjectStreamer({ model, output: 'no-schema', schema });
 // @ts-expect-error Schemaless mode does not accept enum choices.
 create.ObjectGenerator({ model, output: 'no-schema', enum: choices });
-// @ts-expect-error Schemaless generation cannot use tool mode.
+// @ts-expect-error The legacy mode setting is not supported.
 create.ObjectGenerator({ model, output: 'no-schema', mode: 'tool' });
-// @ts-expect-error Schemaless streaming cannot use auto mode.
+// @ts-expect-error The legacy mode setting is not supported.
 create.ObjectStreamer({ model, output: 'no-schema', mode: 'auto' });
 
-// Modes and inherited keys must remain compatible with the final output mode.
-create.ObjectGenerator({ model, schema, mode: 'auto' });
-create.ObjectGenerator({ model, schema, mode: 'json' });
-create.ObjectGenerator({ model, schema, mode: 'tool' });
+// The SDK selects the generation format; legacy mode settings are not part of Casai.
 create.ObjectGenerator({ model, schema, schemaName: 'Answer', schemaDescription: 'A generated answer' });
-create.ObjectStreamer({ model, schema, mode: 'auto' });
+create.ObjectStreamer({ model, schema, schemaName: 'Answer' });
+// @ts-expect-error The removed setting is not a generator option.
+create.ObjectGenerator({ model, schema, mode: 'tool' });
+// @ts-expect-error JSON is native behavior, not a selectable Casai mode.
 create.ObjectStreamer({ model, schema, mode: 'json' });
-create.ObjectStreamer({ model, schema, mode: 'tool' });
-const inheritedToolMode = create.Config({ model, mode: 'tool', prompt: 'Answer.' });
-const inheritedAutoMode = create.Config({ model, mode: 'auto', prompt: 'Answer.' });
-const replacedGeneratorMode = create.ObjectGenerator({ output: 'no-schema', mode: 'json' }, inheritedToolMode);
-const replacedStreamerMode = create.ObjectStreamer({ output: 'no-schema', mode: 'json' }, inheritedAutoMode);
-void replacedGeneratorMode.run({ mode: 'json' });
-void replacedStreamerMode.run({ mode: 'json' });
-// @ts-expect-error A run preserves schemaless mode after replacing an inherited tool mode.
-void replacedGeneratorMode.run({ mode: 'tool' });
-// @ts-expect-error A run preserves schemaless mode after replacing an inherited auto mode.
-void replacedStreamerMode.run({ mode: 'auto' });
-// @ts-expect-error Inherited tool mode is incompatible with the final schemaless output.
-create.ObjectGenerator({ output: 'no-schema' }, inheritedToolMode);
-// @ts-expect-error Inherited auto mode is incompatible with the final schemaless output.
-create.ObjectStreamer({ output: 'no-schema' }, inheritedAutoMode);
+// @ts-expect-error Reusable fragments cannot retain the obsolete setting.
+create.Config({ model, mode: 'auto' });
+const legacyParent = { config: { model, schema, mode: 'tool' as const } };
+// @ts-expect-error A raw parent cannot restore an obsolete generator setting.
+create.ObjectGenerator({}, legacyParent);
+// @ts-expect-error The inherited streaming surface is checked too.
+create.ObjectStreamer({}, legacyParent);
+declare const conditionalMode: { mode: 'tool' } | { temperature: number };
+// @ts-expect-error A forbidden setting in one parent branch still fails admission.
+create.ObjectGenerator({ model, schema }, { config: conditionalMode });
 const _changedToArray = create.ObjectGenerator({ output: 'array' }, complete);
 const _changedToObject = create.ObjectStreamer({ output: 'object' }, create.Config({ model, schema, output: 'array' }));
 expectEqual<Awaited<ReturnType<typeof _changedToArray>>['object'], { answer: number, label: string }[]>();
 expectEqual<Awaited<ReturnType<typeof _changedToObject>['object']>, { answer: number, label: string }>();
 // @ts-expect-error Only supported object output literals are accepted.
 create.ObjectGenerator({ model, schema, output: 'invalid' });
-// @ts-expect-error Only supported object generation mode literals are accepted.
+// @ts-expect-error The legacy mode setting is not supported.
 create.ObjectStreamer({ model, schema, mode: 'invalid' });
 // @ts-expect-error Enum output does not accept schema metadata.
 create.ObjectGenerator({ model, output: 'enum', enum: choices, schemaName: 'Answer' });
@@ -243,8 +238,8 @@ create.ObjectGenerator(invalidObjectConfig);
 void object.run({});
 void object.run({ model, prompt: 'Changed', maxOutputTokens: 10 });
 void objectStream.run({ model, messages: [{ role: 'user', content: 'Changed' }] });
-void array.run({ mode: 'json' });
-void schemaless.run({ mode: 'json' });
+void array.run({ maxOutputTokens: 10 });
+void schemaless.run({ maxOutputTokens: 10 });
 // @ts-expect-error A run cannot replace its schema.
 void object.run({ schema: changedSchema });
 // @ts-expect-error A run cannot change its output mode.
@@ -257,7 +252,7 @@ void array.run({ inputSchema: z.object({ name: z.string() }) });
 void objectStream.run({ loader: { load: (name: string) => name } });
 // @ts-expect-error A run cannot introduce unknown settings.
 void schemaless.run({ unknownSetting: true });
-// @ts-expect-error Schemaless run overrides must retain JSON mode.
+// @ts-expect-error Named calls cannot restore the legacy mode setting.
 void schemaless.run({ mode: 'tool' });
 // @ts-expect-error Object run settings retain numeric value types.
 void object.run({ maxOutputTokens: '10' });
@@ -266,14 +261,14 @@ void object.run({ maxOutputTokens: '10' });
 const inheritedNoSchemaParent = create.Config({ model, output: 'no-schema', prompt: 'Answer.' });
 const inheritedNoSchemaGenerator = create.ObjectGenerator({}, inheritedNoSchemaParent);
 const inheritedNoSchemaStreamer = create.ObjectStreamer({}, inheritedNoSchemaParent);
-expectEqual<Parameters<typeof inheritedNoSchemaGenerator.run>[0]['mode'], 'json' | undefined>();
-expectEqual<Parameters<typeof inheritedNoSchemaStreamer.run>[0]['mode'], 'json' | undefined>();
+expectEqual<'mode' extends keyof Parameters<typeof inheritedNoSchemaGenerator.run>[0] ? true : false, false>();
+expectEqual<'mode' extends keyof Parameters<typeof inheritedNoSchemaStreamer.run>[0] ? true : false, false>();
 expectEqual<'schemaName' extends keyof Parameters<typeof inheritedNoSchemaGenerator.run>[0] ? true : false, false>();
-void inheritedNoSchemaGenerator.run({ mode: 'json' });
-void inheritedNoSchemaStreamer.run({ mode: 'json' });
-// @ts-expect-error An inherited schemaless generator still accepts only JSON mode.
+void inheritedNoSchemaGenerator.run({ maxOutputTokens: 10 });
+void inheritedNoSchemaStreamer.run({ maxOutputTokens: 10 });
+// @ts-expect-error Inherited generators do not expose the removed setting.
 void inheritedNoSchemaGenerator.run({ mode: 'tool' });
-// @ts-expect-error An inherited schemaless streamer still accepts only JSON mode.
+// @ts-expect-error Inherited streamers do not expose the removed setting.
 void inheritedNoSchemaStreamer.run({ mode: 'auto' });
 // @ts-expect-error An inherited schemaless generator does not acquire object schema metadata.
 void inheritedNoSchemaGenerator.run({ schemaName: 'Answer' });
@@ -283,22 +278,22 @@ void inheritedNoSchemaStreamer.run({ schemaDescription: 'Answer' });
 const inheritedArrayParent = create.Config({ model, schema, output: 'array', prompt: 'Answer.' });
 const inheritedArrayGenerator = create.ObjectGenerator({}, inheritedArrayParent);
 const inheritedArrayStreamer = create.ObjectStreamer({}, inheritedArrayParent);
-expectEqual<Parameters<typeof inheritedArrayGenerator.run>[0]['mode'], 'auto' | 'json' | 'tool' | undefined>();
+expectEqual<'mode' extends keyof Parameters<typeof inheritedArrayGenerator.run>[0] ? true : false, false>();
 expectEqual<'schemaName' extends keyof Parameters<typeof inheritedArrayGenerator.run>[0] ? true : false, true>();
-void inheritedArrayGenerator.run({ mode: 'tool', schemaName: 'Answers' });
-void inheritedArrayStreamer.run({ mode: 'auto', schemaDescription: 'Generated answers' });
-// @ts-expect-error Inherited array generators retain the SDK's generation mode literals.
+void inheritedArrayGenerator.run({ schemaName: 'Answers' });
+void inheritedArrayStreamer.run({ schemaDescription: 'Generated answers' });
+// @ts-expect-error Inherited array generators do not expose the removed setting.
 void inheritedArrayGenerator.run({ mode: 'invalid' });
-// @ts-expect-error Inherited array streamers retain the SDK's generation mode literals.
+// @ts-expect-error Inherited array streamers do not expose the removed setting.
 void inheritedArrayStreamer.run({ mode: 'invalid' });
 
 const inheritedEnumGenerator = create.ObjectGenerator({}, create.Config({ model, output: 'enum', enum: choices, prompt: 'Answer.' }));
 expectEqual<'schemaName' extends keyof Parameters<typeof inheritedEnumGenerator.run>[0] ? true : false, false>();
-void inheritedEnumGenerator.run({ mode: 'tool' });
+void inheritedEnumGenerator.run({ maxOutputTokens: 10 });
 // @ts-expect-error An inherited enum generator does not acquire object schema metadata.
 void inheritedEnumGenerator.run({ schemaName: 'Answer' });
 
 const inheritedRenderedNoSchema = create.ObjectStreamer.withTemplate({}, create.Config({ model, output: 'no-schema', prompt: '{{ name }}', inputSchema: z.object({ name: z.string() }) }));
-void inheritedRenderedNoSchema.run({ context: { name: 'Ada' }, mode: 'json' });
-// @ts-expect-error Rendered inherited schemaless streams keep their output mode restriction too.
+void inheritedRenderedNoSchema.run({ context: { name: 'Ada' } });
+// @ts-expect-error Rendered inherited components also reject the obsolete setting.
 void inheritedRenderedNoSchema.run({ context: { name: 'Ada' }, mode: 'tool' });

@@ -84,10 +84,11 @@ describe('Component workflow contracts', () => {
 				}),
 			};
 			const workflow = mode === 'Script'
-				? create.Script({ context, script: 'return label ~ ":" ~ lookup({ id: id })' })
-				: create.Template({ context, template: '{{ label }}:{{ lookup({ id: id }) }}' });
-			const first = workflow({ id: 'first', label: 'one' });
-			const second = workflow({ id: 'second', label: 'two' });
+				? create.Script({ context, inputSchema: z.object({ label: z.string(), id: z.enum(['first', 'second']) }), script: 'return label ~ ":" ~ lookup({ id: id })' })
+				: create.Template({ context, inputSchema: z.object({ label: z.string(), id: z.enum(['first', 'second']) }), template: '{{ label }}:{{ lookup({ id: id }) }}' });
+			const call = workflow as (input: { id: 'first' | 'second'; label: string }) => Promise<unknown>;
+			const first = call({ id: 'first', label: 'one' });
+			const second = call({ id: 'second', label: 'two' });
 			try {
 				await started.promise;
 				releases.second.resolve('B');

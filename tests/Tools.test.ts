@@ -44,14 +44,14 @@ describe('asTool', function () {
 	describe('Suite 1: Validation & Unit Tests', () => {
 		describe('Error: Missing inputSchema Schema', () => {
 			it('should throw ConfigError when inputSchema schema is missing', () => {
-				//@ts-expect-error - missing inputSchema schema
+				// Exercise runtime admission; missing-schema type checks live in type-safety.
 				expect(() => create.TextGenerator.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'Hello world',
 					description: 'A test tool'
 					// Missing inputSchema
-				})).to.throw(
+				} as never)).to.throw(
 					ConfigError,
 					'\'inputSchema\' is a required property when creating a TextGenerator as a tool'
 				);
@@ -685,7 +685,7 @@ describe('asTool', function () {
 		const loggingTool = create.TextGenerator.withTemplate.asTool({
 			model,
 			...temperatureConfig,
-			prompt: `Only return this log entry, nothing else: [{{ level }}] Tool call {{ _toolCallOptions.toolCallId }} processed {{ _toolCallOptions.messages.length }} messages. Status: {{ status }}`,
+			prompt: `Only return this log entry, nothing else: [{{ level }}] Tool call {{ _toolOptions.toolCallId }} processed {{ _toolOptions.messages.length }} messages. Status: {{ status }}`,
 			description: 'A logging tool that includes call metadata',
 			inputSchema: z.object({
 				level: z.string().describe('Log level for the message'),
@@ -796,8 +796,8 @@ describe('asTool', function () {
 			});
 		});
 
-		describe('Accessing _toolCallOptions in LLM Loops', () => {
-			it('should correctly inject _toolCallOptions into a tool called by an LLM', async function () {
+		describe('Accessing _toolOptions in LLM Loops', () => {
+			it('should correctly inject _toolOptions into a tool called by an LLM', async function () {
 				this.timeout(timeout * 2); // Agent and LLM-backed tool make two serial model requests.
 
 				const agent = create.TextGenerator({
@@ -851,8 +851,7 @@ describe('asTool', function () {
 				b: z.number(),
 				operation: z.enum(['add', 'subtract'])
 			}),*/
-			execute: async (input) => {
-				const { a, b, operation } = input as { a: number, b: number, operation: 'add' | 'subtract' };
+			execute: async ({ a, b, operation }: { a: number, b: number, operation: 'add' | 'subtract' }) => {
 				await new Promise(resolve => setTimeout(resolve, 100));
 				if (operation === 'add') {
 					return { result: a + b };
@@ -863,10 +862,10 @@ describe('asTool', function () {
 		// --- End Test Setup ---
 
 		it('should correctly execute the provided function with given arguments using .execute()', async () => {
-			const resultAdd = await calculatorTool({ a: 10, b: 5, operation: 'add' }, toolCallOptions);
+			const resultAdd = await calculatorTool.execute({ a: 10, b: 5, operation: 'add' }, toolCallOptions);
 			expect(resultAdd).to.deep.equal({ result: 15 });
 
-			const resultSubtract = await calculatorTool({ a: 10, b: 5, operation: 'subtract' }, toolCallOptions);
+			const resultSubtract = await calculatorTool.execute({ a: 10, b: 5, operation: 'subtract' }, toolCallOptions);
 			expect(resultSubtract).to.deep.equal({ result: 5 });
 
 			// Verify it has the correct type and execute property

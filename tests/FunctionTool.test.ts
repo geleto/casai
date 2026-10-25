@@ -22,10 +22,10 @@ describe('Function.asTool Updates', () => {
 			const child = create.Function.asTool({ schema: z.number().negative() }, parent);
 			const withoutSchema = create.Function.asTool({ schema: undefined }, parent);
 			const options = { toolCallId: 'inherited', messages: [], context: undefined };
-			expect(parent.execute).to.equal(parent);
+			expect(parent.execute).not.to.equal(parent.config.execute);
 			await expect(parent.execute({ value: -2 }, options)).to.be.rejectedWith(/Output validation failed/);
 			expect(await child.execute({ value: -2 }, options)).to.equal(-2);
-			expect(await withoutSchema({ value: -2 }, options)).to.equal(-2);
+			expect(await withoutSchema.execute({ value: -2 }, options)).to.equal(-2);
 		});
 
 		it('should transform inherited output once across multiple generations', async () => {
@@ -48,7 +48,7 @@ describe('Function.asTool Updates', () => {
 			let executions = 0;
 			let transformations = 0;
 			const original = create.Function({
-				inputSchema: z.object({ value: z.number() }), context: { offset: 3 },
+				inputSchema: z.object({ value: z.number(), offset: z.number() }), context: { offset: 3 },
 				schema: z.string().transform(value => {
 					transformations++;
 					return Number(value) + 1;
@@ -60,15 +60,15 @@ describe('Function.asTool Updates', () => {
 			});
 			const tool = create.Function.asTool({}, original);
 			const roundtrip = create.Function({}, tool);
-			expect(tool.execute).to.equal(tool);
-			expect(roundtrip.execute).to.equal(original.execute);
+			expect(tool.execute).not.to.equal(tool.config.execute);
+			expect(roundtrip.config.execute).to.equal(original.config.execute);
 			expect(await original({ value: 2 })).to.equal(6);
 			expect(await tool.execute({ value: 3, offset: 7 }, callOptions)).to.equal(11);
 			expect(await roundtrip({ value: 4, offset: 6 })).to.equal(11);
 			expect(executions).to.equal(3);
 			expect(transformations).to.equal(3);
 			// @ts-expect-error The restored ordinary Function rejects invalid input statically and at runtime.
-			await expect(roundtrip({ value: 'invalid' })).to.be.rejectedWith(/Input context validation failed/);
+			await expect(roundtrip({ value: 'invalid' })).to.be.rejectedWith(/Application input validation failed/);
 			expect(executions).to.equal(3);
 		});
 
@@ -78,7 +78,7 @@ describe('Function.asTool Updates', () => {
 				execute: ({ value, offset }) => value + offset,
 			});
 			const wider = create.Function.asTool({ inputSchema: z.object({ value: z.number(), label: z.string() }), context: { offset: 4 } }, parent);
-			const result: number = await wider({ value: 2, label: 'unused' }, callOptions);
+			const result: number = await wider.execute({ value: 2, label: 'unused' }, callOptions);
 			expect(result).to.equal(6);
 			if (false) {
 				// @ts-expect-error The inherited callback needs a numeric input value.
@@ -110,9 +110,9 @@ describe('Function.asTool Updates', () => {
 			expect(result).to.equal('done!');
 			if (false) {
 				// @ts-expect-error The result follows the replacement schema.
-				const _result: number = await child({ label: 'done' }, callOptions);
+				const _result: number = await child.execute({ label: 'done' }, callOptions);
 				// @ts-expect-error The parent's input schema was replaced.
-				await child({ value: 2 }, callOptions);
+				await child.execute({ value: 2 }, callOptions);
 			}
 		});
 
@@ -129,29 +129,29 @@ describe('Function.asTool Updates', () => {
 					return value + offset;
 				},
 			}, create.Config({ context: { offset: 3 } }));
-			const result: number = await tool({ value: 2 }, callOptions);
+			const result: number = await tool.execute({ value: 2 }, callOptions);
 			expect(result).to.equal(5);
 			if (false) {
 				// @ts-expect-error Input-only fields are still required at call time.
-				await tool({}, callOptions);
+				await tool.execute({}, callOptions);
 			}
 		});
 
 		it('should type the result from the replacement callback when the output schema is removed', async () => {
 			const parent = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), schema: z.number(), execute: ({ value }) => value });
 			const child = create.Function.asTool({ schema: undefined, execute: ({ value }) => `#${value}` }, parent);
-			const result: string = await child({ value: 2 }, callOptions);
+			const result: string = await child.execute({ value: 2 }, callOptions);
 			expect(result).to.equal('#2');
 			if (false) {
 				// @ts-expect-error The removed schema no longer types the result.
-				const _result: number = await child({ value: 2 }, callOptions);
+				const _result: number = await child.execute({ value: 2 }, callOptions);
 			}
 		});
 
 		it('should type an annotated config without an output schema as an unknown result', async () => {
 			const inputSchema = z.object({ value: z.number() });
 			const config: FunctionToolConfig<typeof inputSchema, undefined, undefined> = { inputSchema, execute: ({ value }) => value.toFixed() };
-			const result = await create.Function.asTool(config)({ value: 1 }, callOptions);
+			const result = await create.Function.asTool(config).execute({ value: 1 }, callOptions);
 			expect(result).to.equal('1');
 			if (false) {
 				// @ts-expect-error The annotation hides execute's return type, so the result is unknown, not any.
@@ -170,7 +170,7 @@ describe('Function.asTool Updates', () => {
 
 		it('should not freeze configured context literals in inherited tools', async () => {
 			const parent = create.Function.asTool({
-				inputSchema: z.object({ value: z.number() }), context: { prefix: 'value=' }, execute: ({ value, prefix }) => prefix + String(value),
+				inputSchema: z.object({ value: z.number(), prefix: z.string() }), context: { prefix: 'value=' }, execute: ({ value, prefix }) => prefix + String(value),
 			});
 			const child = create.Function.asTool({ description: 'Child' }, parent);
 			expect(await child.execute({ value: 1, prefix: 'override=' }, callOptions)).to.equal('override=1');
@@ -187,7 +187,7 @@ describe('Function.asTool Updates', () => {
 			expect(() => create.Function.asTool({
 				description: 'Test tool',
 				execute: (input: { val: number }) => { return input.val; }
-			} as any)).to.throw(ConfigError, /'inputSchema' is a required property/);
+			} as never)).to.throw(ConfigError, /'inputSchema' is a required property/);
 		});
 
 		it('should accept valid inputSchema', () => {
@@ -204,15 +204,15 @@ describe('Function.asTool Updates', () => {
 
 	describe('Execution with Options', () => {
 		it('should pass options to execute function', async () => {
-			let capturedOptions: ToolExecutionOptions<undefined> | undefined;
+			let capturedOptions: import('./cascada').ComponentExecutionOptions | undefined;
 			const tool = create.Function.asTool({
 				description: 'Test tool',
 				inputSchema: z.object({ val: z.number() }),
-				execute: async (input: { val: number }, options: ToolExecutionOptions<undefined>) => {
+				execute: async (executionContext) => { const input = executionContext; const options = executionContext._toolOptions;
 					await new Promise(resolve => setTimeout(resolve, 0));
 					capturedOptions = options;
 					return input.val;
-				}
+				 }
 			});
 
 			const mockOptions: ToolExecutionOptions<undefined> = {
@@ -222,7 +222,7 @@ describe('Function.asTool Updates', () => {
 			};
 
 			await tool.execute({ val: 10 }, mockOptions);
-			expect(capturedOptions).to.equal(mockOptions);
+			expect(capturedOptions).to.deep.equal({ toolCallId: mockOptions.toolCallId, messages: mockOptions.messages });
 		});
 	});
 
@@ -238,21 +238,21 @@ describe('Function.asTool Updates', () => {
 				}
 			});
 
-			const result = await tool({ val: 5, multiplier: 2 }, { toolCallId: '123', messages: [], context: undefined });
+			const result = await tool.execute({ val: 5, multiplier: 2 }, { toolCallId: '123', messages: [], context: undefined });
 			expect(result).to.equal(10);
 		});
 
 		it('should pass options and context', async () => {
-			let capturedOptions: ToolExecutionOptions<undefined> | undefined;
+			let capturedOptions: import('./cascada').ComponentExecutionOptions | undefined;
 			const tool = create.Function.asTool({
 				description: 'Test tool',
 				context: { multiplier: 3 },
 				inputSchema: z.object({ val: z.number() }),
-				execute: async (input: { val: number } & { multiplier: number }, options: ToolExecutionOptions<undefined>) => {
+				execute: async (executionContext) => { const input = executionContext; const options = executionContext._toolOptions;
 					await new Promise(resolve => setTimeout(resolve, 0));
 					capturedOptions = options;
 					return input.val * input.multiplier;
-				}
+				 }
 			});
 
 			const mockOptions: ToolExecutionOptions<undefined> = {
@@ -261,9 +261,9 @@ describe('Function.asTool Updates', () => {
 				context: undefined
 			};
 
-			const result = await tool({ val: 5 }, mockOptions);
+			const result = await tool.execute({ val: 5 }, mockOptions);
 			expect(result).to.equal(15);
-			expect(capturedOptions).to.equal(mockOptions);
+			expect(capturedOptions).to.deep.equal({ toolCallId: mockOptions.toolCallId, messages: mockOptions.messages });
 		});
 	});
 });

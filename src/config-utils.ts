@@ -10,11 +10,16 @@ export function processConfig<T extends Partial<configs.LoaderConfig> & Record<s
 	config: T
 ): ProcessedConfig<T> {
 	validateConfigBasics(config);
+	const processed = { ...config };
+	for (const key of configMapKeys) {
+		if (config[key] !== undefined) Object.assign(processed, { [key]: { ...config[key] as Record<string, unknown> } });
+	}
+	if (config.messages !== undefined) Object.assign(processed, { messages: [...config.messages as ModelMessage[]] });
 	if ('loader' in config && config.loader) {
 		const loader = processLoaders(config.loader);
-		return { ...config, loader };
+		return { ...processed, loader };
 	}
-	return config;
+	return processed;
 }
 
 /**
@@ -48,6 +53,8 @@ export function mergeConfigs<
 			const parentMap = parentConfig[key] as Record<string, unknown> | undefined;
 			const childMap = childConfig[key] as Record<string, unknown> | undefined;
 			merged[key] = { ...parentMap ?? {}, ...childMap ?? {} };
+		} else if (merged[key] !== undefined) {
+			merged[key] = { ...merged[key] as Record<string, unknown> };
 		}
 	}
 
@@ -78,12 +85,9 @@ export function mergeConfigs<
 			...parentMessages,
 			...childMessages,
 		];
+	} else if (merged.messages !== undefined) {
+		merged.messages = [...merged.messages as ModelMessage[]];
 	}
-
-	// Debug output for merged result if debug is enabled
-	/* if (debugEnabled) {
-		console.log('[DEBUG] mergeConfigs result:', merged);
-	} */
 
 	return merged as MergedConfig<TParent, TChild>;
 }

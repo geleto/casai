@@ -1,18 +1,11 @@
-import type { ModelMessage } from "ai";
 import { z, ZodError } from 'zod';
 import * as types from './types/types.js';
 import * as configs from './types/config.js';
-import { extractCallArguments } from './call-arguments.js';
 import { ModelMessageSchema } from "./types/schemas.js";
 
-export class ConfigError extends Error {
-	declare cause?: Error;
-	name: string;
-	constructor(message: string, cause?: Error) {
-		super(message, { cause });
-		this.name = 'ConfigError';
-	}
-}
+import { ConfigError } from './errors.js';
+export { ConfigError } from './errors.js';
+import { parseSchema, validateSchemaVersion } from './schema.js';
 
 type AnyTextConfig = configs.ConfigShape<configs.GenerateTextConfig<any, any, any> | configs.StreamTextConfig<any, any, any>>;
 type AnyObjectConfig =
@@ -46,6 +39,12 @@ export function validateConfigBasics(config?: unknown): asserts config is Record
 	if (!config || typeof config !== 'object' || Array.isArray(config)) {
 		throw new ConfigError('Config must be an object.');
 	}
+	if ('contextSchema' in config) throw new ConfigError("Use 'toolContextSchema' in Casai configuration; 'contextSchema' belongs to native SDK tools.");
+	if ('options' in config) throw new ConfigError("Use 'renderOptions' for rendering settings; 'options' is not supported in Casai configuration.");
+	if ('mode' in config) throw new ConfigError("'mode' is not supported. The AI SDK selects the object generation format.");
+	for (const key of ['inputSchema', 'toolContextSchema', 'schema']) {
+		if (key in config) validateSchemaVersion((config as Record<string, unknown>)[key]);
+	}
 	if ('template' in config && 'script' in config) {
 		throw new ConfigError("Configuration cannot have both 'template' and 'script' properties.");
 	}
@@ -57,10 +56,10 @@ export function validateConfigBasics(config?: unknown): asserts config is Record
 // Compatibility checks apply to both reusable fragments and completed components.
 // Required properties are checked separately by the concrete component validators.
 const forbiddenConfigProperties = {
-	Function: ['model', 'template', 'script', 'prompt', 'output', 'enum', 'mode', 'loader', 'filters', 'options', 'messages', 'promptType', 'tools', 'toolsContext'],
-	Template: ['model', 'script', 'execute', 'output', 'enum', 'mode', 'schema', 'prompt', 'messages', 'tools', 'toolsContext'],
-	Script: ['model', 'template', 'execute', 'output', 'enum', 'mode', 'prompt', 'messages', 'tools', 'toolsContext'],
-	Text: ['template', 'script', 'execute', 'schema', 'enum', 'mode'],
+	Function: ['model', 'template', 'script', 'prompt', 'output', 'enum', 'loader', 'filters', 'renderOptions', 'messages', 'promptType'],
+	Template: ['model', 'script', 'execute', 'output', 'enum', 'schema', 'prompt', 'messages'],
+	Script: ['model', 'template', 'execute', 'output', 'enum', 'prompt', 'messages'],
+	Text: ['template', 'script', 'execute', 'schema', 'enum'],
 	Object: ['template', 'script', 'execute', 'tools', 'toolsContext'],
 } as const;
 
@@ -83,7 +82,7 @@ function identifyConfigKind(config: Record<string, unknown>): ConfigKind | undef
 	if ('template' in config) return 'Template';
 	if ('script' in config) return 'Script';
 	if (typeof config.output === 'object' && config.output !== null) return 'Text';
-	if ('output' in config || 'enum' in config || 'mode' in config) return 'Object';
+	if ('output' in config || 'enum' in config) return 'Object';
 	if ('model' in config) return 'schema' in config ? 'Object' : 'Text';
 	return undefined;
 }
@@ -107,17 +106,6 @@ export function validateLoadedTextPrompt(prompt: unknown): asserts prompt is str
 	if (prompt !== undefined && typeof prompt !== 'string') {
 		throw new ConfigError("The 'prompt' of a loadsText component must be the name of the prompt to load.");
 	}
-}
-
-function validateRendererInputSchema(config: Record<string, unknown>, kind: 'Template' | 'Script'): void {
-	const inputSchema = config.inputSchema;
-	if (inputSchema === undefined || inputSchema instanceof z.ZodObject) return;
-	if (inputSchema && typeof inputSchema === 'object' && 'jsonSchema' in inputSchema) {
-		const jsonSchema = inputSchema.jsonSchema;
-		if (!jsonSchema || typeof jsonSchema !== 'object' || !('type' in jsonSchema) || jsonSchema.type === undefined) return;
-		if (jsonSchema.type === 'object' || (Array.isArray(jsonSchema.type) && jsonSchema.type.includes('object'))) return;
-	}
-	throw new ConfigError(`For ${kind} components, 'inputSchema' must be a Zod object schema (z.object) or an AI SDK object schema.`);
 }
 
 function validateObjectOutputProperties(config: Record<string, unknown>, isStreamer = false): 'object' | 'array' | 'enum' | 'no-schema' {
@@ -160,7 +148,6 @@ export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, a
 	if ('execute' in config && config.execute !== undefined && typeof config.execute !== 'function') {
 		throw new ConfigError("The 'execute' property in a Function config must be a function.");
 	}
-	if (kind === 'Template' || kind === 'Script') validateRendererInputSchema(config, kind);
 	if (kind === 'Object') validateObjectOutputProperties(config);
 	validatePromptProperties(config, 'promptType' in config ? config.promptType : undefined);
 }
@@ -247,7 +234,7 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 export function validateTemplateConfig(config: Partial<configs.TemplateConfig<any>>, templateType?: types.TemplatePromptType, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Template');
-	validateRendererInputSchema(config, 'Template');
+	validateConfiguredSignal(config);
 
 	const isLoaded = templateType?.endsWith('-name') ?? false;
 
@@ -281,7 +268,7 @@ export function validateTemplateConfig(config: Partial<configs.TemplateConfig<an
 export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, any>>, scriptType?: types.ScriptPromptType, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Script');
-	validateRendererInputSchema(config, 'Script');
+	validateConfiguredSignal(config);
 
 	const isLoaded = scriptType?.endsWith('-name') ?? false;
 
@@ -314,6 +301,7 @@ export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, a
 export function validateFunctionConfig(config: Record<string, any>, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Function');
+	validateConfiguredSignal(config);
 	if (typeof config.execute !== 'function') {
 		throw new ConfigError("The 'execute' property in a Function config must be a function.");
 	}
@@ -322,140 +310,24 @@ export function validateFunctionConfig(config: Record<string, any>, isTool = fal
 	}
 }
 
-// --- Invocation Validators (for Call Time) ---
-
+// Source/history validation is separate from the shared application-input boundary.
 export function validateLLMComponentCall(
 	config: Partial<configs.AnyConfig<any, any, any, any>>, promptType: types.PromptType,
-	...args: [string | undefined | ModelMessage[] | types.Context, (ModelMessage[] | types.Context)?, types.Context?]
-): void | Promise<void> {
-	const callArgs = extractCallArguments(...args);
-	const isToolCall = callArgs.context?._toolCallOptions !== undefined;
-
-	validateMessagesArray(callArgs.messages);
-
-	if (promptType === 'function') {
-		if (callArgs.prompt !== undefined || callArgs.messages !== undefined || args[1] !== undefined || args[2] !== undefined) {
-			throw new ConfigError('Function-prompt components only accept a context object.');
-		}
-		if (!isToolCall) {
-			return validateCallInput(config, callArgs.context);
-		}
+	context?: types.Context,
+): void {
+	if (!hasConfiguredValue(config, 'model')) throw new ConfigError("LLM calls require a 'model' property.");
+	if (promptType === 'function') return;
+	const prompt = (config as { prompt?: unknown }).prompt;
+	if (promptType.includes('template') || promptType.includes('script')) {
+		if (typeof prompt !== 'string') throw new ConfigError('Prompt source must be a string, supplied in configuration or at call time.');
 		return;
 	}
-
-	if (promptType.includes('template') || promptType.includes('script')) {
-		// Skip input validation if this is a tool call (indicated by presence of _toolCallOptions)
-		if (!isToolCall) {
-			return validateCallInput(config, callArgs.context);
-		}// else - the tool call will have its own input schema validation
-	} else { // text or text-name
-		const prompt = (config as Partial<configs.TemplatePromptConfig>).prompt;
-		const finalPromptString = callArgs.prompt ?? (typeof prompt === 'string' ? prompt : undefined);
-		const finalPromptMessages = Array.isArray(prompt) ? prompt : [];
-		const configuredMessages = (config as Partial<configs.TemplatePromptConfig>).messages;
-
-		const hasPromptString = typeof finalPromptString === 'string';
-		const hasPromptMessages = callArgs.prompt === undefined && finalPromptMessages.length > 0;
-		// Call-time history is appended to configured messages, including when it is empty.
-		const hasMessages = (callArgs.messages?.length ?? 0) > 0
-			|| (Array.isArray(configuredMessages) && configuredMessages.length > 0);
-
-		if (!hasPromptString && !hasPromptMessages && !hasMessages) {
-			throw new ConfigError("Either 'prompt' (string or messages array) or 'messages' must be provided in the config or at call time.");
-		}
-		if (callArgs.context && !isToolCall) throw new ConfigError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
+	if (typeof prompt !== 'string' && !(Array.isArray(prompt) && prompt.length) && !(config as configs.TemplatePromptConfig).messages?.length) {
+		throw new ConfigError("Either 'prompt' (string or messages array) or 'messages' must be provided in the config or at call time.");
 	}
+	if (context !== undefined) throw new ConfigError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
 }
 
-export function validateTemplateCall(config: Partial<configs.TemplateConfig<any>>, ...args: [string | undefined | types.Context, types.Context?]): void | Promise<void> {
-	const [templateOrContext, maybeContext] = args;
-	const context = (typeof templateOrContext === 'string') ? maybeContext : templateOrContext;
-	const isToolCall = context?._toolCallOptions !== undefined;
-
-	if (!('template' in config) && typeof templateOrContext !== 'string') {
-		throw new ConfigError("A template string must be provided either in the config or as the first argument.");
-	}
-
-	if (!isToolCall) {
-		return validateCallInput(config, context);
-	}// else - the tool call will have its own input schema validation
-}
-
-export function validateScriptOrFunctionCall(config: Record<string, any>, type: 'Script' | 'Function', ...args: [string | undefined | types.Context, types.Context?]): void | Promise<void> {
-	const [arg1, arg2] = args;
-	const context = (typeof arg1 === 'string') ? arg2 : arg1;
-	const isToolCall = context?._toolCallOptions !== undefined;
-
-	if (type === 'Script' && !('script' in config) && typeof arg1 !== 'string') {
-		throw new ConfigError("A script string must be provided either in the config or as the first argument.");
-	}
-
-	if (!isToolCall) {
-		return validateCallInput(config, context);
-	}// else - the tool call will have its own input schema validation
-}
-
-// --- Input/Output Schema Validators ---
-
-// An omitted context is validated as empty input, so a schema whose fields are all optional accepts it.
-function validateCallInput(config: Partial<configs.AnyConfig<any, any, any, any>>, context: types.Context | undefined): void | Promise<void> {
-	if (context) return validateInput(config, context);
-	const requireContext = (error: unknown): never => {
-		if (error instanceof ConfigError) {
-			throw new ConfigError(`A context object is required because an 'inputSchema' is defined in the configuration.\n${error.message}`, error);
-		}
-		throw error;
-	};
-	let result: void | Promise<void>;
-	try {
-		result = validateInput(config, {});
-	} catch (error) {
-		return requireContext(error);
-	}
-	if (result instanceof Promise) return result.catch(requireContext);
-}
-
-function validateInput(config: Partial<configs.AnyConfig<any, any, any, any>>, context: types.Context): void | Promise<void> {
-	if ('inputSchema' in config && config.inputSchema) {
-		const schema = config.inputSchema;
-		if ('safeParse' in schema) {
-			const result = schema.safeParse(context);
-			if (!result.success) {
-				throw new ConfigError(`Input context validation failed.\n${formatZodError(result.error)}`);
-			}
-		} else if (schema.validate) {
-			const check = (result: { success: true, value: unknown } | { success: false, error: Error }): void => {
-				if (!result.success) {
-					throw new ConfigError(`Input context validation failed.\n${result.error.message}`, result.error);
-				}
-			};
-			const result = schema.validate(context);
-			if ('then' in result) return Promise.resolve(result).then(check);
-			check(result);
-		}
-	}
-}
-
-export function validateAndParseOutput<T>(config: Partial<configs.AnyConfig<any, any, any, any>>, result: T): T | Promise<T> {
-	if ('schema' in config && config.schema) {
-		const schema = config.schema;
-		if ('safeParse' in schema) {
-			const validationResult = schema.safeParse(result);
-			if (!validationResult.success) {
-				throw new ConfigError(`Output validation failed.\n${formatZodError(validationResult.error)}`, validationResult.error);
-			}
-			return validationResult.data as T;
-		} else if (schema.validate) {
-			const check = (validationResult: { success: true, value: unknown } | { success: false, error: Error }): T => {
-				if (!validationResult.success) {
-					throw new ConfigError(`Output validation failed.\n${validationResult.error.message}`, validationResult.error);
-				}
-				return validationResult.value as T;
-			};
-			const validationResult = schema.validate(result);
-			if ('then' in validationResult) return Promise.resolve(validationResult).then(check);
-			return check(validationResult);
-		}
-	}
-	return result;
+export function validateAndParseOutput<T>(config: { schema?: types.SchemaType<any> }, result: T): T | Promise<T> {
+	return config.schema === undefined ? result : parseSchema(config.schema, result, 'Output').then(parsed => parsed.value as T);
 }

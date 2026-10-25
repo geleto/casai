@@ -4,17 +4,25 @@ import {
 	FileSystemLoader, PrecompiledLoader, WebLoader, NotFoundError, race,
 	ModelMessageSchema, PromptStringOrMessagesSchema, ConfigError, TemplateError, ScriptError, z,
 } from 'casai';
-import type { ConfigProvider, ModelMessage, ToolSet, RaceGroup, RaceLoader, SchemaType, Context, ScriptResult, TemplatePromptType, ScriptPromptType, FunctionPromptType, ContextSchemaConfig, ToolConfig, StreamObjectOnFinishEvent, StreamTextOnFinishEvent } from 'casai';
-import type { ModelMessage as SDKModelMessage, ToolSet as SDKToolSet, JSONValue, Tool, GenerateObjectEndEvent, StreamTextOnEndCallback } from 'ai';
+import type { ConfigProvider, ModelMessage, ToolSet, RaceGroup, RaceLoader, SchemaType, Context, ScriptResult, TemplatePromptType, ScriptPromptType, FunctionPromptType, ToolContextSchemaConfig, ToolConfig, StreamObjectOnFinishEvent, StreamTextOnFinishEvent } from 'casai';
+import type { ModelMessage as SDKModelMessage, ToolSet as SDKToolSet, GenerateObjectEndEvent, StreamTextOnEndCallback } from 'ai';
 import { jsonSchema } from 'ai';
 import type { ILoaderAny, LoaderInterface } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
+
+declare const caught: unknown;
+if (ConfigError.isInstance(caught)) {
+	expectType<ConfigError>(caught);
+	expectType<string>(caught.message);
+	expectType<Error | undefined>(caught.cause);
+}
 
 // Both public entry points expose the same overloads rather than widened wrappers.
 // New factories or modifiers require a corresponding coverage review.
 expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'TextGenerator' | 'TextStreamer' | 'ObjectGenerator' | 'ObjectStreamer'>();
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
+	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'
 	| 'race' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'TemplateError' | 'ScriptError' | 'z'
 >();
 type PromptModifiers = 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript';
@@ -41,13 +49,14 @@ expectEqual<typeof create.ObjectStreamer, typeof ObjectStreamer>();
 expectEqual<ModelMessage, SDKModelMessage>();
 expectEqual<ToolSet, SDKToolSet>();
 expectEqual<Context, Record<string, any>>();
-expectEqual<ScriptResult, JSONValue>();
+expectEqual<ScriptResult, unknown>();
 expectEqual<TemplatePromptType, 'async-template' | 'async-template-name'>();
 expectEqual<ScriptPromptType, 'async-script' | 'async-script-name'>();
 expectEqual<FunctionPromptType, 'function'>();
-expectEqual<ContextSchemaConfig<{ factor: number }>, Pick<Tool<unknown, unknown, { factor: number }>, 'contextSchema'>>();
+expectEqual<ToolContextSchemaConfig<{ factor: number }>, { toolContextSchema?: SchemaType<{ factor: number }> | undefined }>();
+const _clearedContextSchema: ToolContextSchemaConfig = { toolContextSchema: undefined };
 const toolConfig: ToolConfig<{ value: number }, string, { factor: number }> = {
-	inputSchema: z.object({ value: z.number() }), contextSchema: z.object({ factor: z.number() }),
+	inputSchema: z.object({ value: z.number() }), toolContextSchema: z.object({ factor: z.number() }),
 };
 expectType<SchemaType<{ value: number }>>(toolConfig.inputSchema);
 // @ts-expect-error Annotated renderer tools retain their input schema's field types.

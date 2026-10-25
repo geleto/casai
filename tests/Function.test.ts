@@ -14,6 +14,20 @@ describe('create.Function', function () {
 	this.timeout(timeout);
 
 	describe('Core Functionality', () => {
+		it('snapshots settings while retaining intentionally shared external resources', async () => {
+			for (const asTool of [false, true]) {
+				const resource = { value: 1 };
+				const settings = { inputSchema: z.object({}), context: { resource }, execute: (input: { resource: { value: number } }) => input.resource.value };
+				const component = asTool ? create.Function.asTool(settings) : create.Function(settings);
+				expect(component.config).not.to.equal(settings);
+				settings.context = { resource: { value: 99 } };
+				settings.execute = () => 100;
+				expect(await component()).to.equal(1);
+				resource.value = 2;
+				expect(await component.run({})).to.equal(2);
+			}
+		});
+
 		it('executes a simple function and returns the result', async () => {
 			const fn = create.Function({
 				inputSchema: z.object({
@@ -123,7 +137,7 @@ describe('create.Function', function () {
 
 			// Should fail validation if 'val' is missing
 			// @ts-expect-error - testing invalid input
-			await expect(fn({})).to.be.rejectedWith(/Input context validation failed/);
+			await expect(fn({})).to.be.rejectedWith(/Application input validation failed/);
 		});
 
 		it('validates output schema', async () => {
@@ -180,13 +194,13 @@ describe('create.Function', function () {
 			const fn = create.Function({
 				execute: async (input) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
 					return input.anyProperty;
 				}
 			});
 
 
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
 			const result = await fn({ anyProperty: 'test', other: 123 });
 			expect(result).to.equal('test');
 		});
@@ -196,12 +210,12 @@ describe('create.Function', function () {
 				execute: async (input) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
 					return {
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
 						a: input.prop1,
-						// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
 						b: input.prop2,
-						// eslint-disable-next-line
-						c: input.nested?.deep
+
+						c: (input.nested as { deep: string } | undefined)?.deep
 					};
 				}
 			});
@@ -222,7 +236,7 @@ describe('create.Function', function () {
 				context: { multiplier: 3 },
 				execute: async (input) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
-					return input.value * input.multiplier;
+					return (input.value as number) * input.multiplier;
 				}
 			});
 			const result = await fn({ value: 5 });
@@ -251,7 +265,7 @@ describe('create.Function', function () {
 			const result = await fn({ anything: 'goes', here: 123 });
 			expect(result).to.deep.equal({
 				processed: true,
-				data: { anything: 'goes', here: 123 }
+				data: { anything: 'goes', here: 123, _toolOptions: {} }
 			});
 		});
 
@@ -296,7 +310,7 @@ describe('create.Function', function () {
 
 			// Should fail with old schema
 			// @ts-expect-error - x is not in child schema
-			await expect(childFn({ x: 5 })).to.be.rejectedWith(/Input context validation failed/);
+			await expect(childFn({ x: 5 })).to.be.rejectedWith(/Application input validation failed/);
 		});
 
 		it('child overrides parent output schema', async () => {
@@ -327,14 +341,14 @@ describe('create.Function', function () {
 		it('child adds schema when parent has none', async () => {
 			const parentFn = create.Function({
 				context: { base: 100 },
-				// eslint-disable-next-line
-				execute: (input) => input.value + input.base
+
+				execute: (input: { value: number; base: number }) => input.value + input.base
 			});
 
 			const childFn = create.Function({
 				inputSchema: z.object({ value: z.number() }),
 				schema: z.number(),
-				execute: (input) => input.value + input.base
+				execute: (input: { value: number; base: number }) => input.value + input.base
 			}, parentFn);
 
 			const result = await childFn({ value: 50 });
@@ -342,7 +356,7 @@ describe('create.Function', function () {
 
 			// Validation should now work
 			// @ts-expect-error - value is required
-			await expect(childFn({})).to.be.rejectedWith(/Input context validation failed/);
+			await expect(childFn({})).to.be.rejectedWith(/Application input validation failed/);
 		});
 	});
 
@@ -351,7 +365,7 @@ describe('create.Function', function () {
 			const parentFn = create.Function({
 				context: { base: 1 },
 				inputSchema: z.object({ value: z.number() }),
-				execute: (input) => input.value + input.base
+				execute: (input: { value: number; base: number }) => input.value + input.base
 			});
 
 			const childFn = create.Function({
@@ -383,13 +397,13 @@ describe('create.Function', function () {
 
 		it('allows child to replace sync parent execute with async version', async () => {
 			const parentFn = create.Function({
-				execute: (input) => input.value * 2
+				execute: (input: { value: number }) => input.value * 2
 			});
 
 			const childFn = create.Function({
 				execute: async (input) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
-					return input.value * 3
+					return (input.value as number) * 3
 				}
 			}, parentFn);
 
@@ -400,12 +414,12 @@ describe('create.Function', function () {
 		it('keeps the implementation return type on execute', async () => {
 			const parentFn = create.Function({ inputSchema: z.object({ value: z.number() }), execute: ({ value }) => value.toFixed(1) });
 			const childFn = create.Function({ context: { unused: true } }, parentFn);
-			const raw: string = parentFn.execute({ value: 2 });
+			const raw: string = parentFn.config.execute({ value: 2, _toolOptions: {} });
 			const inherited: string = await childFn({ value: 2 });
 			expect([raw, inherited]).to.deep.equal(['2.0', '2.0']);
 			if (false) {
 				// @ts-expect-error The raw implementation returns a string.
-				const _raw: number = parentFn.execute({ value: 2 });
+				const _raw: number = parentFn.config.execute({ value: 2, _toolOptions: {} });
 			}
 		});
 
@@ -432,7 +446,7 @@ describe('create.Function', function () {
 				context: { prefix: '#' }, execute: (input: { value: number, prefix: string }) => input.prefix + String(input.value),
 			});
 			const result: number = await doubled({ value: 2 });
-			expect([result, await prefixed({ value: 2 }), await prefixed({ value: 2, prefix: '>' })]).to.deep.equal([4, '#2', '>2']);
+			expect([result, await prefixed({ value: 2 }), await create.Function({ context: { prefix: '>' } }, prefixed)({ value: 2 })]).to.deep.equal([4, '#2', '>2']);
 			if (false) {
 				// @ts-expect-error execute needs value.
 				await doubled({});
@@ -566,7 +580,7 @@ describe('create.Function', function () {
 				});
 
 				const fn = create.Function({
-					execute: (input) => input.value * 2
+					execute: (input: { value: number }) => input.value * 2
 				}, parent);
 
 				await fn({});
@@ -591,7 +605,7 @@ describe('create.Function', function () {
 
 				const fn = create.Function({
 					debug: false, // Override parent
-					execute: (input) => input.value * 2
+					execute: (input: { value: number }) => input.value * 2
 				}, parent);
 
 				await fn({});
@@ -736,9 +750,9 @@ describe('create.Function', function () {
 
 			// Old schemas should not work
 			// @ts-expect-error - x is from grandparent
-			await expect(child({ x: 5 })).to.be.rejectedWith(/Input context validation failed/);
+			await expect(child({ x: 5 })).to.be.rejectedWith(/Application input validation failed/);
 			// @ts-expect-error - y is from parent
-			await expect(child({ y: 5 })).to.be.rejectedWith(/Input context validation failed/);
+			await expect(child({ y: 5 })).to.be.rejectedWith(/Application input validation failed/);
 		});
 
 		it('output schema overrides through multiple levels', async () => {
@@ -823,9 +837,9 @@ describe('create.Function', function () {
 			});
 
 			// @ts-expect-error - testing invalid input
-			await expect(fn({ name: 'Alice' })).to.be.rejectedWith(/Input context validation failed/);
+			await expect(fn({ name: 'Alice' })).to.be.rejectedWith(/Application input validation failed/);
 
-			await expect(fn({ name: 'Alice', age: 150 })).to.be.rejectedWith(/Input context validation failed/);
+			await expect(fn({ name: 'Alice', age: 150 })).to.be.rejectedWith(/Application input validation failed/);
 		});
 
 		it('output validation error shows clear message', async () => {
@@ -853,7 +867,7 @@ describe('create.Function', function () {
 
 			// Runtime validation happens at call time
 			// @ts-expect-error - testing invalid input
-			await expect(fn({ val: 'not a number' })).to.be.rejectedWith(/Input context validation failed/);
+			await expect(fn({ val: 'not a number' })).to.be.rejectedWith(/Application input validation failed/);
 		});
 
 		it('nested error propagation through function composition', async () => {
@@ -1034,7 +1048,7 @@ describe('create.Function', function () {
 		it('creates a tool that merges context', async () => {
 			const tool = create.Function.asTool({
 				context: { prefix: 'Old Tool:' },
-				inputSchema: z.object({ msg: z.string() }),
+				inputSchema: z.object({ msg: z.string(), prefix: z.string() }),
 				execute: async (context) => {
 					await new Promise(resolve => setTimeout(resolve, 0));
 					return `${context.prefix} ${context.msg}`;
@@ -1046,13 +1060,13 @@ describe('create.Function', function () {
 			expect(result).to.equal('Tool: Hello');
 		});
 
-		it('injects _toolCallOptions into context', async () => {
+		it('injects _toolOptions into context', async () => {
 			const tool = create.Function.asTool({
 				inputSchema: z.object({}),
-				execute: async (input, options) => {
+				execute: async (executionContext) => { const options = executionContext._toolOptions;
 					await new Promise(resolve => setTimeout(resolve, 0));
 					return options.toolCallId;
-				}
+				 }
 			});
 
 			const options: ToolExecutionOptions<undefined> = {
@@ -1088,7 +1102,7 @@ describe('create.Function', function () {
 			});
 
 			// If we call it like a tool, internal validation is skipped (assuming SDK did it)
-			const result = await tool({ req: 'valid' }, {} as ToolExecutionOptions<undefined>);
+			const result = await tool.execute({ req: 'valid' }, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.equal('valid');
 		});
 
@@ -1102,7 +1116,7 @@ describe('create.Function', function () {
 				execute: (input) => input.val * input.multiplier
 			}, parent);
 
-			const result = await tool({ val: 5 }, {} as ToolExecutionOptions<undefined>);
+			const result = await tool.execute({ val: 5 }, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.equal(50);
 		});
 
@@ -1117,7 +1131,7 @@ describe('create.Function', function () {
 				execute: (input) => input.y * 3
 			}, parentFn);
 
-			const result = await tool({ y: 5 }, {} as ToolExecutionOptions<undefined>);
+			const result = await tool.execute({ y: 5 }, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.equal(15);
 		});
 
@@ -1134,7 +1148,7 @@ describe('create.Function', function () {
 				execute: (input) => ({ result: input.val })
 			}, parentFn);
 
-			const result = await tool({}, {} as ToolExecutionOptions<undefined>);
+			const result = await tool.execute({}, {} as ToolExecutionOptions<undefined>);
 			expect(result).to.deep.equal({ result: 10 });
 		});
 
@@ -1409,7 +1423,7 @@ Diana,16`;
 					currency: z.string(),
 					vendor: z.string()
 				}),
-				execute: async (input, _options) => {
+				execute: async (executionContext) => { const input = executionContext; const _options = executionContext._toolOptions;
 					const subtotal = input.items.reduce(
 						(sum, item) => sum + (item.price * item.quantity),
 						0
@@ -1424,10 +1438,10 @@ Diana,16`;
 						currency: input.currency,
 						vendor: input.vendor
 					};
-				}
+				 }
 			});
 
-			const result = await invoice({
+			const result = await invoice.execute({
 				items: [
 					{ name: 'Widget', price: 10, quantity: 2 },
 					{ name: 'Gadget', price: 15, quantity: 1 }

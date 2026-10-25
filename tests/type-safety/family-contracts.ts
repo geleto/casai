@@ -7,13 +7,13 @@ const inputSchema = z.object({ value: z.number() });
 const schema = z.number();
 const loader = (name: string) => name;
 const filters = { upper: (value: string) => value.toUpperCase() };
-const options = { autoescape: false };
+const renderOptions = { autoescape: false };
 const execute = () => 1;
 const functionParent = create.Config({ execute });
-const rendererParent = create.Config({ filters, options, context: { label: 'value' }, inputSchema });
+const rendererParent = create.Config({ filters, renderOptions, context: { label: 'value' }, inputSchema });
 
-create.Template({ template: '{{ value }}', filters, options, inputSchema });
-create.Script({ script: 'return value', schema, filters, options, inputSchema });
+create.Template({ template: '{{ value }}', filters, renderOptions, inputSchema });
+create.Script({ script: 'return value', schema, filters, renderOptions, inputSchema });
 create.TextGenerator.withTemplate({ model, prompt: '{{ value }}' }, rendererParent);
 create.ObjectGenerator.withScript({ model, schema, prompt: 'return value' }, rendererParent);
 // Function prompts support context and inputSchema, but do not create a Cascada environment.
@@ -52,7 +52,7 @@ create.ObjectGenerator.withFunction({ model, schema, prompt: () => 'Answer', opt
 // @ts-expect-error Filter map values must be callable.
 create.Template({ template: 'Answer', filters: { bad: 1 } });
 // @ts-expect-error Renderer options retain their value types.
-create.Script({ script: 'return 1', options: { autoescape: 'false' } });
+create.Script({ script: 'return 1', renderOptions: { autoescape: 'false' } });
 // @ts-expect-error Template bodies are strings.
 create.Template({ template: () => 'Answer' });
 // @ts-expect-error Script bodies are strings.
@@ -62,7 +62,7 @@ create.Script({ script: 1 });
 create.Function({ execute, model });
 // @ts-expect-error Function components cannot configure loaders.
 create.Function({ execute, loader });
-// @ts-expect-error Function components cannot configure tools.
+// Coded components can own tools.
 create.Function({ execute, tools: {} });
 // @ts-expect-error Function components cannot configure message history.
 create.Function({ execute, messages: [{ role: 'user', content: 'Answer' }] });
@@ -74,7 +74,7 @@ create.Function({ execute, template: 'Answer' });
 create.Function({ execute }, create.Config({ model }));
 // @ts-expect-error Loader settings remain invalid when inherited by a Function.
 create.Function({ execute }, create.Config({ loader }));
-// @ts-expect-error Tool maps remain invalid when inherited by a Function.
+// Registry inheritance applies to Functions too.
 create.Function({ execute }, create.Config({ tools: {} }));
 // @ts-expect-error Messages remain invalid when inherited by a Function.
 create.Function({ execute }, create.Config({ messages: [{ role: 'user', content: 'Answer' }] }));

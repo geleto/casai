@@ -106,7 +106,7 @@ describe('Messages, Conversation & Integration', function () {
 					model,
 					...commonConfig,
 					prompt: 'Output only this, with spaces: {{a}} {{b}} {{c}}',
-					context: { a: 1, b: 2 },
+					inputSchema: z.object({ a: z.number(), b: z.number(), c: z.number() }), context: { a: 1, b: 2 },
 				});
 				const result = await generator({ b: 99, c: 3 });
 				expect(result.text).to.equal('1 99 3');
