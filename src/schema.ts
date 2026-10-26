@@ -1,11 +1,10 @@
-import { asSchema } from 'ai';
+import type { JSONSchema } from './types/sdk.js';
 import type { FlexibleSchema, JSONValue } from 'ai';
+import type { Fields } from './types/utils.js';
+import { asSchema } from 'ai';
 import { isRecord, safeValidateTypes } from '@ai-sdk/provider-utils';
 import type * as core from 'zod/v4/core';
 import { ConfigError, ValidationError } from './errors.js';
-
-export type Fields = Record<string, unknown>;
-export type JSONSchema = Awaited<ReturnType<typeof asSchema>['jsonSchema']>;
 
 export function requireContextObject(value: unknown, ErrorClass: typeof ConfigError | typeof ValidationError = ValidationError): Fields {
 	if (!isRecord(value)) {

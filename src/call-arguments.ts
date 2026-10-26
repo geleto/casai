@@ -1,9 +1,10 @@
+import type { PromptValue } from './types/prompt.js';
+import type { Context } from './types/utils.js';
 import type { ModelMessage } from 'ai';
-import type { Context } from './types/types.js';
 import { ValidationError } from './errors.js';
 import { requireContextObject } from './schema.js';
 
-export function extractCallArguments(promptOrMessageOrContext?: string | ModelMessage[] | Context, contextOrMessages?: ModelMessage[] | Context, maybeContext?: Context): { prompt?: string, messages?: ModelMessage[], context?: Context } {
+export function extractCallArguments(promptOrMessageOrContext?: PromptValue | Context, contextOrMessages?: ModelMessage[] | Context, maybeContext?: Context): { prompt?: string, messages?: ModelMessage[], context?: Context } {
 	let promptFromArgs: string | undefined;
 	let messagesFromArgs: ModelMessage[] | undefined;
 	let contextFromArgs: Context | undefined;

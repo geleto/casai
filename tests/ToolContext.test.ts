@@ -27,7 +27,7 @@ describe('Production tool context boundaries', () => {
 			const invalid = { inputSchema, contextSchema, toolContextSchema, execute: () => 1 };
 			assert.throws(() => create.Function.asTool(invalid as never), /toolContextSchema/);
 			assert.throws(() => create.Config(invalid as never), /toolContextSchema/);
-			assert.throws(() => create.Function.asTool({} as never, { config: invalid } as never), /toolContextSchema/);
+			assert.throws(() => { Reflect.apply(create.Function.asTool, undefined, [{}, { config: invalid }]); }, /toolContextSchema/);
 			const native = tool({ inputSchema, contextSchema: toolContextSchema, execute: ({ value }, { context }) => value * context.factor });
 			assert.doesNotThrow(() => create.Function({ tools: { native }, toolsContext: { native: { factor: 2 } }, execute: () => 1 }));
 		});

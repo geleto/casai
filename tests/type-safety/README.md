@@ -12,6 +12,8 @@ Internal SDK wrapper checks live in `../ResultAugmentation.types.ts`. The root p
 | --- | --- |
 | `config-contracts.ts` | Incomplete fragments, compatible component families, required settings, unknown keys, inherited replacements, map merges, message/loader preservation, immutable run settings |
 | `object-contracts.ts` | Object, array, enum and schemaless modes; schema requirements; mode switches; Zod and SDK schemas; annotated configs; exact result types |
+| `factory-inference.ts` | Shared factory inference, correlated inherited prompt callbacks, explicit schema removal, output-mode transitions, invalid alternatives and contextual return annotations |
+| `object-generator-inference.ts` | ObjectGenerator enum literals, descriptor callbacks, final output contracts and complete versus ambiguous output alternatives |
 | `input-contracts.ts` | Required and optional input fields, configured context, replacement schemas, raw Zod inputs, reusable raw/parsed fragments, renderer schema constraints, standalone and inherited calls, run context |
 | `conditional-contracts.ts` | Conditional output schemas, raw/parsed result alternatives, and complete-input requirements for omitted calls with union-valued configuration |
 | `schema-presence.ts` | Optional and conditional schemas, unannotated spreads, raw/parsed callback and result types, inherited omission/undefined, configured privacy and native descriptor callbacks |

@@ -22,6 +22,9 @@ export type RaceLoader = LoaderInterface & {
 	loaders: ILoaderAny[];
 };
 
+export type CasaiAILoader = ILoaderAny | RaceGroup | RaceLoader;
+export type CasaiAILoaders = CasaiAILoader | CasaiAILoader[];
+
 export function createRaceLoader(loaders: ILoaderAny[], groupName: string): RaceLoader {
 	if (!groupName.trim()) {
 		throw new ConfigError('RaceLoader groupName must be a non-empty string.');
@@ -52,10 +55,10 @@ export function race(loaders: ILoaderAny | ILoaderAny[], groupName?: string): Ra
 // This is the core logic. The public functions are wrappers around it.
 // It returns the final, executable list of loaders.
 function _processAndDeduplicate(
-	loaders: (ILoaderAny | RaceGroup | RaceLoader)[]
+	loaders: CasaiAILoader[]
 ): ILoaderAny[] {
 	const namedGroups = new Map<string, NamedGroup>();
-	const processedChain: (ILoaderAny | RaceGroup | RaceLoader | null)[] = [];
+	const processedChain: (CasaiAILoader | null)[] = [];
 
 	// Pass 1: Identify groups and build a preliminary chain with placeholders.
 	for (let i = 0; i < loaders.length; i++) {
@@ -165,15 +168,15 @@ function _processAndDeduplicate(
 }
 
 export function mergeLoaders(
-	parentLoaders: (ILoaderAny | RaceGroup | RaceLoader)[],
-	childLoaders: (ILoaderAny | RaceGroup | RaceLoader)[]
+	parentLoaders: CasaiAILoader[],
+	childLoaders: CasaiAILoader[]
 ): ILoaderAny[] {
 	const combined = [...childLoaders, ...parentLoaders];
 	return _processAndDeduplicate(combined);
 }
 
 export function processLoaders(
-	load: (ILoaderAny | RaceGroup | RaceLoader)[] | ILoaderAny | RaceGroup | RaceLoader
+	load: CasaiAILoaders
 ): ILoaderAny[] {
 	const loaders = Array.isArray(load) ? load : [load];
 	return _processAndDeduplicate(loaders);

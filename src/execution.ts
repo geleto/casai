@@ -4,7 +4,7 @@ import { executeTool, isExecutableTool } from '@ai-sdk/provider-utils';
 import type { ExecutableTool } from '@ai-sdk/provider-utils';
 import { ConfigError, ValidationError } from './errors.js';
 import { contextNames, inputNames, isPlainObject, requireContextObject, ownKeys, parseSchema, projectInput, sameContext, selectFields, snapshot } from './schema.js';
-import type { Fields } from './schema.js';
+import type { Fields } from './types/utils.js';
 import { toolOutput } from './streams.js';
 
 import type { ComponentExecutionOptions } from './types/sdk.js';

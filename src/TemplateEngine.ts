@@ -1,7 +1,7 @@
+import type { CascadaLoaders } from './types/cascada.js';
+import type { Context } from './types/utils.js';
 import * as cascada from 'cascada-engine';
-import { Context } from './types/types.js';
-import { TemplateConfig } from './types/config.js';
-import * as types from './types/types.js';
+import type { TemplateConfig } from './types/config.js';
 
 import { TemplateError } from './errors.js';
 
@@ -25,7 +25,7 @@ export class TemplateEngine<
 
 		try {
 			const options = { ...this.config.renderOptions, autoescape: this.config.renderOptions?.autoescape ?? false };
-			const loader = (this.config.loader as types.CascadaLoaders | undefined) ?? null;
+			const loader = (this.config.loader as CascadaLoaders | undefined) ?? null;
 			this.env = new cascada.AsyncEnvironment(loader, options);
 
 			if (this.config.filters) {

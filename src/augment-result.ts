@@ -1,8 +1,7 @@
-import { generateText, streamText, NoOutputGeneratedError } from 'ai';
+import type { DefaultTextOutput, GenerateRequest, StreamRequest, ConversationRequest } from './types/sdk.js';
 import type { InferGenerateOutput, ModelMessage, OutputInterface, StepResult, ToolSet } from 'ai';
 import type { GenerateTextResultAugmented, StreamTextResultAugmented } from './types/result.js';
-import type { DefaultTextOutput } from './types/types.js';
-import type { GenerateRequest, StreamRequest, ConversationRequest } from './types/sdk.js';
+import { generateText, streamText, NoOutputGeneratedError } from 'ai';
 
 type Context = Record<string, unknown>;
 

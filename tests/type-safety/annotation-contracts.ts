@@ -6,7 +6,7 @@ import type {
 	GenerateTextConfig, StreamTextConfig,
 	GenerateObjectArrayConfig, GenerateObjectEnumConfig, GenerateObjectNoSchemaConfig, StreamObjectObjectConfig,
 } from 'casai';
-import type { LanguageModel, ToolExecutionOptions, JSONValue } from 'ai';
+import type { LanguageModel, ToolExecutionOptions, ToolSet, JSONValue } from 'ai';
 import { expectEqual, expectType } from './assert.js';
 
 declare const model: LanguageModel;
@@ -91,6 +91,21 @@ const stream = create.TextStreamer(streamConfig);
 expectType<AsyncIterable<string>>(stream('Answer.').textStream);
 // @ts-expect-error Exported streaming configs preserve native finish response types.
 const _wrongStreamConfig: StreamTextConfig<Record<string, never>, never> = { model, onEnd: event => { expectType<number>(event.response.messages); } };
+
+// Keep supplied fields with satisfies, or retain actual tool names in an annotation.
+const textSettings = { model, prompt: 'Answer.' } satisfies GenerateTextConfig<ToolSet, never>;
+const streamSettings = { model, prompt: 'Answer.' } satisfies StreamTextConfig<ToolSet, never>;
+create.TextGenerator(textSettings);
+create.TextStreamer(streamSettings);
+create.Config(textSettings);
+create.Config(streamSettings);
+const tools = { lookup: create.Function.asTool({ inputSchema, execute: ({ name }) => name }) };
+const namedText: GenerateTextConfig<typeof tools, never> = { model, tools, activeTools: ['lookup'] };
+const namedStream: StreamTextConfig<typeof tools, never> = { model, tools, activeTools: ['lookup'] };
+create.TextGenerator(namedText);
+create.TextStreamer(namedStream);
+create.Config(namedText);
+create.Config(namedStream);
 
 const arrayConfig: GenerateObjectArrayConfig<never, { length: number }> = { model, schema, output: 'array' };
 const _array = create.ObjectGenerator(arrayConfig);

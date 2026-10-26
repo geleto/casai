@@ -1,8 +1,11 @@
+import type { PromptType, TemplatePromptType, ScriptPromptType } from './types/prompt.js';
+import type { Context } from './types/utils.js';
+import type { SchemaType } from './types/schema.js';
+import type { ObjectOutputMode } from './types/sdk.js';
 import { z, ZodError } from 'zod';
 import { isRecord } from '@ai-sdk/provider-utils';
-import * as types from './types/types.js';
 import * as configs from './types/config.js';
-import { ModelMessageSchema } from "./types/schemas.js";
+import { modelMessageSchema as ModelMessageSchema } from 'ai';
 
 import { ConfigError, ValidationError } from './errors.js';
 import { parseSchema, validateSchemaVersion } from './schema.js';
@@ -87,7 +90,7 @@ function identifyConfigKind(config: Record<string, unknown>): ConfigKind | undef
 	return undefined;
 }
 
-function validatePromptProperties(config: Record<string, unknown>, promptType?: types.PromptType, requireFunctionPrompt = false): void {
+function validatePromptProperties(config: Record<string, unknown>, promptType?: PromptType, requireFunctionPrompt = false): void {
 	if (config.prompt === undefined && !requireFunctionPrompt) return;
 	if (promptType?.includes('template') || promptType?.includes('script')) {
 		if (Array.isArray(config.prompt)) {
@@ -108,22 +111,31 @@ export function validateLoadedTextPrompt(prompt: unknown, ErrorClass: typeof Con
 	}
 }
 
-function validateObjectOutputProperties(config: Record<string, unknown>, isStreamer = false): 'object' | 'array' | 'enum' | 'no-schema' {
-	const output = config.output === undefined ? 'object' : config.output;
-	if (isStreamer && output === 'enum') {
+function validateObjectOutputProperties(config: Record<string, unknown>, isStreamer = false, defaultOutput: ObjectOutputMode = 'object'): ObjectOutputMode {
+	const configuredOutput = config.output === undefined ? defaultOutput : config.output;
+	if (isStreamer && configuredOutput === 'enum') {
 		throw new ConfigError('Object streamers do not support "enum" output.');
 	}
 	if (config.enum !== undefined && (!Array.isArray(config.enum) || !config.enum.every(value => typeof value === 'string'))) {
 		throw new ConfigError("The 'enum' property must be a string array.");
 	}
-	switch (output) {
-		case 'object': return 'object';
-		case 'array': return 'array';
-		case 'enum': return 'enum';
-		case 'no-schema': return 'no-schema';
+	let output: ObjectOutputMode;
+	switch (configuredOutput) {
+		case 'object': output = 'object'; break;
+		case 'array': output = 'array'; break;
+		case 'enum': output = 'enum'; break;
+		case 'no-schema': output = 'no-schema'; break;
 		default:
-			throw new ConfigError(`Invalid 'output' mode: '${typeof output === 'string' ? output : typeof output}'. Must be 'object', 'array', ${isStreamer ? '' : 'enum, '}or 'no-schema'.`);
+			throw new ConfigError(`Invalid 'output' mode: '${typeof configuredOutput === 'string' ? configuredOutput : typeof configuredOutput}'. Must be 'object', 'array', ${isStreamer ? '' : 'enum, '}or 'no-schema'.`);
 	}
+	// Match the SDK's mode compatibility checks before running a prompt preparer.
+	// Required settings remain the responsibility of the completed factory.
+	const unsupported = output === 'enum' || output === 'no-schema' ? ['schema', 'schemaName', 'schemaDescription'] : [];
+	if (output !== 'enum') unsupported.push('enum');
+	for (const key of unsupported) {
+		if (hasConfiguredValue(config, key)) throw new ConfigError(`Property '${key}' is not supported for '${output}' output.`);
+	}
+	return output;
 }
 
 // --- Configuration Validators (for Creation Time) ---
@@ -148,7 +160,8 @@ export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, a
 	if ('execute' in config && config.execute !== undefined && typeof config.execute !== 'function') {
 		throw new ConfigError("The 'execute' property in a Function config must be a function.");
 	}
-	if (kind === 'Object') validateObjectOutputProperties(config);
+	// An enum-only fragment can acquire its output mode from a child.
+	if (kind === 'Object') validateObjectOutputProperties(config, false, 'enum' in config && config.enum !== undefined ? 'enum' : 'object');
 	validatePromptProperties(config, 'promptType' in config ? config.promptType : undefined);
 }
 
@@ -158,7 +171,7 @@ export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, a
  * @param promptType The explicit promptType from the factory.
  * @param isTool A flag indicating if the component is being created as a tool.
  */
-export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType?: types.PromptType, isTool = false): void {
+export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType?: PromptType, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfiguredSignal(config);
 	validateConfigCompatibility(config, 'Text');
@@ -186,7 +199,7 @@ export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType
  * @param isTool A flag indicating if the component is being created as a tool.
  * @param isStreamer A flag indicating if the component is a streamer.
  */
-export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, promptType?: types.PromptType, isTool = false, isStreamer = false): void {
+export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, promptType?: PromptType, isTool = false, isStreamer = false): void {
 	validateConfigBasics(config);
 	validateConfiguredSignal(config);
 	validateConfigCompatibility(config, 'Object');
@@ -231,7 +244,7 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
  * @param promptType The explicit promptType from the factory.
  * @param isTool A flag indicating if the component is being created as a tool.
  */
-export function validateTemplateConfig(config: Partial<configs.TemplateConfig<any>>, promptType?: types.TemplatePromptType, isTool = false): void {
+export function validateTemplateConfig(config: Partial<configs.TemplateConfig<any>>, promptType?: TemplatePromptType, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Template');
 	validateConfiguredSignal(config);
@@ -265,7 +278,7 @@ export function validateTemplateConfig(config: Partial<configs.TemplateConfig<an
  * @param promptType The explicit promptType from the factory.
  * @param isTool A flag indicating if the component is being created as a tool.
  */
-export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, any>>, promptType?: types.ScriptPromptType, isTool = false): void {
+export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, any>>, promptType?: ScriptPromptType, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Script');
 	validateConfiguredSignal(config);
@@ -312,8 +325,8 @@ export function validateFunctionConfig(config: Record<string, unknown>, isTool =
 
 // Source/history validation is separate from the shared application-input boundary.
 export function validateLLMComponentCall(
-	config: Partial<configs.AnyConfig<any, any, any, any>>, promptType: types.PromptType,
-	context?: types.Context,
+	config: Partial<configs.AnyConfig<any, any, any, any>>, promptType: PromptType,
+	context?: Context,
 ): void {
 	if (!hasConfiguredValue(config, 'model')) throw new ConfigError("LLM calls require a 'model' property.");
 	if (promptType === 'function') return;
@@ -328,9 +341,9 @@ export function validateLLMComponentCall(
 	if (context !== undefined) throw new ValidationError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
 }
 
-export function validateAndParseOutput<Output>(config: { schema: types.SchemaType<Output> }, result: unknown): Promise<Output>;
+export function validateAndParseOutput<Output>(config: { schema: SchemaType<Output> }, result: unknown): Promise<Output>;
 export function validateAndParseOutput<Value>(config: { schema?: undefined }, result: Value): Value;
-export function validateAndParseOutput<Output, Value>(config: { schema?: types.SchemaType<Output> | undefined }, result: Value): Value | Promise<Output>;
-export function validateAndParseOutput<Output, Value>(config: { schema?: types.SchemaType<Output> | undefined }, result: Value): Value | Promise<Output> {
+export function validateAndParseOutput<Output, Value>(config: { schema?: SchemaType<Output> | undefined }, result: Value): Value | Promise<Output>;
+export function validateAndParseOutput<Output, Value>(config: { schema?: SchemaType<Output> | undefined }, result: Value): Value | Promise<Output> {
 	return config.schema === undefined ? result : parseSchema(config.schema, result, 'Output').then(parsed => parsed.value);
 }

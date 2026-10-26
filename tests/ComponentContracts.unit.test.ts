@@ -3,22 +3,32 @@ import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
 import type { ModelMessage } from 'ai';
 import { jsonSchema, modelMessageSchema } from 'ai';
-import { MockLanguageModelV3 } from 'ai/test';
+import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { create, ConfigError, ValidationError, ModelMessageSchema, PromptStringOrMessagesSchema, z } from './cascada';
 import type { ConfigProvider } from './cascada';
 import { extractCallArguments } from '../src/call-arguments.js';
 
 function textModel(text: string): MockLanguageModelV3 {
+	const finishReason = { unified: 'stop', raw: 'stop' } as const;
+	const usage = {
+		inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+		outputTokens: { total: 1, text: 1, reasoning: 0 },
+	};
 	return new MockLanguageModelV3({
 		doGenerate: {
 			content: [{ type: 'text', text }],
-			finishReason: { unified: 'stop', raw: 'stop' },
-			usage: {
-				inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-				outputTokens: { total: 1, text: 1, reasoning: 0 },
-			},
+			finishReason, usage,
 			warnings: [],
 		},
+		doStream: async () => ({
+			stream: convertArrayToReadableStream([
+				{ type: 'stream-start', warnings: [] },
+				{ type: 'text-start', id: 'text' },
+				{ type: 'text-delta', id: 'text', delta: text },
+				{ type: 'text-end', id: 'text' },
+				{ type: 'finish', finishReason, usage },
+			]),
+		}),
 	});
 }
 
@@ -119,10 +129,10 @@ describe('Component boundary contracts', () => {
 			name: string;
 			build: (config: Record<string, unknown>, parent?: ConfigProvider<{ model: MockLanguageModelV3 }>) => unknown;
 		}[] = [
-			{ name: 'TextGenerator', build: (config, parent) => create.TextGenerator(config as never, parent as never) },
-			{ name: 'TextStreamer', build: (config, parent) => create.TextStreamer(config as never, parent as never) },
-			{ name: 'ObjectGenerator', build: (config, parent) => create.ObjectGenerator({ output: 'no-schema', ...config } as never, parent as never) },
-			{ name: 'ObjectStreamer', build: (config, parent) => create.ObjectStreamer({ output: 'no-schema', ...config } as never, parent as never) },
+			{ name: 'TextGenerator', build: (config, parent): unknown => Reflect.apply(create.TextGenerator, undefined, [config, parent]) },
+			{ name: 'TextStreamer', build: (config, parent): unknown => Reflect.apply(create.TextStreamer, undefined, [config, parent]) },
+			{ name: 'ObjectGenerator', build: (config, parent): unknown => Reflect.apply(create.ObjectGenerator, undefined, [{ output: 'no-schema', ...config }, parent]) },
+			{ name: 'ObjectStreamer', build: (config, parent): unknown => Reflect.apply(create.ObjectStreamer, undefined, [{ output: 'no-schema', ...config }, parent]) },
 		];
 		for (const { name, build } of factories) {
 			for (const model of [undefined, null]) {
@@ -167,6 +177,8 @@ describe('Component boundary contracts', () => {
 		];
 
 		for (const { name, message } of validMessages) {
+			// Public schema aliases deliberately retain native parsing semantics. Prompt
+			// transport separately validates without discarding native/provider fields.
 			it(`accepts ${name} with native parsing and unchanged reusable config`, () => {
 				expect(ModelMessageSchema.parse(message)).to.deep.equal(modelMessageSchema.parse(message));
 				expect(PromptStringOrMessagesSchema.parse([message])).to.deep.equal([modelMessageSchema.parse(message)]);
@@ -611,11 +623,20 @@ describe('Component boundary contracts', () => {
 				expect(await create.Function({ execute: () => 'Function' }, parent)({})).to.equal('Function');
 				expect((await create.TextGenerator.withTemplate({ model: textModel('Rendered'), prompt: 'Text' }, parent)()).text).to.equal('Rendered');
 				expect((await create.TextGenerator({ model: textModel('Plain'), prompt: 'Text', debug: true })()).text).to.equal('Plain');
+				const streamedText = await create.TextStreamer.withTemplate({ model: textModel('Stream'), prompt: 'Text' }, parent)();
+				expect(await streamedText.text).to.equal('Stream');
+				const schema = z.object({ value: z.number() });
+				expect((await create.ObjectGenerator.withTemplate({ model: textModel('{"value":3}'), schema, prompt: 'Object' }, parent)()).object).to.deep.equal({ value: 3 });
+				const streamed = await create.ObjectStreamer.withTemplate({ model: textModel('{"value":4}'), schema, prompt: 'Object' }, parent)();
+				const partials = [];
+				for await (const value of streamed.partialObjectStream) partials.push(value);
+				expect(partials.at(-1)).to.deep.equal({ value: 4 });
+				expect(await streamed.object).to.deep.equal({ value: 4 });
 			} finally {
 				console.log = originalLog;
 			}
 			const messages = logs.map(args => String(args[0]));
-			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', '_TextGenerator created', 'LLMComponent created', 'Component call']) {
+			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', '_TextGenerator created', '_TextStreamer created', '_ObjectGenerator created', '_ObjectStreamer created', 'LLMComponent created', 'Component call']) {
 				expect(messages.some(logged => logged.includes(message)), message).to.equal(true);
 			}
 			expect(logs.some(args => args.some(arg => (arg as { context?: { circular?: unknown } } | undefined)?.context?.circular === circular))).to.equal(true);

@@ -1297,7 +1297,9 @@ describe('Result augmentation in tools and templates', () => {
 					return { content: [text(object ? '{"n":3}' : 'answer')], finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [] };
 				} });
 				const source = modifier.includes('Template') ? '{{ query }}' : modifier.includes('Script') ? 'return query' : 'test';
-				const build = factory[modifier].asTool as (config: object) => {
+				// This runtime matrix intentionally erases the different factory signatures.
+				const factoryValue: unknown = factory[modifier].asTool;
+				const build = factoryValue as (config: object) => {
 					execute(args: typeof input, options: ToolExecutionOptions<undefined>): PromiseLike<unknown>;
 				};
 				const nested = build({ model, inputSchema: z.object({ query: z.string() }),

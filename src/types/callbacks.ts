@@ -1,17 +1,20 @@
+import type { AIOutput, GenerateRequest, StreamRequest, ObjectFinishCallback, ObjectOutputMode, ObjectOutputSettingKeys } from './sdk.js';
+import type { EmptyMap, StrictUnionSubtype, UnionKeys } from './utils.js';
+import type { InferSchema } from './schema.js';
 import type { generateText, streamText, generateObject, streamObject, ToolSet, GenericToolApprovalFunction, SingleToolApprovalFunction, ToolApprovalStatus } from 'ai';
-import type { GenerateRequest, StreamRequest, ObjectFinishCallback } from './sdk.js';
 import type { ConfigValue, ObjectOutputFromConfig, OutputFromConfig, RuntimeContextFromConfig, ToolsFromConfig, ToolProperties, ToolContextFromConfig } from './config.js';
-import type { InferSchema } from './types.js';
-import type { CollectedResult } from './application.js';
-import type { EmptyMap, MergedConfig } from './merge.js';
+import type { CollectedResult } from './result.js';
+import type { MergedConfig } from './merge.js';
 import type { ValidateResolved } from './provisional.js';
-import type { StrictUnionSubtype, UnionKeys } from './utils.js';
 
 type Callback = (...args: any[]) => any;
 type CallbackKeys<T> = { [K in keyof T]-?: Extract<NonNullable<T[K]>, Callback | readonly Callback[]> extends never ? never : K }[keyof T];
 type DescriptorCallbackKeys = 'needsApproval' | 'onInputStart' | 'onInputDelta' | 'onInputAvailable' | 'toModelOutput';
 
 export type ConfigCallbackKeys = CallbackKeys<Parameters<typeof generateText<ToolSet>>[0]> | CallbackKeys<Parameters<typeof streamText<ToolSet>>[0]> | CallbackKeys<Parameters<typeof generateObject>[0]> | CallbackKeys<Parameters<typeof streamObject>[0]> | 'experimental_refineToolInput' | 'toolApproval';
+
+// Reusable fragments can configure text output specifications or object output modes.
+export type ConfigCallbackOutput = AIOutput | ObjectOutputMode;
 
 // Infer config data before checking callbacks that depend on that data.
 export type CallbackConfigShape<T> = T extends unknown ? {
@@ -29,9 +32,14 @@ export type TextCallbacks<T, TOOLS extends ToolSet = ToolsFromConfig<T>, Streami
 	[K in ConfigCallbackKeys & keyof SDK]?: SDK[K]
 };
 
-export interface ObjectCallbacks<T, Streaming extends boolean = false> { onFinish?: ObjectFinishCallback<ObjectOutputFromConfig<T>, Streaming> }
+interface ObjectCallbacks<T, Streaming extends boolean = false> { onFinish?: ObjectFinishCallback<ObjectOutputFromConfig<T>, Streaming> }
 
-export type ObjectCallbackShape<T> = T extends unknown ? { [K in keyof T]: K extends 'description' ? 'toolContextSchema' extends keyof T ? unknown : T[K] : K extends 'onFinish' | DescriptorCallbackKeys ? unknown : T[K] } : never;
+export type ObjectCallbackShape<T> = T extends unknown ? {
+	[K in keyof T]: K extends 'description' ? 'toolContextSchema' extends keyof T ? unknown : T[K]
+	: K extends 'onFinish' | DescriptorCallbackKeys ? unknown
+	// Capture an explicit removal before final validation, even in exact-optional mode.
+	: K extends 'schema' ? EmptyMap extends Pick<T, K> ? T[K] | undefined : T[K] : T[K]
+} : never;
 
 type Setting<K extends PropertyKey, T> = [T] extends [never] ? EmptyMap : Record<K, T>;
 
@@ -49,12 +57,16 @@ type DescriptorErrors<Final, R> = Final extends unknown ?
 export type ValidateDescriptor<C, Final, R, Errors = DescriptorErrors<Final, R>> = ValidateResolved<C,
 	[Errors] extends [never] ? unknown : Errors>;
 
-export interface ObjectCallbackArguments<S, M, E> { schema?: S, output?: M, enum?: E }
+interface ObjectCallbackArguments<S, M, E> { schema?: S, output?: M, enum?: E | undefined }
 export type ObjectCallbackConfig<P, S, M, E> = MergedConfig<[P] extends [never] ? EmptyMap : P, Setting<'schema', S> & Setting<'output', M> & Setting<'enum', E>>;
-export interface TextCallbackArguments<T, R, O> { tools?: T, runtimeContext?: R, output?: O }
+interface TextCallbackArguments<T, R, O> { tools?: T, runtimeContext?: R, output?: O }
 export type TextCallbackConfig<P, T, R, O> = MergedConfig<[P] extends [never] ? EmptyMap : P, Setting<'tools', T> & Setting<'runtimeContext', R> & Setting<'output', O>>;
 
-export type ObjectRunConfig<Shape, T, Streaming extends boolean> = Omit<Shape, 'onFinish'> & ObjectCallbacks<T, Streaming>;
+// Clearing obsolete mode settings belongs to construction/inheritance, not run overrides.
+type ClearedObjectSettings<Shape> = {
+	[K in ObjectOutputSettingKeys & keyof Shape]: [Shape[K]] extends [undefined] ? K : never
+}[ObjectOutputSettingKeys & keyof Shape];
+export type ObjectRunConfig<Shape, T, Streaming extends boolean> = Omit<Shape, 'onFinish' | ClearedObjectSettings<Shape>> & ObjectCallbacks<T, Streaming>;
 
 type ToolCallbackKeys = 'experimental_refineToolInput' | 'toolApproval';
 type ToolSelectionKeys = 'activeTools' | 'toolChoice' | 'toolOrder' | 'experimental_toolCallers';
@@ -105,7 +117,7 @@ export type ValidateCallbacks<T, Final, Kind extends 'object' | 'text', Streamin
 type CallbackFinal<P, C> = [P] extends [never] ? C : MergedConfig<P, C>;
 
 export type ObjectCallbackInput<C, P, S, M, E, Streaming extends boolean> =
-	ObjectCallbackArguments<S, M, E> & NoInfer<{ schema?: NonNullable<S>, enum?: NonNullable<E> }> &
+	ObjectCallbackArguments<S, M, E> & NoInfer<{ schema?: NonNullable<S> | undefined, enum?: NonNullable<E> | undefined }> &
 	NoInfer<ObjectCallbacks<ObjectCallbackConfig<P, S, M, E>, Streaming>> &
 	ValidateCallbacks<C, CallbackFinal<P, C>, 'object', Streaming>;
 

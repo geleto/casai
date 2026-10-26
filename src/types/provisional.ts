@@ -1,12 +1,9 @@
-// TypeScript resolves a call with inline callbacks in two passes. The first pass skips those callbacks
-// and checks the call with each unresolved config type parameter set to its constraint. If validation
-// rejects that provisional config, TypeScript drops the overload and never infers the actual config.
-// Factory config constraints therefore use Provisional, and validators accept the marked config.
-import type { EmptyMap } from './merge.js';
+import type { EmptyMap } from './utils.js';
 
 declare const provisionalConfig: unique symbol;
 
-export interface ProvisionalConfig { readonly [provisionalConfig]?: never }
+// Type-only key: no symbol is created and no property is attached to configuration objects.
+interface ProvisionalConfig { readonly [provisionalConfig]?: never }
 
 export type Provisional<TShape> = TShape & ProvisionalConfig;
 

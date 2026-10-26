@@ -2,6 +2,7 @@
 import { create, z } from 'casai';
 import type { ILoaderAny } from 'cascada-engine';
 import type { LanguageModel, ModelMessage } from 'ai';
+import { tool } from 'ai';
 
 import { expectType, expectEqual } from './assert.js';
 declare const model: LanguageModel;
@@ -13,6 +14,21 @@ const parent = create.Config({ context: { offset: 4 }, debug: true });
 
 // Config fragments defer requirements until a concrete factory is selected.
 create.Config({});
+// @ts-expect-error The configuration argument is required.
+create.Config();
+// @ts-expect-error The two-argument form requires a parent provider.
+create.Config({}, undefined);
+// @ts-expect-error A parent is a configuration provider, not its raw settings.
+create.Config({}, { debug: true });
+declare const optionalParentArguments: [] | [typeof parent];
+// @ts-expect-error Narrow whether a parent is present before choosing the call form.
+create.Config({ debug: false }, ...optionalParentArguments);
+const presentParentArguments: [typeof parent] = [parent];
+const _spreadParent = create.Config({ debug: false }, ...presentParentArguments);
+expectEqual<typeof _spreadParent.config.context.offset, number>();
+const absentParentArguments: [] = [];
+const _withoutParent = create.Config({ loader: undefined }, ...absentParentArguments);
+expectEqual<typeof _withoutParent.config.loader, ILoaderAny[] | undefined>();
 const schemaOnly = create.Config({ schema });
 const modelOnly = create.Config({ model });
 create.ObjectGenerator({ model }, schemaOnly);
@@ -30,6 +46,32 @@ create.Config({ model, schema, output: undefined });
 create.Config({ model, schema, output: 'array', schemaName: 'Answer', schemaDescription: 'The answer' });
 create.Config({ model, output: 'enum', enum: ['YES', 'NO'] as const });
 create.Config({ model, output: 'no-schema' });
+// Callback settings infer their precise contracts independently of the family constraint.
+const _enumFragment = create.Config({ output: 'enum', enum: ['YES', 'NO'] as const, onFinish: _event => {
+	expectEqual<typeof _event.object, 'YES' | 'NO' | undefined>();
+} });
+expectEqual<typeof _enumFragment.config.enum, readonly ['YES', 'NO']>();
+const _mutableEnumFragment = create.Config({ output: 'enum', enum: ['YES', 'NO'], onFinish: _event => {
+	expectEqual<typeof _event.object, 'YES' | 'NO' | undefined>();
+} });
+expectEqual<typeof _mutableEnumFragment.config.enum, ('YES' | 'NO')[]>();
+const _enumConsumer = create.ObjectGenerator({ model }, _mutableEnumFragment);
+expectEqual<Awaited<ReturnType<typeof _enumConsumer>>['object'], 'YES' | 'NO'>();
+const lookup = tool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query.length });
+const _registryFragment = create.Config({
+	tools: { lookup }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'],
+	onEnd: _event => {
+		expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>();
+		expectEqual<(typeof _event.staticToolResults)[number]['output'], number>();
+	},
+});
+expectEqual<typeof _registryFragment.config.tools.lookup, typeof lookup>();
+// @ts-expect-error A known standalone registry cannot enable an unknown tool.
+create.Config({ tools: { lookup }, activeTools: ['missing'] });
+// @ts-expect-error A known standalone registry cannot select an unknown tool.
+create.Config({ tools: { lookup }, toolChoice: { type: 'tool', toolName: 'missing' } });
+// @ts-expect-error A known standalone registry cannot order an unknown tool.
+create.Config({ tools: { lookup }, toolOrder: ['missing'] });
 // @ts-expect-error Enum fragments cannot declare an object schema.
 create.Config({ output: 'enum', enum: ['YES'], schema });
 // @ts-expect-error Schemaless fragments cannot declare an object schema.
@@ -72,6 +114,15 @@ create.Config({ tools: {} }, schemaOnly);
 create.Config({ unknownSetting: true });
 // @ts-expect-error Unknown child properties are rejected with a parent too.
 create.Config({ unknownSetting: true }, parent);
+
+const extraParentSettings = { config: { debug: false, unknownSetting: true } };
+// @ts-expect-error Structural parent admission must not bypass the merged exact-family check.
+create.Config({}, extraParentSettings);
+// @ts-expect-error An override must not conceal unrelated inherited properties.
+create.Config({ debug: true }, extraParentSettings);
+declare const parentWithInvalidAlternative: { debug: boolean } | { debug: boolean; unknownSetting: boolean };
+// @ts-expect-error Common parent fields must not conceal an invalid alternative.
+create.Config({}, { config: parentWithInvalidAlternative });
 
 // Basic values are checked before a fragment is used by a factory.
 create.Config({ messages: [{ role: 'user', content: 'Hello' }] });
@@ -167,6 +218,11 @@ const keptLoader = create.Config({ loader: undefined }, loaderParent);
 expectType<ILoaderAny[]>(keptLoader.config.loader);
 const emptyLoader = create.Config({ loader: [] }, loaderParent);
 expectType<ILoaderAny[]>(emptyLoader.config.loader);
+// Standalone processing and inheritance retain their existing loader result contracts.
+const _standaloneUndefinedLoader = create.Config({ loader: undefined });
+expectEqual<typeof _standaloneUndefinedLoader.config.loader, ILoaderAny[] | undefined>();
+const _inheritedUndefinedLoader = create.Config({ loader: undefined }, create.Config({}));
+expectEqual<typeof _inheritedUndefinedLoader.config.loader, ILoaderAny[]>();
 
 // Ordinary option objects replace their parent's whole value instead of merging nested provider data.
 const providerParent = create.Config({ model, providerOptions: { vendor: { old: true, count: 1 } } });
@@ -180,6 +236,34 @@ const extraSettings = { unknownSetting: true };
 create.Config(extraSettings);
 // @ts-expect-error Spreading an existing object does not conceal its unknown keys.
 create.Config({ model, ...extraSettings });
+
+// A family constraint must preserve every supplied alternative and callback.
+declare const invalidAlternative: { debug: boolean } | { unknownSetting: boolean };
+// @ts-expect-error One valid alternative cannot conceal an invalid configuration.
+create.Config(invalidAlternative);
+create.Config({ schema: z.number(), execute: () => 1 });
+// @ts-expect-error A provisional fallback cannot conceal an incompatible producer.
+create.Config({ schema: z.number(), execute: () => 'wrong' });
+
+// Config remains reusable: finished components check unresolved implementation dependencies.
+const dependencyParent = create.Config({ context: { factor: 2 }, execute: (input: { factor: number }) => input.factor });
+const deferredDependency = create.Config({ context: { factor: 'unresolved' } }, dependencyParent);
+// @ts-expect-error A finished Function must resolve the inherited implementation's dependency.
+create.Function({}, deferredDependency);
+create.Function({ context: { factor: 3 } }, deferredDependency);
+const producerParent = create.Config({ schema: z.number(), execute: () => 1 });
+// @ts-expect-error A replaced output schema must accept the inherited producer's result.
+create.Config({ schema: z.string() }, producerParent);
+
+// Parent constraints retain optional schema presence and the resulting callback alternatives.
+const _parentInputSchema = z.object({ value: z.string().transform(Number), count: z.number().default(1) });
+declare const optionalParentSchema: { inputSchema?: typeof _parentInputSchema };
+const optionalSchemaParent = create.Config(optionalParentSchema);
+create.Config({ execute: ({ value, count: _count }) => {
+	expectEqual<typeof value, string | number>();
+	expectEqual<typeof _count, number | undefined>();
+	return value;
+} }, optionalSchemaParent);
 
 // Static text factories require a model and reject settings from other component families.
 create.TextGenerator({ model });

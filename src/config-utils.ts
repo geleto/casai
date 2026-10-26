@@ -3,8 +3,7 @@ import { configMapKeys } from './types/merge.js';
 import type { MergedConfig, ProcessedConfig } from './types/merge.js';
 import * as configs from './types/config.js';
 import type { ModelMessage } from 'ai';
-import { mergeLoaders, processLoaders, type RaceGroup, type RaceLoader } from './loaders.js';
-import type { ILoaderAny } from 'cascada-engine';
+import { mergeLoaders, processLoaders, type CasaiAILoader } from './loaders.js';
 import { validateConfigBasics } from './validate.js';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(
@@ -64,13 +63,13 @@ export function mergeConfigs<
 		? Array.isArray(parentConfig.loader)
 			? parentConfig.loader
 			: [parentConfig.loader]
-		: []) as (ILoaderAny | RaceGroup | RaceLoader)[] : undefined;
+		: []) as CasaiAILoader[] : undefined;
 
 	const childLoaders = ('loader' in childConfig) ? (childConfig.loader
 		? Array.isArray(childConfig.loader)
 			? childConfig.loader
 			: [childConfig.loader]
-		: []) as (ILoaderAny | RaceGroup | RaceLoader)[] : undefined;
+		: []) as CasaiAILoader[] : undefined;
 
 	if (parentLoaders && childLoaders) {
 		merged.loader = mergeLoaders(parentLoaders, childLoaders);

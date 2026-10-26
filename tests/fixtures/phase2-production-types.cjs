@@ -1,5 +1,6 @@
-// Compare the same caller workload with the pre-integration commit, then mutate a
-// production type guard. No source or declaration in the working tree is changed.
+// Retain the historical aggregate budget, then mutate production type guards.
+// phase2-factory-cost.cjs separately guards imports, first use and component growth.
+// No source or declaration in the working tree is changed.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -48,7 +49,7 @@ c${index}({ v${index}: 2, factor: 4 });
     }
     assert.ok(results.baseline.instantiations > 0 && results.production.instantiations > 0);
     assert.ok(results.production.instantiations <= 2 * results.baseline.instantiations, 'Production exceeded the 2x type-instantiation budget');
-    console.log(`${compiler}: ${JSON.stringify(results)}`);
+    console.log(`TS7 legacy aggregate (imports + 24 components, not marginal cost): ${JSON.stringify(results)}`);
   }
   const check = `import { Function as component } from './src/factories/Function.js';
 import { Template } from './src/factories/Template.js';
@@ -60,6 +61,11 @@ import { ObjectStreamer } from './src/factories/ObjectStreamer.js';
 import { textStreamSchema } from './src/streams.js';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod/v4';
+declare const opaqueConfig: object;
+// @ts-expect-error An ordinary broad type is not an unresolved inference constraint.
+component(opaqueConfig);
+// @ts-expect-error A finished Function still requires an implementation.
+component({});
 const operation = component({ inputSchema: z.looseObject({ value: z.number() }), context: { user: 'trusted' }, execute: input => input.value });
 operation({ value: 1, unrelated: true });
 // @ts-expect-error Open public data cannot replace a private dependency.
@@ -188,8 +194,9 @@ component({ ...presenceSpread, execute: input => {
   // Mutate these shared owners directly to avoid repeating unrelated factory inference.
   const alternatives = `import type { ValidateToolsContext, ValidateFinalConfig, ValidateConfigFragment, ValidateRunConfig } from './src/types/config-validation.js';
 import type { ValidateDescriptor, ValidateCallbacks, ValidateToolSelectionNames, ValidateToolCallbackNames } from './src/types/callbacks.js';
-import type { ComponentAdmission } from './src/types/application.js';
-import type { EmptyMap, MergedConfig } from './src/types/merge.js';
+import type { ComponentAdmission } from './src/types/config-validation.js';
+import type { EmptyMap } from './src/types/utils.js';
+import type { MergedConfig } from './src/types/merge.js';
 import type { LanguageModel, Tool } from 'ai';
 import type { ExecutableTool } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
@@ -227,11 +234,11 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
     ['branch-only run tool names', 'Exclude<UnionKeys<ToolsFromConfig<TRunConfig>>, keyof ToolsFromConfig<TConfig>>',
       'Exclude<keyof ToolsFromConfig<TRunConfig>, keyof ToolsFromConfig<TConfig>>', /Unused '@ts-expect-error'/,
       'src/types/config-validation.ts', 'const admitted: ValidateRunConfig<typeof selectedRunTools, SimpleRegistry, { tools?: SimpleRegistry["tools"] }> = selectedRunTools;'],
-    ['whole registry alternatives', 'InvalidToolContexts<T, PartialConfig extends boolean = false> = T extends unknown',
-      'InvalidToolContexts<T, PartialConfig extends boolean = false> = unknown extends unknown', /not assignable/, 'src/types/application.ts',
+    ['whole registry alternatives', "InvalidToolContexts<TConfig, PartialConfig extends boolean = false> = TConfig extends unknown",
+      "InvalidToolContexts<TConfig, PartialConfig extends boolean = false> = unknown extends unknown", /not assignable/, "src/types/tool-binding.ts",
       'const admitted: ValidateToolsContext<typeof pairedContexts> = pairedContexts;', false],
-    ['nested registry alternatives', 'H extends unknown ? M extends unknown ? {', 'unknown extends unknown ? M extends unknown ? {',
-      /Unused '@ts-expect-error'/, 'src/types/application.ts', 'const admitted: ValidateToolsContext<{ tools: typeof nestedRegistry }> = { tools: nestedRegistry };'],
+    ['nested registry alternatives', "TTools extends unknown ? TContexts extends unknown ? {", "unknown extends unknown ? TContexts extends unknown ? {",
+      /Unused '@ts-expect-error'/, "src/types/tool-binding.ts", 'const admitted: ValidateToolsContext<{ tools: typeof nestedRegistry }> = { tools: nestedRegistry };'],
     ['branch-only descriptor hooks', 'DescriptorErrors<Final, R> = Final extends unknown', 'DescriptorErrors<Final, R> = unknown extends unknown',
       /Unused '@ts-expect-error'/, 'src/types/callbacks.ts', 'const admitted: ValidateDescriptor<HookReplacement, FinalHook, string> = {};'],
     ['branch-only Function contracts', 'FunctionConfigErrors<Final, AsTool extends boolean> = Final extends unknown',
@@ -245,7 +252,7 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       'unknown extends unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateConfigFragment<typeof forbiddenConfig, typeof forbiddenConfig, { execute: () => number }> = forbiddenConfig;'],
     ['branch-only run settings', 'Exclude<UnionKeys<TRunConfig>, keyof TShape> extends never', 'Exclude<keyof TRunConfig, keyof TShape> extends never',
       /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateRunConfig<typeof forbiddenRun, { model: LanguageModel; prompt: string }, { temperature?: number }> = forbiddenRun;'],
-    ['null context admission', 'Exclude<Parsed<S>, undefined>', 'NonNullable<Parsed<S>>', /Unused '@ts-expect-error'/, 'src/types/application.ts',
+    ['null context admission', "Exclude<ParsedSchemaOutput<TSchema>, undefined>", "NonNullable<ParsedSchemaOutput<TSchema>>", /Unused '@ts-expect-error'/, "src/types/schema-shape.ts",
       'const admitted: ComponentAdmission<{ inputSchema: typeof emptyInput; toolContextSchema: typeof nullContext; execute: () => number }> = {};'],
   ];
   const mutations = [
@@ -253,38 +260,40 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       /Unused '@ts-expect-error'/, 'src/types/config.ts'],
     ['inherited configuration alternatives', "Parent extends unknown ? MergedConfig<Omit<Parent, 'execute'>", "unknown extends unknown ? MergedConfig<Omit<Parent, 'execute'>",
       /Property 'user' does not exist/, 'src/types/function-config.ts'],
-    ['conditional configured callback fields', "C = T extends unknown ? 'context' extends keyof T", "C = unknown extends unknown ? 'context' extends keyof T",
-      /does not exist/],
-    ['mixed closed input branches', 'I extends unknown ? string extends keyof I ? false : true : never', 'string extends Keys<I> ? false : true',
-      /Unused '@ts-expect-error'/],
-    ['mixed collected output', "S = Setting<T, 'schema'>> = S extends StreamSchema", "S = Setting<T, 'schema'>> = Setting<T, 'schema'> extends StreamSchema",
-      /not assignable/],
-    ['branch-only renderer private keys', 'RejectedKeys<ApplicationInput<T, S>, SuppliedNames<A, K>,', 'RejectedKeys<ApplicationInput<T, S>, keyof A,',
-      /Unused '@ts-expect-error'/],
-    ['LLM application admission', ": import('./application.js').ComponentAdmission<TFinalConfig>>;", ': unknown>;',
+    ['conditional configured callback fields', "TContext = TConfig extends unknown ? 'context' extends keyof TConfig", "TContext = unknown extends unknown ? 'context' extends keyof TConfig",
+      /does not exist/, "src/types/config.ts"],
+    ['mixed closed input branches', "TInput extends unknown ? string extends keyof TInput ? false : true : never", "string extends import('./utils.js').UnionKeys<TInput> ? false : true",
+      /Unused '@ts-expect-error'/, "src/types/schema-shape.ts"],
+    ['mixed collected output', "TOutputSchema = ConfigValue<TConfig, 'schema'>> = TOutputSchema extends StreamSchema", "TOutputSchema = ConfigValue<TConfig, 'schema'>> = ConfigValue<TConfig, 'schema'> extends StreamSchema",
+      /not assignable/, "src/types/result.ts"],
+    ['branch-only renderer private keys', "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, SuppliedInputNames<TArguments, TKeys>,", "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, keyof TArguments,",
+      /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
+    ['LLM application admission', ": ComponentAdmission<TFinalConfig>>;", ': unknown>;',
       /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
-    ['private-key rejection', "KeyErrors<Extract<K, Private>, 'Private input key'>", 'unknown', /Unused '@ts-expect-error'/],
+    ['private-key rejection', "InputKeyErrors<Extract<TKeys, TPrivateNames>, 'Private input key'>", "unknown", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
     ['run context validation', '& ValidateToolsContext<TRunConfig, MergedConfig<TConfig, TRunConfig>>',
       '', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
-    ['completed helper output', 'ComponentHelper<BoundHelperConfig<Config, C>, R>', 'ComponentHelper<BoundHelperConfig<Config, C>, CollectedResult<Config>>',
-      /Type 'unknown' is not assignable to type 'string'/],
-    ['internal binding compatibility', 'BindingCheck<Config, C> : unknown', 'unknown : unknown',
-      /Unused '@ts-expect-error'/],
-    ['run helper input and defaults', 'Pick<After, Extract<K, keyof After>> extends Pick<Before, K> ? never : K', 'never',
-      /Unused '@ts-expect-error'/],
-    ['stale callback helpers', "OmitEach<ExecuteInput<T>, '_toolOptions' | PossibleFallbackNames<Registry<T>>>", 'ExecuteInput<T>',
-      /Unused '@ts-expect-error'/],
-    ['conditional output schema', "S = Setting<T, 'schema'>> = S extends Schema", "S = Setting<T, 'schema'>> = Setting<T, 'schema'> extends Schema",
-      /Unused '@ts-expect-error'/],
-    ['complete omitted input', 'CanInvoke<ApplicationInput<Config, S>, Configured<Config>, EmptyMap, PublicNames<S>, IsClosed<S>>',
-      'EmptyMap extends ApplicationShape<Config> ? true : false', /Unused '@ts-expect-error'/],
-    ['conditional private ownership', 'PrivateNames<undefined extends S ? undefined : S,',
-      'PrivateNames<S,', /Unused '@ts-expect-error'/],
+    ['completed helper output', "ComponentHelper<BoundHelperConfig<TConfig, TBoundContext>, TResult>", "ComponentHelper<BoundHelperConfig<TConfig, TBoundContext>, import('./result.js').CollectedResult<TConfig>>",
+      /Type 'unknown' is not assignable to type 'string'/, "src/types/tool-binding.ts"],
+    ['internal binding compatibility', "ValidateToolBinding<TConfig, TContext> : unknown", "unknown : unknown",
+      /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['run helper input and defaults', "Pick<TAfter, Extract<K, keyof TAfter>> extends Pick<TBefore, K> ? never : K", "never",
+      /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['stale callback helpers', "DistributiveOmit<CallbackContextFromConfig<TConfig>, '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>>", "CallbackContextFromConfig<TConfig>",
+      /Unused '@ts-expect-error'/, "src/types/execution.ts"],
+    ['conditional output schema', "TOutputSchema = ConfigValue<TConfig, 'schema'>> = TOutputSchema extends FlexibleSchema<unknown>", "TOutputSchema = ConfigValue<TConfig, 'schema'>> = ConfigValue<TConfig, 'schema'> extends FlexibleSchema<unknown>",
+      /Unused '@ts-expect-error'/, "src/types/result.ts"],
+    ['complete omitted input', "CanInvokeComponent<ComponentInput<TAlternative, TInputSchema>, ContextFromConfig<TAlternative>, EmptyMap, SchemaInputNames<TInputSchema>, HasClosedSchema<TInputSchema>>",
+      "EmptyMap extends ComponentInputShape<TAlternative> ? true : false", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
+    ['conditional private ownership', "ReservedInputNames<undefined extends TInputSchema ? undefined : TInputSchema,",
+      "ReservedInputNames<TInputSchema,", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
     ['conditional input inference', '? Partial<Record<K, S>> : Record<K, S>',
-      '? Partial<Record<K, S>> : Partial<Record<K, S>>', /error TS/, 'src/types/function-config.ts'],
+      '? Partial<Record<K, S>> : Partial<Record<K, S>>', /error TS/, 'src/types/factory-config.ts'],
     ['optional schema presence', "[K in keyof T]: K extends 'inputSchema' ? Input", "[K in keyof T]-?: K extends 'inputSchema' ? Input",
-      /Unused '@ts-expect-error'/, 'src/types/function-config.ts'],
-    ['description context type', "description?: Tool<any, any, C>['description']", "description?: Tool<any, any, any>['description']",
+      /Unused '@ts-expect-error'/, 'src/types/factory-config.ts'],
+    ['provisional constraint identity', 'typeof provisionalConfig extends keyof TConfig ? unknown : TValidation',
+      'object extends TConfig ? unknown : TValidation', /Unused '@ts-expect-error'/, 'src/types/provisional.ts'],
+    ['description context type', "description?: Tool<unknown, unknown, C>['description']", "description?: Tool<unknown, unknown, any>['description']",
       /Unused '@ts-expect-error'/, 'src/types/config.ts'],
   ];
   const schemaVersions = `import { Function as component } from './src/factories/Function.js';
@@ -301,7 +310,7 @@ streamSchema(legacy.number());
 `;
   const schemaMutations = [
     ['Zod 3 type rejection', 'FlexibleSchema<T> & { readonly _def?: object & { readonly typeName?: never } }',
-      'FlexibleSchema<T>', /Unused '@ts-expect-error'/, 'src/types/types.ts'],
+      'FlexibleSchema<T>', /Unused '@ts-expect-error'/, 'src/types/schema.ts'],
   ];
   const preprocessors = `import { Function as component } from './src/factories/Function.js';
 import { z } from 'zod/v4';
@@ -315,8 +324,8 @@ operation({ name: 'Grace' });
 operation({ db: false });
 `;
   const preprocessorMutations = [
-    ['preprocessor declaration capability', 'Capability<I extends z.core.$ZodTransform ? O : I,', 'Capability<I,', /error TS/],
-    ['preprocessor public names', 'PublicNames<I extends z.core.$ZodTransform ? O : I,', 'PublicNames<I,', /error TS/],
+    ['preprocessor declaration capability', "SchemaDeclarationKind<TInput extends z.core.$ZodTransform ? TOutput : TInput,", "SchemaDeclarationKind<TInput,", /error TS/, "src/types/schema-shape.ts"],
+    ['preprocessor public names', "SchemaInputNames<TInput extends z.core.$ZodTransform ? TOutput : TInput,", "SchemaInputNames<TInput,", /error TS/, "src/types/schema-shape.ts"],
   ];
   const projection = `import { Function as component } from './src/factories/Function.js';
 import { z } from 'zod/v4';
@@ -335,12 +344,12 @@ const copied = { ...operation };
 component({ tools: { copied }, execute: () => 1 });
 `;
   const projectionMutations = [
-    ['tool factory projection admission', 'AsTool extends true ? import(\'./application.js\').ToolInputAdmission<TFinal> : unknown',
+    ['tool factory projection admission', "AsTool extends true ? ToolInputAdmission<TFinal> : unknown",
       'unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
-    ['bound tool projection admission', "& ToolInputAdmission<T, Defaults<Configured<T>, Setting<T, 'toolContextSchema'>, C>>",
-      '& unknown', /Unused '@ts-expect-error'/],
-    ['spread tool admission', "T extends (...args: any[]) => any ? never : 'copied component'",
-      'never', /Unused '@ts-expect-error'/],
+    ['bound tool projection admission', "& ToolInputAdmission<TConfig, BoundContextDefaults<ContextFromConfig<TConfig>, ConfigValue<TConfig, 'toolContextSchema'>, TContext>>",
+      "& unknown", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['spread tool admission', "TTool extends (...args: any[]) => any ? never : 'copied component'",
+      "never", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
   ];
   const selectedSchemas = `import { Function as component } from './src/factories/Function.js';
 import { Template } from './src/factories/Template.js';
@@ -385,14 +394,14 @@ component.asTool({ inputSchema: enabled ? unionParser : defaultParser, context: 
 component({ inputSchema: enabled ? z.string().transform(value => ({ value })) : narrow, execute: () => 1 });
 `;
   const selectedMutations = [
-    ['selected schema contracts', ': S extends unknown ? { config: T; schema:', ': [S] extends [unknown] ? { config: T; schema:', /Unused '@ts-expect-error'|not assignable/],
-    ['selected callback assembly', 'ExecutionContext<T, B = ApplicationAlternatives<T>>', 'ExecutionContext<T, B = { config: T; schema: SchemaOf<T> }>', /not assignable|does not exist/],
-    ['correlated application configurations', 'ApplicationAlternatives<T> = T extends unknown ?', 'ApplicationAlternatives<T> = unknown extends unknown ?', /Expected 1 argument|not assignable/],
-    ['correlated inherited callback inference', 'TParentDefinition extends unknown ? MergedConfig<Omit<TParentDefinition,',
-      'unknown extends unknown ? MergedConfig<Omit<TParentDefinition,', /not assignable/, 'src/types/function-config.ts'],
-    ['correlated private binding', 'BindingChecks<T, C> = T extends unknown ?', 'BindingChecks<T, C> = unknown extends unknown ?', /Unused '@ts-expect-error'/],
-    ['selected tool projection', 'InvalidToolProjection<T, D, B = ApplicationAlternatives<T>>', 'InvalidToolProjection<T, D, B = { config: T; schema: SchemaOf<T> }>', /No overload matches|not assignable/],
-    ['selected schema admission', 'AdmissionChecks<T, B = ApplicationAlternatives<T>>', 'AdmissionChecks<T, B = { config: T; schema: SchemaOf<T> }>', /Unused '@ts-expect-error'/],
+    ['selected schema contracts', ": TInputSchema extends unknown ? { config: TConfig; schema:", ": [TInputSchema] extends [unknown] ? { config: TConfig; schema:", /Unused '@ts-expect-error'|not assignable/, "src/types/config.ts"],
+    ['selected callback assembly', "ExecutionContext<TConfig, TAlternatives = InputConfigAlternatives<TConfig>>", "ExecutionContext<TConfig, TAlternatives = { config: TConfig; schema: import('./config.js').InputSchemaFromConfig<TConfig> }>", /not assignable|does not exist/, "src/types/execution.ts"],
+    ['correlated application configurations', "InputConfigAlternatives<TConfig> = TConfig extends unknown ?", "InputConfigAlternatives<TConfig> = unknown extends unknown ?", /Expected 1 argument|not assignable/, "src/types/config.ts"],
+    ['correlated inherited callback inference', 'Parent extends unknown ? MergedConfig<Omit<Parent,',
+      'unknown extends unknown ? MergedConfig<Omit<Parent,', /not assignable/, 'src/types/function-config.ts'],
+    ['correlated private binding', "ToolBindingChecks<TConfig, TContext> = TConfig extends unknown ?", "ToolBindingChecks<TConfig, TContext> = unknown extends unknown ?", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['selected tool projection', "InvalidToolProjection<TConfig, TDefaults, TAlternatives = InputConfigAlternatives<TConfig>>", "InvalidToolProjection<TConfig, TDefaults, TAlternatives = { config: TConfig; schema: InputSchemaFromConfig<TConfig> }>", /No overload matches|not assignable/, "src/types/config-validation.ts"],
+    ['selected schema admission', "ComponentAdmissionChecks<TConfig, TAlternatives = InputConfigAlternatives<TConfig>>", "ComponentAdmissionChecks<TConfig, TAlternatives = { config: TConfig; schema: InputSchemaFromConfig<TConfig> }>", /Unused '@ts-expect-error'/, "src/types/config-validation.ts"],
   ];
   const helperContracts = `import { Function as component } from './src/factories/Function.js';
 import { TextGenerator } from './src/factories/TextGenerator.js';
@@ -440,15 +449,15 @@ const partialDefaults = component.asTool({ inputSchema: z.union([z.object({ valu
 component({ tools: { operation: partialDefaults } }, configuredOwner);
 `;
   const helperMutations = [
-    ['helper raw input', 'type RawContract<I> = I extends unknown ? I &', 'type RawContract<I> = I extends unknown ? unknown &', /Unused '@ts-expect-error'/],
-    ['helper branch keys', 'keys: keyof I;', 'keys: PropertyKey;', /Unused '@ts-expect-error'/],
-    ['helper constrained extras', 'declared: string extends keyof I ? (key: RestrictedNames<I>) => void : any;', 'declared: any;', /Unused '@ts-expect-error'/],
-    ['helper default guarantees', 'defaults: (key: Guaranteed<I, D> | OptionalDefaults<I, D>) => void;', 'defaults: (key: never) => void;', /Unused '@ts-expect-error'/],
-    ['closed tool admission', 'true extends OpenToolInput<SchemaOf<T>>', 'false extends true', /Unused '@ts-expect-error'/],
-    ['root record admission', ': S extends z.core.$ZodRecord ? true', ': S extends z.core.$ZodRecord ? false', /Unused '@ts-expect-error'/],
-    ['helper schema defaults', ' | OptionalDefaults<I, D>', '', /incompatible/],
-    ['helper optional default values', '[SelectedDefaults<D, P>] extends [Pick<I, P>] ? P : never', 'P', /Unused '@ts-expect-error'/],
-    ['helper union omissions', 'K extends keyof I = Exclude<NamedKeys<I> & keyof I, I extends unknown ? RequiredNames<I> : never>', 'K extends keyof I = NamedKeys<I> & keyof I', /Unused '@ts-expect-error'/],
+    ['helper raw input', "type RawHelperInput<TInput> = TInput extends unknown ? TInput &", "type RawHelperInput<TInput> = TInput extends unknown ? unknown &", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['helper branch keys', "keys: keyof TInput;", "keys: PropertyKey;", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['helper constrained extras', "declared: string extends keyof TInput ? (key: RestrictedInputNames<TInput>) => void : any;", "declared: any;", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['helper default guarantees', "defaults: (key: GuaranteedInputDefaults<TInput, TDefaults> | ValidOptionalDefaults<TInput, TDefaults>) => void;", "defaults: (key: never) => void;", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['closed tool admission', "true extends HasOpenRootInput<InputSchemaFromConfig<TConfig>>", "false extends true", /Unused '@ts-expect-error'/, "src/types/config-validation.ts"],
+    ['root record admission', ": TSchema extends z.core.$ZodRecord ? true", ": TSchema extends z.core.$ZodRecord ? false", /Unused '@ts-expect-error'/, "src/types/schema-shape.ts"],
+    ['helper schema defaults', " | ValidOptionalDefaults<TInput, TDefaults>", "", /incompatible/, "src/types/tool-binding.ts"],
+    ['helper optional default values', "[SelectedInputDefaults<TDefaults, TPublicNames>] extends [Pick<TInput, TPublicNames>] ? TPublicNames : never", "TPublicNames", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
+    ['helper union omissions', "TKeys extends keyof TInput = Exclude<NamedKeys<TInput> & keyof TInput, TInput extends unknown ? RequiredInputNames<TInput> : never>", "TKeys extends keyof TInput = NamedKeys<TInput> & keyof TInput", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
   ];
   const runContexts = `import { TextGenerator } from './src/factories/TextGenerator.js';
 import type { LanguageModel } from 'ai';
@@ -523,11 +532,11 @@ declare const indexed: { query: string; userId: string; [key: string]: unknown }
 child(indexed);
 `;
   const callerMutations = [
-    ['complete caller alternatives', '& EffectiveErrors<ApplicationInput<T, S>, Configured<T>, Supplied<A, K>, PublicNames<S>, IsClosed<S>>', '', /Unused '@ts-expect-error'/],
+    ['complete caller alternatives', "& EffectiveInputErrors<ComponentInput<TConfig, TInputSchema>, ContextFromConfig<TConfig>, SuppliedInput<TArguments, TKeys>, SchemaInputNames<TInputSchema>, HasClosedSchema<TInputSchema>>", "", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
     ['component union constraints', 'First extends TAllowed[0]', 'First = unknown', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
     ['provided argument keys', 'first: First & (Partial<Record<K, unknown>> | undefined)', 'first: First', /Parameter 'value' implicitly has an 'any' type/, 'src/types/input.ts'],
-    ['mapped argument fallback', '[K] extends [never] ? A : string extends K ? A', 'string extends K ? A', /query/],
-    ['indexed private names', 'RejectedKeys<ApplicationInput<T, S>, SuppliedNames<A, K>,', 'RejectedKeys<ApplicationInput<T, S>, K,', /Unused '@ts-expect-error'/],
+    ['mapped argument fallback', "[TKeys] extends [never] ? TArguments : string extends TKeys ? TArguments", "string extends TKeys ? TArguments", /query/, "src/types/component-input.ts"],
+    ['indexed private names', "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, SuppliedInputNames<TArguments, TKeys>,", "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, TKeys,", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
   ];
   const configuredOmissions = `import { Template } from './src/factories/Template.js';
 import { TextGenerator } from './src/factories/TextGenerator.js';
@@ -588,30 +597,333 @@ component.asTool({ inputSchema, toolContextSchema: factor, execute: ({ factor })
 component.asTool({ inputSchema, context: { factor: 1 }, toolContextSchema: factor, execute: ({ factor }) => factor.toFixed() })();
 `;
   const contextMutations = [
-    ['context parser selection', 'ContextInputs<S> = S extends Schema', 'ContextInputs<S> = [S] extends [Schema]', /Unused '@ts-expect-error'/],
-    ['context registry requirements', 'config: infer Config } ? ContextInput<Config>', 'config: infer Config } ? object | undefined', /Unused '@ts-expect-error'/],
-    ['context permissive selection', 'unknown extends Raw<S> ? unknown : Raw<S>', 'Raw<S>', /Unused '@ts-expect-error'/],
-    ['context ordinary absence', 'ToolExecutionContext<T> = OrdinaryToolContext<T>', 'ToolExecutionContext<T> = ExecutionContext<T>', /Unused '@ts-expect-error'/],
+    ['context parser selection', "ToolContextInputChecks<TContextSchema> = TContextSchema extends FlexibleSchema<unknown>", "ToolContextInputChecks<TContextSchema> = [TContextSchema] extends [FlexibleSchema<unknown>]", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['context registry requirements', "config: infer TConfig } ? ToolContextInput<TConfig>", "config: infer TConfig } ? object | undefined", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['context permissive selection', "unknown extends InferInputSchema<TContextSchema> ? unknown : InferInputSchema<TContextSchema>", "InferInputSchema<TContextSchema>", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
+    ['context ordinary absence', "ToolExecutionContext<TConfig> = OrdinaryToolContext<TConfig>", "ToolExecutionContext<TConfig> = ExecutionContext<TConfig>", /Unused '@ts-expect-error'/, "src/types/execution.ts"],
     ['context inferred inheritance', '= ValidateResolved<TConfig, [Invalid] extends [never]', '= NoInfer<[Invalid] extends [never]', /No overload matches/, 'src/types/config-validation.ts'],
   ];
+  const configFactoryContracts = `import { Config } from './src/factories/Config.js';
+import { tool } from 'ai';
+import { z } from 'zod/v4';
+const unknownSettings = { unknownSetting: true };
+// @ts-expect-error The family constraint must not hide extra supplied keys.
+Config(unknownSettings);
+// @ts-expect-error An all-optional family shape must not admit arrays.
+Config([]);
+// @ts-expect-error Schema inference slots do not replace the configuration's schema contract.
+Config({ schema: 42 });
+// @ts-expect-error Input schema values still follow the supported schema protocols.
+Config({ inputSchema: 42 });
+// @ts-expect-error Tool-context schema values still follow the supported schema protocols.
+Config({ toolContextSchema: 42 });
+// @ts-expect-error Parent debug must have a valid type even if the child replaces it.
+Config({ debug: true }, { config: { debug: 'invalid' } });
+declare const model: import('ai').LanguageModel;
+// @ts-expect-error Separately valid fragments must still form one supported family after merging.
+Config({ template: 'ready' }, Config({ model }));
+const parent = Config({ context: { offset: 1 } });
+const child = Config({ context: { label: 'child' } }, parent);
+const retained: number = child.config.context.offset;
+declare const optionalParent: [] | [typeof parent];
+// @ts-expect-error Parent presence must be narrowed before relying on inherited fields.
+Config({ debug: false }, ...optionalParent);
+const loaderParent = Config({ loader: { load: (name: string) => name } });
+const loaderChild = Config({ loader: { load: (name: string) => name.toUpperCase() } }, loaderParent);
+const loaders: import('cascada-engine').ILoaderAny[] = loaderChild.config.loader;
+const described: import('./src/types/config.js').ConfigProvider<{ description: string }> = Config({ description: 'Shared' });
+const lookup = tool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query.length });
+Config({ tools: { lookup }, onEnd: event => {
+  const result: number = event.staticToolResults[0].output;
+  // @ts-expect-error Callback results retain the configured tool's output type.
+  const wrong: string = event.staticToolResults[0].output;
+} });
+Config({ output: 'enum', enum: ['YES', 'NO'] as const, onFinish: event => {
+  const answer: 'YES' | 'NO' | undefined = event.object;
+} });
+const mutableEnum = Config({ output: 'enum', enum: ['YES', 'NO'] });
+const mutableValues: ('YES' | 'NO')[] = mutableEnum.config.enum;
+`;
+  const configFactoryMutations = [
+    ['Config object constraint', 'TConfig extends object & configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, ENUM>',
+      'TConfig extends configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, ENUM>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
+    ['Config parent validation', 'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>>',
+      'TParentConfig extends object', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
+    ['Config absent parent default', 'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>> = never',
+      'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>> = EmptyMap', /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
+    ['Config parent presence', '...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig>]',
+      '...parent: [] | [parent: configs.ConfigProvider<TParentConfig>]', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
+    ['Config merged validation', 'ValidateConfigFragment<TConfig, [TParentConfig] extends [never] ? TConfig : MergedConfig<TParentConfig, TConfig>,',
+      'ValidateConfigFragment<TConfig, TConfig,', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
+    ['Config parent return inference', ': MergedConfig<NoInfer<TParentConfig>, ResolvedConfig<TConfig>>',
+      ': MergedConfig<TParentConfig, ResolvedConfig<TConfig>>', /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
+    ['Config inherited result', ': MergedConfig<NoInfer<TParentConfig>, ResolvedConfig<TConfig>>',
+      ': ProcessedConfig<ResolvedConfig<TConfig>>', /Property 'offset' does not exist/, 'src/factories/Config.ts'],
+    ['Config callback registry inference', 'TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum>',
+      'configs.ToolRegistry, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
+    ['Config callback enum inference', 'TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum>',
+      'TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, readonly string[]>', /not assignable/, 'src/factories/Config.ts'],
+    ['Config mutable enum inference', 'AnyConfigInferShape<ToolSet, Record<string, any>, unknown, ENUM>',
+      'AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>', /not assignable/, 'src/factories/Config.ts'],
+  ];
   // Keep unrelated workloads separate so each guard mutation remains a focused compiler check.
+  const objectGeneratorContracts = `import { ObjectGenerator } from './src/factories/ObjectGenerator.js';
+import { Config } from './src/factories/Config.js';
+import { z } from 'zod/v4';
+import { z as z3 } from 'zod/v3';
+declare const model: import('ai').LanguageModel;
+const schema = z.object({ answer: z.number() });
+const parent = Config({ model, schema });
+// @ts-expect-error Finished object components require a model.
+ObjectGenerator({ schema });
+// @ts-expect-error A parent cannot conceal unknown settings.
+ObjectGenerator({}, { config: { model, schema, unknownSetting: true } });
+// @ts-expect-error A raw parent cannot restore an unsupported schema.
+ObjectGenerator({}, { config: { model, schema: z3.object({ answer: z3.number() }) } });
+// @ts-expect-error A function prompt must exist in the effective configuration.
+ObjectGenerator.withFunction({}, parent);
+ObjectGenerator.withFunction({ prompt: () => 'Answer' }, parent);
+// @ts-expect-error Replacing a schema must recheck a retained prompt's parsed input.
+ObjectGenerator.withFunction({ inputSchema: z.object({ value: z.string() }) }, { config: {
+  model, schema, inputSchema: z.object({ value: z.number() }), prompt: ({ value }: { value: number }) => value.toFixed(),
+} });
+const annotated: import('./src/types/config.js').ConfigProvider<{ schema: typeof schema }> = ObjectGenerator({ model, schema });
+declare const optionalParent: [] | [typeof parent];
+// @ts-expect-error Narrow parent presence before calling.
+ObjectGenerator({ model, schema }, ...optionalParent);
+const enumeration = ObjectGenerator({ model, output: 'enum', enum: ['YES', 'NO'] });
+const enumValues: ('YES' | 'NO')[] = enumeration.config.enum;
+enumeration('Answer').then(result => { const value: 'YES' | 'NO' = result.object; });
+const generated = ObjectGenerator({ model, schema });
+generated('Answer').then(result => { const value: number = result.object.answer; });
+declare const ambiguousMode: 'object' | 'array';
+const ambiguous = ObjectGenerator({ model, schema, output: ambiguousMode });
+// @ts-expect-error Retain the requirement to narrow a mode field or use complete alternatives.
+ambiguous('Answer');
+const inputSchema = z.object({ value: z.string().transform(Number) });
+const toolContextSchema = z.object({ tenant: z.string() });
+ObjectGenerator.withTemplate.asTool({ model, schema, inputSchema, toolContextSchema, prompt: '{{ value }}',
+  onInputAvailable: options => { const value: number = options.input.value; },
+  description: options => options.context.tenant,
+  toModelOutput: ({ output }) => ({ type: 'text', value: String(output.answer) }) });
+`;
+  const objectGeneratorMutations = [
+    ['ObjectGenerator required settings', '& ValidateObjectConfig<TConfig, FinalConfig<TParentConfig, TConfig>, FactoryExtras<TPromptType, AsTool>>',
+      '', /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
+    ['ObjectGenerator retained prompt compatibility', 'extends { prompt: PromptCallback<T, AsTool> }',
+      'extends { prompt: unknown }', /Unused '@ts-expect-error'/, 'src/types/function-prompt.ts'],
+    ['ObjectGenerator enum literal inference', 'FactoryConfig<TPromptType, AsTool, ENUM>',
+      'FactoryConfig<TPromptType, AsTool>', /not assignable/, 'src/factories/ObjectGenerator.ts'],
+    ['ObjectGenerator parent presence', '...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig',
+      '...parent: [] | [parent: configs.ConfigProvider<TParentConfig', /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
+    ['ObjectGenerator parent validation', '& ValidateObjectParentConfig<TParentConfig, FinalConfig<TParentConfig, TConfig>, FactoryExtras<TPromptType, AsTool>>',
+      '', /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
+    ['ObjectGenerator parsed descriptor input', 'DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>,',
+      'DescriptorInput<Record<never, never>,', /unknown|does not exist|implicitly has an 'any'/, 'src/factories/ObjectGenerator.ts'],
+    ['ObjectGenerator output inference', 'GenerateObjectResultAugmented<ObjectOutputFromConfig<TConfig>>',
+      'GenerateObjectResultAugmented<unknown>', /unknown/, 'src/factories/ObjectGenerator.ts'],
+    ['ObjectGenerator ambiguous output mode', "[ObjectOutputConfig<TConfig>] extends [never] ? 'Config Error: Narrow the output mode or use a union of complete configurations.'",
+      "false extends true ? never", /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
+  ];
+  const factoryContracts = `import { Function as component } from './src/factories/Function.js';
+import { Template } from './src/factories/Template.js';
+import { Script } from './src/factories/Script.js';
+import { TextGenerator } from './src/factories/TextGenerator.js';
+import { TextStreamer } from './src/factories/TextStreamer.js';
+import { ObjectGenerator } from './src/factories/ObjectGenerator.js';
+import { ObjectStreamer } from './src/factories/ObjectStreamer.js';
+import { Config } from './src/factories/Config.js';
+import type { ConfigProvider } from './src/types/config.js';
+import { z } from 'zod/v4';
+import { z as z3 } from 'zod/v3';
+import { Output } from 'ai';
+declare const model: import('ai').LanguageModel;
+const schema = z.object({ answer: z.number() });
+const parent = Config({ model });
+const objectParent = Config({ model, schema });
+// @ts-expect-error An implementation is required.
+component({});
+// @ts-expect-error Capturing known keys must still validate ordinary setting values.
+component({ execute: () => 1, debug: 'yes' });
+// @ts-expect-error Native descriptor settings keep their SDK types.
+component.asTool({ inputSchema: z.object({}), execute: () => 1, strict: 'yes' });
+// @ts-expect-error Removing object capture checks must not admit invalid SDK options.
+ObjectGenerator({ model: 123, schema, temperature: 'hot' });
+// @ts-expect-error Inline templates require their source.
+Template({});
+// @ts-expect-error Inline scripts require their source.
+Script({});
+// @ts-expect-error A finished generator needs its model.
+TextGenerator({ prompt: 'Answer' });
+// @ts-expect-error A finished streamer needs its model.
+TextStreamer({ prompt: 'Answer' });
+// @ts-expect-error The parent cannot hide an unknown setting.
+Template({}, { config: { template: 'Answer', unknownSetting: true } });
+// @ts-expect-error The parent cannot hide an unknown setting.
+Script({}, { config: { script: 'return 1', unknownSetting: true } });
+// @ts-expect-error The parent cannot hide an unknown setting.
+TextGenerator({}, { config: { model, unknownSetting: true } });
+// @ts-expect-error The parent cannot hide an unknown setting.
+TextStreamer({}, { config: { model, unknownSetting: true } });
+// @ts-expect-error A function prompt is required after merging.
+TextGenerator.withFunction({}, parent);
+// @ts-expect-error A function prompt is required after merging.
+TextStreamer.withFunction({}, parent);
+// @ts-expect-error A function prompt is required after merging.
+ObjectStreamer.withFunction({}, objectParent);
+TextGenerator.withFunction({ prompt: () => 'Answer' }, parent);
+TextStreamer.withFunction({ prompt: () => 'Answer' }, parent);
+ObjectStreamer.withFunction({ prompt: () => 'Answer' }, objectParent);
+const annotated: ConfigProvider<{ execute: () => number }> = component({ execute: () => 1 });
+const inputSchema = z.object({ value: z.string().transform(Number) });
+Template.asTool({ template: '{{ value }}', inputSchema,
+  onInputAvailable: ({ input }) => { const parsed: number = input.value; } });
+Script.asTool({ script: 'return value', inputSchema, schema: z.number(),
+  toModelOutput: ({ output }) => { const parsed: number = output; return { type: 'text', value: String(parsed) }; } });
+const result = Script({ schema: z.number() }, Config({ script: 'return 1', schema: z.string() }));
+result().then(value => { const parsed: number = value; });
+const output = Output.object({ schema });
+TextGenerator({ model, output, onStart: event => { const selected: typeof output | undefined = event.output; } });
+TextStreamer({ model, output, onStart: event => { const selected: typeof output | undefined = event.output; } });
+const plain = TextStreamer({ model });
+plain('Answer').textStream;
+TextStreamer.withFunction({ model, prompt: () => 'Answer' })().then(value => value.textStream);
+const objects = ObjectStreamer({ output: 'array' }, objectParent);
+objects('Answer').object.then(value => { const answers: { answer: number }[] = value; });
+objects('Answer').elementStream;
+ObjectStreamer.withFunction({ prompt: () => 'Answer' }, objectParent)().then(value => value.object);
+declare const mode: 'object' | 'array';
+const ambiguous = ObjectStreamer({ model, schema, output: mode });
+// @ts-expect-error An ambiguous output field must not promise scalar-only results.
+ambiguous('Answer');
+// @ts-expect-error A raw parent cannot restore unsupported output schemas.
+ObjectStreamer({}, { config: { model, schema: z3.object({ answer: z3.number() }) } });
+// @ts-expect-error Generation uses the same resolved-mode value validation.
+ObjectGenerator({}, { config: { model, schema: z3.object({ answer: z3.number() }) } });
+
+declare const select: boolean;
+const pairedPrompt = { config: select
+  ? { model, inputSchema, prompt: ({ value }: { value: number }) => value.toFixed() }
+  : { model, inputSchema: z.object({ value: z.string() }), prompt: ({ value }: { value: string }) => value.toUpperCase() } };
+TextGenerator.withFunction({}, pairedPrompt)({ value: '4' });
+TextStreamer.withFunction({}, pairedPrompt)({ value: '4' });
+ObjectStreamer.withFunction({ schema }, pairedPrompt)({ value: '4' });
+const badPrompt = { config: select ? pairedPrompt.config : { model, inputSchema, prompt: ({ value }: { value: boolean }) => String(value) } };
+// @ts-expect-error One incompatible prompt must invalidate the whole selection.
+TextGenerator.withFunction({}, badPrompt);
+ObjectStreamer({ schema: undefined, output: 'no-schema' }, objectParent)('Answer');
+// @ts-expect-error The old schema must actually be cleared.
+ObjectStreamer({ output: 'no-schema' }, objectParent);
+declare const incompleteMode: { model: typeof model, output: 'no-schema' } | { model: typeof model, output: 'array' };
+// @ts-expect-error A schemaless branch cannot hide another branch's missing schema.
+ObjectStreamer(incompleteMode);
+declare const completeModes: { model: typeof model, output: 'no-schema' } | { model: typeof model, output: 'array', schema: typeof schema };
+ObjectStreamer(completeModes)('Answer');
+`;
+  const factoryMutations = [
+    ['Factory correlated prompt validation', '[InvalidPromptBranches<FinalConfig, AsTool>] extends [never]',
+      "Pick<FinalConfig, 'prompt' & keyof FinalConfig> extends { prompt: PromptCallback<FinalConfig, AsTool> }", /No overload matches/, 'src/types/function-prompt.ts'],
+    ['Factory prompt branch failure', '? never : T : never;',
+      '? never : never : never;', /Unused '@ts-expect-error'/, 'src/types/function-prompt.ts'],
+    ['Factory output mode fields', '| IncompatibleKeys<Pick<Final, Extract<UnionKeys<Selected>, ObjectOutputSettingKeys & keyof Final>>, ObjectConfigShape<Final>>',
+      '', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
+    ['Factory per-branch output requirements', 'type MissingObjectKeys<Final, Extras> = Final extends unknown',
+      'type MissingObjectKeys<Final, Extras> = [Final] extends [unknown]', /not assignable/, 'src/types/config-validation.ts'],
+    ['Factory clearing old output fields', '& Partial<Record<Exclude<ObjectOutputSettingKeys, keyof Request>, undefined>>',
+      '', /not assignable/, 'src/types/config.ts'],
+    ['Factory Function final validation', '& ValidateFinalConfig<TConfig, CallbackParent<TParentConfig>, FinalConfig<TParentConfig, TConfig>, AsTool>',
+      '', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
+    ['Factory Function return inference', ') => NoInfer<AsTool extends true ? ToolCallSignature<FinalConfig<TParentConfig, TConfig>> : FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>>;',
+      ') => AsTool extends true ? ToolCallSignature<FinalConfig<TParentConfig, TConfig>> : FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>;', /Expected 2 arguments, but got 1/, 'src/factories/Function.ts'],
+    ...['Template', 'Script'].flatMap(name => [
+      [
+        `Factory ${name} required settings`, `& Validate${name}Config<TConfig, FinalConfig<TParentConfig, TConfig>, FactoryConfig<Named, AsTool>>`,
+        '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`,
+      ],
+      [
+        `Factory ${name} parent validation`, `& Validate${name}ParentConfig<TParentConfig, FactoryConfig<Named, AsTool>>`,
+        '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`,
+      ],
+    ]),
+    ...['TextGenerator', 'TextStreamer'].flatMap(name => {
+      const shape = name === 'TextGenerator' ? 'FactoryConfig<TPromptType, AsTool>' : 'FactoryConfig<TPromptType>';
+      const streaming = name === 'TextStreamer' ? ', true' : '';
+      return [
+        [`Factory ${name} required settings`, `& ValidateTextConfig<TConfig, FinalConfig<TParentConfig, TConfig>, ${shape}${streaming}>`,
+          '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`],
+        [`Factory ${name} parent validation`, `& ValidateTextParentConfig<TParentConfig, ${shape}${streaming}>`,
+          '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`],
+        [`Factory ${name} callback output`, `TCallbackRuntime, TCallbackOutput, ${name === 'TextStreamer'}>`,
+          `TCallbackRuntime, AIOutput, ${name === 'TextStreamer'}>`, /not assignable/, `src/factories/${name}.ts`],
+      ];
+    }),
+    ['Factory required function prompts', 'extends { prompt: PromptCallback<T, AsTool> }',
+      'extends { prompt?: PromptCallback<T, AsTool> }', /Unused '@ts-expect-error'/, 'src/types/function-prompt.ts'],
+    ['Factory inherited schema replacement', 'MergedConfig<Parent, ResolvedConfig<Config>>',
+      'MergedConfig<ResolvedConfig<Config>, Parent>', /not assignable/, 'src/types/factory-config.ts'],
+    ['Factory TextStreamer delivery', "TPromptType extends 'text' ? false : true", 'true', /textStream.*does not exist/, 'src/factories/TextStreamer.ts'],
+    ['Factory ObjectStreamer delivery', "TPromptType extends 'text' ? false : true", 'true', /object.*does not exist/, 'src/factories/ObjectStreamer.ts'],
+    ['Factory ObjectStreamer array result', "StreamObjectArrayResult<InferSchema<ConfigValue<Config, 'schema'>>>",
+      "StreamObjectObjectResult<InferSchema<ConfigValue<Config, 'schema'>>>", /missing the following properties|not assignable/, 'src/types/result.ts'],
+    ['Factory ObjectStreamer ambiguous mode', "[ObjectOutputConfig<TConfig, true>] extends [never] ? 'Config Error: Narrow the output mode or use a union of complete configurations.'",
+      'false extends true ? never', /Unused '@ts-expect-error'/, 'src/factories/ObjectStreamer.ts'],
+  ];
+  // Exact-optional consumers use fresh emitted declarations, like the public type gate.
+  const optionalContracts = `import { create, z } from './dist/index.js';
+import type { TemplateConfig, ScriptConfig } from './dist/index.js';
+declare const model: import('ai').LanguageModel;
+const schema = z.number();
+const parent = create.Config({ model, schema });
+// @ts-expect-error Explicit schema removal cannot disappear during inference.
+create.ObjectGenerator({ schema: undefined, output: 'array' }, parent);
+// @ts-expect-error The streaming factory must capture the same child settings.
+create.ObjectStreamer({ schema: undefined, output: 'array' }, parent);
+const template: TemplateConfig<{ value: number }> = { template: '{{ value }}' };
+const script: ScriptConfig<{ value: number }, number> & { script: string } = { script: 'return value' };
+create.Template(template);
+create.Script(script);
+create.Template({ template: 'Answer', inputSchema: undefined });
+create.Script({ script: 'return 1', inputSchema: undefined });
+const scriptParent = create.Config({ script: 'return "raw"', schema });
+create.Script({ schema: undefined }, scriptParent);
+create.Script.asTool({ schema: undefined, inputSchema: z.object({}) }, scriptParent);
+create.ObjectGenerator({ schema: undefined, output: 'no-schema' }, parent);
+create.ObjectStreamer({ schema: undefined, output: 'no-schema' }, parent);
+`;
+  const optionalMutations = [
+    ['Factory optional Script output', 'schema?: SchemaType<OUTPUT> | undefined;',
+      'schema?: SchemaType<OUTPUT>;', /not assignable/, 'dist/types/config.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional schema override', "K extends 'schema' ? EmptyMap extends Pick<T, K> ? T[K] | undefined : T[K] : T[K]",
+      'T[K]', /Unused '@ts-expect-error'/, 'dist/types/callbacks.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional Template input', 'TemplateConfig<any> & ToolContextSchemaConfig<any>',
+      'TemplateConfig<any> & configs.ToolConfig<any, any, any>', /Invalid template settings/, 'dist/factories/Template.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional Script input', 'ScriptConfig<any, any> & ToolContextSchemaConfig<any>',
+      'configs.ScriptToolConfig<any, any, any>', /Invalid script settings/, 'dist/factories/Script.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+  ];
+  if (optionalMutations.some(([name]) => filter.test(name))) {
+    const declarations = run(process.execPath, [compiler, ...common.filter(flag => flag !== '--noEmit'), '--declaration', '--emitDeclarationOnly',
+      '--rootDir', path.join(production, 'src'), '--outDir', path.join(production, 'dist'), path.join(production, 'src/index.ts')]);
+    assert.equal(declarations.status, 0, declarations.stdout + declarations.stderr);
+  }
   const consumer = path.join(production, 'contracts.ts');
-  for (const [contracts, cases] of [[alternatives, alternativeMutations], [check, mutations], [schemaVersions, schemaMutations], [preprocessors, preprocessorMutations], [projection, projectionMutations], [selectedSchemas, selectedMutations], [helperContracts, helperMutations], [runContexts, runContextMutations], [runDescriptorContexts, runDescriptorMutations], [callerAlternatives, callerMutations], [configuredOmissions, omissionMutations], [contextAlternatives, contextMutations]]) {
+  for (const [contracts, cases] of [[alternatives, alternativeMutations], [check, mutations], [schemaVersions, schemaMutations], [preprocessors, preprocessorMutations], [projection, projectionMutations], [selectedSchemas, selectedMutations], [helperContracts, helperMutations], [runContexts, runContextMutations], [runDescriptorContexts, runDescriptorMutations], [callerAlternatives, callerMutations], [configuredOmissions, omissionMutations], [contextAlternatives, contextMutations], [configFactoryContracts, configFactoryMutations], [objectGeneratorContracts, objectGeneratorMutations], [factoryContracts, factoryMutations], [optionalContracts, optionalMutations]]) {
     let checkedContracts;
-    for (const [name, before, after, expected, filename = 'src/types/application.ts', assertion, rejected = true] of cases) {
+    for (const [name, before, after, expected, filename, assertion, rejected = true, flags = []] of cases) {
       if (!filter.test(name)) continue;
+      assert.ok(filename, `Mutation needs an explicit owner: ${name}`);
       const currentContracts = assertion ? contracts + (rejected ? '\n// @ts-expect-error This guard must reject the invalid configuration.\n' : '\n') + assertion : contracts;
-      if (currentContracts !== checkedContracts) {
+      const checkKey = JSON.stringify(flags) + currentContracts;
+      if (checkKey !== checkedContracts) {
         fs.writeFileSync(consumer, currentContracts);
-        const baseline = run(process.execPath, [compiler, ...common, consumer]);
+        const baseline = run(process.execPath, [compiler, ...common, ...flags, consumer]);
         assert.equal(baseline.status, 0, baseline.stdout + baseline.stderr);
-        checkedContracts = currentContracts;
+        checkedContracts = checkKey;
       }
       const file = path.join(production, filename);
       const source = fs.readFileSync(file, 'utf8');
       assert.ok(source.includes(before), `Missing mutation location: ${name}`);
       fs.writeFileSync(file, source.replace(before, after));
-      const result = run(process.execPath, [compiler, ...common, consumer]);
+      const result = run(process.execPath, [compiler, ...common, ...flags, consumer]);
       assert.notEqual(result.status, 0, `Mutation survived: ${name}`);
       assert.match(result.stdout + result.stderr, expected);
       fs.writeFileSync(file, source);
@@ -627,13 +939,13 @@ const owner${index} = component({ tools: { child: child${index} }, toolsContext:
 owner${index}.run({ toolsContext: { child: { factor: 5 } } });
 `).join('');
   fs.writeFileSync(consumer, registryWorkload);
-  const applicationFile = path.join(production, 'src/types/application.ts');
-  const applicationSource = fs.readFileSync(applicationFile, 'utf8');
-  const contract = '? HelperContract<ApplicationInput<Config, S>, Configured<Config>, PrivateKeys<Config, Configured<Config>, S>, R> : never;';
-  assert.ok(applicationSource.includes(contract));
+  const bindingFile = path.join(production, 'src/types/tool-binding.ts');
+  const bindingSource = fs.readFileSync(bindingFile, 'utf8');
+  const contract = '? HelperCallContract<ComponentInput<TAlternative, TInputSchema>, ContextFromConfig<TAlternative>, PrivateInputNames<TAlternative, ContextFromConfig<TAlternative>, TInputSchema>, TResult> : never;';
+  assert.ok(bindingSource.includes(contract));
   const registryCosts = {};
-  for (const [name, source] of [['withoutContract', applicationSource.replace(contract, '? unknown : never;')], ['withContract', applicationSource]]) {
-    fs.writeFileSync(applicationFile, source);
+  for (const [name, source] of [['withoutContract', bindingSource.replace(contract, '? unknown : never;')], ['withContract', bindingSource]]) {
+    fs.writeFileSync(bindingFile, source);
     const result = run(process.execPath, [compiler, ...common, '--extendedDiagnostics', consumer]);
     assert.equal(result.status, 0, result.stdout + result.stderr);
     registryCosts[name] = Number(result.stdout.match(/Instantiations:\s+(\d+)/)?.[1]);

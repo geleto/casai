@@ -10,10 +10,12 @@ export { Config } from './factories/Config.js';
 
 // --- The 'create' Namespace  ---
 import * as factories from './factories/factories.js';
+
 export const create = factories;
 
 // --- Third-Party Re-exports (For User Convenience) ---
 export type { ModelMessage, ToolSet } from 'ai';
+export { modelMessageSchema as ModelMessageSchema } from 'ai';
 export { FileSystemLoader, NotFoundError, PrecompiledLoader, WebLoader } from 'cascada-engine';
 export { z } from 'zod';
 
@@ -47,40 +49,18 @@ export type {
 } from './types/config.js';
 
 // --- Core Library Types ---
-export type {
-	Context,
-	SchemaType,
-	TemplatePromptType,
-	ScriptPromptType,
-	FunctionPromptType,
-	StreamObjectOnFinishEvent,
-	StreamTextOnFinishEvent
-} from './types/types.js';
-export { ModelMessageSchema, PromptStringOrMessagesSchema } from './types/schemas.js';
+export type { Context } from './types/utils.js';
+export type { SchemaType } from './types/schema.js';
+export type { TemplatePromptType, ScriptPromptType, FunctionPromptType } from './types/prompt.js';
+export type { StreamObjectOnFinishEvent, StreamTextOnFinishEvent } from './types/sdk.js';
+export { PromptStringOrMessagesSchema } from './prompt-schemas.js';
 
 // --- Result Types ---
-export type {
-	ScriptResult,
-	ComponentTool,
-	// Augmented results renamed for clean public API
-	GenerateTextResultAugmented as GenerateTextResult,
-	StreamTextResultAugmented as StreamTextResult,
-	// Object Generation Results
-	GenerateObjectResultAll,
-	GenerateObjectObjectResult,
-	GenerateObjectArrayResult,
-	GenerateObjectEnumResult,
-	GenerateObjectNoSchemaResult,
-	// Object Streaming Results
-	StreamObjectResultAll,
-	StreamObjectObjectResult,
-	StreamObjectArrayResult,
-	StreamObjectNoSchemaResult
-} from './types/result.js';
+export type { ScriptResult, GenerateTextResultAugmented as GenerateTextResult, StreamTextResultAugmented as StreamTextResult, GenerateObjectResultAll, GenerateObjectObjectResult, GenerateObjectArrayResult, GenerateObjectEnumResult, GenerateObjectNoSchemaResult, StreamObjectResultAll, StreamObjectObjectResult, StreamObjectArrayResult, StreamObjectNoSchemaResult } from './types/result.js';
+export type { ComponentTool } from './types/tool-binding.js';
 
 // --- Error Types ---
 export { ConfigError, ValidationError, TemplateError, ScriptError } from './errors.js';
-
 
 // --- Public Utilities & Associated Types ---
 export { race, type RaceGroup, type RaceLoader } from './loaders.js';

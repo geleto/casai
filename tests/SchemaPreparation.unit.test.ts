@@ -5,7 +5,7 @@ import { z } from 'zod/v4';
 import { create, ConfigError } from './cascada';
 import type { SchemaType } from './cascada';
 import { inputNames, contextNames } from '../src/schema.js';
-import type { JSONSchema } from '../src/schema.js';
+import type { JSONSchema } from '../src/types/sdk.js';
 
 function configured(schema: SchemaType<any>, context: Record<string, unknown>) {
 	return create.Function.asTool({ inputSchema: schema, context, execute: value => value });

@@ -23,6 +23,18 @@ create.Function({ ...optionalSchema, execute: input => {
 } });
 create.Function({ ...spreadSchema, execute: input => input.value/*spreadSchemaValue*/ });
 create.Function({ inputSchema: presenceInput, execute: input => input.value/*definiteSchemaValue*/ });
+create.Config({ ...spreadSchema, execute: input => {
+  input./*configSchemaBody*/value;
+  input.value/*configSchemaValue*/;
+  input.count/*configSchemaDefault*/;
+  return input.value;
+} });
+create.Config({ inputSchema: presenceInput, execute: input => input.value/*configDefiniteSchemaValue*/ });
+const optionalConfigParent = create.Config(optionalSchema);
+create.Config({ execute: input => input.value/*parentConfigSchemaValue*/ }, optionalConfigParent);
+const enumConfig = create.Config({ output: 'enum', enum: ['YES', 'NO'] });
+const mutableEnumValue = enumConfig.config.enum[0];
+mutableEnumValue/*mutableConfigEnum*/;
 const operation = create.Function({
   inputSchema: z.looseObject({ value: z.number(), factor: z.string().transform(Number), map: z.function({ input: [z.number()], output: z.number() }).optional() }),
   context: { factor: '3', db: 'private' },
@@ -108,6 +120,37 @@ declare const unionInput: { value: number } | { value: number; user: string };
 const render = create.Template({ inputSchema: z.looseObject({ value: z.number() }), context: { user: 'private' }, template: '{{ value }}' });
 render(unionInput); // expected: user
 declare const model: LanguageModel;
+const pairedPromptParent = { config: schemaEnabled
+  ? { model, inputSchema: presenceInput, prompt: ({ value }: { value: number }) => value.toFixed() }
+  : { model, inputSchema: z.object({ value: z.string() }), prompt: ({ value }: { value: string }) => value.toUpperCase() } };
+create.TextGenerator.withFunction({}, pairedPromptParent)({ value: '4' });
+create.TextGenerator.withFunction({ prompt: input => String(input.value/*pairedPromptValue*/) }, pairedPromptParent);
+const enumParent = create.Config({ model, output: 'enum', enum: ['YES'] });
+create.ObjectGenerator({ output: 'object', enum: undefined, schema: z.number(),
+  onFinish: event => { event.object/*transitionOutput*/; } }, enumParent);
+create.Script({ schema: undefined }, create.Config({ script: 'return "raw"', schema: z.number() }));
+create.ObjectGenerator.withFunction({ model, schema: z.number(), ...spreadSchema, prompt: input => {
+  input./*objectPromptMembers*/value;
+  input.value/*objectPromptValue*/;
+  return String(input.value);
+} });
+create.ObjectGenerator.withFunction.asTool({ model, schema: z.number(), inputSchema: presenceInput, context: { offset: 2 },
+  prompt: input => String(input.value/*objectToolValue*/ + input.offset) });
+create.ObjectGenerator({ model, schema: z.object({ answer: z.number() }), onFinish: event => {
+  event.object?./*objectResultMembers*/answer;
+} });
+create.ObjectGenerator.withFunction({}, create.Config({ model, schema: z.number() })); // expected: prompt
+create.ObjectGenerator.withFunction({ prompt: () => 'Answer' }, create.Config({ model, schema: z.number() }));
+create.TextGenerator.withFunction({ model, ...spreadSchema, prompt: input => String(input.value/*textPromptValue*/) });
+create.TextStreamer.withFunction({ model, ...spreadSchema, prompt: input => String(input.value/*textStreamPromptValue*/) });
+create.ObjectStreamer.withFunction({ model, schema: z.number(), ...spreadSchema, prompt: input => String(input.value/*objectStreamPromptValue*/) });
+create.TextGenerator.withFunction({}, create.Config({ model })); // expected: prompt
+create.TextStreamer.withFunction({}, create.Config({ model })); // expected: prompt
+create.ObjectStreamer.withFunction({}, create.Config({ model, schema: z.number() })); // expected: prompt
+const rendererParent = create.Config({ inputSchema: presenceInput });
+create.Template.asTool({ template: '{{ value }}', onInputAvailable: ({ input }) => { input.value/*templateDescriptorValue*/.toFixed(); } }, rendererParent);
+create.Script.asTool({ script: 'return value', schema: z.number(),
+  toModelOutput: ({ output }) => ({ type: 'text', value: String(output/*scriptDescriptorValue*/) }) }, rendererParent);
 const runAlternatives = create.TextGenerator.withTemplate({ model, prompt: '{{ value }}',
   inputSchema: z.looseObject({ value: z.number() }), context: { value: 1, user: 'private' } });
 declare const invalidRunAlternative: { maxOutputTokens: number } | { context: { value: number; user: string } };
@@ -241,9 +284,26 @@ async function check(sourceMode, exactOptionalPropertyTypes) {
     const names = await completions(at('implementation'));
     const optionalNames = await completions(at('optionalSchemaBody'));
     for (const name of ['value', 'count', '_toolOptions']) assert.ok(optionalNames.has(name), `optional schema: missing ${name}`);
-    for (const marker of ['optionalSchemaValue', 'spreadSchemaValue']) assert.match(await hover(at(marker) - 1), /value: string \| number/);
+    const configNames = await completions(at('configSchemaBody'));
+    for (const name of ['value', 'count', '_toolOptions']) assert.ok(configNames.has(name), `Config: missing ${name}`);
+    for (const marker of ['optionalSchemaValue', 'spreadSchemaValue', 'configSchemaValue', 'parentConfigSchemaValue']) assert.match(await hover(at(marker) - 1), /value: string \| number/);
     assert.match(await hover(at('optionalSchemaDefault') - 1), /count\??: number \| undefined/);
+    assert.match(await hover(at('configSchemaDefault') - 1), /count\??: number \| undefined/);
     assert.match(await hover(at('definiteSchemaValue') - 1), /value: number/);
+    assert.match(await hover(at('configDefiniteSchemaValue') - 1), /value: number/);
+    const enumHover = await hover(at('mutableConfigEnum') - 1);
+    assert.match(await hover(at('pairedPromptValue') - 1), /value: string \| number/);
+    assert.match(await hover(at('transitionOutput') - 1), /object: number \| undefined/);
+    assert.match(enumHover, /"YES"/);
+    assert.match(enumHover, /"NO"/);
+    const objectPromptNames = await completions(at('objectPromptMembers'));
+    for (const name of ['value', 'count', '_toolOptions']) assert.ok(objectPromptNames.has(name), `ObjectGenerator prompt: missing ${name}`);
+    assert.match(await hover(at('objectPromptValue') - 1), /value: string \| number/);
+    assert.match(await hover(at('objectToolValue') - 1), /value: number/);
+    assert.ok((await completions(at('objectResultMembers'))).has('answer'), 'ObjectGenerator completion callback lost its output schema');
+    for (const marker of ['textPromptValue', 'textStreamPromptValue', 'objectStreamPromptValue']) assert.match(await hover(at(marker) - 1), /value: string \| number/);
+    assert.match(await hover(at('templateDescriptorValue') - 1), /value: number/);
+    assert.match(await hover(at('scriptDescriptorValue') - 1), /output: number/);
     const selectedNames = await completions(at('selectedBody'));
     assert.ok(selectedNames.has('key'), 'Selected schema lost the retained configured field');
     assert.match(await hover(at('selectedValue') - 1), /key: string \| number/);

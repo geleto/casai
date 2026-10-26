@@ -44,13 +44,13 @@ if (false) {
 describe('Regressions across component boundaries', () => {
 	describe('raw configuration validation', () => {
 		const factories = [
-			{ name: 'Function', build: (config: never, parent?: never) => create.Function(config, parent) },
-			{ name: 'Template', build: (config: never, parent?: never) => create.Template(config, parent as never) },
-			{ name: 'Script', build: (config: never, parent?: never) => create.Script(config, parent as never) },
-			{ name: 'TextGenerator', build: (config: never, parent?: never) => create.TextGenerator(config, parent as never) },
-			{ name: 'TextStreamer', build: (config: never, parent?: never) => create.TextStreamer(config, parent as never) },
-			{ name: 'ObjectGenerator', build: (config: never, parent?: never) => create.ObjectGenerator(config, parent as never) },
-			{ name: 'ObjectStreamer', build: (config: never, parent?: never) => create.ObjectStreamer(config, parent as never) },
+			{ name: 'Function', build: (config: never, parent?: never): unknown => Reflect.apply(create.Function, undefined, [config, parent]) },
+			{ name: 'Template', build: (config: never, parent?: never): unknown => Reflect.apply(create.Template, undefined, [config, parent]) },
+			{ name: 'Script', build: (config: never, parent?: never): unknown => Reflect.apply(create.Script, undefined, [config, parent]) },
+			{ name: 'TextGenerator', build: (config: never, parent?: never): unknown => Reflect.apply(create.TextGenerator, undefined, [config, parent]) },
+			{ name: 'TextStreamer', build: (config: never, parent?: never): unknown => Reflect.apply(create.TextStreamer, undefined, [config, parent]) },
+			{ name: 'ObjectGenerator', build: (config: never, parent?: never): unknown => Reflect.apply(create.ObjectGenerator, undefined, [config, parent]) },
+			{ name: 'ObjectStreamer', build: (config: never, parent?: never): unknown => Reflect.apply(create.ObjectStreamer, undefined, [config, parent]) },
 		];
 		for (const { name, build } of factories) {
 			it(`rejects non-object ${name} configs before normalization or inheritance`, () => {
@@ -268,7 +268,9 @@ describe('Regressions across component boundaries', () => {
 						validate: async input => { await gate; return { success: true, value: input as Record<string, unknown> }; },
 					});
 					const mock = model('{"answer":4}');
-					const build = create[factory][modifier] as (config: object) => {
+					// This runtime matrix intentionally erases the different factory signatures.
+					const factoryValue: unknown = create[factory][modifier];
+					const build = factoryValue as (config: object) => {
 						run(config: { prompt: string | (() => string), context: object }): Promise<{
 							messageHistory?: ModelMessage[] | Promise<ModelMessage[]>;
 							partialObjectStream?: AsyncIterable<unknown>;

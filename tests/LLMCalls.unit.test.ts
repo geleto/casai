@@ -2,7 +2,7 @@
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { generateText, isStepCount } from 'ai';
+import { generateText, streamText, generateObject, streamObject, isStepCount } from 'ai';
 import type { ModelMessage, Tool } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { create, ConfigError, ValidationError, TemplateError, race, z } from './cascada';
@@ -56,6 +56,110 @@ const answer = '{"answer":4}';
 const factoryNames = ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const;
 
 describe('LLM call contracts without providers', () => {
+	describe('inherited factory settings', () => {
+		for (const transformed of [false, true]) it(`keeps each prompt paired with its parser, transformed=${transformed}`, async () => {
+			const model = mockModel(answer);
+			const parent = { config: transformed
+				? { model, inputSchema: z.object({ value: z.string().transform(Number) }), prompt: ({ value }: { value: number }) => value.toFixed(1) }
+				: { model, inputSchema: z.object({ value: z.string() }), prompt: ({ value }: { value: string }) => value.toUpperCase() } };
+			const generatedText = create.TextGenerator.withFunction({}, parent);
+			const streamedText = create.TextStreamer.withFunction({}, parent);
+			const generatedObject = create.ObjectGenerator.withFunction({ schema }, parent);
+			const streamedObject = create.ObjectStreamer.withFunction({ schema }, parent);
+			for (const invoke of [
+				() => generatedText({ value: '4' }), () => generatedText.run({ context: { value: '4' } }),
+				() => streamedText({ value: '4' }), () => streamedText.run({ context: { value: '4' } }),
+				() => generatedObject({ value: '4' }), () => generatedObject.run({ context: { value: '4' } }),
+				() => streamedObject({ value: '4' }), () => streamedObject.run({ context: { value: '4' } }),
+			]) await settle(await invoke());
+			const expected = Array.from({ length: 4 }, () => [transformed ? '4.0' : '4']);
+			expect(promptTexts(model)).to.deep.equal(expected);
+			expect(promptTexts(model, true)).to.deep.equal(expected);
+		});
+
+		it('clears obsolete output settings when changing mode, matching native SDK execution', async () => {
+			const model = mockModel(answer);
+			const parent = create.Config({ model, schema: z.object({ old: z.string() }), schemaName: 'Old', schemaDescription: 'Old output' });
+			const cleared = { schema: undefined, schemaName: undefined, schemaDescription: undefined };
+			const generator = create.ObjectGenerator({ ...cleared, output: 'no-schema' }, parent);
+			const streamer = create.ObjectStreamer({ ...cleared, output: 'no-schema' }, parent);
+			const nativeSettings = { ...cleared, model, output: 'no-schema' as const, prompt: 'Answer' };
+			for (const result of [await generator('Answer'), await generateObject(nativeSettings)]) {
+				expect(result.object).to.deep.equal({ answer: 4 });
+			}
+			for (const result of [streamer('Answer'), streamObject(nativeSettings)]) {
+				await settle(result);
+				expect(await result.object).to.deep.equal({ answer: 4 });
+			}
+			const enumParent = create.Config({ model, output: 'enum', enum: ['YES', 'NO'] });
+			const object = create.ObjectGenerator({ output: 'object', enum: undefined, schema }, enumParent);
+			expect((await object('Answer')).object).to.deep.equal({ answer: 4 });
+			expect(parent.config.schema).not.to.equal(undefined);
+			expect(enumParent.config.enum).to.deep.equal(['YES', 'NO']);
+		});
+	});
+
+	describe('prepared message transport', () => {
+		function history(approved: boolean): ModelMessage[] {
+			return [
+				{ role: 'user', content: 'Search the web' },
+				{ role: 'assistant', content: [
+					{ type: 'tool-call', toolCallId: 'call', toolName: 'search', input: { query: 'Casai' }, providerExecuted: true },
+					{ type: 'tool-approval-request', approvalId: 'approval', toolCallId: 'call' },
+				] },
+				{ role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'approval', approved, reason: 'Reviewed', providerExecuted: true }] },
+			];
+		}
+		function approvals(model: MockLanguageModelV3, streaming: boolean) {
+			return (streaming ? model.doStreamCalls : model.doGenerateCalls).map(call => call.prompt.flatMap(message =>
+				message.role === 'tool' ? message.content.filter(part => part.type === 'tool-approval-response') : []));
+		}
+		for (const approved of [true, false]) {
+			const expected = [{ type: 'tool-approval-response', approvalId: 'approval', approved, reason: 'Reviewed' }];
+			for (const streaming of [false, true]) it(`native SDK forwards provider approvals with approved=${approved}, streaming=${streaming}`, async () => {
+				const model = mockModel('done');
+				const settings = { model, messages: history(approved) };
+				if (streaming) await settle(streamText(settings));
+				else await generateText(settings);
+				expect(approvals(model, streaming)).to.deep.equal([expected]);
+			});
+			for (const factoryName of factoryNames) for (const modifier of ['withFunction', 'withScript', 'loadsScript'] as const) {
+				it(`${factoryName}.${modifier} preserves provider approvals with approved=${approved}`, async () => {
+					const model = mockModel(answer);
+					const messages = history(approved);
+					const original = structuredClone(messages);
+					// Exercise the common runtime transport across the distinct factory signatures.
+					const factoryValue: unknown = create[factoryName][modifier];
+					const factory = factoryValue as (config: object) => { (): unknown; run(settings: object): unknown };
+					const component = factory({ model, context: { history: messages },
+						prompt: modifier === 'withFunction' ? () => messages : modifier === 'withScript' ? 'return history' : 'history',
+						...(modifier === 'loadsScript' ? { loader: { load: () => 'return history' } } : {}),
+						...(factoryName.startsWith('Object') ? { schema } : {}),
+					});
+					await settle(await component());
+					await settle(await component.run({}));
+					expect(approvals(model, factoryName.endsWith('Streamer'))).to.deep.equal([expected, expected]);
+					expect(messages).to.deep.equal(original);
+				});
+			}
+		}
+		for (const factoryName of factoryNames) for (const modifier of ['withFunction', 'withScript', 'loadsScript'] as const) {
+			it(`${factoryName}.${modifier} rejects invalid prepared messages before dispatch`, async () => {
+				const model = mockModel(answer);
+				const messages = [{ role: 'user', content: 42 }];
+				const factoryValue: unknown = create[factoryName][modifier];
+				const factory = factoryValue as (config: object) => () => unknown;
+				const component = factory({ model, context: { history: messages },
+					prompt: modifier === 'withFunction' ? () => messages : modifier === 'withScript' ? 'return history' : 'history',
+					...(modifier === 'loadsScript' ? { loader: { load: () => 'return history' } } : {}),
+					...(factoryName.startsWith('Object') ? { schema } : {}),
+				});
+				await rejects(async () => { await component(); }, error => error instanceof ValidationError && error.message === 'Prompt output validation failed.');
+				expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
+			});
+		}
+	});
+
 	it('validates invocation history once in addition to native SDK validation', async () => {
 		let reads = 0;
 		const messages: ModelMessage[] = [{ get role() { reads++; return 'user' as const; }, content: 'earlier' }];
@@ -98,7 +202,9 @@ describe('LLM call contracts without providers', () => {
 		const abortSignal = AbortSignal.abort(reason);
 		let reads = 0;
 		const model = mockModel(answer);
-		const factory = create[factoryName] as (config: object) => { run(settings: object): unknown };
+		// This runtime matrix intentionally erases the different factory signatures.
+		const factoryValue: unknown = create[factoryName];
+		const factory = factoryValue as (config: object) => { run(settings: object): unknown };
 		const component = factory({ model, prompt: 'go', ...(factoryName.startsWith('Object') ? { schema } : {}) });
 		for (const role of ['user', 'invalid']) {
 			const messages = [{ get role() { reads++; return role; }, content: 'earlier' }];
@@ -113,7 +219,9 @@ describe('LLM call contracts without providers', () => {
 		const abortSignal = AbortSignal.abort(reason);
 		let parsed = 0, prepared = 0;
 		const model = mockModel(answer);
-		const factory = create[factoryName].withFunction as (config: object) => { run(settings: object): unknown };
+		// This runtime matrix intentionally erases the different factory signatures.
+		const factoryValue: unknown = create[factoryName].withFunction;
+		const factory = factoryValue as (config: object) => { run(settings: object): unknown };
 		const component = factory({ model, inputSchema: z.object({ value: z.number().transform(value => { parsed++; return value; }) }),
 			prompt: () => { prepared++; return 'go'; }, ...(factoryName.startsWith('Object') ? { schema } : {}) });
 		for (const value of [1, 'invalid']) {
@@ -126,7 +234,9 @@ describe('LLM call contracts without providers', () => {
 
 	for (const factoryName of factoryNames) it(`${factoryName} validates every alternative of run settings`, async () => {
 		const model = mockModel(answer);
-		const factory = create[factoryName].withTemplate as (config: object) => unknown;
+		// This runtime matrix intentionally erases the different factory signatures.
+		const factoryValue: unknown = create[factoryName].withTemplate;
+		const factory = factoryValue as (config: object) => unknown;
 		const child = factory({ model, prompt: 'Value {{ value }}', inputSchema: z.looseObject({ value: z.number() }),
 			context: { value: 1, user: 'private' }, ...(factoryName.startsWith('Object') ? { schema } : {}) }) as { run(settings: object): Promise<unknown> };
 		const calls = factoryName.endsWith('Streamer') ? model.doStreamCalls : model.doGenerateCalls;
@@ -142,7 +252,9 @@ describe('LLM call contracts without providers', () => {
 
 	for (const factoryName of factoryNames) it(`${factoryName} normalizes run keywords and rejects mixed settings`, async () => {
 		const model = mockModel(answer);
-		const factory = create[factoryName].withTemplate as (config: object) => unknown;
+		// This runtime matrix intentionally erases the different factory signatures.
+		const factoryValue: unknown = create[factoryName].withTemplate;
+		const factory = factoryValue as (config: object) => unknown;
 		const child = factory({ model, prompt: 'Topic {{ topic }}', ...(factoryName.startsWith('Object') ? { schema } : {}) });
 		const owner = create.Script({ context: { child }, script: 'return child.run(context={ topic: "x" }, temperature=0.9)' });
 		await settle(await owner());
@@ -168,7 +280,9 @@ describe('LLM call contracts without providers', () => {
 	for (const factoryName of ['TextGenerator', 'ObjectGenerator'] as const) it(`${factoryName} keeps providerOptions on the inner model only`, async () => {
 		const model = mockModel(answer);
 		const providerOptions = { mock: { inner: true } };
-		const build = create[factoryName].withTemplate.asTool as (config: object) => Tool & { bindToolContext(context: unknown): { tool: Tool; context: unknown } };
+		// This runtime matrix intentionally erases the different factory signatures.
+		const factoryValue: unknown = create[factoryName].withTemplate.asTool;
+		const build = factoryValue as (config: object) => Tool & { bindToolContext(context: unknown): { tool: Tool; context: unknown } };
 		const component = build({ model, prompt: 'Topic {{ topic }}', inputSchema: z.object({ topic: z.string() }),
 			providerOptions, ...(factoryName.startsWith('Object') ? { schema } : {}) });
 		for (const operation of [component, component.bindToolContext({}).tool]) {
@@ -189,7 +303,9 @@ describe('LLM call contracts without providers', () => {
 		it(`${factoryName}.${modifier} preserves history with Cascada keyword context`, async () => {
 			const model = mockModel(answer);
 			const source = modifier === 'withTemplate' ? 'Topic {{ topic }}' : 'return "Topic " + topic';
-			const factory = create[factoryName][modifier] as (config: object) => unknown;
+			// This runtime matrix intentionally erases the different factory signatures.
+			const factoryValue: unknown = create[factoryName][modifier];
+			const factory = factoryValue as (config: object) => unknown;
 			const child = factory({ model, prompt: source, ...(factoryName.startsWith('Object') ? { schema } : {}) });
 			const history = [{ role: 'user', content: 'earlier' }];
 			for (const call of ['child(history, topic="x")', 'child(source, history, topic="x")']) {
@@ -210,7 +326,9 @@ describe('LLM call contracts without providers', () => {
 				it(`${factoryName}.${modifier} submits an empty user message with or without history`, async () => {
 					const model = mockModel(answer);
 					const source = modifier.includes('Script') ? 'return ""' : '';
-					const build = create[factoryName][modifier] as (config: object) => {
+					// This runtime matrix intentionally erases the different factory signatures.
+					const factoryValue: unknown = create[factoryName][modifier];
+					const build = factoryValue as (config: object) => {
 						(messages?: ModelMessage[]): unknown;
 						run(config: { messages?: ModelMessage[] }): unknown;
 					};

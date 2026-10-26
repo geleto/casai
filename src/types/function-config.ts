@@ -1,41 +1,28 @@
-import type { ApplicationShape, CollectedResult, ExecutionContext, ToolExecutionContext } from './application.js';
-import type { EmptyMap, MergedConfig } from './merge.js';
-import type * as types from './types.js';
-import type * as configs from './config.js';
+import type { FlexibleSchema } from 'ai';
+import type { SchemaType, InferInputSchema, InferSchema } from './schema.js';
+import type { EmptyMap } from './utils.js';
+import type { CollectedResult } from './result.js';
+import type { ExecutionContext, ToolExecutionContext } from './execution.js';
+import type { MergedConfig } from './merge.js';
 import type { ConfigValue, ToolContextFromConfig } from './config.js';
-
-// Infer property presence separately from schema values. This preserves optional
-// keys in conditional spreads without assuming that their parsers will run.
-type SchemaKey = 'inputSchema' | 'schema' | 'toolContextSchema';
-type SchemaSetting<T, K extends SchemaKey, S> = EmptyMap extends Pick<NoInfer<T>, keyof T & K>
-	? Partial<Record<K, S>> : Record<K, S>;
-export type SchemaConfigInferShape<T, Input, Output, Context> =
-	Pick<{ [K in keyof T]: unknown }, keyof T & SchemaKey>
-	& SchemaSetting<T, 'inputSchema', Input> & SchemaSetting<T, 'schema', Output> & SchemaSetting<T, 'toolContextSchema', Context>;
-export type ConfigSchemas<T, Input, Output, Context> = Pick<{
-	[K in keyof T]: K extends 'inputSchema' ? Input : K extends 'schema' ? Output : Context;
-}, keyof T & SchemaKey>;
+import type * as configs from './config.js';
 
 type PropertyType<T, K extends PropertyKey> = K extends keyof T ? T[K] : undefined;
-// A required present branch preserves undefined in values supplied to context.
-export type ContextSetting<CONTEXT> = { context: CONTEXT } | { context?: never };
 
 // Configured context is a runtime value, so context that may be absent has optional fields.
 type ConfiguredContext<CONTEXT> = [NonNullable<CONTEXT>] extends [never] ? undefined
 	: undefined extends CONTEXT ? Partial<NonNullable<CONTEXT>> : CONTEXT;
 
-export type InputSchemaOf<T> = Extract<ConfigValue<T, 'inputSchema'>, types.SchemaType<Record<string, any>> | undefined>;
-export type ToolInputSchemaOf<T> = Extract<InputSchemaOf<T>, types.SchemaType<Record<string, any>>>;
-export type OutputSchemaOf<T> = Extract<ConfigValue<T, 'schema'>, types.SchemaType<any> | undefined>;
-export type ContextOf<T> = Extract<ConfiguredContext<PropertyType<T, 'context'>>, Record<string, any> | undefined>;
+type InputSchemaOf<T> = Extract<ConfigValue<T, 'inputSchema'>, SchemaType<Record<string, any>> | undefined>;
+type ToolInputSchemaOf<T> = Extract<InputSchemaOf<T>, SchemaType<Record<string, any>>>;
+type OutputSchemaOf<T> = Extract<ConfigValue<T, 'schema'>, SchemaType<any> | undefined>;
+type ContextOf<T> = Extract<ConfiguredContext<PropertyType<T, 'context'>>, Record<string, any> | undefined>;
 type ConfiguredContextOf<T> = Extract<PropertyType<T, 'context'>, Record<string, any> | undefined>;
-export type ExecuteOf<T> = Extract<PropertyType<T, 'execute'>, (...args: any) => any>;
 
-export type DeclaredInput<T, AsTool extends boolean = false> = AsTool extends true ? ToolExecutionContext<T> : ExecutionContext<T>;
-export type CallInput<T> = ApplicationShape<T>;
+type DeclaredInput<T, AsTool extends boolean = false> = AsTool extends true ? ToolExecutionContext<T> : ExecutionContext<T>;
 
 type DeclaredOutput<S, Present = Exclude<S, undefined>> = [Present] extends [never] ? unknown
-	: PromiseLike<types.InferInputSchema<Present, any>> | types.InferInputSchema<Present, any>;
+	: PromiseLike<InferInputSchema<Present, any>> | InferInputSchema<Present, any>;
 
 // The execute a config defines through its declared schemas and context.
 export type DeclaredExecute<T> = (
@@ -49,7 +36,7 @@ export type ExpectedFunctionConfig<T> = Omit<configs.FunctionConfig<InputSchemaO
 	& { execute: DeclaredFunctionExecute<T> };
 export type ExpectedToolConfig<T> = Omit<configs.FunctionToolConfig<ToolInputSchemaOf<T>, OutputSchemaOf<T>, ConfiguredContextOf<T>, ContextOf<T>, ToolContextFromConfig<T>>, 'execute' | keyof configs.ToolProperties>
 	& { execute: DeclaredExecute<T> }
-	& configs.ToolProperties<types.InferSchema<InputSchemaOf<T>>, CollectedResult<T>, ToolContextFromConfig<T>>;
+	& configs.ToolProperties<InferSchema<InputSchemaOf<T>>, CollectedResult<T>, ToolContextFromConfig<T>>;
 
 // Assemble only known schema settings, configured context and registry for
 // callback inference. The ordinary merge preserves omission versus undefined.
@@ -70,14 +57,14 @@ interface NoInputSchemaFunctionExecuteContext<T> {
 }
 
 // Include an inferred annotation when available; comparing an optional parameter only to OpenInput loses its fields.
-export type FunctionExecuteContext<T, TActual = EmptyMap> = InputSchemaOf<T> extends types.SchemaType<any>
+export type FunctionExecuteContext<T, TActual = EmptyMap> = InputSchemaOf<T> extends SchemaType<any>
 	? InputSchemaFunctionExecuteContext<T>
 	: NoInputSchemaFunctionExecuteContext<MergedConfig<T, Pick<TActual, 'execute' & keyof TActual>>>;
 
 // Without a guaranteed output parser, native callbacks may receive its raw input.
 export type ToolExecuteContext<T> = {
 	execute?: (input: DeclaredInput<T, true>) => DeclaredOutput<OutputSchemaOf<T>>;
-} & configs.ToolProperties<types.InferSchema<InputSchemaOf<T>>,
+} & configs.ToolProperties<InferSchema<InputSchemaOf<T>>,
 	CollectedResult<T & { execute: () => DeclaredOutput<OutputSchemaOf<T>> }>, ToolContextFromConfig<T>>;
 
 // A reusable fragment may become an ordinary Function or an SDK tool. Explicit callback
@@ -89,3 +76,20 @@ type AnyConfigExecute<T> = {
 export type AnyConfigExecuteContext<T, TActual = EmptyMap,
 	TResolved = MergedConfig<T, Pick<TActual, 'execute' & keyof TActual>>,
 > = 'toolContextSchema' extends keyof T ? ToolExecuteContext<TResolved> : { execute?: AnyConfigExecute<TResolved> } & Pick<configs.ToolProperties<any, any, ToolContextFromConfig<TResolved>>, 'description'>;
+
+export type FunctionImplementation<
+	InputSchema extends SchemaType<Record<string, any>> | undefined,
+	OutputSchema extends SchemaType<any> | undefined,
+	CONTEXT extends Record<string, any> | undefined,
+	ExecuteFunction extends (...args: any) => any = (...args: any) => any,
+> = (context: ExecutionContext<{ inputSchema: InputSchema; context: CONTEXT }>) => OutputSchema extends SchemaType<any>
+	? InferInputSchema<OutputSchema> | PromiseLike<InferInputSchema<OutputSchema>> : ReturnType<ExecuteFunction>;
+
+export type FunctionToolImplementation<
+	InputSchema extends SchemaType<Record<string, any>>,
+	OutputSchema extends SchemaType<any> | undefined,
+	CONTEXT extends Record<string, any> | undefined,
+	ExecuteFunction extends (...args: any) => any = (...args: any) => any,
+	TOOL_CONTEXT = undefined,
+> = (context: ToolExecutionContext<{ inputSchema: InputSchema; context: CONTEXT; toolContextSchema: TOOL_CONTEXT extends undefined ? undefined : FlexibleSchema<TOOL_CONTEXT> }>) => OutputSchema extends SchemaType<any>
+	? InferInputSchema<OutputSchema> | PromiseLike<InferInputSchema<OutputSchema>> : ReturnType<ExecuteFunction>;

@@ -59,7 +59,7 @@
 		"test:local": "mocha",
 		"test:file": "mocha --no-config --node-option import=tsx/esm --node-option conditions=casai-source --require dotenv/config",
 		"test:coverage": "c8 npm run test:local -- --timeout 10000 --reporter dot && c8 check-coverage --include src/augment-result.ts --per-file --lines 100 --statements 100 --functions 100 --branches 98",
-		"test:phase2-production": "node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
+		"test:phase2-production": "node tests/fixtures/phase2-factory-cost.cjs && node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
 		"test:package": "npm run build && node tests/fixtures/phase2-package-consumer.cjs",
 		"test:watch": "npm run test:local -- --watch",
 		"check": "npm run test:types && npm run lint && npm run test:coverage",
@@ -70,9 +70,7 @@
 		"include": [
 			"src/*.ts",
 			"src/factories/*.ts",
-			"src/types/config.ts",
-			"src/types/merge.ts",
-			"src/types/schemas.ts"
+			"src/types/merge.ts"
 		],
 		"reporter": [
 			"text",

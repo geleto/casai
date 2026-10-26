@@ -1,8 +1,9 @@
-import { jsonSchema } from 'ai';
+import type { SchemaType, InferInputSchema, InferSchema } from './types/schema.js';
 import type { Schema } from 'ai';
-import type { InferInputSchema, InferSchema, SchemaType } from './types/types.js';
+import { jsonSchema } from 'ai';
 import { ConfigError, ValidationError } from './errors.js';
 import { parseSchema, validateSchemaVersion } from './schema.js';
+
 export { makeSharedIterable } from 'cascada-engine';
 
 // A structural marker preserves runtime and declaration compatibility across copies.

@@ -1,7 +1,5 @@
+import type { EmptyMap } from './utils.js';
 import type { ILoaderAny } from 'cascada-engine';
-
-// eslint-disable-next-line @typescript-eslint/no-generated-empty-object-type -- An absent map has no keys.
-export type EmptyMap = Record<never, never>;
 
 // These maps merge by key. Values within each map are replaced, not deep-merged.
 export const configMapKeys = ['context', 'filters', 'tools', 'toolsContext'] as const;

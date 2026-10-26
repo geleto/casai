@@ -188,7 +188,7 @@ describe('Config merging', () => {
 				create.Template.asTool({ inputSchema, template: 'x', type: 'function' });
 			}
 			// The runtime agrees: a Function fragment cannot configure a text generator.
-			expect(() => create.TextGenerator({ model, prompt: 'x' } as never, create.Config({ execute: () => 'x' }) as never)).to.throw(/execute/);
+			expect(() => { Reflect.apply(create.TextGenerator, undefined, [{ model, prompt: 'x' }, create.Config({ execute: () => 'x' })]); }).to.throw(/execute/);
 		});
 	});
 });

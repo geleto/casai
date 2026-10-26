@@ -1,70 +1,54 @@
-import { mergeConfigs, processConfig } from '../config-utils.js';
-import type * as configs from '../types/config.js';
-import type { ValidateConfigFragment } from '../types/config-validation.js';
+import type { MergedConfig, ProcessedConfig } from '../types/merge.js';
+import type { EmptyMap } from '../types/utils.js';
+import type { SchemaConfigInferShape, ConfigSchemas } from '../types/factory-config.js';
 import type { ToolSet } from 'ai';
-import type { EmptyMap, ProcessedConfig } from '../types/merge.js';
-import type { Provisional, ResolvedConfig } from '../types/provisional.js';
-import type { AnyConfigCallbackInput } from '../types/callbacks.js';
-import type { ConfigInferDefinition, SchemaConfigInferShape, ConfigSchemas, AnyConfigExecuteContext } from '../types/function-config.js';
-import type * as types from '../types/types.js';
+import type { AnyConfigCallbackInput, ConfigCallbackOutput } from '../types/callbacks.js';
+import type { ValidateConfigFragment } from '../types/config-validation.js';
+import type { AnyConfigExecuteContext, ConfigInferDefinition } from '../types/function-config.js';
+import type { ResolvedConfig } from '../types/provisional.js';
+import { mergeConfigs, processConfig } from '../config-utils.js';
 import { validateAnyConfig, validateConfigBasics } from '../validate.js';
+import type * as configs from '../types/config.js';
 
-// Specialize schema presence before inferring schema-dependent callbacks.
-type ConfigSignature = <
-	TSchemaPresence extends object,
-	TConfig extends Provisional<object>,
-	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>,
-	OUTPUT,
-	ENUM extends string = string,
-	TSchemaOutput extends types.SchemaType<any> | undefined = never,
-	CONTEXT extends Record<string, any> | undefined = undefined,
-	TCallbackTools extends configs.ToolRegistry | undefined = never,
-	TCallbackRuntime extends Record<string, unknown> | undefined = never,
-	TCallbackOutput extends types.AIOutput | 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
-	TCallbackEnum extends readonly string[] | undefined = never,
-	TToolsContext extends object = EmptyMap,
+// One authoring contract for Config's standalone and inherited calls.
+// Keep the explicit object constraint: the all-optional family shape alone can
+// let invalid arguments fall back to its provisional type and skip validation.
+type ConfigFactory = <
+	TConfig extends object & configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, ENUM>,
+	// No parent leaves this at never; NoInfer avoids expanding its bound during inference.
+	TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>> = never,
+
+	TSchemaPresence extends object = object,
 	TSchemaInput = never,
+	TSchemaOutput = never,
 	TSchemaContext = never,
+
+	TCallbackTools extends configs.ToolRegistry | undefined = never,
+	TToolsContext extends object = EmptyMap,
+	CONTEXT extends Record<string, any> | undefined = undefined,
+	TCallbackRuntime extends Record<string, unknown> | undefined = never,
+	TCallbackOutput extends ConfigCallbackOutput | undefined = never,
+	TCallbackEnum extends readonly string[] | undefined = never,
+	// Preserve literal alternatives in mutable enum arrays.
+	ENUM extends string = string,
 >(
 	config:
-		NoInfer<configs.AnyConfigInferShape<TOOLS, INPUT, OUTPUT, ENUM>> & SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined }, toolsContext?: TToolsContext, context?: CONTEXT } &
-		TConfig &
-		AnyConfigCallbackInput<TConfig, EmptyMap, TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum> &
-		NoInfer<AnyConfigExecuteContext<ConfigInferDefinition<EmptyMap, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, CONTEXT, TCallbackTools, TToolsContext>, TConfig>> &
-		ValidateConfigFragment<TConfig, TConfig, Partial<configs.AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>>,
-) => configs.ConfigProvider<ProcessedConfig<ResolvedConfig<TConfig>>>;
-
-type ParentConfigSignature = <
-	TSchemaPresence extends object,
-	TConfig extends Provisional<object>,
-	TParentConfig extends object,
-	TOOLS extends ToolSet,
-	INPUT extends Record<string, any>,
-	OUTPUT,
-	ENUM extends string = string,
-	TSchemaOutput extends types.SchemaType<any> | undefined = never,
-	CONTEXT extends Record<string, any> | undefined = undefined,
-	TCallbackTools extends configs.ToolRegistry | undefined = never,
-	TCallbackRuntime extends Record<string, unknown> | undefined = never,
-	TCallbackOutput extends types.AIOutput | 'object' | 'array' | 'enum' | 'no-schema' | undefined = never,
-	TCallbackEnum extends readonly string[] | undefined = never,
-	TToolsContext extends object = EmptyMap,
-	TSchemaInput = never,
-	TSchemaContext = never,
->(
-	config:
-		NoInfer<configs.AnyConfigInferShape<TOOLS, INPUT, OUTPUT, ENUM>> & SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined }, toolsContext?: TToolsContext, context?: CONTEXT } &
-		TConfig &
-		AnyConfigCallbackInput<TConfig, TParentConfig, TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum> &
-		NoInfer<AnyConfigExecuteContext<ConfigInferDefinition<TParentConfig, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, CONTEXT, TCallbackTools, TToolsContext>, TConfig>> &
-		ValidateConfigFragment<TConfig, configs.MergedConfig<TParentConfig, TConfig>, Partial<configs.AnyConfigShape<ToolSet, INPUT, OUTPUT, ENUM>>>,
-	parent: configs.ConfigProvider<TParentConfig> & NoInfer<
-		[TParentConfig] extends [configs.AnyConfigInferShape<ToolSet, INPUT, OUTPUT, ENUM>]
-		? unknown : 'Parent Config Error: Parent properties must match a supported component configuration.'>
-) => configs.ConfigProvider<configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>>;
-
-type ConfigFactory = ConfigSignature & ParentConfigSignature;
+		// Infer schema presence and independent settings before dependent callbacks.
+		SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>
+		& { toolsContext?: TToolsContext, context?: CONTEXT }
+		& TConfig
+		& AnyConfigCallbackInput<TConfig, [TParentConfig] extends [never] ? EmptyMap : TParentConfig,
+			TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum>
+		& NoInfer<AnyConfigExecuteContext<ConfigInferDefinition<[TParentConfig] extends [never] ? EmptyMap : TParentConfig,
+			ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, CONTEXT, TCallbackTools, TToolsContext>, TConfig>>
+		// Check supplied and inherited settings after inference has completed.
+		& ValidateConfigFragment<TConfig, [TParentConfig] extends [never] ? TConfig : MergedConfig<TParentConfig, TConfig>,
+			Partial<configs.AnyConfigShape<ToolSet, Record<string, any>, unknown, string>>>,
+	...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig>]
+) => configs.ConfigProvider<[TParentConfig] extends [never]
+	? ProcessedConfig<ResolvedConfig<TConfig>>
+	// The expected return type must not infer a parent that was never supplied.
+	: MergedConfig<NoInfer<TParentConfig>, ResolvedConfig<TConfig>>>;
 
 // Implementation
 export const Config = (function Config(

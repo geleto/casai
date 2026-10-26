@@ -1,23 +1,41 @@
-import { ValidationError } from './errors.js';
-import type { Context } from './types/types.js';
-import * as configs from './types/config.js';
+import type { PromptType, TextPromptType, AnyPromptSource, PromptValue } from './types/prompt.js';
+import type { Context } from './types/utils.js';
+import type { BaseConfig } from './types/config.js';
+import type { ComponentExecutionOptions, PrepareStep, PrepareStepOptions } from './types/sdk.js';
+import type { LanguageModel, ModelMessage } from 'ai';
 import type { ValidateRunConfig } from './types/config-validation.js';
 import type { ContextArguments, RunContext, ComponentCall } from './types/input.js';
 import type { ProcessedConfig } from './types/merge.js';
 import type { FunctionRunPrompt } from './types/function-prompt.js';
+import type { ILoaderAny } from 'cascada-engine';
+import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry } from './types/execution.js';
+import { ValidationError } from './errors.js';
+import type * as configs from './types/config.js';
 import { validateLLMComponentCall, validateLoadedTextPrompt } from './validate.js';
 import { extractCallArguments } from './call-arguments.js';
-import * as utils from './types/utils.js';
-import type { LanguageModel, ModelMessage } from 'ai';
-import { RequiredPromptType, AnyPromptSource } from './types/types.js';
 import { AsyncEnvironment, NotFoundError } from 'cascada-engine';
-import type { ILoaderAny } from 'cascada-engine';
 import { createPromptRenderer } from './prompt-renderers.js';
 import { defineTool, descriptorKeys, namedArguments, prepareExecution, prepareRegistry, validateRegistryConfig } from './execution.js';
-import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry } from './types/execution.js';
 import { mergeConfigs } from './config-utils.js';
 import { requireContextObject } from './schema.js';
-import type { PrepareStep, PrepareStepOptions } from './types/sdk.js';
+
+// Shared configuration fields used by the LLM run() implementation.
+type LLMRunConfig = Partial<BaseConfig> & Pick<ComponentExecutionOptions, 'abortSignal'> & {
+	messages?: ModelMessage[] | undefined;
+	prompt?: AnyPromptSource;
+	context?: Context;
+};
+
+// These settings are fixed when the component is created.
+const fixedRunSettings = [
+	'schema', 'output', 'enum',
+	'inputSchema', 'toolContextSchema', 'promptType',
+	'filters', 'renderOptions', 'loader',
+] as const;
+
+type RunConfigDisallowedProperties = typeof fixedRunSettings[number];
+
+type EnsurePromise<T> = T extends Promise<any> ? T : Promise<T>;
 
 // Remove Casai's settings and outer tool metadata; all native model options pass through.
 const componentSettings = [
@@ -26,13 +44,13 @@ const componentSettings = [
 ];
 
 // Plain-text components call the SDK directly: a streamer's result is returned as is, not wrapped in a promise.
-type LLMResult<TResult, TPromptType extends RequiredPromptType> = TPromptType extends 'text' | 'text-name' ? TResult : utils.EnsurePromise<TResult>;
+type LLMResult<TResult, TPromptType extends PromptType> = TPromptType extends TextPromptType ? TResult : EnsurePromise<TResult>;
 
-type RunPrompt<TConfig, TPromptType extends RequiredPromptType, PROMPT> = TPromptType extends 'function'
+type RunPrompt<TConfig, TPromptType extends PromptType, PROMPT> = TPromptType extends 'function'
 	? unknown
 	: TConfig extends { prompt: AnyPromptSource }
 	? unknown
-	: TPromptType extends 'text' | 'text-name'
+	: TPromptType extends TextPromptType
 	? TConfig extends { messages: ModelMessage[] } ? unknown : { prompt: PROMPT } | { messages: ModelMessage[] }
 	: { prompt: PROMPT };
 
@@ -53,15 +71,15 @@ interface LLMComponent<TConfig, TResult, TAllowedConfigShape> {
 export type LLMCallSignature<
 	TConfig,
 	TResult,
-	TPromptType extends RequiredPromptType = RequiredPromptType,
+	TPromptType extends PromptType = PromptType,
 	PROMPT extends AnyPromptSource = string,
 	TConfigShape = Record<string, any>,
-	TAllowedConfigShape = Omit<Partial<TConfigShape>, configs.RunConfigDisallowedProperties> & Pick<configs.LLMRunConfig, 'abortSignal'>
-> = LLMComponent<TConfig, LLMResult<TResult, TPromptType>, (TPromptType extends 'function' ? Omit<TAllowedConfigShape, 'prompt'> & FunctionRunPrompt<TConfig> : TAllowedConfigShape) & RunPrompt<TConfig, TPromptType, PROMPT> & (TPromptType extends 'text' | 'text-name' ? unknown : RunContext<TConfig>)> & (TPromptType extends 'text' | 'text-name'
+	TAllowedConfigShape = Omit<Partial<TConfigShape>, RunConfigDisallowedProperties> & Pick<LLMRunConfig, 'abortSignal'>
+> = LLMComponent<TConfig, LLMResult<TResult, TPromptType>, (TPromptType extends 'function' ? Omit<TAllowedConfigShape, 'prompt'> & FunctionRunPrompt<TConfig> : TAllowedConfigShape) & RunPrompt<TConfig, TPromptType, PROMPT> & (TPromptType extends TextPromptType ? unknown : RunContext<TConfig>)> & (TPromptType extends TextPromptType
 	? (
 		// TConfig has no template, no context argument is needed
 		// We can have either a prompt or messages, but not both. No context as nothing is rendered.
-		TConfig extends { prompt: string | ModelMessage[] } | { messages: ModelMessage[] }
+		TConfig extends { prompt: PromptValue } | { messages: ModelMessage[] }
 		? {
 			// Optional prompt/messages
 			(prompt: string, messages?: ModelMessage[]): TResult;
@@ -79,17 +97,17 @@ export type LLMCallSignature<
 	? (
 		// Function-based renderers only accept a context object.
 		// Overriding the prompt function with a one-off string is ambiguous.
-		import('./types/application.js').ApplicationCaller<TConfig, Awaited<TResult>>
+		import('./types/input.js').ComponentCaller<TConfig, Awaited<TResult>>
 	)
 	: (
 		// TConfig has template or script or function; return type is always a promise
 		// we can have a prompt and/or messages at the same time (prompt are required and get rendered).
-		ComponentCall<RenderedArguments<TConfig, PROMPT>, utils.EnsurePromise<TResult>, true, TConfig>
+		ComponentCall<RenderedArguments<TConfig, PROMPT>, EnsurePromise<TResult>, true, TConfig>
 	));
 
 // The SDK owns model execution. Casai prepares context and source, then dispatches once.
 export function _createLLMComponent<
-	TConfig extends { debug?: boolean; model: LanguageModel; promptType?: RequiredPromptType; prompt?: AnyPromptSource; messages?: ModelMessage[]; context?: Context; loader?: unknown } & Pick<configs.LLMRunConfig, 'abortSignal'>,
+	TConfig extends { debug?: boolean; model: LanguageModel; promptType?: PromptType; prompt?: AnyPromptSource; messages?: ModelMessage[]; context?: Context; loader?: unknown } & Pick<LLMRunConfig, 'abortSignal'>,
 	TResult,
 >(config: TConfig, execute: (config: TConfig, conversation: ModelMessage[]) => TResult,
 	{ type, streaming, toolValue }: { type: string; streaming: boolean; toolValue?: (result: Awaited<TResult>) => unknown },
@@ -100,7 +118,7 @@ export function _createLLMComponent<
 	const renderer = rendered ? createPromptRenderer(config as TConfig & configs.CascadaConfig) : undefined;
 	const loader = promptType === 'text-name' ? new AsyncEnvironment(config.loader as ILoaderAny | ILoaderAny[]) : undefined;
 	const base = config as TConfig & ExecutionConfig;
-	function dispatch(settings: TConfig & ExecutionConfig, prompt: string | ModelMessage[] | undefined, history: ModelMessage[] | undefined, registry: PreparedToolRegistry): TResult {
+	function dispatch(settings: TConfig & ExecutionConfig, prompt: PromptValue | undefined, history: ModelMessage[] | undefined, registry: PreparedToolRegistry): TResult {
 		const promptMessages: ModelMessage[] = Array.isArray(prompt) ? [...prompt] : typeof prompt === 'string' ? [{ role: 'user', content: prompt }] : [];
 		const request = { ...settings, prompt };
 		for (const key of componentSettings) Reflect.deleteProperty(request, key);
@@ -128,7 +146,7 @@ export function _createLLMComponent<
 			throw error;
 		}
 	}
-	function invoke(settings: configs.LLMRunConfig = {}, prepared?: { context: PreparedExecutionContext; registry: PreparedToolRegistry }): TResult | Promise<TResult> {
+	function invoke(settings: LLMRunConfig = {}, prepared?: { context: PreparedExecutionContext; registry: PreparedToolRegistry }): TResult | Promise<TResult> {
 		settings.abortSignal?.throwIfAborted();
 		settings = { ...settings };
 		if (settings.prompt === undefined) delete settings.prompt;
@@ -144,14 +162,14 @@ export function _createLLMComponent<
 		})();
 		const registry = prepared?.registry ?? prepareRegistry(merged);
 		if (loader) return load(merged.prompt).then(prompt => dispatch(merged, prompt, history, registry));
-		return dispatch(merged, merged.prompt as string | ModelMessage[] | undefined, history, registry);
+		return dispatch(merged, merged.prompt as PromptValue | undefined, history, registry);
 	}
 	function run(...args: unknown[]): TResult | Promise<TResult> {
 		const perform = () => {
 			const normalized = namedArguments(args);
 			if (normalized.length > 1) throw new ValidationError('A component run accepts one settings object.');
-			const settings = requireContextObject(normalized[0]) as configs.LLMRunConfig;
-			const fixed = configs.fixedRunSettings.filter(key => Object.hasOwn(settings, key));
+			const settings = requireContextObject(normalized[0]) as LLMRunConfig;
+			const fixed = fixedRunSettings.filter(key => Object.hasOwn(settings, key));
 			if (fixed.length) throw new ValidationError(`Settings fixed at component creation cannot be overridden: ${fixed.join(', ')}.`);
 			return invoke(settings);
 		};
@@ -164,7 +182,7 @@ export function _createLLMComponent<
 		const perform = () => {
 			const normalized = namedArguments(args);
 			if (normalized.length > 3) throw new ValidationError('Unexpected component arguments.');
-			const tuple = normalized as [string | ModelMessage[] | Context | undefined, (ModelMessage[] | Context)?, Context?];
+			const tuple = normalized as [PromptValue | Context | undefined, (ModelMessage[] | Context)?, Context?];
 			const { prompt, messages, context } = extractCallArguments(...tuple);
 			if (promptType === 'function' && (prompt !== undefined || messages !== undefined || tuple[1] !== undefined || tuple[2] !== undefined)) {
 				throw new ValidationError('Function-prompt components only accept a context object.');

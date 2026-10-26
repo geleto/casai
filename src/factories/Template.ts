@@ -1,54 +1,48 @@
-import type { SchemaConfigInferShape, ConfigSchemas } from '../types/function-config.js';
-import type { FlexibleSchema } from 'ai';
+import type { EmptyMap } from '../types/utils.js';
+import type { SchemaConfigInferShape, ConfigSchemas, FinalConfig, CallbackParent } from '../types/factory-config.js';
+import type { ComponentToolFromConfig } from '../types/tool-binding.js';
+import type { TemplatePromptType } from '../types/prompt.js';
+import type { ToolConfigShape, TemplateConfig, ToolContextSchemaConfig } from '../types/config.js';
 import type { DescriptorInput } from '../types/callbacks.js';
+import type { ComponentRun, SourceSetting, RendererCall } from '../types/input.js';
+import type { ValidateResolved } from '../types/provisional.js';
+import type { ProcessedConfig } from '../types/merge.js';
+import type { ValidateTemplateConfig, ValidateTemplateParentConfig } from '../types/config-validation.js';
 import { validateRegistryConfig, defineTool, namedArguments, prepareExecution, runSettings } from '../execution.js';
 import { ValidationError } from '../errors.js';
 import { TemplateEngine } from '../TemplateEngine.js';
 import { mergeConfigs, processConfig } from '../config-utils.js';
 import { validateTemplateConfig } from '../validate.js';
-import * as configs from '../types/config.js';
-import * as utils from '../types/utils.js';
-import * as results from '../types/result.js';
-import type { TemplatePromptType } from '../types/types.js';
-import type { ApplicationRun, SourceSetting } from '../types/application.js';
-import type { RendererCall } from '../types/input.js';
-import type { Provisional, ResolvedConfig } from '../types/provisional.js';
-import type { ProcessedConfig } from '../types/merge.js';
-import type { RequiredInheritedConfig, ValidateTemplateConfig, ValidateTemplateParentConfig } from '../types/config-validation.js';
+import type * as configs from '../types/config.js';
 
-export type TemplateCallSignature<
-	TConfig extends configs.ToolConfigShape<Partial<configs.TemplateConfig<INPUT>>>,
-	INPUT extends Record<string, any>//only INPUT, the output is string
-> = RendererCall<TConfig, Promise<string>, 'template'> & { config: ProcessedConfig<TConfig>; type: string; run: ApplicationRun<TConfig, string, SourceSetting<TConfig, 'template'>> };
+type FinalTemplateConfigShape = Partial<ToolConfigShape<TemplateConfig<any> & ToolContextSchemaConfig<any>>>;
 
-export type TemplateCallSignatureWithParent<
-	TConfig extends configs.ToolConfigShape<Partial<configs.TemplateConfig<INPUT>>>,
-	TParentConfig extends configs.ToolConfigShape<Partial<configs.TemplateConfig<PARENT_INPUT>>>,
-	INPUT extends Record<string, any>, //only INPUT, the output is string
-	PARENT_INPUT extends Record<string, any>,
-	FinalConfig = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>
-> = RendererCall<FinalConfig, Promise<string>, 'template'> & { config: FinalConfig; type: string; run: ApplicationRun<FinalConfig, string, SourceSetting<FinalConfig, 'template'>> };
+type FactoryConfig<Named extends boolean, AsTool extends boolean> =
+	(AsTool extends true ? configs.TemplateToolConfig<Record<string, any>> : configs.TemplateConfig<Record<string, any>>) & (Named extends true ? configs.LoaderConfig : EmptyMap);
 
-// Default behavior: inline/embedded template
-function withTemplate<
-	TConfig extends Provisional<configs.TemplateConfig<INPUT>>,
-	INPUT extends Record<string, any>
+type TemplateCallSignature<TConfig> = RendererCall<TConfig, Promise<string>, 'template'> & {
+	config: ProcessedConfig<TConfig>;
+	type: string;
+	run: ComponentRun<TConfig, string, SourceSetting<TConfig, 'template'>>;
+};
+
+type TemplateFactory<Named extends boolean = false, AsTool extends boolean = false> = <
+	TConfig extends object & configs.ToolConfigInferShape<FactoryConfig<Named, AsTool>>,
+	TParentConfig extends object & NoInfer<configs.ParentToolConfigInferShape<FactoryConfig<Named, AsTool>>> = never,
+
+	TSchemaPresence extends object = object,
+	TSchemaInput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & ValidateTemplateConfig<
-		TConfig, TConfig, configs.TemplateConfig<INPUT>
-	>
-): TemplateCallSignature<TConfig, INPUT>;
-
-function withTemplate<
-	TConfig extends Provisional<Partial<configs.TemplateConfig<INPUT>>>,
-	TParentConfig extends Partial<configs.TemplateConfig<PARENT_INPUT>>,
-	INPUT extends Record<string, any>,
-	PARENT_INPUT extends Record<string, any>,
-	TFinalConfig extends configs.FinalTemplateConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>
->(
-	config: TConfig & RequiredInheritedConfig<TParentConfig, { template: string }> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateConfig<INPUT>>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTemplateParentConfig<TParentConfig, configs.TemplateConfig<PARENT_INPUT>>>
-): TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT>;
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, never, TSchemaContext> & TConfig
+		& (AsTool extends true ? DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, never, TSchemaContext>, CallbackParent<TParentConfig>, string> : unknown)
+		& ValidateTemplateConfig<TConfig, FinalConfig<TParentConfig, TConfig>, FactoryConfig<Named, AsTool>>
+		& ValidateResolved<TConfig, [FinalConfig<TParentConfig, TConfig>] extends [FinalTemplateConfigShape]
+			? unknown : 'Config Error: Invalid template settings.'>,
+	...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig
+		& ValidateTemplateParentConfig<TParentConfig, FactoryConfig<Named, AsTool>>>]
+) => TemplateCallSignature<FinalConfig<TParentConfig, TConfig>>
+	& (AsTool extends true ? ComponentToolFromConfig<Record<string, any>, string, FinalConfig<TParentConfig, TConfig>> : unknown);
 
 function withTemplate(
 	config: configs.TemplateConfig<any>,
@@ -57,63 +51,12 @@ function withTemplate(
 	return _createTemplate(config, 'async-template', parent, false);
 }
 
-// loadsTemplate: load by name via provided loader
-function loadsTemplate<
-	TConfig extends Provisional<configs.NamedTemplateConfig<INPUT>>,
-	INPUT extends Record<string, any>
->(
-	config: TConfig & ValidateTemplateConfig<
-		TConfig, TConfig, configs.TemplateConfig<INPUT> & configs.LoaderConfig
-	>
-): TemplateCallSignature<TConfig, INPUT>;
-
-function loadsTemplate<
-	TConfig extends Provisional<Partial<configs.TemplateConfig<INPUT> & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.TemplateConfig<PARENT_INPUT> & configs.LoaderConfig>,
-	INPUT extends Record<string, any>,
-	PARENT_INPUT extends Record<string, any>,
-	TFinalConfig extends configs.FinalTemplateConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>
->(
-	config: TConfig & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateConfig<INPUT> & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTemplateParentConfig<TParentConfig, configs.TemplateConfig<PARENT_INPUT> & configs.LoaderConfig>>
-): TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT>;
-
 function loadsTemplate(
 	config: Partial<configs.TemplateToolConfig<any> & configs.LoaderConfig>,
 	parent?: configs.ConfigProvider<Partial<configs.TemplateToolConfig<any> & configs.LoaderConfig>>
 ): any {
 	return _createTemplate(config, 'async-template-name', parent, false);
 }
-
-// asTool method for Template
-function withTemplateAsTool<
-	TSchemaPresence extends object,
-	TConfig extends configs.ToolConfigInferShape<configs.TemplateToolConfig<INPUT, any>>,
-	INPUT extends Record<string, any>,
-	TSchemaInput = never,
-	TSchemaOutput = never,
-	TSchemaContext = never,
->(
-	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, import('../types/merge.js').EmptyMap, string> & ValidateTemplateConfig<
-		TConfig, TConfig, configs.TemplateToolConfig<INPUT, any>
-	>
-): TemplateCallSignature<TConfig, INPUT> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
-
-function withTemplateAsTool<
-	TSchemaPresence extends object,
-	TConfig extends configs.ToolConfigInferShape<Partial<configs.TemplateToolConfig<INPUT, any>>>,
-	TParentConfig extends Partial<configs.TemplateToolConfig<PARENT_INPUT, any>>,
-	INPUT extends Record<string, any>,
-	PARENT_INPUT extends Record<string, any>,
-	FINAL_INPUT = utils.Override<PARENT_INPUT, INPUT>,
-	TFinalConfig extends configs.FinalTemplateConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
-	TSchemaInput = never,
-	TSchemaOutput = never,
-	TSchemaContext = never,
->(
-	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & RequiredInheritedConfig<TParentConfig, { template: string; inputSchema: FlexibleSchema<Record<string, any>> }> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, string> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateToolConfig<INPUT, any>>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTemplateParentConfig<TParentConfig, configs.TemplateToolConfig<PARENT_INPUT, any>>>
-): TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
 function withTemplateAsTool(
 	config: Partial<configs.TemplateToolConfig<any>>,
@@ -122,38 +65,6 @@ function withTemplateAsTool(
 	return _createTemplate(config, 'async-template', parent, true);
 }
 
-// Overload 1: With a standalone config
-function loadsTemplateAsTool<
-	TSchemaPresence extends object,
-	TConfig extends configs.ToolConfigInferShape<configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>,
-	INPUT extends Record<string, any>,
-	TSchemaInput = never,
-	TSchemaOutput = never,
-	TSchemaContext = never,
->(
-	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, import('../types/merge.js').EmptyMap, string> & ValidateTemplateConfig<
-		TConfig, TConfig, configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig
-	>
-): TemplateCallSignature<TConfig, INPUT> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
-
-// Overload 2: With a parent config
-function loadsTemplateAsTool<
-	TSchemaPresence extends object,
-	TConfig extends configs.ToolConfigInferShape<Partial<configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>>,
-	TParentConfig extends Partial<configs.TemplateToolConfig<PARENT_INPUT, any> & configs.LoaderConfig>,
-	INPUT extends Record<string, any>,
-	PARENT_INPUT extends Record<string, any>,
-	FINAL_INPUT = utils.Override<PARENT_INPUT, INPUT>,
-	TFinalConfig extends configs.FinalTemplateConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
-	TSchemaInput = never,
-	TSchemaOutput = never,
-	TSchemaContext = never,
->(
-	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & RequiredInheritedConfig<TParentConfig, { template: string; inputSchema: FlexibleSchema<Record<string, any>>; loader: configs.LoaderConfig['loader'] }> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, string> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>,
-	parent: configs.ConfigProvider<TParentConfig & ValidateTemplateParentConfig<TParentConfig, configs.TemplateToolConfig<PARENT_INPUT, any> & configs.LoaderConfig>>
-): TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
-
-// Implementation
 function loadsTemplateAsTool(
 	config: Partial<configs.TemplateToolConfig<any> & configs.LoaderConfig>,
 	parent?: configs.ConfigProvider<Partial<configs.TemplateToolConfig<any> & configs.LoaderConfig>>,
@@ -161,7 +72,6 @@ function loadsTemplateAsTool(
 	return _createTemplate(config, 'async-template-name', parent, true);
 }
 
-// Internal common creator for template renderer
 function _createTemplate(
 	config: Partial<configs.TemplateConfig<any>>,
 	promptType: TemplatePromptType,
@@ -197,7 +107,7 @@ function _createTemplate(
 	return isTool ? defineTool(component, context => engine.render(undefined, context)) : component;
 }
 
-export const Template = Object.assign(withTemplate, {
-	loadsTemplate: Object.assign(loadsTemplate, { asTool: loadsTemplateAsTool }),
-	asTool: withTemplateAsTool,
+export const Template = Object.assign(withTemplate as TemplateFactory, {
+	loadsTemplate: Object.assign(loadsTemplate as TemplateFactory<true>, { asTool: loadsTemplateAsTool as TemplateFactory<true, true> }),
+	asTool: withTemplateAsTool as TemplateFactory<false, true>,
 });

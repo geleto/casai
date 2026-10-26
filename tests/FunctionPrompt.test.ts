@@ -53,6 +53,24 @@ describe('withFunction prompts', () => {
 	const describeItem = (context: Context) =>
 		`Generate an object with name "${context.name}" and value ${context.value}.`;
 
+	for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectStreamer'] as const) {
+		it(`${factory} rejects missing or cleared function prompts before dispatch`, () => {
+			const model = mockModel('unused');
+			const settings = { model, ...(factory === 'ObjectStreamer' ? { schema: itemSchema } : {}) };
+			const cases = [
+				[settings],
+				[{}, { config: settings }],
+				[{ prompt: undefined }, { config: settings }],
+				[{ prompt: undefined }, { config: { ...settings, prompt: describeItem } }],
+			];
+			for (const args of cases) {
+				expect(() => { Reflect.apply(create[factory].withFunction, undefined, args); })
+					.to.throw(ConfigError, /prompt.*must be a function/);
+			}
+			expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
+		});
+	}
+
 	describe('create.TextGenerator.withFunction', () => {
 		it('should build the prompt from the call-time context', async () => {
 			const model = mockModel('FN_TEXT');
@@ -332,6 +350,23 @@ describe('withFunction prompts', () => {
 	});
 
 	describe('create.ObjectGenerator.withFunction', () => {
+		it('rejects missing or cleared prompt callbacks before model dispatch', () => {
+			const model = mockModel('{"name":"unused","value":0}');
+			const settings = { model, schema: itemSchema };
+			const cases = [
+				[settings],
+				[{}, { config: settings }],
+				[{ prompt: undefined }, { config: settings }],
+				[{ prompt: undefined }, { config: { ...settings, prompt: describeItem } }],
+			];
+			for (const args of cases) {
+				// Exercise the JavaScript boundary independently of compile-time rejection.
+				expect(() => { Reflect.apply(create.ObjectGenerator.withFunction, undefined, args); })
+					.to.throw(ConfigError, /prompt.*must be a function/);
+			}
+			expect(model.doGenerateCalls).to.have.length(0);
+		});
+
 		it('should merge the configured and call-time context', async () => {
 			const model = mockModel('{"name":"FnObject","value":7}');
 			const generator = create.ObjectGenerator.withFunction({

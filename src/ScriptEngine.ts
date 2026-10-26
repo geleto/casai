@@ -1,8 +1,10 @@
+import type { ScriptPromptType } from './types/prompt.js';
+import type { CascadaLoaders } from './types/cascada.js';
+import type { Context } from './types/utils.js';
+import type { SchemaType } from './types/schema.js';
 import * as cascada from 'cascada-engine';
-import { Context, SchemaType, ScriptPromptType } from './types/types.js';
-import { ScriptConfig } from './types/config.js';
-import * as results from './types/result.js';
-import * as types from './types/types.js';
+import type { ScriptConfig } from './types/config.js';
+import type * as results from './types/result.js';
 import { validateAndParseOutput } from './validate.js';
 
 import { ScriptError } from './errors.js';
@@ -28,7 +30,7 @@ export class ScriptEngine<
 
 		try {
 			const options = { ...this.config.renderOptions, autoescape: this.config.renderOptions?.autoescape ?? false };
-			const loader = (this.config.loader as types.CascadaLoaders | undefined) ?? null;
+			const loader = (this.config.loader as CascadaLoaders | undefined) ?? null;
 			this.env = new cascada.AsyncEnvironment(loader, options);
 
 			if (this.config.filters) {

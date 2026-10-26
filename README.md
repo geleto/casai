@@ -851,6 +851,8 @@ The added properties are lazy and non-enumerable, like the SDK's result getters.
 
 ObjectGenerator and ObjectStreamer use the SDK's JSON output format. The obsolete `mode` setting is not supported in configuration or `.run()`.
 
+These factories currently call the SDK's deprecated `generateObject`/`streamObject`, so SDK deprecation warnings are expected until their planned Phase 3 replacement by LLMAgent using `generateText`/`streamText` and SDK `Output` specifications.
+
 #### How to Create It
 Like `TextGenerator`, it can operate on a single `prompt` or be given a conversational history via the `messages` property, making it useful for extracting structured data from a dialogue.
 
@@ -891,6 +893,8 @@ The `output` property in the configuration determines how the generated data is 
 - **`no-schema`**: Generates data without a schema, useful for flexible outputs. Omit the `schema` property.
 
 Additionally, you can provide `schemaName` and `schemaDescription` for better model guidance with some providers.
+
+When changing an inherited output mode, clear settings that the new mode does not use with `undefined`. For example, switching an object parent to `no-schema` requires clearing its `schema`, `schemaName`, and `schemaDescription`; switching an enum parent to object output requires clearing `enum` and supplying a schema. These are constructor overrides; `.run()` cannot change the output mode. Script components also accept `schema: undefined` to remove an inherited optional output parser.
 
 #### How to Call It
 *   **With pre-configured input**:
@@ -1031,11 +1035,25 @@ Callers supply the **input type** of `inputSchema`; `execute` receives its **par
 
 A `Function` or `Function.asTool` can inherit from a `Config` or another `Function`. A child can replace `inputSchema`, `schema`, or `execute`, and its configured `context` merges by key. `Function.asTool` can also replace `toolContextSchema`. TypeScript checks the final implementation against the resolved configuration. Every component exposes that configuration through `.config`; `component.config.execute` remains the original Function implementation.
 
+Factory parent arguments follow an omit-or-narrow rule: call `create.Function(config)` when there is no parent; narrow a `Parent | undefined` value before passing it. An explicit second argument of `undefined` is rejected by the types. Function previously allowed those optional-parent forms; its consolidated signature now follows the other factories.
+
 An optional schema property does not guarantee parsing: callback and result types include the possible unparsed values, and schema defaults may be absent. This applies to optional annotations and conditional spreads. Omitting a child schema setting inherits the parent schema; explicitly setting it to `undefined` removes it. Use `satisfies` when checking a concrete configuration against a configuration type while retaining knowledge of its supplied schemas.
 
 A `Config` can hold a partial `Function` configuration, including `execute`. Its callback is typed from the schemas and context that `Config` declares and must not contradict them; anything it leaves out is checked when a `Function` completes the configuration. Components that supply their own implementation, such as generators, templates, and their tools, reject `execute` in their own config and in a parent.
 
 Inline callbacks in a `Config`, such as `onStart`, are typed for every component the `Config` could configure: a fragment usable by both text and object generators receives either kind of event.
+
+For text configuration annotations, retain the supplied fields with `satisfies`, for example:
+
+```typescript
+import type { GenerateTextConfig } from 'casai';
+import type { ToolSet } from 'ai';
+
+const settings = { model, prompt: 'Answer the question.' } satisfies GenerateTextConfig<ToolSet, never>;
+const generator = create.TextGenerator(settings);
+```
+
+Literal-text configs use `never` for the application-input type; rendered prompts use their context input type. For an explicit annotation with tools, use `GenerateTextConfig<typeof tools, never>` or `StreamTextConfig<typeof tools, never>` so tool names remain known. Widening the entire variable to `GenerateTextConfig<ToolSet, never>` or `StreamTextConfig<ToolSet, never>` currently prevents passing it to the corresponding factory or `Config`: its optional tool selectors and callback maps can name arbitrary strings. This is a typing limitation; `satisfies` preserves the supplied shape without disabling registry checks.
 
 ## Using Components as Tools
 A powerful feature of Casai is the ability to expose almost any component as a tool that an LLM can decide to call. This allows the model to trigger complex, multi-step, or even other LLM-driven actions to fulfill a user's request.

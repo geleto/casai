@@ -19,7 +19,10 @@ type StreamedArray = Parameters<typeof streamObject<SchemaType<Answer>, 'array',
 type StreamedJSON = Parameters<typeof streamObject<SchemaType<JSONValue>, 'no-schema', JSONValue>>[0];
 
 // These keys deliberately belong to Casai's authoring/invocation contract.
-type NativeSettings<T> = Omit<T, 'prompt' | 'messages' | 'abortSignal' | 'debug' | 'description' | 'inputSchema' | 'output' | 'enum'>;
+type NativeSettings<T> = Omit<T, 'prompt' | 'messages' | 'abortSignal' | 'debug' | 'description' | 'inputSchema' | 'output' | 'enum'
+	| 'schemaName' | 'schemaDescription'
+	// Modes where these fields are unavailable accept only undefined to clear inherited settings.
+	| { [K in keyof T]: [T[K]] extends [undefined] ? K : never }[keyof T]>;
 expectEqual<NativeSettings<GenerateObjectObjectConfig<never, Answer>>, NativeSettings<GeneratedObject>>();
 expectEqual<NativeSettings<GenerateObjectArrayConfig<never, Answer>>, NativeSettings<GeneratedArray>>();
 expectEqual<NativeSettings<GenerateObjectEnumConfig<never, 'yes' | 'no'>>, NativeSettings<GeneratedEnum>>();
@@ -30,6 +33,12 @@ expectEqual<NativeSettings<StreamObjectNoSchemaConfig<never>>, NativeSettings<St
 expectEqual<GenerateObjectEnumConfig<never, 'yes' | 'no'>['enum'], Readonly<GeneratedEnum['enum']>>();
 expectEqual<GenerateObjectArrayConfig<never, Answer>['output'], NonNullable<GeneratedArray['output']>>();
 expectEqual<StreamObjectObjectConfig<never, Answer>['output'], StreamedObject['output']>();
+// Optional mode metadata also accepts explicit undefined when inheritance clears it.
+expectEqual<GenerateObjectObjectConfig<never, Answer>['schemaName'], GeneratedObject['schemaName']>();
+expectEqual<GenerateObjectObjectConfig<never, Answer>['schemaDescription'], GeneratedObject['schemaDescription']>();
+expectEqual<GenerateObjectNoSchemaConfig<never>['schema' | 'schemaName' | 'schemaDescription' | 'enum'], undefined>();
+expectEqual<GenerateObjectObjectConfig<never, Answer>['enum'], undefined>();
+expectEqual<GenerateObjectEnumConfig<never>['schema' | 'schemaName' | 'schemaDescription'], undefined>();
 
 expectEqual<Omit<GenerateObjectObjectResult<Answer>, 'value'>, Awaited<ReturnType<typeof generateObject<FlexibleSchema<Answer>, 'object'>>>>();
 expectEqual<Omit<GenerateObjectArrayResult<Answer>, 'value'>, Awaited<ReturnType<typeof generateObject<FlexibleSchema<Answer>, 'array'>>>>();

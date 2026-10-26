@@ -3,7 +3,7 @@ import { safeValidateTypes } from '@ai-sdk/provider-utils';
 import type { FlexibleSchema, InferSchema } from '@ai-sdk/provider-utils';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { JSONSchema7 } from '@ai-sdk/provider';
-import type { InferInputSchema as Raw } from '../../src/types/types.js';
+import type { InferInputSchema as Raw } from '../../src/types/schema.js';
 
 // Ordinary native protocol authoring, not a proposed Casai schema family.
 export function explicitMetadata<S extends FlexibleSchema<unknown>>(schema: S, input: JSONSchema7) {

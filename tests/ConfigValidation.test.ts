@@ -1,12 +1,90 @@
 import assert from 'node:assert/strict';
 import { expect } from 'chai';
 import { MockLanguageModelV3 } from 'ai/test';
+import { generateObject, streamObject, InvalidArgumentError } from 'ai';
 import { create, ConfigError, ValidationError, z } from './cascada';
 
 describe('Config validation', () => {
 	const model = new MockLanguageModelV3();
 	const schema = z.object({ value: z.number() });
 	const inputSchema = z.object({ name: z.string() });
+
+	const invalidOutputSettings = [
+		{ output: 'object', enum: ['YES'] },
+		{ output: 'array', enum: ['YES'] },
+		{ output: 'enum', schema },
+		{ output: 'enum', schemaName: 'Answer' },
+		{ output: 'enum', schemaDescription: 'An answer' },
+		{ output: 'no-schema', schema },
+		{ output: 'no-schema', schemaName: 'Answer' },
+		{ output: 'no-schema', schemaDescription: 'An answer' },
+		{ output: 'no-schema', enum: ['YES'] },
+	] as const;
+
+	it('rejects incompatible object output settings before preparers or provider calls', async () => {
+		const localModel = new MockLanguageModelV3();
+		let preparations = 0;
+		const prompt = () => { preparations++; return 'Answer'; };
+		for (const invalid of invalidOutputSettings) {
+			const settings = { model: localModel, ...(invalid.output === 'object' || invalid.output === 'array' ? { schema } : {}),
+				...(invalid.output === 'enum' ? { enum: ['YES'] } : {}), ...invalid };
+			// Deliberately erase types to exercise JavaScript callers and raw parent providers.
+			expect(() => { Reflect.apply(create.Config, undefined, [settings]); }).to.throw(ConfigError, /not supported/);
+			const factories = invalid.output === 'enum' ? [create.ObjectGenerator] : [create.ObjectGenerator, create.ObjectStreamer];
+			for (const factory of factories) {
+				for (const args of [[settings], [{}, { config: settings }]]) {
+					expect(() => { Reflect.apply(factory, undefined, args); }).to.throw(ConfigError, /not supported/);
+				}
+				expect(() => { Reflect.apply(factory.withFunction, undefined, [{ ...settings, prompt }]); }).to.throw(ConfigError, /not supported/);
+				expect(() => { Reflect.apply(factory.withScript, undefined, [{ ...settings, prompt: 'return "Answer"' }]); }).to.throw(ConfigError, /not supported/);
+			}
+			expect(() => { Reflect.apply(create.ObjectGenerator.withFunction.asTool, undefined, [{ ...settings, prompt, inputSchema }]); }).to.throw(ConfigError, /not supported/);
+			for (const native of invalid.output === 'enum' ? [generateObject] : [generateObject, streamObject]) {
+				// The SDK forwards metadata to its validator only when a schema property exists.
+				await assert.rejects(async () => { await Reflect.apply(native, undefined, [{ schema: undefined, ...settings, prompt: 'Answer' }]); }, InvalidArgumentError);
+			}
+		}
+		expect(preparations).to.equal(0);
+		expect(localModel.doGenerateCalls.length + localModel.doStreamCalls.length).to.equal(0);
+	});
+
+	it('preserves incomplete object fragments and clears incompatible inherited output settings', () => {
+		const enumeration = create.Config({ enum: ['YES', 'NO'] });
+		expect(create.ObjectGenerator({ model, output: 'enum' }, enumeration)).to.be.a('function');
+		const object = create.Config({ schema, schemaName: 'Answer', schemaDescription: 'An answer' });
+		expect(create.ObjectGenerator({ model }, object)).to.be.a('function');
+		expect(create.ObjectStreamer({ model }, object)).to.be.a('function');
+		expect(create.ObjectGenerator({ model, output: 'array' }, object)).to.be.a('function');
+		expect(create.ObjectStreamer({ model, output: 'array' }, object)).to.be.a('function');
+		expect(create.ObjectGenerator({ model, output: 'no-schema', schema: undefined, schemaName: undefined, schemaDescription: undefined }, object)).to.be.a('function');
+		expect(create.ObjectStreamer({ model, output: 'no-schema', schema: undefined, schemaName: undefined, schemaDescription: undefined }, object)).to.be.a('function');
+		expect(create.ObjectGenerator({ model, output: 'enum', enum: ['YES'], schema: undefined, schemaName: undefined, schemaDescription: undefined }, object)).to.be.a('function');
+		expect(create.ObjectGenerator({ model, schema, output: 'object', enum: undefined }, enumeration)).to.be.a('function');
+		expect(object.config.schema).to.equal(schema);
+		expect(enumeration.config.enum).to.deep.equal(['YES', 'NO']);
+	});
+
+	it('clears an inherited optional Script output schema on ordinary and tool paths', async () => {
+		const parent = create.Config({ script: 'return "raw"', schema: z.number() });
+		const script = create.Script({ schema: undefined }, parent);
+		const tool = create.Script.asTool({ schema: undefined, inputSchema: z.object({}) }, parent);
+		expect(await script()).to.equal('raw');
+		expect(await script.run({})).to.equal('raw');
+		expect(await tool()).to.equal('raw');
+		expect(await tool.execute({}, { toolCallId: 'call', messages: [], context: undefined })).to.equal('raw');
+		expect(script.config.schema).to.equal(undefined);
+		expect(tool.config.schema).to.equal(undefined);
+		expect(parent.config.schema).not.to.equal(undefined);
+	});
+
+	it('rejects clearing an inherited schema while selecting array output', () => {
+		const parent = create.Config({ model, schema });
+		for (const factory of [create.ObjectGenerator, create.ObjectStreamer]) {
+			expect(() => { Reflect.apply(factory, undefined, [{ schema: undefined, output: 'array' }, parent]); })
+				.to.throw(ConfigError, /requires a 'schema'/);
+		}
+		expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
+	});
 
 	it('rejects obsolete object generation mode in fragments, factories and inherited settings', () => {
 		for (const mode of ['auto', 'json', 'tool', undefined]) {
@@ -15,8 +93,8 @@ describe('Config validation', () => {
 				() => create.Config(settings as never),
 				() => create.ObjectGenerator(settings as never),
 				() => create.ObjectStreamer(settings as never),
-				() => create.ObjectGenerator({} as never, { config: settings } as never),
-				() => create.ObjectStreamer({} as never, { config: settings } as never),
+				(): unknown => Reflect.apply(create.ObjectGenerator, undefined, [{}, { config: settings }]),
+				(): unknown => Reflect.apply(create.ObjectStreamer, undefined, [{}, { config: settings }]),
 			]) expect(construct).to.throw(ConfigError, "'mode' is not supported");
 		}
 	});
@@ -60,9 +138,9 @@ describe('Config validation', () => {
 			it(`should defer required properties for ${output} output to the component`, () => {
 				const fragment = makeFragment();
 				expect(fragment.config.output).to.equal(output);
-				expect(() => create.ObjectGenerator({} as never, fragment as never)).to.throw(ConfigError, "require a 'model'");
+				expect(() => { Reflect.apply(create.ObjectGenerator, undefined, [{}, fragment]); }).to.throw(ConfigError, "require a 'model'");
 				if (output === 'object' || output === 'array') {
-					expect(() => create.ObjectGenerator({ model } as never, fragment as never)).to.throw(ConfigError, "requires a 'schema'");
+					expect(() => { Reflect.apply(create.ObjectGenerator, undefined, [{ model }, fragment]); }).to.throw(ConfigError, "requires a 'schema'");
 				}
 			});
 		}
@@ -71,7 +149,7 @@ describe('Config validation', () => {
 			const fragment = create.Config({ output: 'enum' });
 			expect(create.ObjectGenerator({ model, enum: ['YES', 'NO'], prompt: 'Answer.' }, fragment)).to.be.a('function');
 			expect(() => create.ObjectGenerator({ model } as never, fragment)).to.throw(ConfigError, "requires an 'enum'");
-			expect(() => create.ObjectStreamer({ model, enum: ['YES'] } as never, fragment as never))
+			expect(() => { Reflect.apply(create.ObjectStreamer, undefined, [{ model, enum: ['YES'] }, fragment]); })
 				.to.throw(ConfigError, 'Object streamers do not support "enum" output.');
 		});
 
@@ -114,6 +192,7 @@ describe('Config validation', () => {
 			{ name: 'script and output', config: { script: 'return 1', output: 'array' }, error: /output.*Script/ },
 			{ name: 'object output and tools', config: { output: 'array', tools: {} }, error: /tools.*Object/ },
 			{ name: 'model/schema and tools', config: { model, schema, tools: {} }, error: /tools.*Object/ },
+			{ name: 'schema, prompt and tools without a component kind', config: { schema, prompt: 'Answer.', tools: {} }, error: /do not belong to any single component/ },
 		];
 		for (const { name, config, error } of conflicts) {
 			it(`should reject ${name} in standalone and inherited fragments`, () => {
@@ -137,6 +216,16 @@ describe('Config validation', () => {
 			expect(() => create.Script({ script: 'return 1', execute: () => 1 } as never)).to.throw(ConfigError, /execute.*Script/);
 			expect(() => create.TextGenerator({ model, execute: () => 1 } as never)).to.throw(ConfigError, /execute.*Text/);
 			expect(() => create.ObjectGenerator({ model, schema, tools: {} } as never)).to.throw(ConfigError, /tools.*Object/);
+		});
+
+		it('rejects object output modes in text factories before dispatch', () => {
+			for (const factory of [create.TextGenerator, create.TextStreamer]) {
+				for (const output of ['object', 'array', 'enum', 'no-schema', null]) {
+					expect(() => { Reflect.apply(factory, undefined, [{ model, output, prompt: 'Answer.' }]); })
+						.to.throw(ConfigError, /AI SDK output specification/);
+				}
+			}
+			expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
 		});
 	});
 

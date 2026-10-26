@@ -1,10 +1,12 @@
-import type { EmptyMap } from './merge.js';
+import type { EmptyMap, UnionKeys } from './utils.js';
+import type { ValidateRunConfig } from './config-validation.js';
+import type { ComponentExecutionOptions } from './sdk.js';
+import type { ToolContexts } from './tool-binding.js';
+import type { ToolRegistryFromConfig } from './config.js';
 import type { ModelMessage } from 'ai';
+import type { ComponentInputShape, CanOmitComponentInput, ValidateComponentInput } from './component-input.js';
 
-import type { ApplicationShape, CanOmitApplicationInput, CheckApplication } from './application.js';
-export type CallContext<TConfig> = ApplicationShape<TConfig>;
-
-export type ContextArguments<TConfig, INPUT = CallContext<TConfig>> = CanOmitApplicationInput<TConfig> extends true
+export type ContextArguments<TConfig, INPUT = ComponentInputShape<TConfig>> = CanOmitComponentInput<TConfig> extends true
 	? [context?: INPUT | undefined]
 	: [context: INPUT];
 
@@ -14,7 +16,7 @@ export type ValidateContextValue<T> = 0 extends (1 & T) ? unknown
 
 // Omission must be valid across the whole configuration, not just one branch.
 type RendererArguments<TConfig, Key extends string> = [TConfig] extends [Record<Key, string>]
-	? (CanOmitApplicationInput<TConfig> extends true ? [promptOrContext?: string | CallContext<TConfig> | undefined] : ContextArguments<TConfig>)
+	? (CanOmitComponentInput<TConfig> extends true ? [promptOrContext?: string | ComponentInputShape<TConfig> | undefined] : ContextArguments<TConfig>)
 	| [prompt: string, ...args: ContextArguments<TConfig>]
 	: [prompt: string, ...args: ContextArguments<TConfig>];
 
@@ -34,14 +36,13 @@ type ContextArgument<A extends unknown[]> = A extends [infer F, ...infer Rest]
 		? Second extends readonly unknown[] | undefined ? Tail extends [infer Third] ? NonNullable<Third> : EmptyMap : Second
 		: EmptyMap : F : EmptyMap;
 
-type Keys<T> = T extends unknown ? keyof T : never;
 type ContextKeys<Args extends unknown[], FirstKeys extends PropertyKey> = [Exclude<Args[0], string | readonly unknown[] | undefined>] extends [never]
-	? Keys<ContextArgument<Args>> : FirstKeys;
+	? UnionKeys<ContextArgument<Args>> : FirstKeys;
 
 // Reflection sees an uninstantiated rest array; actual calls infer finite tuples and receive validation.
 type ValidateArguments<TArgs extends unknown[], TAllowed, Messages extends boolean, TConfig, FirstKeys extends PropertyKey> = number extends TArgs['length'] ? unknown
 	: [TArgs] extends [TAllowed] ? (Messages extends true ? ValidateMessageArguments<TArgs> : ValidateRendererArguments<TArgs>) &
-	([TConfig] extends [never] ? unknown : CheckApplication<TConfig, ContextArgument<TArgs>, ContextKeys<TArgs, FirstKeys>>) : never;
+	([TConfig] extends [never] ? unknown : ValidateComponentInput<TConfig, ContextArgument<TArgs>, ContextKeys<TArgs, FirstKeys>>) : never;
 type TailForFirst<TAllowed extends unknown[], TFirst> = unknown extends TFirst ? [] : TAllowed extends [unknown?, ...infer REST]
 	? [TFirst] extends [TAllowed[0]] ? REST : never : never;
 
@@ -61,6 +62,17 @@ export type RendererCall<TConfig, TResult, Key extends string> =
 	ComponentCall<RendererArguments<TConfig, Key>, TResult, false, TConfig>;
 
 // Named calls use the same configured-default completeness check as shorthand.
-export type RunContext<TConfig> = CanOmitApplicationInput<TConfig> extends true
-	? { context?: CallContext<TConfig> }
-	: { context: CallContext<TConfig> };
+export type RunContext<TConfig> = CanOmitComponentInput<TConfig> extends true
+	? { context?: ComponentInputShape<TConfig> }
+	: { context: ComponentInputShape<TConfig> };
+
+export type ComponentCaller<TConfig, TResult> = ComponentCall<ContextArguments<TConfig>, Promise<TResult>, false, TConfig>;
+
+type ComponentRunSignature<TConfig, TResult, TSettings> = EmptyMap extends TSettings
+	? <TOverrides extends object>(options?: TOverrides & TSettings & ValidateRunConfig<TOverrides, TConfig, TSettings>) => Promise<TResult>
+	: <TOverrides extends object>(options: TOverrides & TSettings & ValidateRunConfig<TOverrides, TConfig, TSettings>) => Promise<TResult>;
+
+export type ComponentRun<TConfig, TResult, TSettings = EmptyMap> = ComponentRunSignature<TConfig, TResult, TSettings & RunContext<TConfig>
+	& Pick<ComponentExecutionOptions, 'abortSignal'> & { toolsContext?: Partial<ToolContexts<ToolRegistryFromConfig<TConfig>>> | undefined }>;
+
+export type SourceSetting<TConfig, TSourceKey extends string> = TConfig extends Record<TSourceKey, string> ? Partial<Record<TSourceKey, string>> : Record<TSourceKey, string>;
