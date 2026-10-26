@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createTextStreamResponse } from 'ai';
-import { create, z, ConfigError, textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './cascada';
+import { create, z, ValidationError, textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './cascada';
 
 describe('Component streams', () => {
 	it('collects only the stream branch of a conditional output schema on every tool path', async () => {
@@ -43,7 +43,7 @@ describe('Component streams', () => {
 		assert.equal(parsed, 0);
 		const iterator = values[Symbol.asyncIterator]();
 		assert.deepEqual(await iterator.next(), { value: 2, done: false });
-		await assert.rejects(iterator.next(), error => error instanceof ConfigError && error.message === 'Stream element validation failed.' && error.cause instanceof Error);
+		await assert.rejects(iterator.next(), error => error instanceof ValidationError && error.message === 'Stream element validation failed.' && error.cause instanceof Error);
 		assert.equal(parsed, 2);
 		assert.equal(closed, 1);
 	});

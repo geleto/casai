@@ -4,7 +4,7 @@ import { rejects } from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { posix } from 'node:path';
 import { promisify } from 'node:util';
-import { create, ConfigError, ScriptError, TemplateError, z } from './cascada';
+import { create, ValidationError, ScriptError, TemplateError, z } from './cascada';
 import { createPromptRenderer } from '../src/prompt-renderers';
 import { Loader, Script as CascadaScript, type LoaderInterface, type LoaderSource } from 'cascada-engine';
 import { jsonSchema } from 'ai';
@@ -169,8 +169,8 @@ describe('Template and Script deterministic coverage', () => {
 				template: '{{ touch() }} {{ name }}', inputSchema: z.object({ name: z.string() }),
 				context: { name: 'Configured', touch: () => ++calls },
 			});
-			await rejects(() => render({ name: 42 } as never), ConfigError);
-			await rejects(() => render({ name: undefined } as never), ConfigError);
+			await rejects(() => render({ name: 42 } as never), ValidationError);
+			await rejects(() => render({ name: undefined } as never), ValidationError);
 			expect(calls).to.equal(0);
 			expect(await render({ name: 'Ada' })).to.equal('1 Ada');
 		});
@@ -326,12 +326,12 @@ describe('Template and Script deterministic coverage', () => {
 			expect(await run('return 5')).to.equal(6);
 		});
 
-		it('reports schema failures as ConfigError with their validation cause', async () => {
+		it('reports schema failures as ValidationError with their validation cause', async () => {
 			const run = create.Script({ script: 'return { count: "invalid" }', schema: z.object({ count: z.number() }) });
 			await rejects(() => run(), (error: unknown) => {
-				expect(error).to.be.instanceOf(ConfigError);
-				expect((error as ConfigError).message).to.include('Output validation failed');
-				expect((error as ConfigError).cause?.cause).to.be.instanceOf(z.ZodError);
+				expect(error).to.be.instanceOf(ValidationError);
+				expect((error as ValidationError).message).to.include('Output validation failed');
+				expect((error as ValidationError).cause?.cause).to.be.instanceOf(z.ZodError);
 				return true;
 			});
 		});
@@ -349,8 +349,8 @@ describe('Template and Script deterministic coverage', () => {
 			const failure = new Error('Expected a number');
 			const schema = jsonSchema<number>({ type: 'number' }, { validate: () => ({ success: false, error: failure }) });
 			await rejects(() => create.Script({ script: 'return "invalid"', schema })(), (error: unknown) => {
-				expect(error).to.be.instanceOf(ConfigError);
-				expect((error as ConfigError).cause?.cause).to.equal(failure);
+				expect(error).to.be.instanceOf(ValidationError);
+				expect((error as ValidationError).cause?.cause).to.equal(failure);
 				return true;
 			});
 		});
@@ -363,7 +363,7 @@ describe('Template and Script deterministic coverage', () => {
 		it('preserves an unexpected asynchronous AI SDK validator rejection', async () => {
 			const failure = new Error('Validation service unavailable');
 			const schema = jsonSchema<number>({ type: 'number' }, { validate: async () => { throw failure; } });
-			await rejects(() => create.Script({ script: 'return 5', schema })(), error => error instanceof ConfigError && error.cause?.cause === failure);
+			await rejects(() => create.Script({ script: 'return 5', schema })(), error => error instanceof ValidationError && error.cause?.cause === failure);
 		});
 
 		it('reports the same output validation contract for Scripts and Functions', async () => {
@@ -372,9 +372,9 @@ describe('Template and Script deterministic coverage', () => {
 			const calls = [() => create.Script({ script: 'return 1', schema }).run({}), () => create.Function({ execute: () => 1, schema }).run({})];
 			for (const call of calls) {
 				await rejects(async () => { await call(); }, (error: unknown) => {
-					expect(error).to.be.instanceOf(ConfigError);
-					expect((error as ConfigError).message).to.equal('Output validation failed.');
-					expect((error as ConfigError).cause?.cause).to.equal(failure);
+					expect(error).to.be.instanceOf(ValidationError);
+					expect((error as ValidationError).message).to.equal('Output validation failed.');
+					expect((error as ValidationError).cause?.cause).to.equal(failure);
 					return true;
 				});
 			}
@@ -385,7 +385,7 @@ describe('Template and Script deterministic coverage', () => {
 			const schema = z.number().transform((): number => { throw failure; });
 			const calls = [() => create.Script({ script: 'return 1', schema }).run({}), () => create.Function({ execute: () => 1, schema }).run({})];
 			for (const call of calls) {
-				await rejects(async () => { await call(); }, error => error instanceof ConfigError && error.cause?.cause === failure);
+				await rejects(async () => { await call(); }, error => error instanceof ValidationError && error.cause?.cause === failure);
 			}
 		});
 
@@ -395,8 +395,8 @@ describe('Template and Script deterministic coverage', () => {
 				script: 'return touch(name)', inputSchema: z.object({ name: z.string() }),
 				context: { name: 'Configured', touch: (name: string) => { calls++; return name; } },
 			});
-			await rejects(() => run({ name: 42 } as never), ConfigError);
-			await rejects(() => run({ name: undefined } as never), ConfigError);
+			await rejects(() => run({ name: 42 } as never), ValidationError);
+			await rejects(() => run({ name: undefined } as never), ValidationError);
 			expect(calls).to.equal(0);
 			expect(await run({ name: 'Ada' })).to.equal('Ada');
 		});
@@ -476,12 +476,12 @@ describe('Template and Script deterministic coverage', () => {
 				void run({ name: 'Ada' });
 			}
 			await rejects(() => (render as unknown as (context: object) => Promise<string>)({ name: 'Ada' }), (error: unknown) => {
-				expect(error).to.be.instanceOf(ConfigError);
+				expect(error).to.be.instanceOf(ValidationError);
 				expect((error as Error).message).to.match(/template source must be provided/);
 				return true;
 			});
 			await rejects(() => (run as unknown as (context: object) => Promise<unknown>)({ name: 'Ada' }), (error: unknown) => {
-				expect(error).to.be.instanceOf(ConfigError);
+				expect(error).to.be.instanceOf(ValidationError);
 				expect((error as Error).message).to.match(/script source must be provided/);
 				return true;
 			});

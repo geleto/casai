@@ -61,11 +61,13 @@ const renamed = create.Function({
 void renamed({ value: '5' });
 expectEqual<Awaited<ReturnType<typeof renamed>>, string | number>();
 
-// Optional annotated properties still declare a contract, rather than a runtime alternative.
+// An optional schema cannot guarantee the parsed input expected by this annotation.
 declare const annotated: FunctionConfig<typeof definiteInput, undefined, undefined>;
-const annotatedComponent = create.Function(annotated);
+// @ts-expect-error The callback requires parsed numbers, but the optional schema may be absent.
+create.Function(annotated);
+const annotatedComponent = create.Function({ ...annotated, inputSchema: definiteInput });
 void annotatedComponent({ value: '5' });
-// @ts-expect-error An optional annotated schema still states its input contract.
+// @ts-expect-error The supplied schema requires input.
 void annotatedComponent();
 create.Function({ inputSchema: definiteInput, execute: ({ value }) => {
 	expectEqual<typeof value, number>();

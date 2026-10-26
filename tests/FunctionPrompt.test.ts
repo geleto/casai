@@ -1,6 +1,6 @@
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { create, ConfigError } from './cascada';
+import { create, ConfigError, ValidationError } from './cascada';
 import type { Context } from './cascada';
 import { z } from 'zod';
 import type { ModelMessage, ToolExecutionOptions } from 'ai';
@@ -154,11 +154,11 @@ describe('withFunction prompts', () => {
 			});
 
 			// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
-			await expect(generator({ marker: undefined })).to.be.rejectedWith(ConfigError, 'Application input validation failed');
+			await expect(generator({ marker: undefined })).to.be.rejectedWith(ValidationError, 'Application input validation failed');
 			// @ts-expect-error Invalid schema input is also rejected at runtime.
-			await expect(generator({ marker: 3 })).to.be.rejectedWith(ConfigError, 'Application input validation failed');
+			await expect(generator({ marker: 3 })).to.be.rejectedWith(ValidationError, 'Application input validation failed');
 			// @ts-expect-error Missing schema input is also rejected at runtime.
-			await expect(generator.run({ context: { marker: undefined } })).to.be.rejectedWith(ConfigError, 'Application input validation failed');
+			await expect(generator.run({ context: { marker: undefined } })).to.be.rejectedWith(ValidationError, 'Application input validation failed');
 			expect(promptCalls).to.equal(0);
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
@@ -194,10 +194,10 @@ describe('withFunction prompts', () => {
 			const generator = create.TextGenerator.withFunction({ model, prompt: () => 'Configured' });
 			// @ts-expect-error A function-prompt run requires a callback instead of a string.
 			await expect(generator.run({ prompt: 'Replacement' }))
-				.to.be.rejectedWith(ConfigError, "The 'prompt' property must be a function");
+				.to.be.rejectedWith(ValidationError, "The 'prompt' property must be a function");
 			await expect(generator.run({
 				prompt: () => [{ role: 'invalid', content: 'Invalid message' }] as never,
-			})).to.be.rejectedWith(ConfigError, 'Prompt output validation failed');
+			})).to.be.rejectedWith(ValidationError, 'Prompt output validation failed');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
 
@@ -216,10 +216,10 @@ describe('withFunction prompts', () => {
 			const generator = create.TextGenerator.withFunction({ model, prompt: () => 'Configured' });
 
 			// @ts-expect-error Function prompts accept context, not a string override.
-			await expect(generator('Replacement')).to.be.rejectedWith(ConfigError, 'only accept a context object');
+			await expect(generator('Replacement')).to.be.rejectedWith(ValidationError, 'only accept a context object');
 			// @ts-expect-error An array cannot serve as function context.
 			await expect(generator([{ role: 'user', content: 'Replacement' }]))
-				.to.be.rejectedWith(ConfigError, 'only accept a context object');
+				.to.be.rejectedWith(ValidationError, 'only accept a context object');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
 
@@ -236,7 +236,7 @@ describe('withFunction prompts', () => {
 			});
 
 			await expect(failingGenerator()).to.be.rejectedWith(failure);
-			await expect(invalidGenerator()).to.be.rejectedWith(ConfigError, 'Prompt output validation failed');
+			await expect(invalidGenerator()).to.be.rejectedWith(ValidationError, 'Prompt output validation failed');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
 

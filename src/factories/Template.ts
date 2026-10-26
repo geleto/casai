@@ -1,7 +1,8 @@
+import type { SchemaConfigInferShape, ConfigSchemas } from '../types/function-config.js';
 import type { FlexibleSchema } from 'ai';
 import type { DescriptorInput } from '../types/callbacks.js';
 import { validateRegistryConfig, defineTool, namedArguments, prepareExecution, runSettings } from '../execution.js';
-import { ConfigError } from '../errors.js';
+import { ValidationError } from '../errors.js';
 import { TemplateEngine } from '../TemplateEngine.js';
 import { mergeConfigs, processConfig } from '../config-utils.js';
 import { validateTemplateConfig } from '../validate.js';
@@ -86,27 +87,31 @@ function loadsTemplate(
 
 // asTool method for Template
 function withTemplateAsTool<
-	TConfig extends Provisional<configs.ToolConfigShape<configs.TemplateToolConfig<INPUT, any>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<configs.TemplateToolConfig<INPUT, any>>,
 	INPUT extends Record<string, any>,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & DescriptorInput<TConfig, import('../types/merge.js').EmptyMap, TDescriptorInput, never, TDescriptorContext, string> & ValidateTemplateConfig<
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, import('../types/merge.js').EmptyMap, string> & ValidateTemplateConfig<
 		TConfig, TConfig, configs.TemplateToolConfig<INPUT, any>
 	>
 ): TemplateCallSignature<TConfig, INPUT> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 function withTemplateAsTool<
-	TConfig extends Provisional<configs.ToolConfigShape<Partial<configs.TemplateToolConfig<INPUT, any>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<Partial<configs.TemplateToolConfig<INPUT, any>>>,
 	TParentConfig extends Partial<configs.TemplateToolConfig<PARENT_INPUT, any>>,
 	INPUT extends Record<string, any>,
 	PARENT_INPUT extends Record<string, any>,
 	FINAL_INPUT = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalTemplateConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & RequiredInheritedConfig<TParentConfig, { template: string; inputSchema: FlexibleSchema<Record<string, any>> }> & DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, string> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateToolConfig<INPUT, any>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & RequiredInheritedConfig<TParentConfig, { template: string; inputSchema: FlexibleSchema<Record<string, any>> }> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, string> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateToolConfig<INPUT, any>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateTemplateParentConfig<TParentConfig, configs.TemplateToolConfig<PARENT_INPUT, any>>>
 ): TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
@@ -119,28 +124,32 @@ function withTemplateAsTool(
 
 // Overload 1: With a standalone config
 function loadsTemplateAsTool<
-	TConfig extends Provisional<configs.ToolConfigShape<configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & DescriptorInput<TConfig, import('../types/merge.js').EmptyMap, TDescriptorInput, never, TDescriptorContext, string> & ValidateTemplateConfig<
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, import('../types/merge.js').EmptyMap, string> & ValidateTemplateConfig<
 		TConfig, TConfig, configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig
 	>
 ): TemplateCallSignature<TConfig, INPUT> & results.ComponentToolFromConfig<INPUT, string, TConfig>;
 
 // Overload 2: With a parent config
 function loadsTemplateAsTool<
-	TConfig extends Provisional<configs.ToolConfigShape<Partial<configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<Partial<configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>>,
 	TParentConfig extends Partial<configs.TemplateToolConfig<PARENT_INPUT, any> & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
 	PARENT_INPUT extends Record<string, any>,
 	FINAL_INPUT = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalTemplateConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & RequiredInheritedConfig<TParentConfig, { template: string; inputSchema: FlexibleSchema<Record<string, any>>; loader: configs.LoaderConfig['loader'] }> & DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, string> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & RequiredInheritedConfig<TParentConfig, { template: string; inputSchema: FlexibleSchema<Record<string, any>>; loader: configs.LoaderConfig['loader'] }> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, string> & ValidateTemplateConfig<TConfig, TFinalConfig, configs.TemplateToolConfig<INPUT, any> & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateTemplateParentConfig<TParentConfig, configs.TemplateToolConfig<PARENT_INPUT, any> & configs.LoaderConfig>>
 ): TemplateCallSignatureWithParent<TConfig, TParentConfig, INPUT, PARENT_INPUT> & results.ComponentToolFromConfig<FINAL_INPUT, string, TFinalConfig>;
 
@@ -163,8 +172,8 @@ function _createTemplate(
 	// Merge configs if parent exists, otherwise use provided config
 	//, add promptType to the config
 	const merged = parent
-		? { ...mergeConfigs(parent.config, config), promptType: promptType }
-		: { ...processConfig(config), promptType: promptType };
+		? { ...mergeConfigs(parent.config, config), promptType }
+		: { ...processConfig(config), promptType };
 
 	validateTemplateConfig(merged, promptType, isTool);
 	validateRegistryConfig(merged, config);
@@ -173,15 +182,15 @@ function _createTemplate(
 	const engine = new TemplateEngine(merged as configs.TemplateConfig<any>);
 	const run = async (...args: unknown[]) => {
 		const settings = runSettings(args, ['template', 'context', 'toolsContext', 'abortSignal']);
-		if (settings.template !== undefined && typeof settings.template !== 'string') throw new ConfigError('Template source must be a string.');
-		if (settings.template === undefined && merged.template === undefined) throw new ConfigError('A template source must be provided in configuration or at call time.');
+		if (settings.template !== undefined && typeof settings.template !== 'string') throw new ValidationError('Template source must be a string.');
+		if (settings.template === undefined && merged.template === undefined) throw new ValidationError('A template source must be provided in configuration or at call time.');
 		const { context } = await prepareExecution(merged, settings.context,
 			settings.abortSignal === undefined ? {} : { abortSignal: settings.abortSignal as AbortSignal }, settings.toolsContext as Record<string, unknown> | undefined, isTool);
 		return engine.render(settings.template, context);
 	};
 	const call = async (...args: unknown[]) => {
 		const [first, second, ...rest] = namedArguments(args);
-		if (rest.length || (typeof first !== 'string' && second !== undefined)) throw new ConfigError('Unexpected Template arguments.');
+		if (rest.length || (typeof first !== 'string' && second !== undefined)) throw new ValidationError('Unexpected Template arguments.');
 		return typeof first === 'string' ? run({ template: first, context: second }) : run({ context: first });
 	};
 	const component = Object.assign(call, { config: merged, type: 'Template', run });

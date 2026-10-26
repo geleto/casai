@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:events';
 import { generateText, isStepCount } from 'ai';
 import type { ModelMessage, Tool } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { create, ConfigError, TemplateError, race, z } from './cascada';
+import { create, ConfigError, ValidationError, TemplateError, race, z } from './cascada';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
 import { _createLLMComponent } from '../src/llm-component.js';
 import { validateMessagesArray } from '../src/validate.js';
@@ -151,17 +151,17 @@ describe('LLM call contracts without providers', () => {
 		expect(calls[0].temperature).to.equal(0.9);
 		expect(promptTexts(model, factoryName.endsWith('Streamer'))).to.deep.equal([['Topic x']]);
 		const invalid = child as { run(...args: unknown[]): Promise<unknown> };
-		await rejects(invalid.run({ context: { topic: 'x' } }, { temperature: 0.9, __hasKeywordArgs: true }), ConfigError);
-		await rejects(invalid.run({}, {}), ConfigError);
-		await rejects(invalid.run(42), ConfigError);
-		await rejects(invalid.run(null), ConfigError);
+		await rejects(invalid.run({ context: { topic: 'x' } }, { temperature: 0.9, __hasKeywordArgs: true }), ValidationError);
+		await rejects(invalid.run({}, {}), ValidationError);
+		await rejects(invalid.run(42), ValidationError);
+		await rejects(invalid.run(null), ValidationError);
 		expect(calls).to.have.length(1);
 	});
 
 	it('classifies malformed call envelopes as configuration errors', async () => {
 		const component = create.TextGenerator.withTemplate({ model: mockModel(answer), prompt: 'hello' }) as (...args: unknown[]) => Promise<unknown>;
 		for (const args of [[42], [null], [{}, {}], [[], []], ['source', {}, {}], ['source', [], []]]) {
-			await rejects(component(...args), ConfigError);
+			await rejects(component(...args), ValidationError);
 		}
 	});
 
@@ -317,7 +317,7 @@ describe('LLM call contracts without providers', () => {
 		it('reports malformed script prompt output as a configuration validation error', async () => {
 			const model = mockModel('DONE');
 			const generator = create.TextGenerator.withScript({ model, prompt: 'return [{content: "Invalid message"}]' });
-			await rejects(() => generator(), (error: unknown) => error instanceof ConfigError && error.message.includes('Prompt output validation failed'));
+			await rejects(() => generator(), (error: unknown) => error instanceof ValidationError && error.message.includes('Prompt output validation failed'));
 			expect(model.doGenerateCalls).to.have.length(0);
 		});
 
@@ -360,12 +360,12 @@ describe('LLM call contracts without providers', () => {
 			const template = create.TextGenerator.withTemplate({ model });
 			const script = create.TextGenerator.withScript({ model });
 			await rejects(() => (template as unknown as (context: object) => Promise<unknown>)({ topic: 'tests' }), (error: unknown) => {
-				expect(error).to.be.instanceOf(ConfigError);
+				expect(error).to.be.instanceOf(ValidationError);
 				expect((error as Error).message).to.match(/Prompt source must be a string/);
 				return true;
 			});
 			await rejects(() => (script as unknown as (context: object) => Promise<unknown>)({ topic: 'tests' }), (error: unknown) => {
-				expect(error).to.be.instanceOf(ConfigError);
+				expect(error).to.be.instanceOf(ValidationError);
 				expect((error as Error).message).to.match(/Prompt source must be a string/);
 				return true;
 			});
@@ -435,7 +435,7 @@ describe('LLM call contracts without providers', () => {
 					{ messages: [{ role: 'invalid', content: 'Invalid history.' }] },
 					{ context: { unused: true } },
 				]) {
-					await rejects(async () => { await component.run(override as never); }, ConfigError);
+					await rejects(async () => { await component.run(override as never); }, ValidationError);
 				}
 				expect(loaded).to.deep.equal([]);
 				expect(model.doGenerateCalls).to.have.length(0);
@@ -514,9 +514,9 @@ describe('LLM call contracts without providers', () => {
 			// A plain-text streamer returns its result directly, so it throws.
 			const streamer = create.TextStreamer({ model, prompt: 'Configured.' });
 			const stream = streamer as unknown as (...args: unknown[]) => unknown;
-			expect(() => stream(context)).to.throw(ConfigError, contextError);
-			expect(() => stream('Prompt.', context)).to.throw(ConfigError, contextError);
-			expect(() => streamer.run({ context } as never)).to.throw(ConfigError, contextError);
+			expect(() => stream(context)).to.throw(ValidationError, contextError);
+			expect(() => stream('Prompt.', context)).to.throw(ValidationError, contextError);
+			expect(() => streamer.run({ context } as never)).to.throw(ValidationError, contextError);
 			expect(model.doGenerateCalls).to.have.length(0);
 			expect(model.doStreamCalls).to.have.length(0);
 			if (false) {
@@ -540,10 +540,10 @@ describe('LLM call contracts without providers', () => {
 				() => template('Prompt.', invalid), () => template.run({ messages: invalid }),
 				() => loaded.run({ messages: invalid }),
 			]) {
-				await rejects(reject, (error: unknown) => error instanceof ConfigError && error.message.includes('invalid message objects'));
+				await rejects(reject, (error: unknown) => error instanceof ValidationError && error.message.includes('invalid message objects'));
 			}
-			expect(() => streamer('Prompt.', invalid)).to.throw(ConfigError, messageError);
-			expect(() => streamer.run({ messages: invalid })).to.throw(ConfigError, messageError);
+			expect(() => streamer('Prompt.', invalid)).to.throw(ValidationError, messageError);
+			expect(() => streamer.run({ messages: invalid })).to.throw(ValidationError, messageError);
 			expect(model.doGenerateCalls).to.have.length(0);
 			expect(model.doStreamCalls).to.have.length(0);
 		});
@@ -555,7 +555,7 @@ describe('LLM call contracts without providers', () => {
 			expect(() => create.TextGenerator.loadsText({ model, loader, prompt } as never)).to.throw(ConfigError, /must be the name of the prompt/);
 			expect(() => create.ObjectStreamer.loadsText({ model, schema, loader, prompt } as never)).to.throw(ConfigError, /must be the name of the prompt/);
 			const generator = create.TextGenerator.loadsText({ model, loader, prompt: 'name' });
-			await rejects(async () => await generator.run({ prompt } as never), (error: unknown) => error instanceof ConfigError && error.message.includes('must be the name of the prompt'));
+			await rejects(async () => await generator.run({ prompt } as never), (error: unknown) => error instanceof ValidationError && error.message.includes('must be the name of the prompt'));
 			expect(model.doGenerateCalls).to.have.length(0);
 			await generator.run({ prompt: 'other' });
 			expect(promptTexts(model)).to.deep.equal([['Loaded other.']]);
@@ -638,7 +638,7 @@ describe('LLM call contracts without providers', () => {
 					: create.TextGenerator.withScript({ model, prompt: 'return "Configured."' });
 				const prompt: ModelMessage[] = [{ role: 'user', content: 'Array.' }];
 				await rejects(async () => await generator.run({ prompt } as never), (error: unknown) => {
-					expect(error).to.be.instanceOf(ConfigError);
+					expect(error).to.be.instanceOf(ValidationError);
 					expect((error as Error).message).to.match(/must be a string/);
 					return true;
 				});
@@ -714,7 +714,7 @@ describe('LLM call contracts without providers', () => {
 			const generator = create.TextGenerator.withTemplate.asTool({ inputSchema, model, prompt: 'Value {{ value }}' });
 			for (const component of [template, script, generator]) {
 				await rejects(async () => await (component as (input: object) => Promise<unknown>)(invalid), (error: unknown) => {
-					expect(error).to.be.instanceOf(ConfigError);
+					expect(error).to.be.instanceOf(ValidationError);
 					expect((error as Error).message).to.match(/Application input validation failed/);
 					return true;
 				});

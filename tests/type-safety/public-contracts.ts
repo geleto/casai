@@ -2,7 +2,7 @@ import {
 	create, Config, Function as FunctionFactory, Template, Script,
 	TextGenerator, TextStreamer, ObjectGenerator, ObjectStreamer,
 	FileSystemLoader, PrecompiledLoader, WebLoader, NotFoundError, race,
-	ModelMessageSchema, PromptStringOrMessagesSchema, ConfigError, TemplateError, ScriptError, z,
+	ModelMessageSchema, PromptStringOrMessagesSchema, ConfigError, ValidationError, TemplateError, ScriptError, z,
 } from 'casai';
 import type { ConfigProvider, ModelMessage, ToolSet, RaceGroup, RaceLoader, SchemaType, Context, ScriptResult, TemplatePromptType, ScriptPromptType, FunctionPromptType, ToolContextSchemaConfig, ToolConfig, StreamObjectOnFinishEvent, StreamTextOnFinishEvent } from 'casai';
 import type { ModelMessage as SDKModelMessage, ToolSet as SDKToolSet, GenerateObjectEndEvent, StreamTextOnEndCallback } from 'ai';
@@ -11,8 +11,13 @@ import type { ILoaderAny, LoaderInterface } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
 
 declare const caught: unknown;
-if (ConfigError.isInstance(caught)) {
+if (caught instanceof ConfigError) {
 	expectType<ConfigError>(caught);
+	expectType<string>(caught.message);
+	expectType<Error | undefined>(caught.cause);
+}
+if (caught instanceof ValidationError) {
+	expectType<ValidationError>(caught);
 	expectType<string>(caught.message);
 	expectType<Error | undefined>(caught.cause);
 }
@@ -23,7 +28,7 @@ expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' |
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
 	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'
-	| 'race' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'TemplateError' | 'ScriptError' | 'z'
+	| 'race' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'ValidationError' | 'TemplateError' | 'ScriptError' | 'z'
 >();
 type PromptModifiers = 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript';
 expectEqual<keyof typeof TextGenerator, PromptModifiers | 'asTool'>();
@@ -158,3 +163,8 @@ expectType<Error>(new NotFoundError('Missing'));
 new ConfigError('Invalid', 'cause');
 // @ts-expect-error Wrapper errors require a string message.
 new TemplateError(123);
+
+expectType<Error>(new ValidationError('Invalid', cause));
+expectType<Error | undefined>(new ValidationError('Invalid', cause).cause);
+// @ts-expect-error Validation error causes must be Errors.
+new ValidationError('Invalid', 'cause');

@@ -1,11 +1,8 @@
+import { ConfigError } from './errors.js';
 import { raceLoaders } from 'cascada-engine';
 import type { ILoaderAny, LoaderInterface } from 'cascada-engine';
 
-export const RACE_GROUP_TAG = Symbol.for('casai.raceGroup');
-export const MERGED_GROUP_TAG = Symbol.for('casai.mergedGroup');
-
 export interface RaceGroup {
-	[RACE_GROUP_TAG]: true;
 	loaders: ILoaderAny[];
 	groupName: string | null;
 }
@@ -19,30 +16,34 @@ interface NamedGroup {
 const anonymousRaceMembers = new WeakMap<object, ILoaderAny[]>();
 
 // A named race group is Cascada's race loader, which resolves relative paths through the member that
-// loaded each source, tagged so later merges can combine groups with the same name.
+// loaded each source, with its group name retained for later merges.
 export type RaceLoader = LoaderInterface & {
-	[MERGED_GROUP_TAG]: true;
 	groupName: string;
 	loaders: ILoaderAny[];
 };
 
 export function createRaceLoader(loaders: ILoaderAny[], groupName: string): RaceLoader {
 	if (!groupName.trim()) {
-		throw new Error('RaceLoader groupName must be a non-empty string.');
+		throw new ConfigError('RaceLoader groupName must be a non-empty string.');
 	}
-	return Object.assign(raceLoaders(loaders), { [MERGED_GROUP_TAG]: true as const, groupName, loaders });
+	return Object.assign(raceLoaders(loaders), { groupName, loaders });
 }
 
-function isRaceGroup(obj: any): obj is RaceGroup {
-	return typeof obj === 'object' && obj !== null && RACE_GROUP_TAG in obj;
+function isRaceGroup(obj: unknown): obj is RaceGroup {
+	return typeof obj === 'object' && obj !== null
+		&& 'loaders' in obj && Array.isArray(obj.loaders)
+		&& 'groupName' in obj && (obj.groupName === null || typeof obj.groupName === 'string')
+		&& !('load' in obj && typeof obj.load === 'function');
 }
-function isRaceLoader(obj: any): obj is RaceLoader {
-	return typeof obj === 'object' && obj !== null && MERGED_GROUP_TAG in obj;
+function isRaceLoader(obj: unknown): obj is RaceLoader {
+	return typeof obj === 'object' && obj !== null
+		&& 'loaders' in obj && Array.isArray(obj.loaders)
+		&& 'groupName' in obj && typeof obj.groupName === 'string'
+		&& 'load' in obj && typeof obj.load === 'function';
 }
 
 export function race(loaders: ILoaderAny | ILoaderAny[], groupName?: string): RaceGroup {
 	return {
-		[RACE_GROUP_TAG]: true,
 		loaders: Array.isArray(loaders) ? loaders : [loaders],
 		groupName: groupName ?? null,
 	};

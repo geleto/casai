@@ -105,7 +105,7 @@ void optional.execute({ value: 1 }, options);
 void optional.execute({ value: 1 }, noContext);
 // @ts-expect-error Optional context validates a present value.
 void optional.execute({ value: 1 }, { ...options, context: { factor: 'wrong' } });
-const declaredConfig: FunctionToolConfig<typeof inputSchema, undefined, undefined, undefined, { factor: number }> = {
+const declaredConfig: FunctionToolConfig<typeof inputSchema, undefined, undefined, undefined, { factor: number }> & { toolContextSchema: typeof contextSchema } = {
 	inputSchema, toolContextSchema: contextSchema, execute: context => context.value * ('factor' in context ? context.factor : 1),
 };
 const declaredTool = create.Function.asTool(declaredConfig);
@@ -156,8 +156,8 @@ create.Template.asTool({ template: 'Ready' });
 create.Script.asTool({ script: 'return 1' });
 // @ts-expect-error Function tools require an input schema at creation.
 create.Function.asTool({ execute: () => 1 });
-const templateConfig: TemplateToolConfig<{ value: number }, { factor: number }> = { inputSchema, toolContextSchema: contextSchema, template: '{{ value }}' };
-const scriptConfig: ScriptToolConfig<{ value: number }, number, { factor: number }> & { script: string } = { inputSchema, toolContextSchema: contextSchema, script: 'return value', schema: z.number() };
+const templateConfig: TemplateToolConfig<{ value: number }, { factor: number }> & { toolContextSchema: typeof contextSchema } = { inputSchema, toolContextSchema: contextSchema, template: '{{ value }}' };
+const scriptConfig: ScriptToolConfig<{ value: number }, number, { factor: number }> & { script: string; schema: z.ZodNumber; toolContextSchema: typeof contextSchema } = { inputSchema, toolContextSchema: contextSchema, script: 'return value', schema: z.number() };
 const annotatedTemplate = create.Template.asTool(templateConfig);
 const annotatedScript = create.Script.asTool(scriptConfig);
 void annotatedTemplate.execute({ value: 1 }, options);

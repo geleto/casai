@@ -1,3 +1,4 @@
+import { ConfigError, ValidationError } from './errors.js';
 import { configMapKeys } from './types/merge.js';
 import type { MergedConfig, ProcessedConfig } from './types/merge.js';
 import * as configs from './types/config.js';
@@ -30,10 +31,11 @@ export function mergeConfigs<
 	TChild extends Record<string, any>
 >(
 	parentConfig: TParent,
-	childConfig: TChild
+	childConfig: TChild,
+	ErrorClass: typeof ConfigError | typeof ValidationError = ConfigError,
 ): MergedConfig<TParent, TChild> {
 	// Validate raw values before map/message/loader merging can consume them.
-	validateConfigBasics(childConfig);
+	validateConfigBasics(childConfig, ErrorClass);
 	// Evaluate debug logging using the most specific config (child overrides parent).
 	const childHasDebug = Object.prototype.hasOwnProperty.call(childConfig, 'debug');
 	const debugEnabled = childHasDebug

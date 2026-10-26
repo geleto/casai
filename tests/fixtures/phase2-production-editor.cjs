@@ -11,6 +11,18 @@ const source = `
 import { create, z, textStreamSchema } from 'casai';
 import { tool } from 'ai';
 import type { LanguageModel } from 'ai';
+const presenceInput = z.object({ value: z.string().transform(Number), count: z.number().default(1) });
+declare const optionalSchema: { inputSchema?: typeof presenceInput };
+declare const schemaEnabled: boolean;
+const spreadSchema = schemaEnabled ? { inputSchema: presenceInput } : {};
+create.Function({ ...optionalSchema, execute: input => {
+  input./*optionalSchemaBody*/value;
+  input.value/*optionalSchemaValue*/;
+  input.count/*optionalSchemaDefault*/;
+  return input.value;
+} });
+create.Function({ ...spreadSchema, execute: input => input.value/*spreadSchemaValue*/ });
+create.Function({ inputSchema: presenceInput, execute: input => input.value/*definiteSchemaValue*/ });
 const operation = create.Function({
   inputSchema: z.looseObject({ value: z.number(), factor: z.string().transform(Number), map: z.function({ input: [z.number()], output: z.number() }).optional() }),
   context: { factor: '3', db: 'private' },
@@ -227,6 +239,11 @@ async function check(sourceMode, exactOptionalPropertyTypes) {
       for (const name of ['db', '_toolOptions']) assert.ok(!names.has(name), `${marker}: private name ${name} offered`);
     }
     const names = await completions(at('implementation'));
+    const optionalNames = await completions(at('optionalSchemaBody'));
+    for (const name of ['value', 'count', '_toolOptions']) assert.ok(optionalNames.has(name), `optional schema: missing ${name}`);
+    for (const marker of ['optionalSchemaValue', 'spreadSchemaValue']) assert.match(await hover(at(marker) - 1), /value: string \| number/);
+    assert.match(await hover(at('optionalSchemaDefault') - 1), /count\??: number \| undefined/);
+    assert.match(await hover(at('definiteSchemaValue') - 1), /value: number/);
     const selectedNames = await completions(at('selectedBody'));
     assert.ok(selectedNames.has('key'), 'Selected schema lost the retained configured field');
     assert.match(await hover(at('selectedValue') - 1), /key: string \| number/);

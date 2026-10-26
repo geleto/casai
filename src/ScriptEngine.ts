@@ -5,14 +5,7 @@ import * as results from './types/result.js';
 import * as types from './types/types.js';
 import { validateAndParseOutput } from './validate.js';
 
-export class ScriptError extends Error {
-	declare cause?: Error;
-	name: string;
-	constructor(message: string, cause?: Error) {
-		super(message, { cause });
-		this.name = 'ScriptError';
-	}
-}
+import { ScriptError } from './errors.js';
 
 export class ScriptEngine<
 	TConfig extends Partial<ScriptConfig<INPUT, OUTPUT>> & { promptType?: ScriptPromptType },
@@ -41,7 +34,7 @@ export class ScriptEngine<
 			if (this.config.filters) {
 				for (const [name, filter] of Object.entries(this.config.filters)) {
 					if (typeof filter === 'function') {
-						this.env.addFilter(name, filter as (...args: any[]) => any);
+						this.env.addFilter(name, filter);
 					}
 				}
 			}

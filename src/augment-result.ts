@@ -2,10 +2,9 @@ import { generateText, streamText, NoOutputGeneratedError } from 'ai';
 import type { InferGenerateOutput, ModelMessage, OutputInterface, StepResult, ToolSet } from 'ai';
 import type { GenerateTextResultAugmented, StreamTextResultAugmented } from './types/result.js';
 import type { DefaultTextOutput } from './types/types.js';
+import type { GenerateRequest, StreamRequest, ConversationRequest } from './types/sdk.js';
 
 type Context = Record<string, unknown>;
-type GenerateRequest<T extends ToolSet, C extends Context, O extends OutputInterface> = Parameters<typeof generateText<T, C, O>>[0];
-type StreamRequest<T extends ToolSet, C extends Context, O extends OutputInterface> = Parameters<typeof streamText<T, C, O>>[0];
 
 const errorFinishMessage = 'The model finished with an error but reported no cause.';
 
@@ -14,8 +13,6 @@ export function augmentObjectResult<R extends { readonly object: unknown }>(resu
 	Object.defineProperty(result, 'value', { get: () => result.object });
 	return result as R & { readonly value: R['object'] };
 }
-
-interface ConversationRequest { prompt?: string | ModelMessage[] | undefined, messages?: ModelMessage[] | undefined }
 
 function snapshotRequest<R extends ConversationRequest>(request: R): R {
 	const snapshot = { ...request };

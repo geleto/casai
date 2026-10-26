@@ -1,7 +1,7 @@
-import type { InputSchemaSetting } from '../types/function-config.js';
+import type { SchemaConfigInferShape, ConfigSchemas } from '../types/function-config.js';
 import type { DescriptorInput, TextCallbackConfig } from '../types/callbacks.js';
 import { validateRegistryConfig } from '../execution.js';
-import type { FlexibleSchema, InferGenerateOutput } from 'ai';
+import type { InferGenerateOutput } from 'ai';
 import type { FunctionPromptInput, FunctionPromptShape } from '../types/function-prompt.js';
 import { generateTextWithResult } from '../augment-result.js';
 import type { ToolSet, ModelMessage } from "ai";
@@ -16,9 +16,9 @@ import * as types from '../types/types.js';
 import { LLMCallSignature, _createLLMComponent } from "../llm-component.js";
 import { mergeConfigs, processConfig } from "../config-utils.js";
 import { validateTextLLMConfig } from "../validate.js";
-import type { Provisional, ResolvedConfig } from '../types/provisional.js';
+import type { ResolvedConfig } from '../types/provisional.js';
 import type { EmptyMap } from '../types/merge.js';
-import type { CallbackConfigShape, TextCallbackInput, ParentToolSelectionInput } from '../types/callbacks.js';
+import type { TextCallbackInput, ParentToolSelectionInput } from '../types/callbacks.js';
 
 type CommonConfig = configs.TextConfigShape<configs.GenerateTextConfig<ToolSet, never, types.AnyPromptSource>>;
 
@@ -28,27 +28,27 @@ type CommonConfig = configs.TextConfigShape<configs.GenerateTextConfig<ToolSet, 
 type GenerateTextReturn<
 	TConfig,
 	_TOOLS extends ToolSet,
-	PType extends types.RequiredPromptType,
+	TPromptType extends types.RequiredPromptType,
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
-> = LLMCallSignature<TConfig, Promise<results.GenerateTextResultAugmented<configs.ToolsFromConfig<TConfig>, OutputFromConfig<TConfig>, RuntimeContextFromConfig<TConfig>, ValueOutputFromConfig<TConfig>>>, PType, PROMPT, configs.TextRunConfig<TConfigShape, configs.ToolsFromConfig<TConfig>, TConfig>>;
+> = LLMCallSignature<TConfig, Promise<results.GenerateTextResultAugmented<configs.ToolsFromConfig<TConfig>, OutputFromConfig<TConfig>, RuntimeContextFromConfig<TConfig>, ValueOutputFromConfig<TConfig>>>, TPromptType, PROMPT, configs.TextRunConfig<TConfigShape, configs.ToolsFromConfig<TConfig>, TConfig>>;
 
 // Version of the return type for when a parent config is present.
 // Ensure the final merged config reflects the concrete promptType at the type level.
 type GenerateTextWithParentReturn<
 	TConfig,
 	TParentConfig,
-	PType extends types.RequiredPromptType,
+	TPromptType extends types.RequiredPromptType,
 	PROMPT extends types.AnyPromptSource,
 	TConfigShape extends CommonConfig,
 
 	FINAL_TOOLS extends ToolSet = configs.MergedTools<TParentConfig, ResolvedConfig<TConfig>>,
 	TFinalConfig = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
-> = LLMCallSignature<TFinalConfig, Promise<results.GenerateTextResultAugmented<FINAL_TOOLS, OutputFromConfig<TFinalConfig>, RuntimeContextFromConfig<TFinalConfig>, ValueOutputFromConfig<TFinalConfig>>>, PType, PROMPT, configs.TextRunConfig<TConfigShape, FINAL_TOOLS, TFinalConfig>>;
+> = LLMCallSignature<TFinalConfig, Promise<results.GenerateTextResultAugmented<FINAL_TOOLS, OutputFromConfig<TFinalConfig>, RuntimeContextFromConfig<TFinalConfig>, ValueOutputFromConfig<TFinalConfig>>>, TPromptType, PROMPT, configs.TextRunConfig<TConfigShape, FINAL_TOOLS, TFinalConfig>>;
 
 // Ordinary config inference widens inline defaults while preserving declared runtime-context unions.
 function withText<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>>>,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>>,
 	TOOLS extends ToolSet = ToolSet,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
 	TConfigShape extends CommonConfig = CommonConfig,
@@ -62,8 +62,8 @@ function withText<
 ): GenerateTextReturn<TConfig, TOOLS, 'text', PROMPT, TConfigShape>;
 
 function withText<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>>>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT>>>>,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>>>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT>>,
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
@@ -82,7 +82,8 @@ function withText(config: CommonConfig, parent?: configs.ConfigProvider<CommonCo
 }
 
 function withTextAsTool<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
 	INPUT extends Record<string, any>,
 	TOOLS extends ToolSet = ToolSet,
 	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
@@ -90,15 +91,17 @@ function withTextAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, EmptyMap, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'text', PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function withTextAsTool<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.ToolConfig<INPUT, string>>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.ToolConfig<INPUT, string>>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
 	INPUT extends Record<string, any>,
 	PARENT_INPUT extends Record<string, any>,
 	TOOLS extends ToolSet,
@@ -110,10 +113,11 @@ function withTextAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.ToolConfig<INPUT, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.ToolConfig<PARENT_INPUT, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'text', PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;
 
@@ -123,7 +127,7 @@ function withTextAsTool(config: CommonConfig, parent?: configs.ConfigProvider<Co
 }
 
 function loadsText<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>>,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, never, PROMPT> & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	PROMPT extends string = string,
 	TConfigShape extends CommonConfig = CommonConfig & configs.LoaderConfig
@@ -136,8 +140,8 @@ function loadsText<
 ): GenerateTextReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape>;
 
 function loadsText<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>> & configs.LoaderConfig>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT> & configs.LoaderConfig>>>,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, never, PROMPT>> & configs.LoaderConfig>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, never, PROMPT> & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	PARENT_TOOLS extends ToolSet,
 	TFinalConfig extends configs.FinalGenerateTextConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
@@ -157,7 +161,8 @@ function loadsText(config: CommonConfig, parent?: configs.ConfigProvider<CommonC
 }
 
 function loadsTextAsTool<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
 	INPUT extends Record<string, any>,
 	TOOLS extends ToolSet,
 	PROMPT extends string = string,
@@ -166,15 +171,17 @@ function loadsTextAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, EmptyMap, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'text-name', PROMPT, TConfigShape> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function loadsTextAsTool<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>,
 	INPUT extends Record<string, any>,
 	TOOLS extends ToolSet,
 	PARENT_INPUT extends Record<string, any>,
@@ -187,10 +194,11 @@ function loadsTextAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig & { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig & { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'text-name', PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;
 
@@ -200,7 +208,7 @@ function loadsTextAsTool(config: CommonConfig, parent?: configs.ConfigProvider<C
 }
 
 function withTemplate<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>>,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TConfigShape extends CommonConfig = CommonConfig & configs.TemplatePromptConfig,
@@ -212,8 +220,8 @@ function withTemplate<
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template', string, TConfigShape>
 
 function withTemplate<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig>>>,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -233,21 +241,24 @@ function withTemplate(config: CommonConfig, parent?: configs.ConfigProvider<Comm
 }
 
 function withTemplateAsTool<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, EmptyMap, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template', string, CommonConfig & configs.TemplatePromptConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function withTemplateAsTool<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.ToolConfig<INPUT, string>>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<PARENT_INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -258,10 +269,11 @@ function withTemplateAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<any, string>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<any, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-template', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;
 
@@ -270,7 +282,7 @@ function withTemplateAsTool(config: CommonConfig, parent?: configs.ConfigProvide
 }
 
 function loadsTemplate<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
@@ -281,8 +293,8 @@ function loadsTemplate<
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template-name', string, CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig>;
 
 function loadsTemplate<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>>>,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -302,21 +314,24 @@ function loadsTemplate(config: CommonConfig, parent?: configs.ConfigProvider<Com
 }
 
 function loadsTemplateAsTool<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, EmptyMap, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-template-name', string, CommonConfig & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function loadsTemplateAsTool<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -327,10 +342,11 @@ function loadsTemplateAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig & { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig & { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.TemplatePromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-template-name', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;
 
@@ -339,7 +355,7 @@ function loadsTemplateAsTool(config: CommonConfig, parent?: configs.ConfigProvid
 }
 
 function withScript<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>>,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
@@ -350,8 +366,8 @@ function withScript<
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script', string, CommonConfig & configs.ScriptPromptConfig>;
 
 function withScript<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>>>,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -371,21 +387,24 @@ function withScript(config: CommonConfig, parent?: configs.ConfigProvider<Common
 }
 
 function withScriptAsTool<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, EmptyMap, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script', string, CommonConfig & configs.ScriptPromptConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function withScriptAsTool<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.ToolConfig<INPUT, string>>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -396,10 +415,11 @@ function withScriptAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<any, string>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<any, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-script', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;
 
@@ -408,7 +428,7 @@ function withScriptAsTool(config: CommonConfig, parent?: configs.ConfigProvider<
 }
 
 function loadsScript<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
@@ -419,8 +439,8 @@ function loadsScript<
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script-name', string, CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig>;
 
 function loadsScript<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>>>,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -440,21 +460,24 @@ function loadsScript(config: CommonConfig, parent?: configs.ConfigProvider<Commo
 }
 
 function loadsScriptAsTool<
-	TConfig extends Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, EmptyMap, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'async-script-name', string, CommonConfig & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function loadsScriptAsTool<
-	TConfig extends Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>>,
-	TParentConfig extends CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT>> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<INPUT, string>>>,
+	TParentConfig extends configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<PARENT_INPUT, string>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -465,10 +488,11 @@ function loadsScriptAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, TParentConfig, TDescriptorInput, never, TDescriptorContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig & { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, configs.LoaderConfig & { inputSchema: types.SchemaType<any> } & { prompt: string | ModelMessage[] }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig, configs.GenerateTextConfig<TOOLS, INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT> & configs.ScriptPromptConfig & configs.LoaderConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'async-script-name', string, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;
 
@@ -476,26 +500,29 @@ function loadsScriptAsTool(config: CommonConfig, parent?: configs.ConfigProvider
 	return _createTextGenerator(config, 'async-script-name', parent, true);
 }
 
-type FunctionPromptSignature<RequiredInput extends boolean, RequiredContext extends boolean> = <
-	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>>>,
+type FunctionPromptSignature<RequiredContext extends boolean> = <
+	TSchemaPresence extends object,
+	TConfig extends FunctionPromptShape<configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
 	TPromptContext extends Record<string, any> | undefined = never,
-	TPromptToolContext extends FlexibleSchema | undefined = never,
 	TPromptToolsContext extends object | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: InputSchemaSetting<TPromptInput, RequiredInput> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, false, RequiredContext, TCallbackTools, TPromptToolsContext> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, EmptyMap, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TPromptContext, false, RequiredContext, TCallbackTools, TPromptToolsContext> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
 		configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig>
 ) => GenerateTextReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig>;
 
-type ParentFunctionPromptSignature<RequiredInput extends boolean, RequiredContext extends boolean> = <
-	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>>>,
-	TParentConfig extends FunctionPromptShape<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>>>>,
+type ParentFunctionPromptSignature<RequiredContext extends boolean> = <
+	TSchemaPresence extends object,
+	TConfig extends FunctionPromptShape<configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig>>>,
+	TParentConfig extends FunctionPromptShape<configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -506,63 +533,66 @@ type ParentFunctionPromptSignature<RequiredInput extends boolean, RequiredContex
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
 	TPromptContext extends Record<string, any> | undefined = never,
-	TPromptToolContext extends FlexibleSchema | undefined = never,
 	TPromptToolsContext extends object | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: InputSchemaSetting<TPromptInput, RequiredInput> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, TParentConfig, TPromptInput, TPromptContext, TPromptToolContext, false, RequiredContext, TCallbackTools, TPromptToolsContext> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, TParentConfig, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TPromptContext, false, RequiredContext, TCallbackTools, TPromptToolsContext> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
 		configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig>>
 ) => GenerateTextWithParentReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape>;
 
-type FunctionPromptFactory = FunctionPromptSignature<true, true> & FunctionPromptSignature<true, false>
-	& ParentFunctionPromptSignature<true, true> & ParentFunctionPromptSignature<true, false>
-	& FunctionPromptSignature<false, true> & FunctionPromptSignature<false, false>
-	& ParentFunctionPromptSignature<false, true> & ParentFunctionPromptSignature<false, false>;
+type FunctionPromptFactory = FunctionPromptSignature<true> & FunctionPromptSignature<false> & ParentFunctionPromptSignature<true> & ParentFunctionPromptSignature<false>;
 
 function withFunction(config: CommonConfig, parent?: configs.ConfigProvider<CommonConfig>): unknown {
 	return _createTextGenerator(config, 'function', parent, false);
 }
 
 function withFunctionAsTool<
-	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends FunctionPromptShape<configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
 	TPromptContext extends Record<string, any> | undefined = never,
-	TPromptToolContext extends FlexibleSchema | undefined = never,
 	TPromptToolsContext extends object | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: DescriptorInput<TConfig, EmptyMap, TPromptInput, never, TPromptToolContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, true, true, TCallbackTools, TPromptToolsContext> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, EmptyMap, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TPromptContext, true, true, TCallbackTools, TPromptToolsContext> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
 		configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function withFunctionAsTool<
-	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>>,
+	TSchemaPresence extends object,
+	TConfig extends FunctionPromptShape<configs.TextConfigInferShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.PromptFunction = types.PromptFunction,
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
 	TPromptContext extends Record<string, any> | undefined = never,
-	TPromptToolContext extends FlexibleSchema | undefined = never,
 	TPromptToolsContext extends object | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
 	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
-	config: DescriptorInput<TConfig, EmptyMap, TPromptInput, never, TPromptToolContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, EmptyMap, TPromptInput, TPromptContext, TPromptToolContext, true, false, TCallbackTools, TPromptToolsContext> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, EmptyMap, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, EmptyMap, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TPromptContext, true, false, TCallbackTools, TPromptToolsContext> & TextCallbackInput<TConfig, EmptyMap, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TConfig,
 		configs.GenerateTextConfig<TOOLS, INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>
 ): GenerateTextReturn<TConfig, TOOLS, 'function', PROMPT, CommonConfig & configs.FunctionPromptConfig & configs.ToolConfig<Record<string, any>, string>> & results.ComponentToolFromConfig<INPUT, InferGenerateOutput<ValueOutputFromConfig<TConfig>>, TConfig>;
 
 function withFunctionAsTool<
-	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>>>,
-	TParentConfig extends FunctionPromptShape<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>>>,
+	TSchemaPresence extends object,
+	TConfig extends FunctionPromptShape<configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends FunctionPromptShape<configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -574,20 +604,22 @@ function withFunctionAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
 	TPromptContext extends Record<string, any> | undefined = never,
-	TPromptToolContext extends FlexibleSchema | undefined = never,
 	TPromptToolsContext extends object | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
 	// Infer the callback before validating the inherited config; const preserves its schema type.
-	config: DescriptorInput<TConfig, TParentConfig, TPromptInput, never, TPromptToolContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, TParentConfig, TPromptInput, TPromptContext, TPromptToolContext, true, true, TCallbackTools, TPromptToolsContext> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, TParentConfig, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TPromptContext, true, true, TCallbackTools, TPromptToolsContext> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
 		configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<any, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;
 
 function withFunctionAsTool<
-	TConfig extends FunctionPromptShape<Provisional<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>>>,
-	TParentConfig extends FunctionPromptShape<CallbackConfigShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>>>,
+	TSchemaPresence extends object,
+	TConfig extends FunctionPromptShape<configs.TextConfigInferShape<Partial<configs.TextConfigShape<configs.GenerateTextConfig<TOOLS, INPUT, PROMPT>> & configs.FunctionPromptConfig & configs.ToolConfig<INPUT, string>>>>,
+	TParentConfig extends FunctionPromptShape<configs.ParentTextConfigInferShape<configs.GenerateTextConfig<PARENT_TOOLS, PARENT_INPUT, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<PARENT_INPUT, string>>>,
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PARENT_TOOLS extends ToolSet,
@@ -599,14 +631,15 @@ function withFunctionAsTool<
 	TCallbackTools extends configs.ToolRegistry | undefined = never,
 	TCallbackRuntime extends Record<string, unknown> | undefined = never,
 	TCallbackOutput extends types.AIOutput | undefined = never,
-	TPromptInput extends types.SchemaType<Record<string, any>> | undefined = never,
 	TPromptContext extends Record<string, any> | undefined = never,
-	TPromptToolContext extends FlexibleSchema | undefined = never,
 	TPromptToolsContext extends object | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
 	// Infer the callback before validating the inherited config; const preserves its schema type.
 	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate context presence preserves contextual callback inference.
-	config: DescriptorInput<TConfig, TParentConfig, TPromptInput, never, TPromptToolContext, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, TParentConfig, TPromptInput, TPromptContext, TPromptToolContext, true, false, TCallbackTools, TPromptToolsContext> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig, InferGenerateOutput<ValueOutputFromConfig<TextCallbackConfig<TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput>>>> & { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } } & TConfig & FunctionPromptInput<TConfig, TParentConfig, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TPromptContext, true, false, TCallbackTools, TPromptToolsContext> & RequiredModelConfig<TParentConfig> & RequiredInheritedConfig<TParentConfig, { inputSchema: types.SchemaType<any> } & { prompt: (...args: never[]) => ReturnType<types.PromptFunction> }> & TextCallbackInput<TConfig, TParentConfig, TCallbackTools, TCallbackRuntime, TCallbackOutput, false> & ValidateGenerateTextConfig<TConfig, TFinalConfig,
 		configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<any, string>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateGenerateTextParentConfig<TParentConfig, configs.GenerateTextConfig<any, any, PROMPT> & configs.FunctionPromptConfig & configs.ToolConfig<any, string>>>
 ): GenerateTextWithParentReturn<TConfig, TParentConfig, 'function', PROMPT, TConfigShape> & results.ComponentToolFromConfig<FINAL_INPUT, InferGenerateOutput<ValueOutputFromConfig<TFinalConfig>>, TFinalConfig>;

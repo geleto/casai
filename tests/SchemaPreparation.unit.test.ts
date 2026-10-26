@@ -13,6 +13,54 @@ function configured(schema: SchemaType<any>, context: Record<string, unknown>) {
 const metadata = async (schema: SchemaType<any>, context: Record<string, unknown>) => await asSchema(configured(schema, context).inputSchema).jsonSchema;
 const object: JSONSchema = { type: 'object', properties: { value: { type: 'number' } }, required: ['value'], additionalProperties: false };
 
+describe('Schema presence in configuration', () => {
+	it('preserves raw input and absent defaults when an optional input schema is omitted', async () => {
+		const inputSchema = z.object({ value: z.string().transform(Number), count: z.number().default(1) });
+		for (const settings of [{}, { inputSchema }, { inputSchema: undefined }] satisfies { inputSchema?: typeof inputSchema | undefined }[]) {
+			const component = create.Function({ ...settings, execute: ({ value, count }) => ({ value, count }) });
+			assert.deepEqual(await component({ value: '2' }), settings.inputSchema ? { value: 2, count: 1 } : { value: '2', count: undefined });
+		}
+	});
+
+	it('preserves unparsed output for ordinary, named, tool and registered calls', async () => {
+		const schema = z.string().transform(Number);
+		for (const settings of [{}, { schema }, { schema: undefined }] satisfies { schema?: typeof schema | undefined }[]) {
+			const component = create.Function({ ...settings, execute: () => '2' });
+			const tool = create.Function.asTool({ ...settings, inputSchema: z.object({}), execute: () => '2' });
+			const owner = create.Function({ tools: { tool }, execute: ({ tool }) => tool({}) });
+			const expected = settings.schema ? 2 : '2';
+			assert.equal(await component(), expected);
+			assert.equal(await component.run({}), expected);
+			assert.equal(await tool.execute({}, { toolCallId: 'presence', messages: [], context: undefined }), expected);
+			assert.equal(await owner(), expected);
+		}
+	});
+
+	it('inherits an omitted schema and removes an explicitly undefined schema', async () => {
+		const schema = z.string().transform(Number);
+		const parent = create.Config({ schema });
+		const inherited = create.Function({ execute: () => '2' }, parent);
+		const removed = create.Function({ schema: undefined, execute: () => '2' }, parent);
+		assert.equal(await inherited(), 2);
+		assert.equal(await removed(), '2');
+		for (const settings of [{}, { schema }] satisfies { schema?: typeof schema }[]) {
+			const fragment = create.Config(settings);
+			const child = create.Function({ execute: () => '2' }, fragment);
+			assert.equal(await child(), settings.schema ? 2 : '2');
+			assert.equal(await create.Function({ schema, execute: () => '2' }, fragment)(), 2);
+		}
+	});
+
+	it('keeps configured data private when an optional input parser is absent', async () => {
+		const _inputSchema = z.object({ value: z.string().transform(Number) });
+		const settings: { inputSchema?: typeof _inputSchema } = {};
+		const component = create.Function({ ...settings, context: { value: '2' }, execute: ({ value }) => value });
+		assert.equal(await component(), '2');
+		// Deliberately bypass caller typing to verify the unchanged runtime boundary.
+		await assert.rejects(() => (component as (input: unknown) => Promise<unknown>)({ value: '3' }));
+	});
+});
+
 describe('Production schema declaration and projection boundaries', () => {
 	for (const first of ['metadata', 'validation'] as const) it(`shares binding preparation when ${first} is the first consumer`, async () => {
 		let parses = 0;

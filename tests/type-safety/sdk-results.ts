@@ -176,7 +176,7 @@ expectEqual<Awaited<typeof _enumObjects>['value'], 'yes' | 'no'>();
 const _jsonObjects = create.ObjectStreamer({ model, output: 'no-schema' })('Input.');
 expectEqual<typeof _jsonObjects.object, Promise<JSONValue>>();
 expectEqual<typeof _jsonObjects.value, Promise<JSONValue>>();
-expectEqual<typeof _jsonObjects.partialObjectStream, AsyncIterableStream<JSONValue>>();
+expectEqual<typeof _jsonObjects.partialObjectStream, AsyncIterableStream<DeepPartial<JSONValue>>>();
 expectEqual<Awaited<typeof _generatedObject>, GenerateObjectObjectResult<Answer>>();
 expectEqual<typeof streamedObject, StreamObjectObjectResult<Answer>>();
 expectEqual<typeof _arrayObjects, StreamObjectArrayResult<Answer>>();

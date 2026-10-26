@@ -166,6 +166,23 @@ const mixedInput = component({ inputSchema: z.union([
 mixedInput({ kind: 'open', value: 2, extra: true });
 // @ts-expect-error An open alternative cannot relax a closed discriminated branch.
 mixedInput({ kind: 'closed', value: 2, extra: true });
+const presenceSchema = z.object({ value: z.string().transform(Number), count: z.number().default(1) });
+declare const optionalSchema: { inputSchema?: typeof presenceSchema };
+component({ ...optionalSchema, execute: input => {
+  const rawOrParsed: string | number = input.value;
+  // @ts-expect-error An optional parser may leave the raw string.
+  const parsedOnly: number = input.value;
+  // @ts-expect-error An absent parser does not supply its default.
+  const defaulted: number = input.count;
+  return rawOrParsed;
+} });
+const presenceSpread = enabled ? { inputSchema: presenceSchema } : {};
+component({ ...presenceSpread, execute: input => {
+  const rawOrParsed: string | number = input.value;
+  // @ts-expect-error Conditional spreads must retain absent parsing too.
+  const parsedOnly: number = input.value;
+  return rawOrParsed;
+} });
 `;
   // The full public-factory matrix lives in configuration-alternative-guards.ts.
   // Mutate these shared owners directly to avoid repeating unrelated factory inference.
@@ -224,7 +241,7 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       /Unused '@ts-expect-error'/, 'src/types/callbacks.ts', "const admitted: ValidateCallbacks<ResultReplacement, MergedConfig<typeof lifecycleConfig, ResultReplacement>, 'object'> = {};"],
     ['branch-only forbidden keys', 'UnionKeys<T> = T extends unknown ? keyof T : never', 'UnionKeys<T> = keyof T',
       /Unused '@ts-expect-error'/, 'src/types/utils.ts', 'const admitted: ValidateFinalConfig<typeof forbiddenConfig, EmptyMap, typeof forbiddenConfig> = {};'],
-    ['every fragment alternative', '[InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]',
+    ['every fragment alternative', '[InvalidUnionMembers<TConfig, CallbackConfigShape<TShape>> | InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]',
       'unknown extends unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateConfigFragment<typeof forbiddenConfig, typeof forbiddenConfig, { execute: () => number }> = forbiddenConfig;'],
     ['branch-only run settings', 'Exclude<UnionKeys<TRunConfig>, keyof TShape> extends never', 'Exclude<keyof TRunConfig, keyof TShape> extends never',
       /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateRunConfig<typeof forbiddenRun, { model: LanguageModel; prompt: string }, { temperature?: number }> = forbiddenRun;'],
@@ -232,10 +249,10 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       'const admitted: ComponentAdmission<{ inputSchema: typeof emptyInput; toolContextSchema: typeof nullContext; execute: () => number }> = {};'],
   ];
   const mutations = [
-    ['whole configuration settings', 'T extends unknown ? K extends keyof T', 'unknown extends unknown ? K extends keyof T',
+    ['whole configuration settings', 'ConfigValue<T, K extends PropertyKey> = T extends unknown', 'ConfigValue<T, K extends PropertyKey> = unknown extends unknown',
       /Unused '@ts-expect-error'/, 'src/types/config.ts'],
-    ['inherited configuration alternatives', 'DeclaredConfig<T> = T extends unknown ?', 'DeclaredConfig<T> = unknown extends unknown ?',
-      /Unused '@ts-expect-error'/, 'src/types/function-config.ts'],
+    ['inherited configuration alternatives', "Parent extends unknown ? MergedConfig<Omit<Parent, 'execute'>", "unknown extends unknown ? MergedConfig<Omit<Parent, 'execute'>",
+      /Property 'user' does not exist/, 'src/types/function-config.ts'],
     ['conditional configured callback fields', "C = T extends unknown ? 'context' extends keyof T", "C = unknown extends unknown ? 'context' extends keyof T",
       /does not exist/],
     ['mixed closed input branches', 'I extends unknown ? string extends keyof I ? false : true : never', 'string extends Keys<I> ? false : true',
@@ -263,8 +280,10 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       'EmptyMap extends ApplicationShape<Config> ? true : false', /Unused '@ts-expect-error'/],
     ['conditional private ownership', 'PrivateNames<undefined extends S ? undefined : S,',
       'PrivateNames<S,', /Unused '@ts-expect-error'/],
-    ['conditional input inference', 'FunctionSignature<true, true> & FunctionSignature<true, false>',
-      'FunctionSignature<false, true> & FunctionSignature<false, false>', /error TS/, 'src/factories/Function.ts'],
+    ['conditional input inference', '? Partial<Record<K, S>> : Record<K, S>',
+      '? Partial<Record<K, S>> : Partial<Record<K, S>>', /error TS/, 'src/types/function-config.ts'],
+    ['optional schema presence', "[K in keyof T]: K extends 'inputSchema' ? Input", "[K in keyof T]-?: K extends 'inputSchema' ? Input",
+      /Unused '@ts-expect-error'/, 'src/types/function-config.ts'],
     ['description context type', "description?: Tool<any, any, C>['description']", "description?: Tool<any, any, any>['description']",
       /Unused '@ts-expect-error'/, 'src/types/config.ts'],
   ];

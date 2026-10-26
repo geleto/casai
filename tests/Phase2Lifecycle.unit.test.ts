@@ -6,7 +6,7 @@ import { MockLanguageModelV3 } from 'ai/test';
 import { safeValidateTypes, validateTypes } from '@ai-sdk/provider-utils';
 import type { FlexibleSchema } from '@ai-sdk/provider-utils';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { ConfigError } from '../src/validate.js';
+import { ValidationError } from '../src/errors.js';
 
 // One possible lazy parser using the native Standard Schema normalization path.
 // Stream kind discovery and public factory inference are separate design obligations.
@@ -22,7 +22,7 @@ function lazyElements<I, O>(schema: StandardSchemaV1<I, O>): StandardSchemaV1<As
 				try {
 					parsed = await validateTypes({ schema, value: element });
 				} catch (error) {
-					throw new ConfigError('Stream element validation failed.', error instanceof Error ? error : undefined);
+					throw new ValidationError('Stream element validation failed.', error instanceof Error ? error : undefined);
 				}
 				yield parsed;
 			}
@@ -65,7 +65,7 @@ describe('Phase 2 lifecycle review probes', () => {
 		const output = await validateTypes({ schema: lazyElements(z.string().regex(/^\d+$/).transform(Number)), value: source() });
 		const iterator = output[Symbol.asyncIterator]();
 		assert.deepEqual(await iterator.next(), { done: false, value: 2 });
-		await assert.rejects(iterator.next(), error => error instanceof ConfigError && error.cause instanceof Error);
+		await assert.rejects(iterator.next(), error => error instanceof ValidationError && error.cause instanceof Error);
 		assert.equal(closed, 1);
 	});
 

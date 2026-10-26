@@ -1,7 +1,7 @@
 // Public validators must produce SDK messages, and accept every SDK message part.
 import { create, ModelMessageSchema, PromptStringOrMessagesSchema, z } from 'casai';
 import type { ModelMessage } from 'casai';
-import type { LanguageModel } from 'ai';
+import type { LanguageModel, modelMessageSchema } from 'ai';
 import { expectEqual, expectType } from './assert.js';
 
 declare const model: LanguageModel;
@@ -21,14 +21,9 @@ expectEqual<z.output<typeof PromptStringOrMessagesSchema>, string | ModelMessage
 // @ts-expect-error Validated prompts retain their string/message shape.
 expectType<number>(prompt);
 
-// Strip passthrough indices so an SDK-added discriminator cannot hide behind unknown keys.
-type KnownProperties<T> = T extends unknown ? {
-	[K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
-} : never;
-type KnownContent<T> = T extends (infer PART)[] ? KnownProperties<PART>[] : T;
-type KnownMessage<T> = T extends { content: infer CONTENT }
-	? Omit<KnownProperties<T>, 'content'> & { content: KnownContent<CONTENT> } : never;
-expectType<KnownMessage<z.input<typeof ModelMessageSchema>>>(sdkMessage);
+// The exported validator is the SDK validator, including its input and output contracts.
+expectEqual<typeof ModelMessageSchema, typeof modelMessageSchema>();
+expectEqual<z.input<typeof ModelMessageSchema>, z.input<typeof modelMessageSchema>>();
 
 const custom = ModelMessageSchema.parse({ role: 'assistant', content: [{ type: 'custom', kind: 'provider.state' }] });
 if (custom.role === 'assistant' && typeof custom.content !== 'string') {

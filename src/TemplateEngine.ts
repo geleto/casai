@@ -3,14 +3,7 @@ import { Context } from './types/types.js';
 import { TemplateConfig } from './types/config.js';
 import * as types from './types/types.js';
 
-export class TemplateError extends Error {
-	declare cause?: Error;
-	name: string;
-	constructor(message: string, cause?: Error) {
-		super(message, { cause });
-		this.name = 'TemplateError';
-	}
-}
+import { TemplateError } from './errors.js';
 
 export class TemplateEngine<
 	TConfig extends Partial<TemplateConfig<INPUT>>,

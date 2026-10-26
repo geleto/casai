@@ -1,6 +1,7 @@
 // With exactOptionalPropertyTypes, an optional property is either absent or holds its declared type.
 // A child whose optional execute cannot hold undefined always keeps an implementation.
 import { create, z } from 'casai';
+import { expectEqual } from './assert.js';
 
 const inputSchema = z.object({ value: z.number() });
 const parent = create.Function.asTool({ inputSchema, execute: ({ value }) => value });
@@ -28,3 +29,14 @@ objects.run({ onFinish: undefined });
 const texts = create.TextStreamer({ model, prompt: 'Answer.' });
 // @ts-expect-error The outer approval setting is optional without explicitly admitting undefined.
 texts.run({ toolApproval: undefined });
+
+// Omission inherits a schema; a property that can hold undefined can remove it.
+const numberSchema = z.string().transform(Number);
+const _flagSchema = z.string().transform(value => value === 'yes');
+const parsedParent = create.Config({ schema: numberSchema });
+declare const optionalReplacement: { schema?: typeof _flagSchema };
+const _alwaysParsed = create.Function({ ...optionalReplacement, execute: () => '2' }, parsedParent);
+expectEqual<Awaited<ReturnType<typeof _alwaysParsed>>, number | boolean>();
+declare const removableReplacement: { schema?: typeof _flagSchema | undefined };
+const _maybeParsed = create.Function({ ...removableReplacement, execute: () => '2' }, parsedParent);
+expectEqual<Awaited<ReturnType<typeof _maybeParsed>>, string | number | boolean>();

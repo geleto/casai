@@ -158,7 +158,7 @@ describe('Config merging', () => {
 		});
 
 		it('should preserve an annotated tool config passed through Config', async () => {
-			const config: FunctionToolConfig<typeof inputSchema, undefined, undefined, undefined, { factor: number }> = {
+			const config: FunctionToolConfig<typeof inputSchema, undefined, undefined, undefined, { factor: number }> & { toolContextSchema: typeof contextSchema } = {
 				inputSchema, toolContextSchema: contextSchema, execute: (executionContext) => { const { value } = executionContext; const context = executionContext;return value * ('factor' in context ? context.factor : 1); },
 			};
 			const tool = create.Function.asTool({}, create.Config(config));

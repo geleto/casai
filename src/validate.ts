@@ -1,10 +1,10 @@
 import { z, ZodError } from 'zod';
+import { isRecord } from '@ai-sdk/provider-utils';
 import * as types from './types/types.js';
 import * as configs from './types/config.js';
 import { ModelMessageSchema } from "./types/schemas.js";
 
-import { ConfigError } from './errors.js';
-export { ConfigError } from './errors.js';
+import { ConfigError, ValidationError } from './errors.js';
 import { parseSchema, validateSchemaVersion } from './schema.js';
 
 type AnyTextConfig = configs.ConfigShape<configs.GenerateTextConfig<any, any, any> | configs.StreamTextConfig<any, any, any>>;
@@ -27,29 +27,29 @@ function hasConfiguredValue(config: Record<string, unknown>, key: string): boole
 	return config[key] !== undefined && config[key] !== null;
 }
 
-export function validateMessagesArray(messages: unknown): void {
+export function validateMessagesArray(messages: unknown, ErrorClass: typeof ConfigError | typeof ValidationError = ConfigError): void {
 	if (messages === undefined) return;
 	const result = z.array(ModelMessageSchema).safeParse(messages);
 	if (!result.success) {
-		throw new ConfigError(`'messages' array contains invalid message objects.\n${formatZodError(result.error)}`);
+		throw new ErrorClass(`'messages' array contains invalid message objects.\n${formatZodError(result.error)}`);
 	}
 }
 
-export function validateConfigBasics(config?: unknown): asserts config is Record<string, unknown> {
-	if (!config || typeof config !== 'object' || Array.isArray(config)) {
-		throw new ConfigError('Config must be an object.');
+export function validateConfigBasics(config?: unknown, ErrorClass: typeof ConfigError | typeof ValidationError = ConfigError): asserts config is Record<string, unknown> {
+	if (!isRecord(config)) {
+		throw new ErrorClass('Config must be an object.');
 	}
-	if ('contextSchema' in config) throw new ConfigError("Use 'toolContextSchema' in Casai configuration; 'contextSchema' belongs to native SDK tools.");
-	if ('options' in config) throw new ConfigError("Use 'renderOptions' for rendering settings; 'options' is not supported in Casai configuration.");
-	if ('mode' in config) throw new ConfigError("'mode' is not supported. The AI SDK selects the object generation format.");
+	if ('contextSchema' in config) throw new ErrorClass("Use 'toolContextSchema' in Casai configuration; 'contextSchema' belongs to native SDK tools.");
+	if ('options' in config) throw new ErrorClass("Use 'renderOptions' for rendering settings; 'options' is not supported in Casai configuration.");
+	if ('mode' in config) throw new ErrorClass("'mode' is not supported. The AI SDK selects the object generation format.");
 	for (const key of ['inputSchema', 'toolContextSchema', 'schema']) {
-		if (key in config) validateSchemaVersion((config as Record<string, unknown>)[key]);
+		if (key in config) validateSchemaVersion(config[key]);
 	}
 	if ('template' in config && 'script' in config) {
-		throw new ConfigError("Configuration cannot have both 'template' and 'script' properties.");
+		throw new ErrorClass("Configuration cannot have both 'template' and 'script' properties.");
 	}
 	if ('messages' in config) {
-		validateMessagesArray(config.messages);
+		validateMessagesArray(config.messages, ErrorClass);
 	}
 }
 
@@ -102,9 +102,9 @@ function validatePromptProperties(config: Record<string, unknown>, promptType?: 
 }
 
 // A loaded text prompt is identified by name.
-export function validateLoadedTextPrompt(prompt: unknown): asserts prompt is string | undefined {
+export function validateLoadedTextPrompt(prompt: unknown, ErrorClass: typeof ConfigError | typeof ValidationError = ConfigError): asserts prompt is string | undefined {
 	if (prompt !== undefined && typeof prompt !== 'string') {
-		throw new ConfigError("The 'prompt' of a loadsText component must be the name of the prompt to load.");
+		throw new ErrorClass("The 'prompt' of a loadsText component must be the name of the prompt to load.");
 	}
 }
 
@@ -228,15 +228,15 @@ export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, prompt
 /**
  * Validates configurations for `create.Template`.
  * @param config The configuration object.
- * @param templateType The explicit templateType from the factory.
+ * @param promptType The explicit promptType from the factory.
  * @param isTool A flag indicating if the component is being created as a tool.
  */
-export function validateTemplateConfig(config: Partial<configs.TemplateConfig<any>>, templateType?: types.TemplatePromptType, isTool = false): void {
+export function validateTemplateConfig(config: Partial<configs.TemplateConfig<any>>, promptType?: types.TemplatePromptType, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Template');
 	validateConfiguredSignal(config);
 
-	const isLoaded = templateType?.endsWith('-name') ?? false;
+	const isLoaded = promptType?.endsWith('-name') ?? false;
 
 	if (isLoaded) {
 		if (!hasConfiguredValue(config, 'loader')) {
@@ -262,15 +262,15 @@ export function validateTemplateConfig(config: Partial<configs.TemplateConfig<an
 /**
  * Validates configurations for `create.Script`.
  * @param config The configuration object.
- * @param scriptType The explicit scriptType from the factory.
+ * @param promptType The explicit promptType from the factory.
  * @param isTool A flag indicating if the component is being created as a tool.
  */
-export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, any>>, scriptType?: types.ScriptPromptType, isTool = false): void {
+export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, any>>, promptType?: types.ScriptPromptType, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Script');
 	validateConfiguredSignal(config);
 
-	const isLoaded = scriptType?.endsWith('-name') ?? false;
+	const isLoaded = promptType?.endsWith('-name') ?? false;
 
 	if (isLoaded) {
 		if (!hasConfiguredValue(config, 'loader')) {
@@ -298,7 +298,7 @@ export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, a
  * @param config The configuration object.
  * @param isTool A flag indicating if the function is being created as a tool.
  */
-export function validateFunctionConfig(config: Record<string, any>, isTool = false): void {
+export function validateFunctionConfig(config: Record<string, unknown>, isTool = false): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Function');
 	validateConfiguredSignal(config);
@@ -319,15 +319,18 @@ export function validateLLMComponentCall(
 	if (promptType === 'function') return;
 	const prompt = (config as { prompt?: unknown }).prompt;
 	if (promptType.includes('template') || promptType.includes('script')) {
-		if (typeof prompt !== 'string') throw new ConfigError('Prompt source must be a string, supplied in configuration or at call time.');
+		if (typeof prompt !== 'string') throw new ValidationError('Prompt source must be a string, supplied in configuration or at call time.');
 		return;
 	}
 	if (typeof prompt !== 'string' && !(Array.isArray(prompt) && prompt.length) && !(config as configs.TemplatePromptConfig).messages?.length) {
-		throw new ConfigError("Either 'prompt' (string or messages array) or 'messages' must be provided in the config or at call time.");
+		throw new ValidationError("Either 'prompt' (string or messages array) or 'messages' must be provided in the config or at call time.");
 	}
-	if (context !== undefined) throw new ConfigError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
+	if (context !== undefined) throw new ValidationError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
 }
 
-export function validateAndParseOutput<T>(config: { schema?: types.SchemaType<any> }, result: T): T | Promise<T> {
-	return config.schema === undefined ? result : parseSchema(config.schema, result, 'Output').then(parsed => parsed.value as T);
+export function validateAndParseOutput<Output>(config: { schema: types.SchemaType<Output> }, result: unknown): Promise<Output>;
+export function validateAndParseOutput<Value>(config: { schema?: undefined }, result: Value): Value;
+export function validateAndParseOutput<Output, Value>(config: { schema?: types.SchemaType<Output> | undefined }, result: Value): Value | Promise<Output>;
+export function validateAndParseOutput<Output, Value>(config: { schema?: types.SchemaType<Output> | undefined }, result: Value): Value | Promise<Output> {
+	return config.schema === undefined ? result : parseSchema(config.schema, result, 'Output').then(parsed => parsed.value);
 }

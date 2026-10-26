@@ -2,9 +2,9 @@
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
 import type { ModelMessage } from 'ai';
-import { jsonSchema } from 'ai';
+import { jsonSchema, modelMessageSchema } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { create, ConfigError, ModelMessageSchema, PromptStringOrMessagesSchema, z } from './cascada';
+import { create, ConfigError, ValidationError, ModelMessageSchema, PromptStringOrMessagesSchema, z } from './cascada';
 import type { ConfigProvider } from './cascada';
 import { extractCallArguments } from '../src/call-arguments.js';
 
@@ -167,9 +167,9 @@ describe('Component boundary contracts', () => {
 		];
 
 		for (const { name, message } of validMessages) {
-			it(`accepts and preserves ${name} in schemas and reusable configs`, () => {
-				expect(ModelMessageSchema.parse(message)).to.deep.equal(message);
-				expect(PromptStringOrMessagesSchema.parse([message])).to.deep.equal([message]);
+			it(`accepts ${name} with native parsing and unchanged reusable config`, () => {
+				expect(ModelMessageSchema.parse(message)).to.deep.equal(modelMessageSchema.parse(message));
+				expect(PromptStringOrMessagesSchema.parse([message])).to.deep.equal([modelMessageSchema.parse(message)]);
 				expect(create.Config({ messages: [message] }).config.messages).to.deep.equal([message]);
 				expect(create.Config({ prompt: [message] }).config.prompt).to.deep.equal([message]);
 			});
@@ -184,7 +184,9 @@ describe('Component boundary contracts', () => {
 			{ name: 'tool text parts', message: { role: 'tool', content: [{ type: 'text', text: 'Result' }] } },
 			{ name: 'malformed text parts', message: { role: 'user', content: [{ type: 'text', text: 42 }] } },
 			{ name: 'files without media types', message: { role: 'user', content: [{ type: 'file', data: 'aGVsbG8=' }] } },
-			{ name: 'custom parts without provider-qualified kinds', message: { role: 'assistant', content: [{ type: 'custom', kind: 'state' }] } },
+			{ name: 'invalid provider options', message: { role: 'user', content: 'Hello', providerOptions: 42 } },
+			{ name: 'invalid file data', message: { role: 'user', content: [{ type: 'file', mediaType: 'text/plain', data: 42 }] } },
+			{ name: 'invalid tool outputs', message: { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'call-1', toolName: 'calculate', output: 42 }] } },
 			{ name: 'reasoning files without media types', message: { role: 'assistant', content: [{ type: 'reasoning-file', data: 'aGVsbG8=' }] } },
 			{ name: 'approval requests without call IDs', message: { role: 'assistant', content: [{ type: 'tool-approval-request', approvalId: 'approval-1' }] } },
 			{ name: 'approval requests with invalid metadata', message: { role: 'assistant', content: [{ type: 'tool-approval-request', approvalId: 'approval-1', toolCallId: 'call-1', isAutomatic: 'yes' }] } },
@@ -201,9 +203,34 @@ describe('Component boundary contracts', () => {
 			});
 		}
 
-		it('keeps provider extension fields while validating known message fields', () => {
+		it('reuses the native message validator and its extension stripping', () => {
+			expect(ModelMessageSchema).to.equal(modelMessageSchema);
 			const message = { role: 'user', content: [{ type: 'text', text: 'Hello', extension: { id: 'part' } }], extension: { id: 'message' } };
-			expect(ModelMessageSchema.parse(message)).to.deep.equal(message);
+			expect(ModelMessageSchema.parse(message)).to.deep.equal({ role: 'user', content: [{ type: 'text', text: 'Hello' }] });
+			expect(PromptStringOrMessagesSchema.parse([message])).to.deep.equal([modelMessageSchema.parse(message)]);
+			// Configuration validates messages without replacing them, as native prompt validation does.
+			expect(create.Config({ messages: [message] } as never).config).to.have.property('messages').that.deep.equals([message]);
+			expect(message.extension).to.deep.equal({ id: 'message' });
+		});
+
+		it('follows native custom-kind validation without an additional dotted-name rule', () => {
+			const message = { role: 'assistant', content: [{ type: 'custom', kind: 'state' }] };
+			expect(ModelMessageSchema.parse(message)).to.deep.equal(modelMessageSchema.parse(message));
+			expect(create.Config({ messages: [message] } as never).config).to.have.property('messages').that.deep.equals([message]);
+		});
+
+		it('applies native message validation to calls, overrides and prepared prompts before dispatch', async () => {
+			const model = textModel('unused');
+			// Deliberately malformed JavaScript input at the public boundary.
+			const messages: ModelMessage[] = [{ role: 'user', content: 'Hello', providerOptions: 42 }] as never;
+			const direct = create.TextGenerator({ model, prompt: 'Hello' });
+			await rejects(async () => direct(messages), ValidationError);
+			await rejects(async () => direct.run({ messages }), ValidationError);
+			const prepared = create.TextGenerator.withFunction({ model, prompt: () => messages });
+			await rejects(async () => prepared({}), ValidationError);
+			const scripted = create.TextGenerator.withScript({ model, prompt: 'return messages', context: { messages } });
+			await rejects(async () => scripted(), ValidationError);
+			expect(model.doGenerateCalls).to.have.length(0);
 		});
 
 		it('accepts plain prompt strings and rejects non-prompt scalar values', () => {
@@ -256,9 +283,9 @@ describe('Component boundary contracts', () => {
 				},
 			});
 			await rejects(async () => await fn({ entries: [{ value: 'invalid' }] } as never), (error: unknown) => {
-				expect(error).to.be.instanceOf(ConfigError);
+				expect(error).to.be.instanceOf(ValidationError);
 				expect((error as Error).message).to.equal('Application input validation failed.');
-				expect((error as ConfigError).cause?.cause).to.be.instanceOf(z.ZodError);
+				expect((error as ValidationError).cause?.cause).to.be.instanceOf(z.ZodError);
 				return true;
 			});
 			expect(calls).to.equal(0);
@@ -368,12 +395,12 @@ describe('Component boundary contracts', () => {
 				expect(result).to.equal(105);
 				expect(events).to.deep.equal(['validate', 'execute']);
 				await rejects(async () => await fn({ value: 'invalid' } as never), (error: unknown) => {
-					expect(error).to.be.instanceOf(ConfigError);
-					expect((error as ConfigError).cause?.cause).to.equal(schemaError);
+					expect(error).to.be.instanceOf(ValidationError);
+					expect((error as ValidationError).cause?.cause).to.equal(schemaError);
 					return true;
 				});
 				expect(events).to.deep.equal(['validate', 'execute', 'validate']);
-				await rejects(async () => await fn(undefined as never), ConfigError);
+				await rejects(async () => await fn(undefined as never), ValidationError);
 			});
 
 			it(`returns parsed ${mode} SDK output and preserves schema failure causes`, async () => {
@@ -387,9 +414,9 @@ describe('Component boundary contracts', () => {
 				const result: number = await fn({ value: 2 });
 				expect(result).to.equal(12);
 				await rejects(async () => await fn({ value: -1 }), (error: unknown) => {
-					expect(error).to.be.instanceOf(ConfigError);
-					expect((error as ConfigError).message).to.include('Output validation failed');
-					expect((error as ConfigError).cause?.cause).to.equal(schemaError);
+					expect(error).to.be.instanceOf(ValidationError);
+					expect((error as ValidationError).message).to.include('Output validation failed');
+					expect((error as ValidationError).cause?.cause).to.equal(schemaError);
 					return true;
 				});
 			});
@@ -443,8 +470,8 @@ describe('Component boundary contracts', () => {
 					const call = component as (input?: unknown) => Promise<unknown>;
 					expect(await call({ value: 2 })).to.equal(kind === 'Template' ? '6' : 6);
 					expect(events).to.deep.equal(['validate', 'render']);
-					await rejects(async () => await call({ value: 'invalid' }), ConfigError);
-					await rejects(async () => await call(undefined), ConfigError);
+					await rejects(async () => await call({ value: 'invalid' }), ValidationError);
+					await rejects(async () => await call(undefined), ValidationError);
 					expect(events).to.deep.equal(['validate', 'render', 'validate', 'validate']);
 				});
 			}
@@ -517,7 +544,7 @@ describe('Component boundary contracts', () => {
 					// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
 					await component();
 				}, (error: unknown) => {
-					expect(error).to.be.instanceOf(ConfigError);
+					expect(error).to.be.instanceOf(ValidationError);
 					expect((error as Error).message).to.match(/Application input validation failed/);
 					return true;
 				});

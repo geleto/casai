@@ -25,6 +25,26 @@ async function load(loader: ILoaderAny, name = 'prompt') {
 }
 
 describe('Loader execution coverage', () => {
+	it('merges structural race groups with processed loaders without tags', async () => {
+		const parent = { load: () => null };
+		const child = { load: () => 'child source' };
+		const group = { loaders: [child], groupName: 'shared' };
+		const processed = createRaceLoader([parent], 'shared');
+		expect(processLoaders(processed)[0]).to.equal(processed);
+		const merged = mergeLoaders([processed], [group]);
+		expect(merged).to.have.length(1);
+		expect((merged[0] as RaceLoader).loaders).to.deep.equal([child, parent]);
+		expect(await load(merged[0])).to.have.property('src', 'child source');
+		expect(processed.loaders).to.deep.equal([parent]);
+	});
+
+	it('preserves native race loaders without Casai group metadata', async () => {
+		const native = cascada.raceLoaders([{ load: () => 'native source' }]);
+		expect(processLoaders(native)).to.deep.equal([native]);
+		expect(processLoaders(native)[0]).to.equal(native);
+		expect(await load(native)).to.have.property('src', 'native source');
+	});
+
 	describe('RaceLoader first-success behavior', () => {
 		for (const named of [true, false]) {
 			it(`preserves each concurrent source origin in ${named ? 'a named' : 'an anonymous'} race with a shared path`, async () => {

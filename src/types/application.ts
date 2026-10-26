@@ -2,10 +2,10 @@ import type { InferToolContext, InferToolInput, InferToolOutput } from '@ai-sdk/
 import type { z } from 'zod/v4';
 import type { FlexibleSchema, Tool } from 'ai';
 import type { EmptyMap, MergedConfig, MergedProperties } from './merge.js';
-import type { DeclaredType } from './config.js';
+import type { ConfigValue } from './config.js';
 import type { ValidateRunConfig } from './config-validation.js';
 import type { InferInputSchema, InferSchema } from './types.js';
-import type { ComponentExecutionOptions } from '../execution.js';
+import type { ComponentExecutionOptions } from './sdk.js';
 import type { StreamSchema } from '../streams.js';
 type Raw<S> = InferInputSchema<S>;
 type Parsed<S> = S extends FlexibleSchema<unknown> ? InferSchema<S> : undefined;
@@ -195,7 +195,7 @@ type Run<T, R, Settings> = EmptyMap extends Settings
 	? <A extends object>(options?: A & Settings & ValidateRunConfig<A, T, Settings>) => Promise<R>
 	: <A extends object>(options: A & Settings & ValidateRunConfig<A, T, Settings>) => Promise<R>;
 
-type Setting<T, K extends PropertyKey> = DeclaredType<T, K>;
+type Setting<T, K extends PropertyKey> = ConfigValue<T, K>;
 // Discover context across configurations, then make its fields optional if any branch lacks it.
 export type Configured<T, C = T extends unknown ? 'context' extends keyof T ? T['context'] : undefined : never> =
 	[NonNullable<C>] extends [never] ? EmptyMap : NonNullable<C> extends object
@@ -208,7 +208,8 @@ type SchemaOf<T> = Setting<T, 'inputSchema'>;
 type SchemaAlternatives<T, S = Exclude<SchemaOf<T>, undefined>> = [S] extends [never] ? { config: T; schema: undefined }
 	: S extends unknown ? { config: T; schema: S | Extract<SchemaOf<T>, undefined> } : never;
 type ApplicationAlternatives<T> = T extends unknown ? SchemaAlternatives<T> : never;
-type ExecuteInput<T> = T extends { execute: (context: infer I, ...args: any[]) => any } ? unknown extends I ? Fields : NonNullable<I> : Fields;
+type ExecuteInput<T> = T extends { execute: (context: infer I, ...args: any[]) => any } | { prompt: (context: infer I, ...args: any[]) => any }
+	? unknown extends I ? Fields : NonNullable<I> : Fields;
 export type ApplicationInput<T, S = SchemaOf<T>> = [Exclude<S, undefined>] extends [never]
 	? OmitEach<ExecuteInput<T>, NamedKeys<Configured<T>> | PossibleFallbackNames<Registry<T>> | '_toolOptions'> : Input<Exclude<S, undefined>>;
 type PrivateKeys<T, D = Configured<T>, S = SchemaOf<T>> = PrivateNames<undefined extends S ? undefined : S, D, Setting<T, 'toolContextSchema'>, Registry<T>>;
@@ -226,7 +227,7 @@ export type CheckApplication<T, A, K extends PropertyKey = Keys<A>> = 0 extends 
 	: [A] extends [never] ? unknown
 	: ApplicationChecks<T, A, K> extends (check: infer Check) => void ? Check : never;
 export type ApplicationRun<T, R, Settings = EmptyMap> = Run<T, R, Settings & import('./input.js').RunContext<T>
-	& { abortSignal?: AbortSignal; toolsContext?: Partial<ToolContexts<Registry<T>>> | undefined }>;
+	& Pick<ComponentExecutionOptions, 'abortSignal'> & { toolsContext?: Partial<ToolContexts<Registry<T>>> | undefined }>;
 export type SourceSetting<T, K extends string> = T extends Record<K, string> ? Partial<Record<K, string>> : Record<K, string>;
 // Rebuild injected fields from the final config. Intersecting them with a
 // retained callback's old helper signatures would restore obsolete overloads.
@@ -289,8 +290,11 @@ type BranchAdmission<T, S> = [Exclude<S, undefined>] extends [never] ? OwnedChec
 	: Admission<S, Configured<T>, Setting<T, 'toolContextSchema'>, Registry<T>> & InputAdmission<Exclude<S, undefined>> & ContextAdmission<Setting<T, 'toolContextSchema'>>;
 type AdmissionChecks<T, B = ApplicationAlternatives<T>> = B extends { config: infer Config; schema: infer S } ? (check: BranchAdmission<Config, S>) => void : never;
 export type ComponentAdmission<T> = AdmissionChecks<T> extends (check: infer Check) => void ? Check : never;
+// A binding knows its raw context even without a parser. An optional parser can
+// produce either its parsed context or the captured raw context.
+type BoundToolContext<S, C> = S extends Schema ? Parsed<S> : C;
 export type BindToolContext<T, R> = <C extends ContextInput<T>>(context: C
 	& NoInfer<BindingCheck<T, C>>) => {
 	readonly context: Readonly<C>;
-	readonly tool: Tool<Output<SchemaOf<T>>, R, Setting<T, 'toolContextSchema'> extends Schema ? Parsed<Setting<T, 'toolContextSchema'>> : unknown>;
+	readonly tool: Tool<Output<SchemaOf<T>>, R, BoundToolContext<Setting<T, 'toolContextSchema'>, C>>;
 };

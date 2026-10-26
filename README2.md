@@ -386,7 +386,7 @@ const detailed = await explain.run({
 
 `explain` is a `.withTemplate` agent, so the call-time `prompt` is a template, like the configured one.
 
-The `.run()` object is an application-authored settings envelope. Put application/model data inside `context`; do not pass or spread that data as the settings object. Template, Script, and Function reject unknown top-level keys with `ConfigError`, while SDK settings retain SDK validation. This catches many mistaken calls, but recognized names still select their documented behavior: `.run({ template: text })` on Template executes `text` as source. It is not a safe way to forward model output. The restrictions on settings do not restrict unrelated keys inside `context`; its input schema and private-binding boundary apply there.
+The `.run()` object is an application-authored settings envelope. Put application/model data inside `context`; do not pass or spread that data as the settings object. Template, Script, and Function reject unknown top-level keys with `ValidationError`, while SDK settings retain SDK validation. This catches many mistaken calls, but recognized names still select their documented behavior: `.run({ template: text })` on Template executes `text` as source. It is not a safe way to forward model output. The restrictions on settings do not restrict unrelated keys inside `context`; its input schema and private-binding boundary apply there.
 
 | LLMAgent field | Meaning |
 | :--- | :--- |
@@ -2158,7 +2158,7 @@ SDK UI helpers validate history against `agent.tools` before invoking the agent 
 
 A default factory is a function such as `.default(() => [])` that creates a fallback value. SDK/Zod conversion can evaluate pure default factories while building the tool's JSON Schema description, as well as during parsing. Do not rely on a factory running only once or only when a tool executes. Casai does not trial-parse incomplete configuration to discover fields or defaults, and metadata conversion must not supply cached invocation context. The actual call still parses its final merged input and uses that result.
 
-Casai-owned direct, `.run()`, and injected-runner argument failures reject with `ConfigError`, retaining the validation cause; Cascada may wrap that rejection through its normal script/render error path. Actual SDK tool validation keeps native SDK errors such as `InvalidToolInputError`. Callback execution errors retain their native behavior.
+Casai-owned direct, `.run()`, and injected-runner argument failures reject with `ValidationError`, retaining the validation cause; Cascada may wrap that rejection through its normal script/render error path. Actual SDK tool validation keeps native SDK errors such as `InvalidToolInputError`. Callback execution errors retain their native behavior.
 
 Script/Function `schema` parses completed values and returns the produced result, preserving output parsing already implemented today. Stream schemas parse elements lazily in the existing consumer pass and forward parsed elements. Custom options are parsed before `prepareCall`, which receives the schema output type. Reuse SDK/Cascada parsing already performed for that same boundary rather than adding another pass. See [shared output schemas](#output-schemas-and-structured-replacements).
 
@@ -2189,7 +2189,8 @@ Wrap creation and `await component(...)` in `try/catch` when handling failures. 
 
 | Error source | How to inspect it |
 | :--- | :--- |
-| Invalid configuration, invalid call arguments, or Casai schema validation, including unknown approvals in `resume()` and unknown tools in `executeTool()` | `ConfigError`, exported from `casai` |
+| Invalid configuration or unsupported schema/binding contracts, even when discovered lazily | `ConfigError`, exported from `casai` |
+| Invalid call arguments or Casai input/context/output/stream-element validation, including unknown approvals in `resume()` and unknown tools in `executeTool()` | `ValidationError`, exported from `casai` |
 | Template or script compilation/execution | `TemplateError` or `ScriptError`; inspect `cause` for the underlying failure |
 | Provider requests or structured LLMAgent output | SDK error types and their documented instance checks |
 | Streaming generation or tool execution | Full-stream `error` / `tool-error` parts, callbacks, and promise/iterator failures |
@@ -2199,7 +2200,9 @@ Wrap creation and `await component(...)` in `try/catch` when handling failures. 
 | No eligible final LLMAgent output, including a legitimate tool/approval pause | `NoOutputGeneratedError` from `value` access or consumption; inspect steps and history for continuation |
 | Native stream producers | Iterator failures and native completion/validation errors |
 
-Injected tool calls use Casai's `ConfigError` for argument and tool-context validation, including when the registered tool is a native SDK tool. Private-context validation details remain in `cause`; the public message identifies the failed stage without exposing the rejected context. This matters when a coded workflow is itself a model tool, because execution error messages can become tool output sent to the model. Native SDK-owned validation and errors thrown by tool implementations retain their native behavior. Treat error causes as trusted diagnostics rather than model-facing output.
+Injected tool calls use Casai's `ValidationError` for argument and tool-context validation, including when the registered tool is a native SDK tool. Private-context validation details remain in `cause`; the public message identifies the failed stage without exposing the rejected context. This matters when a coded workflow is itself a model tool, because execution error messages can become tool output sent to the model. Native SDK-owned validation and errors thrown by tool implementations retain their native behavior. Treat error causes as trusted diagnostics rather than model-facing output.
+
+`ValidationError` and `ConfigError` are distinct classes. Use their `.isInstance(error)` guards across compatible package copies; runtime-validation catches that previously used `ConfigError` must now use `ValidationError`. All Casai error classes live in `src/errors.ts`.
 
 For streaming, handle event errors as well as thrown errors. This example uses the full event stream so tool failures are visible alongside text:
 

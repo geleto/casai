@@ -24,7 +24,7 @@ void template();
 // @ts-expect-error Annotated template schemas cannot change the declared field type.
 const _wrongTemplate: TemplateConfig<{ name: string }> = { template: '{{ name }}', inputSchema: z.object({ name: z.number() }) };
 
-const templateToolConfig: TemplateToolConfig<{ name: string }, { tenant: string }> = {
+const templateToolConfig: TemplateToolConfig<{ name: string }, { tenant: string }> & { toolContextSchema: typeof contextSchema } = {
 	template: '{{ name }}', inputSchema, toolContextSchema: contextSchema,
 };
 const templateTool = create.Template.asTool(templateToolConfig);
@@ -49,7 +49,7 @@ expectType<Promise<{ length: string }>>(script('return { length: name.length }',
 // @ts-expect-error Annotated script schemas must match the declared output.
 const _wrongScript: ScriptConfig<{ name: string }, { length: number }> = { schema: z.object({ length: z.string() }) };
 
-const scriptToolConfig: ScriptToolConfig<{ name: string }, { length: number }, { tenant: string }> & { script: string, schema: typeof schema } = {
+const scriptToolConfig: ScriptToolConfig<{ name: string }, { length: number }, { tenant: string }> & { script: string, schema: typeof schema, toolContextSchema: typeof contextSchema } = {
 	script: 'return { length: name.length }', inputSchema, schema, toolContextSchema: contextSchema,
 };
 const scriptTool = create.Script.asTool(scriptToolConfig);

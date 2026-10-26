@@ -1,7 +1,8 @@
+import type { SchemaConfigInferShape, ConfigSchemas } from '../types/function-config.js';
 import type { FlexibleSchema } from 'ai';
 import type { DescriptorInput } from '../types/callbacks.js';
 import { validateRegistryConfig, defineTool, namedArguments, prepareExecution, runSettings } from '../execution.js';
-import { ConfigError } from '../errors.js';
+import { ValidationError } from '../errors.js';
 import { mergeConfigs, processConfig } from '../config-utils.js';
 import { validateScriptConfig } from '../validate.js';
 import { ScriptEngine } from '../ScriptEngine.js';
@@ -74,18 +75,20 @@ function baseScript(
 
 // asTool method for Script
 function asTool<
-	TConfig extends Provisional<configs.ToolConfigShape<configs.ScriptToolConfig<INPUT, OUTPUT, any>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<configs.ScriptToolConfig<INPUT, OUTPUT, any>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorOutput extends FlexibleSchema | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & DescriptorInput<TConfig, import('../types/merge.js').EmptyMap, TDescriptorInput, TDescriptorOutput, TDescriptorContext> & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any>>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, import('../types/merge.js').EmptyMap> & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any>>
 ): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, import('../types/application.js').CollectedResult<TConfig>, TConfig>;
 
 function asTool<
-	TConfig extends Provisional<configs.ToolConfigShape<Partial<configs.ScriptToolConfig<INPUT, OUTPUT, any>>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<Partial<configs.ScriptToolConfig<INPUT, OUTPUT, any>>>,
 	TParentConfig extends Partial<configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT, any>>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
@@ -93,11 +96,11 @@ function asTool<
 	PARENT_OUTPUT,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalScriptConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorOutput extends FlexibleSchema | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & RequiredInheritedConfig<TParentConfig, { script: string; inputSchema: FlexibleSchema<Record<string, any>> }> & DescriptorInput<TConfig, TParentConfig, TDescriptorInput, TDescriptorOutput, TDescriptorContext> & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any>>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & RequiredInheritedConfig<TParentConfig, { script: string; inputSchema: FlexibleSchema<Record<string, any>> }> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig> & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any>>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateScriptParentConfig<TParentConfig, configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT, any>>>
 ): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, import('../types/application.js').CollectedResult<TFinalConfig>, TFinalConfig>;
 
@@ -139,18 +142,20 @@ function loadsScript(
 
 // loadsScriptAsTool: load by name via provided loader and return as tool
 function loadsScriptAsTool<
-	TConfig extends Provisional<configs.ToolConfigShape<configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorOutput extends FlexibleSchema | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & DescriptorInput<TConfig, import('../types/merge.js').EmptyMap, TDescriptorInput, TDescriptorOutput, TDescriptorContext> & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, import('../types/merge.js').EmptyMap> & ValidateScriptConfig<TConfig, TConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>
 ): ScriptCallSignature<TConfig, INPUT, OUTPUT> & results.ComponentToolFromConfig<INPUT, import('../types/application.js').CollectedResult<TConfig>, TConfig>;
 
 function loadsScriptAsTool<
-	TConfig extends Provisional<configs.ToolConfigShape<Partial<configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>>>,
+	TSchemaPresence extends object,
+	TConfig extends configs.ToolConfigInferShape<Partial<configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>>,
 	TParentConfig extends Partial<configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT, any> & configs.LoaderConfig>,
 	INPUT extends Record<string, any>,
 	OUTPUT,
@@ -158,11 +163,11 @@ function loadsScriptAsTool<
 	PARENT_OUTPUT,
 	FINAL_INPUT extends Record<string, any> = utils.Override<PARENT_INPUT, INPUT>,
 	TFinalConfig extends configs.FinalScriptConfigShape = configs.MergedConfig<TParentConfig, ResolvedConfig<TConfig>>,
-	TDescriptorInput extends FlexibleSchema<Record<string, any>> | undefined = never,
-	TDescriptorOutput extends FlexibleSchema | undefined = never,
-	TDescriptorContext extends FlexibleSchema | undefined = never,
+	TSchemaInput = never,
+	TSchemaOutput = never,
+	TSchemaContext = never,
 >(
-	config: TConfig & RequiredInheritedConfig<TParentConfig, { script: string; inputSchema: FlexibleSchema<Record<string, any>>; loader: configs.LoaderConfig['loader'] }> & DescriptorInput<TConfig, TParentConfig, TDescriptorInput, TDescriptorOutput, TDescriptorContext> & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>,
+	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig & RequiredInheritedConfig<TParentConfig, { script: string; inputSchema: FlexibleSchema<Record<string, any>>; loader: configs.LoaderConfig['loader'] }> & DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, TParentConfig> & ValidateScriptConfig<TConfig, TFinalConfig, configs.ScriptToolConfig<INPUT, OUTPUT, any> & configs.LoaderConfig>,
 	parent: configs.ConfigProvider<TParentConfig & ValidateScriptParentConfig<TParentConfig, configs.ScriptToolConfig<PARENT_INPUT, PARENT_OUTPUT, any> & configs.LoaderConfig>>
 ): ScriptCallSignatureWithParent<TConfig, TParentConfig, INPUT, OUTPUT, PARENT_INPUT, PARENT_OUTPUT> & results.ComponentToolFromConfig<FINAL_INPUT, import('../types/application.js').CollectedResult<TFinalConfig>, TFinalConfig>;
 
@@ -176,32 +181,32 @@ function loadsScriptAsTool(
 // Internal common creator
 function _createScript(
 	config: configs.ScriptConfig<any, any>,
-	scriptType: ScriptPromptType,
+	promptType: ScriptPromptType,
 	parent?: configs.ConfigProvider<configs.ScriptConfig<any, any>>,
 	isTool = false,
 ) {
 	// Merge configs if parent exists, otherwise use provided config
 	//, add promptType to the config
 	const merged = parent
-		? { ...mergeConfigs(parent.config, config), promptType: scriptType }
-		: { ...processConfig(config), promptType: scriptType };
+		? { ...mergeConfigs(parent.config, config), promptType }
+		: { ...processConfig(config), promptType };
 
-	validateScriptConfig(merged, scriptType, isTool);
+	validateScriptConfig(merged, promptType, isTool);
 	validateRegistryConfig(merged, config);
 	if (merged.debug) console.log('[DEBUG] Script created with config:', merged);
 
 	const engine = new ScriptEngine(merged as configs.ScriptConfig<any, any>);
 	const run = async (...args: unknown[]) => {
 		const settings = runSettings(args, ['script', 'context', 'toolsContext', 'abortSignal']);
-		if (settings.script !== undefined && typeof settings.script !== 'string') throw new ConfigError('Script source must be a string.');
-		if (settings.script === undefined && merged.script === undefined) throw new ConfigError('A script source must be provided in configuration or at call time.');
+		if (settings.script !== undefined && typeof settings.script !== 'string') throw new ValidationError('Script source must be a string.');
+		if (settings.script === undefined && merged.script === undefined) throw new ValidationError('A script source must be provided in configuration or at call time.');
 		const { context } = await prepareExecution(merged, settings.context,
 			settings.abortSignal === undefined ? {} : { abortSignal: settings.abortSignal as AbortSignal }, settings.toolsContext as Record<string, unknown> | undefined, isTool);
 		return engine.run(settings.script, context);
 	};
 	const call = async (...args: unknown[]) => {
 		const [first, second, ...rest] = namedArguments(args);
-		if (rest.length || (typeof first !== 'string' && second !== undefined)) throw new ConfigError('Unexpected Script arguments.');
+		if (rest.length || (typeof first !== 'string' && second !== undefined)) throw new ValidationError('Unexpected Script arguments.');
 		return typeof first === 'string' ? run({ script: first, context: second }) : run({ context: first });
 	};
 	const component = Object.assign(call, { config: merged, type: 'Script', run });

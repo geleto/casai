@@ -5,6 +5,22 @@ import { create, z } from './cascada';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
 
 describe('Owned tool registries', () => {
+	it('retains raw or parsed bound context according to the selected context schema', async () => {
+		for (const contextSchema of [undefined, z.object({ trace: z.string().transform(Number) })]) {
+			const configuredContext: { trace: string | number } = { trace: 0 };
+			const operation = create.Function.asTool({
+				inputSchema: z.object({}), toolContextSchema: contextSchema,
+				context: configuredContext, execute: ({ trace }) => trace,
+			});
+			const bound = operation.bindToolContext({ trace: '12' });
+			// Native descriptor execution receives context after the SDK parser.
+			const context = contextSchema ? await validateTypes({ schema: contextSchema, value: bound.context }) : bound.context;
+			const value = await bound.tool.execute!({}, { context, toolCallId: 'bound', messages: [] });
+			assert.equal(value, contextSchema ? 12 : '12');
+			assert.deepEqual(bound.context, { trace: '12' });
+		}
+	});
+
 	it('characterizes unsupported thenable tool context across SDK and injected paths', async () => {
 		const probe = create.Function.asTool({ inputSchema: z.object({ factor: z.number() }), context: { privateValue: 'configured' },
 			execute: ({ factor, privateValue }) => ({ factor, privateValue }) });

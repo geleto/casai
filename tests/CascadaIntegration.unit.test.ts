@@ -20,7 +20,7 @@ describe('Cascada renderer state and forwarding integration', () => {
 		`], { cwd: new URL('../', import.meta.url), encoding: 'utf8', timeout: 10000 });
 		assert.equal(child.error, undefined);
 		assert.equal(child.status, 1);
-		assert.match(child.stderr, /ConfigError: A registered tool accepts one input value/);
+		assert.match(child.stderr, /ValidationError: A registered tool accepts one input value/);
 		assert.doesNotMatch(child.stdout, /BODY_ENTERED/);
 	});
 

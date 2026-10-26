@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { expect } from 'chai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { create, ConfigError, z } from './cascada';
+import { create, ConfigError, ValidationError, z } from './cascada';
 
 describe('Config validation', () => {
 	const model = new MockLanguageModelV3();
@@ -24,8 +24,8 @@ describe('Config validation', () => {
 	it('rejects obsolete object generation mode in run settings', async () => {
 		const generator = create.ObjectGenerator({ model, schema, prompt: 'Answer.' });
 		const streamer = create.ObjectStreamer({ model, schema, prompt: 'Answer.' });
-		await assert.rejects(generator.run({ mode: 'tool' } as never), { name: 'ConfigError', message: /'mode' is not supported/ });
-		expect(() => streamer.run({ mode: 'json' } as never)).to.throw(ConfigError, "'mode' is not supported");
+		await assert.rejects(generator.run({ mode: 'tool' } as never), { name: 'ValidationError', message: /'mode' is not supported/ });
+		expect(() => streamer.run({ mode: 'json' } as never)).to.throw(ValidationError, "'mode' is not supported");
 		expect(model.doGenerateCalls).to.have.length(0);
 		expect(model.doStreamCalls).to.have.length(0);
 	});

@@ -3,7 +3,7 @@ import { generateObject, NoOutputGeneratedError, Output, smoothStream, streamObj
 import type { ModelMessage, StreamTextTransform, TextStreamPart, ToolSet } from 'ai';
 import type { LanguageModelV3CallOptions, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { convertArrayToReadableStream, MockLanguageModelV3 } from 'ai/test';
-import { create, ConfigError, z } from './cascada';
+import { create, ConfigError, ValidationError, z } from './cascada';
 
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -89,7 +89,7 @@ describe('LLM surface combinations', () => {
 					...(modifier.startsWith('loads') && { loader: { load: () => { prepared++; return 'go'; } } }),
 				});
 				for (const value of [undefined, null]) {
-					await assert.rejects(async () => component.run({ model: value }), error => ConfigError.isInstance(error) && error.message.includes("require a 'model'"));
+					await assert.rejects(async () => component.run({ model: value }), error => error instanceof ConfigError && error.message.includes("require a 'model'"));
 				}
 				assert.equal(prepared, 0);
 				assert.equal(mock.doGenerateCalls.length + mock.doStreamCalls.length, 0);
@@ -124,10 +124,10 @@ describe('LLM surface combinations', () => {
 						const schema = z.object({ n: z.string().transform(Number) });
 						const observed: object[] = [];
 						const base = {
-							model: mock, ...(object ? { schema } : { output: Output.object({ schema }) }),
-							...(withStatic && { messages: [{ role: 'user', content: 'static' }] }),
-							...(object ? { onFinish: (event: object) => { observed.push(event); } }
-								: { onEnd: (event: object) => { observed.push(event); } }),
+							model: mock,
+							...(object ? { schema, onFinish: (event: object) => { observed.push(event); } }
+								: { output: Output.object({ schema }), onEnd: (event: object) => { observed.push(event); } }),
+							...(withStatic && { messages: [{ role: 'user' as const, content: 'static' }] }),
 						};
 						const source = plain ? 'turn' : modifier.includes('Script') ? 'return label' : '{{ label }}';
 						const preparation = {
@@ -144,7 +144,7 @@ describe('LLM surface combinations', () => {
 						const history: ModelMessage[] = withHistory ? [{ role: 'user', content: 'earlier' }] : [];
 						const context = { label: 'turn' };
 						if (!run && modifier === 'withFunction' && withHistory) {
-							await assert.rejects(async () => component(context, history), ConfigError);
+							await assert.rejects(async () => component(context, history), ValidationError);
 							assert.equal(mock.doGenerateCalls.length + mock.doStreamCalls.length, 0);
 							continue;
 						}

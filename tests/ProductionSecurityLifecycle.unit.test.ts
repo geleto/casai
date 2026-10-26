@@ -3,7 +3,7 @@ import { z } from 'zod/v4';
 import { asSchema, validateTypes } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, tool, isStepCount } from 'ai';
 import type { ModelMessage } from 'ai';
-import { create, ConfigError } from './cascada';
+import { create, ValidationError } from './cascada';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
 
 function approvedMessages(messages: ModelMessage[]): ModelMessage[] {
@@ -73,7 +73,7 @@ describe('Production security lifecycle and native boundaries', () => {
 				})) : Promise.resolve([]);
 				const steps = await result.steps;
 				const failure = steps[0].content.find(part => part.type === 'tool-error');
-				assert.ok(failure?.type === 'tool-error' && failure.error instanceof ConfigError);
+				assert.ok(failure?.type === 'tool-error' && failure.error instanceof ValidationError);
 				assert.ok(!failure.error.message.includes(sentinel));
 				assert.ok(failure.error.cause?.message.includes(sentinel), 'Exercise an actual private value in native diagnostics.');
 				assert.equal(entered, boundary === 'input' ? 0 : 1);
@@ -101,7 +101,7 @@ describe('Production security lifecycle and native boundaries', () => {
 			const model = modelFor({});
 			const resumed = new ToolLoopAgent({ model, tools: { probe: { ...fresh.tool, needsApproval: true } }, toolsContext: { probe: fresh.context },
 				stopWhen: isStepCount(2), experimental_repairToolCall: async () => { repairs++; return null; } });
-			const safeContextError = (error: unknown) => error instanceof ConfigError
+			const safeContextError = (error: unknown) => error instanceof ValidationError
 				&& error.message.toLowerCase().includes('tool context') && !error.message.includes(sentinel) && !!error.cause?.message.includes(sentinel);
 			if (mode === 'generate') {
 				await assert.rejects(resumed.generate({ messages }), safeContextError);
@@ -166,7 +166,7 @@ describe('Production security lifecycle and native boundaries', () => {
 			const calls = mode === 'generate' ? model.doGenerateCalls : model.doStreamCalls;
 			assert.equal(calls.length, 2); assert.equal(entered, 0);
 			assert.ok(!JSON.stringify(calls[1].prompt).includes(sentinel), 'Private context leaked into the next model request.');
-			assert.ok(failure?.type === 'tool-error' && failure.error instanceof ConfigError);
+			assert.ok(failure?.type === 'tool-error' && failure.error instanceof ValidationError);
 			assert.ok(!failure.error.message.includes(sentinel));
 			assert.ok(failure.error.cause?.message.includes(sentinel), 'Trusted diagnostics retain the native validation cause.');
 			assert.ok(!JSON.stringify(steps.flatMap(step => step.response.messages)).includes(sentinel));

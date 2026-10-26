@@ -1,17 +1,17 @@
 import { asSchema } from 'ai';
-import type { FlexibleSchema } from 'ai';
-import { safeValidateTypes } from '@ai-sdk/provider-utils';
+import type { FlexibleSchema, JSONValue } from 'ai';
+import { isRecord, safeValidateTypes } from '@ai-sdk/provider-utils';
 import type * as core from 'zod/v4/core';
-import { ConfigError } from './errors.js';
+import { ConfigError, ValidationError } from './errors.js';
 
 export type Fields = Record<string, unknown>;
 export type JSONSchema = Awaited<ReturnType<typeof asSchema>['jsonSchema']>;
 
-export function requireContextObject(value: unknown): Fields {
-	if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-		throw new ConfigError('Expected an object context.');
+export function requireContextObject(value: unknown, ErrorClass: typeof ConfigError | typeof ValidationError = ValidationError): Fields {
+	if (!isRecord(value)) {
+		throw new ErrorClass('Expected an object context.');
 	}
-	return value as Fields;
+	return value;
 }
 
 export function snapshot(value: unknown): unknown {
@@ -36,7 +36,7 @@ export function ownKeys(value: object): PropertyKey[] {
 }
 
 // Retain the envelope: a callable `then` inside input/context is data, not a promise.
-export async function parseSchema(schema: FlexibleSchema<unknown>, value: unknown, boundary?: string): Promise<{ value: unknown }> {
+export async function parseSchema<Output>(schema: FlexibleSchema<Output>, value: unknown, boundary?: string): Promise<{ value: Output }> {
 	try {
 		const result = await safeValidateTypes({ schema, value });
 		if (!result.success) throw result.error;
@@ -44,7 +44,7 @@ export async function parseSchema(schema: FlexibleSchema<unknown>, value: unknow
 	} catch (error) {
 		if (boundary === undefined) throw error;
 		// Native errors can include private values. Preserve them for trusted diagnostics only.
-		throw new ConfigError(`${boundary} validation failed.`, error instanceof Error ? error : new Error(String(error)));
+		throw new ValidationError(`${boundary} validation failed.`, error instanceof Error ? error : new Error(String(error)));
 	}
 }
 
@@ -188,13 +188,13 @@ function hasReference(schema: unknown): boolean {
 }
 
 // Only data descriptors and JSON values become annotations. No getters/toJSON.
-function jsonDefault(value: unknown, ancestors = new Set<object>()): unknown {
+function jsonDefault(value: unknown, ancestors = new Set<object>()): JSONValue | undefined {
 	if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
 	if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
 	if (!Array.isArray(value) && !isPlainObject(value)) return undefined;
 	if (ancestors.has(value)) return undefined;
 	ancestors.add(value);
-	const result: Fields | unknown[] = Array.isArray(value) ? [] : {};
+	const result: Record<string, JSONValue> | JSONValue[] = Array.isArray(value) ? [] : {};
 	const keys = Array.isArray(value) ? Array.from({ length: value.length }, (_, index) => String(index)) : Object.keys(value);
 	for (const key of keys) {
 		const descriptor = Object.getOwnPropertyDescriptor(value, key);

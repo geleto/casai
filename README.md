@@ -1031,6 +1031,8 @@ Callers supply the **input type** of `inputSchema`; `execute` receives its **par
 
 A `Function` or `Function.asTool` can inherit from a `Config` or another `Function`. A child can replace `inputSchema`, `schema`, or `execute`, and its configured `context` merges by key. `Function.asTool` can also replace `toolContextSchema`. TypeScript checks the final implementation against the resolved configuration. Every component exposes that configuration through `.config`; `component.config.execute` remains the original Function implementation.
 
+An optional schema property does not guarantee parsing: callback and result types include the possible unparsed values, and schema defaults may be absent. This applies to optional annotations and conditional spreads. Omitting a child schema setting inherits the parent schema; explicitly setting it to `undefined` removes it. Use `satisfies` when checking a concrete configuration against a configuration type while retaining knowledge of its supplied schemas.
+
 A `Config` can hold a partial `Function` configuration, including `execute`. Its callback is typed from the schemas and context that `Config` declares and must not contradict them; anything it leaves out is checked when a `Function` completes the configuration. Components that supply their own implementation, such as generators, templates, and their tools, reject `execute` in their own config and in a parent.
 
 Inline callbacks in a `Config`, such as `onStart`, are typed for every component the `Config` could configure: a fragment usable by both text and object generators receives either kind of event.
@@ -1794,9 +1796,11 @@ Casai integrates with Zod to provide automatic, runtime validation for both the 
 
 AI SDK schemas created with `jsonSchema` are also supported. For local input and output checks in Template, Script, and Function components, supply the schema's `validate` callback; it can be synchronous or asynchronous. JSON schema metadata alone does not perform local validation in these components. Output validation returns the parsed value, including transformations.
 
-Casai-owned input, context, output and stream-element validation failures throw `ConfigError` with a stage-only summary and the original error in `cause` for trusted diagnostics. Script and template rendering failures throw `ScriptError` and `TemplateError` respectively. Native SDK-owned boundaries retain their native errors.
+Casai-owned invalid call arguments and input, context, output and stream-element validation failures throw `ValidationError` with a stage-only summary and the original error in `cause` for trusted diagnostics. Script and template rendering failures throw `ScriptError` and `TemplateError` respectively. Native SDK-owned boundaries retain their native errors.
 
-Use `ConfigError.isInstance(error)` to recognize Casai configuration errors across compatible package copies. Like the SDK's error guards, it checks a shared brand; `instanceof ConfigError` remains specific to the constructor from the imported copy.
+All Casai error classes are defined in `src/errors.ts` and exported from `casai`. `ConfigError` identifies invalid configuration and unsupported schema/binding contracts, including contracts discovered lazily during execution. `ValidationError` identifies invalid invocation values or schema results; it is not a subclass of `ConfigError`. Existing catches for runtime validation must switch to `ValidationError`. Missing required model configuration and a tool's missing stream-schema declaration remain configuration errors.
+
+Use `error instanceof ConfigError` or `error instanceof ValidationError` to recognize the corresponding error.
 
 Streaming error diagnostics can contain private context in the error or its `cause`. Without an explicit `onError`, the SDK's `streamText` and `streamObject` log the full error with `console.error`, which can expose those values to server logs and external log collectors. For sensitive context, set `onError` on the streaming component and log only deliberately selected safe information, for example `onError: () => console.error('Model stream failed')`. The UI stream's separate `onError` callback does not replace this execution handler. Native `ToolLoopAgent` currently exposes no public `onError` option; its default logging remains native behavior. Casai does not scrub diagnostic causes.
 

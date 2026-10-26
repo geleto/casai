@@ -5,7 +5,7 @@ import type { FlexibleSchema } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, isStepCount, tool, InvalidToolApprovalSignatureError } from 'ai';
 import type { Tool, ModelMessage } from 'ai';
 import { TypeValidationError } from '@ai-sdk/provider';
-import { create, ConfigError } from './cascada';
+import { create, ConfigError, ValidationError } from './cascada';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
 import { explicitMetadata } from './fixtures/phase2-api-schemas.js';
 
@@ -109,7 +109,8 @@ describe('Phase 2 generated security invariants (production factories)', functio
 						? operation.run({ context: args }) : executeBound(bound, args);
 					try {
 						if (!expectation.allowed) {
-							await assert.rejects(invoke, error => error instanceof ConfigError || path === 'bound' && TypeValidationError.isInstance(error), id);
+							const ExpectedError = policy === 'open' || policy === 'catchall' ? ConfigError : ValidationError;
+							await assert.rejects(invoke, error => error instanceof ExpectedError || path === 'bound' && TypeValidationError.isInstance(error), id);
 							assert.equal(entered, 0, `${id}: rejected input entered the body`);
 						} else {
 							assert.equal(await invoke(), expectation.parsed.amount, id);
@@ -154,7 +155,7 @@ describe('Phase 2 generated security invariants (production factories)', functio
 						execute: (input: Fields) => child(fields(input.payload)) });
 					next = args => forward({ payload: args });
 				}
-				await assert.rejects(() => next(own(key, supplied)), ConfigError, `${path}/${depth}/${key}`);
+				await assert.rejects(() => next(own(key, supplied)), ValidationError, `${path}/${depth}/${key}`);
 				assert.equal(entered, 0);
 				assert.equal(await next({ unrelated: 'valid' }), 1);
 			}
@@ -314,7 +315,7 @@ describe('Phase 2 generated security invariants (production factories)', functio
 		assert.deepEqual(seen._toolOptions, { abortSignal: signal });
 		assert.equal(seen.userId, 'member');
 		assert.equal(seen.script, args.script);
-		await assert.rejects(() => (operation as (value: unknown) => Promise<unknown>)({ ...args, value: 'invalid' }), ConfigError);
+		await assert.rejects(() => (operation as (value: unknown) => Promise<unknown>)({ ...args, value: 'invalid' }), ValidationError);
 	});
 
 	it('supports sequential authorized state changes without replacing private bindings', async () => {

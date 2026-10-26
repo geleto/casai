@@ -259,7 +259,7 @@ create.Function({ schema: z.string().transform(Number), execute: () => 123 });
 const _defaultedOutput = create.Function({ schema: z.number().default(123), execute: () => undefined });
 expectEqual<ReturnType<typeof _defaultedOutput>, Promise<number>>();
 const outputSchema = z.string().transform(Number);
-const annotatedConfig: FunctionConfig<typeof transformedInput, typeof outputSchema, undefined> = {
+const annotatedConfig: FunctionConfig<typeof transformedInput, typeof outputSchema, undefined> & { inputSchema: typeof transformedInput; schema: typeof outputSchema } = {
 	inputSchema: transformedInput, schema: outputSchema,
 	execute: ({ value, fallback }) => {
 		expectEqual<typeof value, number>();
@@ -271,7 +271,7 @@ const annotatedFunction = create.Function(annotatedConfig);
 expectEqual<ReturnType<typeof annotatedFunction>, Promise<number>>();
 // @ts-expect-error Annotated Function configs retain raw input-schema types.
 void annotatedFunction({ value: 123 });
-const opaqueConfig: FunctionConfig<typeof inputSchema, undefined, undefined> = { inputSchema, execute: ({ value }) => value };
+const opaqueConfig: FunctionConfig<typeof inputSchema, undefined, undefined> & { inputSchema: typeof inputSchema } = { inputSchema, execute: ({ value }) => value };
 const _opaqueFunction = create.Function(opaqueConfig);
 expectEqual<Awaited<ReturnType<typeof _opaqueFunction>>, unknown>();
 
@@ -498,7 +498,7 @@ void inheritedVariant({ kind:'count', count:2 });
 // @ts-expect-error Inherited union schema inputs keep branch field types.
 void inheritedVariant({ kind:'count', count:'wrong' });
 const optionalContextInput = z.object({ value: z.number() });
-const annotatedOptionalContext: FunctionConfig<typeof optionalContextInput, undefined, { offset: number } | undefined> = {
+const annotatedOptionalContext: FunctionConfig<typeof optionalContextInput, undefined, { offset: number } | undefined> & { inputSchema: typeof optionalContextInput } = {
 	inputSchema: optionalContextInput, context: Math.random() ? { offset: 1 } : undefined, execute: ({ value, offset }) => {
 		expectEqual<typeof offset, number | undefined>();
 		return value + (offset ?? 0);

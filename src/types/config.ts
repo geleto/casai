@@ -1,5 +1,5 @@
 import {
-	generateText, generateObject, streamText, streamObject,
+	generateText,
 } from 'ai';
 import type {
 	ToolSet,
@@ -8,23 +8,16 @@ import type {
 	Tool,
 	InferToolInput,
 	InferToolOutput,
-	GenerateObjectEndEvent,
 	JSONValue
 } from 'ai';
 import type { InferToolContext } from '@ai-sdk/provider-utils';
 import type { ConfigureOptions } from 'cascada-engine';
 import type * as types from './types.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
-import type { ConfigCallbackKeys, TextCallbacks, ObjectFinishCallback } from './callbacks.js';
+import type { ConfigCallbackKeys, TextCallbacks, CallbackConfigShape, ObjectCallbackShape } from './callbacks.js';
+import type { Provisional } from './provisional.js';
+import type { GenerateRequest, StreamRequest, GenerateObjectRequest, StreamObjectRequest, ComponentExecutionOptions } from './sdk.js';
 export type { MergedConfig } from './merge.js';
-
-// Some of the hacks here are because Parameters<T> helper type only returns the last overload type
-// https://github.com/microsoft/TypeScript/issues/54223
-// This is a problem because generateObject and streamObject have multiple overloads with different config and return types
-// To overcome this:
-// I get the generateText config type and exclude all properties specific only to it to get the base config type
-// Then I add the specific properties for each function/overload - which are not many
-// This is much less likely to break in future Vercel versions than copy/pasting the whole type definitions
 
 export interface BaseConfig {
 	debug?: boolean;
@@ -35,14 +28,12 @@ export interface ConfigProvider<T> {
 	readonly config: T;
 }
 
-// Inspect each configuration alternative. An optional declared key does not add
-// undefined to its contract, but a branch without that key does.
-export type DeclaredType<T, K extends PropertyKey> = T extends unknown ? K extends keyof T
-	? EmptyMap extends Pick<T, K> ? ([NonNullable<T[K]>] extends [never] ? undefined : NonNullable<T[K]>) : T[K]
-	: undefined : never;
+// Read each configuration alternative without assuming optional settings exist.
+export type ConfigValue<T, K extends PropertyKey> = T extends unknown
+	? K extends keyof T ? T[K] : undefined : never;
 
 // SDK tool context of the final configuration, after parent overrides. Without a schema it is undefined.
-export type ToolContextFromConfig<TConfig> = types.ContextFromSchema<DeclaredType<TConfig, 'toolContextSchema'>>;
+export type ToolContextFromConfig<TConfig> = types.ContextFromSchema<ConfigValue<TConfig, 'toolContextSchema'>>;
 
 export type ToolRegistry = Record<string, Tool | null | undefined>;
 export type ResolvedTools<T> = string extends keyof T ? { [K in keyof T]: Extract<T[K], Tool> }
@@ -50,17 +41,17 @@ export type ResolvedTools<T> = string extends keyof T ? { [K in keyof T]: Extrac
 export type ToolsFromConfig<TConfig> = TConfig extends unknown ? 'tools' extends keyof TConfig
 	? ResolvedTools<NonNullable<TConfig['tools']>> : EmptyMap : never;
 
-export type OutputFromConfig<T> = [NonNullable<DeclaredType<T, 'output'>>] extends [never] ? types.DefaultTextOutput : NonNullable<DeclaredType<T, 'output'>> extends infer O extends types.AIOutput ? O : types.DefaultTextOutput;
+export type OutputFromConfig<T> = [NonNullable<ConfigValue<T, 'output'>>] extends [never] ? types.DefaultTextOutput : NonNullable<ConfigValue<T, 'output'>> extends infer O extends types.AIOutput ? O : types.DefaultTextOutput;
 // Unlike the SDK output generic, value accounts for a setting that can be absent at runtime.
 export type ValueOutputFromConfig<T> = T extends unknown ? 'output' extends keyof T
 	? OutputFromConfig<T> | (undefined extends T['output'] ? types.DefaultTextOutput : never)
 	: types.DefaultTextOutput : never;
-export type RuntimeContextFromConfig<T> = [NonNullable<DeclaredType<T, 'runtimeContext'>>] extends [never] ? Record<string, unknown> : NonNullable<DeclaredType<T, 'runtimeContext'>> extends infer C extends Record<string, unknown> ? C : Record<string, unknown>;
+export type RuntimeContextFromConfig<T> = [NonNullable<ConfigValue<T, 'runtimeContext'>>] extends [never] ? Record<string, unknown> : NonNullable<ConfigValue<T, 'runtimeContext'>> extends infer C extends Record<string, unknown> ? C : Record<string, unknown>;
 
 export type ObjectOutputFromConfig<T> = T extends { output: 'no-schema' } ? JSONValue
 	: T extends { output: 'enum', enum: readonly (infer E)[] } ? E
-	: T extends { output: 'array' } ? types.InferSchema<DeclaredType<T, 'schema'>>[]
-	: types.InferSchema<DeclaredType<T, 'schema'>>;
+	: T extends { output: 'array' } ? types.InferSchema<ConfigValue<T, 'schema'>>[]
+	: types.InferSchema<ConfigValue<T, 'schema'>>;
 
 export type MergedTools<TParentConfig, TConfig> = ToolsFromConfig<MergedConfig<TParentConfig, TConfig>>;
 
@@ -154,8 +145,12 @@ export type OptionalScriptPromptConfig = ScriptPromptConfig | { promptType: 'tex
 export type OptionalPromptConfig = OptionalTemplatePromptConfig | OptionalScriptPromptConfig | OptionalFunctionPromptConfig;
 
 // Config for prompts that are rendered with functions (as part of the whole generate/stream Text/Object/Function config)
-export interface FunctionPromptConfig extends ContextConfig {
-	prompt: types.PromptFunction;//The prompt is a function that returns a string or ModelMessage[]
+/** Reusable prompt callbacks can declare their context and returned prompt form. */
+export interface FunctionPromptConfig<
+	CONTEXT extends types.Context = types.Context,
+	PROMPT extends string | ModelMessage[] = string | ModelMessage[],
+> extends ContextConfig<CONTEXT | undefined> {
+	prompt: types.PromptFunction<PROMPT, CONTEXT>;
 	messages?: ModelMessage[] | undefined;
 	promptType?: types.FunctionPromptType;
 }
@@ -168,7 +163,7 @@ export interface ToolContextSchemaConfig<TOOL_CONTEXT = unknown> { toolContextSc
 
 // Description depends only on native context, independently of input/output tool variants.
 export type ToolProperties<I = any, O = any, C = any> = Partial<Pick<Tool<I, O, C>,
-	'title' | 'deferLoading' | 'providerOptions' | 'metadata' | 'strict' | 'inputExamples' | 'toModelOutput' | 'onInputStart' | 'onInputDelta' | 'onInputAvailable' | 'needsApproval'>> & { description?: Tool<any, any, C>['description'] };
+	'title' | 'deferLoading' | 'providerOptions' | 'metadata' | 'strict' | 'inputExamples' | 'toModelOutput' | 'onInputStart' | 'onInputDelta' | 'onInputAvailable' | 'needsApproval'>> & { description?: Tool<unknown, unknown, C>['description'] };
 export type ToolConfigShape<T> = T extends unknown ? Omit<T, keyof ToolProperties> & { [K in keyof ToolProperties]?: unknown } : never;
 
 /** Configuration for renderer-based .asTool factories, which supply their own type and execute. */
@@ -181,12 +176,14 @@ export interface ToolConfig<INPUT extends Record<string, any>, OUTPUT, TOOL_CONT
 // All of them are partials because they can be requested in pieces,
 // and because doing Partial on the zod schema property makes it do deepPartial on it's properties which breaks it
 
-// The first argument of generateText
+// The first argument of generateText. Optional specialization preserves native callback inference.
 export type GenerateTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof generateText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages' | 'abortSignal' | 'toolsContext' | 'tools'>
+	OUTPUT extends types.AIOutput = types.AIOutput,
+	RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>,
+> = Omit<GenerateRequest<TOOLS, RUNTIME_CONTEXT, OUTPUT>, 'prompt' | 'messages' | 'abortSignal' | 'toolsContext' | 'tools'>
 	& BaseConfig
 	& { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined }; toolsContext?: import('./application.js').ToolContexts<TOOLS> }
 	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT> | undefined };
@@ -195,7 +192,9 @@ export type StreamTextConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
-> = Omit<Parameters<typeof streamText<TOOLS, Record<string, unknown>, types.AIOutput>>[0], 'prompt' | 'messages' | 'abortSignal' | 'toolsContext' | 'tools'>
+	OUTPUT extends types.AIOutput = types.AIOutput,
+	RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>,
+> = Omit<StreamRequest<TOOLS, RUNTIME_CONTEXT, OUTPUT>, 'prompt' | 'messages' | 'abortSignal' | 'toolsContext' | 'tools'>
 	& BaseConfig
 	& { tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined }; toolsContext?: import('./application.js').ToolContexts<TOOLS> }
 	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT> | undefined };
@@ -223,52 +222,36 @@ export type TextRunConfig<TShape, TOOLS extends ToolSet, TConfig = { tools: TOOL
 // Key validation also applies to callbacks whose argument types depend on the tool set.
 export type ConfigShape<TConfig> = { [Property in keyof TConfig]?: unknown };
 
-// Derive shared SDK settings from the no-schema overload; specialize output below.
+// Casai adds preparation/input settings and requires an explicit non-default output mode.
+// All native fields, including mode-specific schemas and callbacks, come from the SDK.
+type ObjectConfig<Request extends { output?: unknown }, INPUT extends Record<string, any>, PROMPT extends types.AnyPromptSource, OptionalOutput extends boolean = false> =
+	Omit<Request, 'prompt' | 'messages' | 'abortSignal' | 'output'> & BaseConfig
+	& { prompt?: PROMPT; messages?: ModelMessage[] | undefined; inputSchema?: types.SchemaType<INPUT> | undefined }
+	& (OptionalOutput extends true ? { output?: Request['output'] | undefined } : Required<Pick<Request, 'output'>>);
+
 export type GenerateObjectBaseConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
 	RESULT = unknown,
-> = Omit<Parameters<typeof generateObject>[0], 'output' | 'prompt' | 'messages' | 'onFinish' | 'abortSignal'>
-	& BaseConfig
-	& { prompt?: PROMPT, messages?: ModelMessage[] | undefined, inputSchema?: types.SchemaType<INPUT> | undefined, onFinish?: (event: GenerateObjectEndEvent<RESULT>) => void | PromiseLike<void> };
+> = Omit<ObjectConfig<GenerateObjectRequest<types.SchemaType<RESULT>, 'no-schema', RESULT>, INPUT, PROMPT>, 'output'>;
 
 export type GenerateObjectObjectConfig<
-	INPUT extends Record<string, any>,
-	OUTPUT, //@out
-	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT, OUTPUT> & {
-	output?: 'object' | undefined;
-	schema: types.SchemaType<OUTPUT>;
-	schemaName?: string;
-	schemaDescription?: string;
-}
+	INPUT extends Record<string, any>, OUTPUT, PROMPT extends types.AnyPromptSource = string,
+> = ObjectConfig<GenerateObjectRequest<types.SchemaType<OUTPUT>, 'object', OUTPUT>, INPUT, PROMPT, true>;
 
 export type GenerateObjectArrayConfig<
-	INPUT extends Record<string, any>,
-	OUTPUT, //@out
-	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT, OUTPUT[]> & {
-	output: 'array';
-	schema: types.SchemaType<OUTPUT>;
-	schemaName?: string;
-	schemaDescription?: string;
-}
+	INPUT extends Record<string, any>, OUTPUT, PROMPT extends types.AnyPromptSource = string,
+> = ObjectConfig<GenerateObjectRequest<types.SchemaType<OUTPUT>, 'array', OUTPUT[]>, INPUT, PROMPT>;
 
+// Casai accepts readonly enum literals; the SDK invocation receives the same values.
 export type GenerateObjectEnumConfig<
-	INPUT extends Record<string, any>,
-	ENUM extends string = string,
-	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT, ENUM> & {
-	output: 'enum';
-	enum: readonly ENUM[];
-}
+	INPUT extends Record<string, any>, ENUM extends string = string, PROMPT extends types.AnyPromptSource = string,
+> = Omit<ObjectConfig<GenerateObjectRequest<types.SchemaType<ENUM>, 'enum', ENUM>, INPUT, PROMPT>, 'enum'>
+	& { enum: Readonly<GenerateObjectRequest<types.SchemaType<ENUM>, 'enum', ENUM>['enum']> };
 
 export type GenerateObjectNoSchemaConfig<
-	INPUT extends Record<string, any>,
-	PROMPT extends types.AnyPromptSource = string
-> = GenerateObjectBaseConfig<INPUT, PROMPT, JSONValue> & {
-	output: 'no-schema';
-}
+	INPUT extends Record<string, any>, PROMPT extends types.AnyPromptSource = string,
+> = ObjectConfig<GenerateObjectRequest<types.SchemaType<JSONValue>, 'no-schema', JSONValue>, INPUT, PROMPT>;
 
 export type GenerateObjectConfig<
 	INPUT extends Record<string, any>,
@@ -288,49 +271,23 @@ export interface FinalGenerateObjectConfigShape {
 	enum?: readonly string[];
 }
 
-// Derive shared SDK settings from the no-schema overload; specialize output below.
 export type StreamObjectBaseConfig<
 	INPUT extends Record<string, any>,
 	PROMPT extends types.AnyPromptSource = string,
 	RESULT = unknown,
-> = Omit<Parameters<typeof streamObject>[0], 'output' | 'prompt' | 'messages' | 'onFinish' | 'abortSignal'>
-	& BaseConfig
-	& {
-		//Bring back the removed onFinish and prompt properties
-		prompt?: PROMPT;
-		messages?: ModelMessage[] | undefined;
-		onFinish?: ObjectFinishCallback<RESULT, true>;
-		inputSchema?: types.SchemaType<INPUT> | undefined;
-	};
+> = Omit<ObjectConfig<StreamObjectRequest<types.SchemaType<RESULT>, 'no-schema', RESULT>, INPUT, PROMPT>, 'output'>;
 
 export type StreamObjectObjectConfig<
-	INPUT extends Record<string, any>,
-	OUTPUT, //@out
-	PROMPT extends types.AnyPromptSource = string
-> = StreamObjectBaseConfig<INPUT, PROMPT, OUTPUT> & {
-	output?: 'object' | undefined;
-	schema: types.SchemaType<OUTPUT>;
-	schemaName?: string;
-	schemaDescription?: string;
-}
+	INPUT extends Record<string, any>, OUTPUT, PROMPT extends types.AnyPromptSource = string,
+> = ObjectConfig<StreamObjectRequest<types.SchemaType<OUTPUT>, 'object', OUTPUT>, INPUT, PROMPT, true>;
 
 export type StreamObjectArrayConfig<
-	INPUT extends Record<string, any>,
-	OUTPUT, //@out
-	PROMPT extends types.AnyPromptSource = string
-> = StreamObjectBaseConfig<INPUT, PROMPT, OUTPUT[]> & {
-	output: 'array';
-	schema: types.SchemaType<OUTPUT>;
-	schemaName?: string;
-	schemaDescription?: string;
-}
+	INPUT extends Record<string, any>, OUTPUT, PROMPT extends types.AnyPromptSource = string,
+> = ObjectConfig<StreamObjectRequest<types.SchemaType<OUTPUT>, 'array', OUTPUT[]>, INPUT, PROMPT>;
 
 export type StreamObjectNoSchemaConfig<
-	INPUT extends Record<string, any>,
-	PROMPT extends types.AnyPromptSource = string
-> = StreamObjectBaseConfig<INPUT, PROMPT, JSONValue> & {
-	output: 'no-schema';
-}
+	INPUT extends Record<string, any>, PROMPT extends types.AnyPromptSource = string,
+> = ObjectConfig<StreamObjectRequest<types.SchemaType<JSONValue>, 'no-schema', JSONValue>, INPUT, PROMPT>;
 
 export type StreamObjectConfig<
 	INPUT extends Record<string, any>,
@@ -379,11 +336,10 @@ export interface FunctionToolConfig<
 }
 
 // Shared configuration fields used by the LLM run() implementation.
-export type LLMRunConfig = Partial<BaseConfig> & {
+export type LLMRunConfig = Partial<BaseConfig> & Pick<ComponentExecutionOptions, 'abortSignal'> & {
 	messages?: ModelMessage[] | undefined;
 	prompt?: types.AnyPromptSource;
 	context?: types.Context;
-	abortSignal?: AbortSignal;
 };
 
 // For the .run argument - disallow all properties that ...
@@ -394,7 +350,8 @@ export const fixedRunSettings = [
 ] as const;
 export type RunConfigDisallowedProperties = typeof fixedRunSettings[number];
 
-//@todo - Check
+// The supported configuration families. This is the value contract; factory
+// inference shapes below defer fields whose types depend on the final config.
 export type AnyConfig<
 	TOOLS extends ToolSet,
 	INPUT extends Record<string, any>,
@@ -423,10 +380,10 @@ export type AnyConfig<
 		| ScriptToolConfig<INPUT, OUTPUT>
 		| ScriptConfig<INPUT, OUTPUT>
 	) & Pick<CascadaConfig, 'loader'>)
-	| FunctionFragmentConfig;
+	| FunctionConfigShape;
 
-// Any Function or Function.asTool config. Config types and checks execute from the schemas the config declares.
-export type FunctionFragmentConfig = Omit<FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any> | undefined,
+// Function settings admitted by AnyConfig. Schema-dependent callbacks are checked separately.
+export type FunctionConfigShape = Omit<FunctionToolConfig<types.SchemaType<Record<string, any>>, types.SchemaType<any> | undefined,
 	Record<string, any> | undefined, Record<string, any> | undefined, any>, 'inputSchema' | 'execute' | keyof ToolProperties>
 	& { inputSchema: types.SchemaType<Record<string, any>> | undefined; execute?: unknown }
 	& { [K in keyof ToolProperties]?: unknown };
@@ -437,6 +394,19 @@ export type AnyConfigShape<TOOLS extends ToolSet, INPUT extends Record<string, a
 	? 'toolsContext' extends keyof TShape ? TextConfigShape<TShape> : TShape
 	: never;
 
-// Config supplies callback context after independently inferring schemas and tools.
-export type ConfigFragmentShape<TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT, ENUM extends string> =
-	Partial<AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>;
+// Factory shapes are inference constraints, not configuration annotations.
+// Infer settings first, then specialize callbacks through the factory's input
+// and validate the resolved config. Provisional only marks that first pass.
+export type TextConfigInferShape<Config> = Provisional<CallbackConfigShape<Config>>;
+export type ObjectConfigInferShape<Config> = Provisional<ObjectCallbackShape<Config>>;
+export type ToolConfigInferShape<Config> = Provisional<ToolConfigShape<Config>>;
+
+// Parents may supply incomplete settings. Their already-inferred data needs no
+// provisional marker; only dependent callbacks/context are checked later.
+export type ParentTextConfigInferShape<Config> = CallbackConfigShape<Partial<TextConfigShape<Config>>>;
+export type ParentObjectConfigInferShape<Config> = ObjectCallbackShape<Partial<Config>>;
+
+// A reusable fragment can belong to any family and may omit required settings.
+// Keep its complete inference policy here rather than rebuilding it in overloads.
+export type AnyConfigInferShape<TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT, ENUM extends string> =
+	Provisional<CallbackConfigShape<ToolConfigShape<Partial<AnyConfigShape<TOOLS, INPUT, OUTPUT, ENUM>>>>>;

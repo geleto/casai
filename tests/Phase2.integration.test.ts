@@ -4,7 +4,7 @@ import type { LanguageModel, Tool, ToolExecutionOptions } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
 import { executeTool, validateTypes } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
-import { create, ConfigError, streamSchema, textStreamSchema, collectStream, collectTextStream } from './cascada.js';
+import { create, ValidationError, streamSchema, textStreamSchema, collectStream, collectTextStream } from './cascada.js';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
 
 describe('Phase 2 production execution', () => {
@@ -502,7 +502,7 @@ describe('Phase 2 production execution', () => {
 			execute: context => ({ value: context.value, metadata: context._toolOptions }),
 		});
 		assert.deepEqual(await component({ value: 2, __hasKeywordArgs: true } as never), { value: 2, metadata: {} });
-		await assert.rejects(component({ value: 'invalid', _toolCallOptions: {} } as never), ConfigError);
+		await assert.rejects(component({ value: 'invalid', _toolCallOptions: {} } as never), ValidationError);
 		const open = create.Function({ inputSchema: z.looseObject({ value: z.number() }), execute: context => context._toolOptions });
 		assert.deepEqual(await open({ value: 2, _toolOptions: { toolCallId: 'forged', messages: [] } }), {});
 	});

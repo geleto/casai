@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:events';
 import { jsonSchema } from 'ai';
 import type { ModelMessage } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { create, ConfigError, race, z } from './cascada';
+import { create, ConfigError, ValidationError, race, z } from './cascada';
 
 function model(text = 'DONE'): MockLanguageModelV3 {
 	const usage = {
@@ -70,7 +70,7 @@ describe('Regressions across component boundaries', () => {
 				for (const messages of [null, {}, false, 42]) {
 					expect(() => streaming ? create.TextStreamer({ messages } as never, component) : create.TextGenerator({ messages } as never, component))
 						.to.throw(ConfigError, /invalid message objects/);
-					await rejects(async () => await component.run({ messages } as never), ConfigError);
+					await rejects(async () => await component.run({ messages } as never), ValidationError);
 				}
 				expect(mock.doGenerateCalls).to.have.length(0);
 				expect(mock.doStreamCalls).to.have.length(0);
@@ -89,7 +89,7 @@ describe('Regressions across component boundaries', () => {
 							: [create.ObjectStreamer({ model: mock, prompt: 'Input.', schema: objectConfig.schema }), create.ObjectStreamer.withTemplate(objectConfig), create.ObjectStreamer.loadsText(objectConfig)];
 				for (const component of components) {
 					for (const invalid of [undefined, null, [], 'config', 42]) {
-						await rejects(async () => await component.run(invalid as never), ConfigError);
+						await rejects(async () => await component.run(invalid as never), ValidationError);
 					}
 				}
 				expect(loads).to.equal(0);

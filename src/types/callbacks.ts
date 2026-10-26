@@ -1,11 +1,11 @@
-import type { generateText, streamText, generateObject, streamObject, GenerateObjectEndEvent, ToolSet, GenericToolApprovalFunction, SingleToolApprovalFunction, ToolApprovalStatus } from 'ai';
-import type { DeclaredType, ObjectOutputFromConfig, OutputFromConfig, RuntimeContextFromConfig, ToolsFromConfig, ToolProperties, ToolContextFromConfig } from './config.js';
+import type { generateText, streamText, generateObject, streamObject, ToolSet, GenericToolApprovalFunction, SingleToolApprovalFunction, ToolApprovalStatus } from 'ai';
+import type { GenerateRequest, StreamRequest, ObjectFinishCallback } from './sdk.js';
+import type { ConfigValue, ObjectOutputFromConfig, OutputFromConfig, RuntimeContextFromConfig, ToolsFromConfig, ToolProperties, ToolContextFromConfig } from './config.js';
 import type { InferSchema } from './types.js';
 import type { CollectedResult } from './application.js';
 import type { EmptyMap, MergedConfig } from './merge.js';
 import type { ValidateResolved } from './provisional.js';
-import type { StrictUnionSubtype } from './utils.js';
-import type { DeclaredSchemaValue } from './function-config.js';
+import type { StrictUnionSubtype, UnionKeys } from './utils.js';
 
 type Callback = (...args: any[]) => any;
 type CallbackKeys<T> = { [K in keyof T]-?: Extract<NonNullable<T[K]>, Callback | readonly Callback[]> extends never ? never : K }[keyof T];
@@ -23,14 +23,11 @@ export type CallbackConfigShape<T> = T extends unknown ? {
 
 export type TextCallbacks<T, TOOLS extends ToolSet = ToolsFromConfig<T>, Streaming extends boolean = false,
 	SDK = Streaming extends true
-	? Parameters<typeof streamText<TOOLS, RuntimeContextFromConfig<T>, OutputFromConfig<T>>>[0]
-	: Parameters<typeof generateText<TOOLS, RuntimeContextFromConfig<T>, OutputFromConfig<T>>>[0],
+	? StreamRequest<TOOLS, RuntimeContextFromConfig<T>, OutputFromConfig<T>>
+	: GenerateRequest<TOOLS, RuntimeContextFromConfig<T>, OutputFromConfig<T>>,
 > = {
 	[K in ConfigCallbackKeys & keyof SDK]?: SDK[K]
 };
-
-export type ObjectFinishCallback<RESULT, Streaming extends boolean = false> =
-	(event: GenerateObjectEndEvent<RESULT>) => ReturnType<NonNullable<Parameters<Streaming extends true ? typeof streamObject : typeof generateObject>[0]['onFinish']>>;
 
 export interface ObjectCallbacks<T, Streaming extends boolean = false> { onFinish?: ObjectFinishCallback<ObjectOutputFromConfig<T>, Streaming> }
 
@@ -39,18 +36,15 @@ export type ObjectCallbackShape<T> = T extends unknown ? { [K in keyof T]: K ext
 type Setting<K extends PropertyKey, T> = [T] extends [never] ? EmptyMap : Record<K, T>;
 
 // Infer schema values independently before contextualizing native descriptor callbacks.
-export type DescriptorInput<A, P, I, O, C, R = never,
-	Final = MergedConfig<P, Setting<'inputSchema', DeclaredSchemaValue<A, 'inputSchema', I>>
-		& Setting<'schema', DeclaredSchemaValue<A, 'schema', O>>
-		& Setting<'toolContextSchema', DeclaredSchemaValue<A, 'toolContextSchema', C>>>> =
-	{ inputSchema?: I; schema?: O; toolContextSchema?: C } & NoInfer<ToolProperties<
-		InferSchema<DeclaredType<Final, 'inputSchema'>>,
-		[R] extends [never] ? CollectedResult<Final> : R,
+export type DescriptorInput<Schemas, Parent, Result = never,
+	Final = MergedConfig<Parent, Schemas>> = NoInfer<ToolProperties<
+		InferSchema<ConfigValue<Final, 'inputSchema'>>,
+		[Result] extends [never] ? CollectedResult<Final> : Result,
 		ToolContextFromConfig<Final>>>;
 
 type DescriptorErrors<Final, R> = Final extends unknown ?
 	Pick<Final, keyof ToolProperties & keyof Final> extends ToolProperties<
-		InferSchema<DeclaredType<Final, 'inputSchema'>>, R, ToolContextFromConfig<Final>>
+		InferSchema<ConfigValue<Final, 'inputSchema'>>, R, ToolContextFromConfig<Final>>
 		? never : 'Config Error: Tool descriptor properties must match the final schemas.' : never;
 export type ValidateDescriptor<C, Final, R, Errors = DescriptorErrors<Final, R>> = ValidateResolved<C,
 	[Errors] extends [never] ? unknown : Errors>;
@@ -121,30 +115,30 @@ export type TextCallbackInput<C, P, T, R, O, Streaming extends boolean,
 	ValidateCallbacks<C, Final, 'text', Streaming>;
 
 type ObjectCommonCallbacks<F extends (...args: any[]) => any, SDK = Parameters<F>[0]> = Pick<SDK, Exclude<CallbackKeys<SDK>, 'onFinish'>>;
-type ObjectFragmentCallbacks<T> = ObjectCommonCallbacks<typeof generateObject> & ObjectCallbacks<T>
+type AnyObjectCallbacks<T> = ObjectCommonCallbacks<typeof generateObject> & ObjectCallbacks<T>
 	| ObjectCommonCallbacks<typeof streamObject> & ObjectCallbacks<T, true>;
-type TextFragmentCallbacks<T> = TextCallbacks<T> | TextCallbacks<T, ToolsFromConfig<T>, true>;
+type AnyTextCallbacks<T> = TextCallbacks<T> | TextCallbacks<T, ToolsFromConfig<T>, true>;
 
-type FragmentCallbackShapes<T> = 'schema' extends keyof T ? ObjectFragmentCallbacks<T>
-	: T extends { output: string } ? ObjectFragmentCallbacks<T>
-	: 'tools' extends keyof T ? TextFragmentCallbacks<T>
-	: TextFragmentCallbacks<T> | ObjectFragmentCallbacks<T>;
+type AnyConfigCallbackShapes<T> = 'schema' extends keyof T ? AnyObjectCallbacks<T>
+	: T extends { output: string } ? AnyObjectCallbacks<T>
+	: 'tools' extends keyof T ? AnyTextCallbacks<T>
+	: AnyTextCallbacks<T> | AnyObjectCallbacks<T>;
 type MemberCallbacks<T, K extends PropertyKey> = T extends unknown ? K extends keyof T ? Extract<NonNullable<T[K]>, Callback> : never : never;
 type MemberNonCallbacks<T, K extends PropertyKey> = T extends unknown ? K extends keyof T ? Exclude<T[K], Callback> : never : never;
 type CombinedCallback<F extends Callback> = { callback(...args: Parameters<F>): ReturnType<F> }['callback'];
-type UnionKeys<T> = T extends unknown ? keyof T : never;
 type DeferredApprovalMap<T> = Record<string, ToolApprovalStatus | CombinedCallback<SingleToolApprovalFunction<unknown, unknown, RuntimeContextFromConfig<T>>>>;
-type FragmentCallbackValue<Shapes, K extends PropertyKey> = [MemberCallbacks<Shapes, K>] extends [never]
+type ConfigCallbackValue<Shapes, K extends PropertyKey> = [MemberCallbacks<Shapes, K>] extends [never]
 	? Shapes extends unknown ? K extends keyof Shapes ? Shapes[K] : never : never
 	: MemberNonCallbacks<Shapes, K> | CombinedCallback<MemberCallbacks<Shapes, K>>;
 
-export type FragmentCallbacks<T, Shapes = FragmentCallbackShapes<T>> = {
-	[K in UnionKeys<Shapes>]?: K extends 'toolApproval' ? 'tools' extends keyof T ? FragmentCallbackValue<Shapes, K>
-	: DeferredApprovalMap<T> | CombinedCallback<MemberCallbacks<Shapes, K>> : FragmentCallbackValue<Shapes, K>;
+type AnyConfigCallbacks<T, Shapes = AnyConfigCallbackShapes<T>> = {
+	[K in UnionKeys<Shapes>]?: K extends 'toolApproval' ? 'tools' extends keyof T ? ConfigCallbackValue<Shapes, K>
+	: DeferredApprovalMap<T> | CombinedCallback<MemberCallbacks<Shapes, K>> : ConfigCallbackValue<Shapes, K>;
 };
 
-export type FragmentCallbackInput<C, P, Tools, Schema, R, O, E,
-	Context = MergedConfig<P, Setting<'tools', Tools> & Setting<'schema', Schema> & Setting<'runtimeContext', R> & Setting<'output', O> & Setting<'enum', E>>> =
-	TextCallbackArguments<Tools, R, O> & { enum?: E } & NoInfer<FragmentCallbacks<Context> & ToolSelections<'tools' extends keyof Context ? ToolsFromConfig<Context> : ToolSet>> &
-	ValidateResolved<C, ValidateApprovalContracts<CallbackFinal<P, C>> & ValidateToolCallbackNames<CallbackFinal<P, C>, true> & ValidateToolSelectionNames<CallbackFinal<P, C>, true> & ([StrictUnionSubtype<Pick<CallbackFinal<P, C>, ConfigCallbackKeys & keyof CallbackFinal<P, C>>, FragmentCallbackShapes<CallbackFinal<P, C>>>] extends [never]
+export type AnyConfigCallbackInput<Config, Parent, Tools, Schema, RuntimeContext, Output, Enum,
+	Context = MergedConfig<Parent, Setting<'tools', Tools> & Setting<'schema', Schema> & Setting<'runtimeContext', RuntimeContext> & Setting<'output', Output> & Setting<'enum', Enum>>,
+	Final = CallbackFinal<Parent, Config>> =
+	TextCallbackArguments<Tools, RuntimeContext, Output> & { enum?: Enum } & NoInfer<AnyConfigCallbacks<Context> & ToolSelections<'tools' extends keyof Context ? ToolsFromConfig<Context> : ToolSet>> &
+	ValidateResolved<Config, ValidateApprovalContracts<Final> & ValidateToolCallbackNames<Final, true> & ValidateToolSelectionNames<Final, true> & ([StrictUnionSubtype<Pick<Final, ConfigCallbackKeys & keyof Final>, AnyConfigCallbackShapes<Final>>] extends [never]
 	? 'Config Error: Callbacks do not match the final configuration.' : unknown)>;

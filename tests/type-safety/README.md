@@ -14,6 +14,7 @@ Internal SDK wrapper checks live in `../ResultAugmentation.types.ts`. The root p
 | `object-contracts.ts` | Object, array, enum and schemaless modes; schema requirements; mode switches; Zod and SDK schemas; annotated configs; exact result types |
 | `input-contracts.ts` | Required and optional input fields, configured context, replacement schemas, raw Zod inputs, reusable raw/parsed fragments, renderer schema constraints, standalone and inherited calls, run context |
 | `conditional-contracts.ts` | Conditional output schemas, raw/parsed result alternatives, and complete-input requirements for omitted calls with union-valued configuration |
+| `schema-presence.ts` | Optional and conditional schemas, unannotated spreads, raw/parsed callback and result types, inherited omission/undefined, configured privacy and native descriptor callbacks |
 | `conditional-input-contracts.ts` | Conditional input inference and private ownership, raw/parsed callback alternatives, annotated contracts, inheritance, all preparer families and conditional producer requirements |
 | `union-consumer-contracts.ts` | Mixed stream/scalar tool results, branch-only public/private argument keys, and shared admission across all LLM renderers, loaders and tool forms |
 | `caller-alternatives.ts` | Valid disjoint argument unions, catchall/undefined rejection, contextual callbacks, bound helper omissions and safe narrowing of component alternatives |
@@ -27,11 +28,14 @@ Internal SDK wrapper checks live in `../ResultAugmentation.types.ts`. The root p
 | `registry-substitution.ts` | Helper raw inputs, configured omissions, private reservations, open/closed and selected schema alternatives, compatible widening, inherited/run replacements, new callbacks, native helpers and shadowing |
 | `prompt-contracts.ts` | Every LLM prompt modifier, positional argument rules, missing prompts, run prompts, sync/async function prompts, direct versus promised stream results |
 | `sdk-callbacks.ts` | SDK callback inventory, argument and return contracts, aliases, arrays, nested maps, lifecycle/telemetry hooks, inheritance and run overrides |
+| `sdk-config-specialization.ts` | Explicit text-config output/runtime-context specialization, native request parity, contextual callbacks and object-finish function contracts |
+| `sdk-type-ownership.ts` | Complete native object config/result surfaces, deliberate mode/enum adaptations, tool executor arguments and execution metadata |
 | `sdk-results.ts` | SDK result member preservation, structured outputs, tool discriminants, promises, streams, response history and response-conversion callbacks |
 | `result-augmentation.ts` | Augmented values, parsed output types, known and erased output names, output unions and inherited configurations |
 | `cancellation.ts` | Invocation-only signals, rejected constructor/inherited settings, and typed cancellation on ordinary, rendered and loaded LLM run calls |
 | `public-contracts.ts` | Factory/modifier inventory, public aliases, exported types, annotated schema inference, loaders, race groups, providers, message schemas and errors |
 | `annotation-contracts.ts` | Exported configuration annotations, schema presence, typed renderer/tool inputs and outputs, prompt kinds, tool contexts and SDK finish callbacks |
+| `helper-specialization.ts` | Specialized reusable prompt callbacks, native schema event aliases, bound context types, injected raw inputs and parsed SDK callback values |
 | `renderer-call-contracts.ts` | Standalone and inherited processed config, nested renderer defaults, required bodies, positional prompt/history/context forms and exact call/run results |
 | `family-contracts.ts` | Allowed renderer settings, forbidden local/inherited settings, body/option/filter value types and cross-family component parents |
 | `message-contracts.ts` | Validator output consumed by components, SDK message input drift, provider-qualified custom parts and narrowed parsed content |

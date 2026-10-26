@@ -53,7 +53,7 @@ export type ValidateRunConfig<TRunConfig, TConfig, TShape> = NoInfer<
 // A fragment may be incomplete, but it must fit one component's config, and an execute must match the
 // schemas and context the fragment declares. Its context map must match the tools it knows about.
 export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateResolved<TConfig,
-	[InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]
+	[InvalidUnionMembers<TConfig, CallbackConfigShape<TShape>> | InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]
 	? Pick<TFinalConfig, 'execute' & keyof TFinalConfig> extends { execute?: DeclaredExecute<TFinalConfig> | DeclaredFunctionExecute<TFinalConfig> }
 		? ValidateToolsContext<TConfig, TFinalConfig, true>
 		: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'

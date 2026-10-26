@@ -1,7 +1,7 @@
 import { jsonSchema } from 'ai';
 import type { Schema } from 'ai';
 import type { InferInputSchema, InferSchema, SchemaType } from './types/types.js';
-import { ConfigError } from './errors.js';
+import { ConfigError, ValidationError } from './errors.js';
 import { parseSchema, validateSchemaVersion } from './schema.js';
 export { makeSharedIterable } from 'cascada-engine';
 
@@ -20,7 +20,7 @@ export function isAsyncIterable(value: unknown): value is AsyncIterable<unknown>
 function declaredStream<INPUT, OUTPUT, KIND extends 'text' | 'elements'>(kind: KIND, parse: (value: unknown) => OUTPUT | PromiseLike<OUTPUT>): StreamSchema<INPUT, OUTPUT, KIND> {
 	return Object.assign(jsonSchema<AsyncIterable<OUTPUT>>({}, {
 		validate(value) {
-			if (!isAsyncIterable(value)) return { success: false, error: new ConfigError('Expected an async iterable.') };
+			if (!isAsyncIterable(value)) return { success: false, error: new ValidationError('Expected an async iterable.') };
 			return { success: true, value: {
 				async *[Symbol.asyncIterator]() {
 					for await (const item of value) yield await parse(item);
@@ -32,7 +32,7 @@ function declaredStream<INPUT, OUTPUT, KIND extends 'text' | 'elements'>(kind: K
 
 export function textStreamSchema(): StreamSchema<string, string, 'text'> {
 	return declaredStream('text', value => {
-		if (typeof value !== 'string') throw new ConfigError('Text stream element validation failed.');
+		if (typeof value !== 'string') throw new ValidationError('Text stream element validation failed.');
 		return value;
 	});
 }

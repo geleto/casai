@@ -4,7 +4,7 @@ import { validateTypes } from '@ai-sdk/provider-utils';
 import { MockLanguageModelV3 } from 'ai/test';
 import type { ModelMessage, Tool } from 'ai';
 import * as mini from 'zod/mini';
-import { create, ConfigError, collectTextStream, z } from './cascada';
+import { create, ConfigError, ValidationError, collectTextStream, z } from './cascada';
 import type { ComponentExecutionOptions } from './cascada';
 import { mergeConfigs, processConfig } from '../src/config-utils.js';
 import { inputNames } from '../src/schema.js';
@@ -62,7 +62,7 @@ describe('Review configuration and metadata corrections', () => {
 			for (const input of [{ extra: 2 }, { other: 3 }, { value: 1 }]) assert.equal(String(await call(input)), '1');
 			const before = executions;
 			for (const input of [{ value: 1, extra: 'invalid' }, { value: 1, db: 'untrusted' }]) {
-				await assert.rejects(call(input), ConfigError);
+				await assert.rejects(call(input), ValidationError);
 			}
 			assert.equal(executions, before);
 		}
@@ -215,7 +215,7 @@ describe('Review configuration and metadata corrections', () => {
 			const build = functionFactory as (config: object) => () => Promise<unknown>;
 			const owner = build({ tools: { action: operation }, toolsContext: { action: context },
 				execute: async (input: { action: (value: object) => Promise<unknown> }) => input.action({ value: boundary === 'input' ? 'bad' : 1 }) });
-			await assert.rejects(owner(), error => error instanceof ConfigError && error.message === `Tool 'action' ${boundary} validation failed.`
+			await assert.rejects(owner(), error => error instanceof ValidationError && error.message === `Tool 'action' ${boundary} validation failed.`
 				&& error.cause instanceof Error && !error.message.includes('PRIVATE_SENTINEL'));
 		}
 	});
@@ -317,7 +317,7 @@ describe('Review configuration and metadata corrections', () => {
 				const component = make[mode]({ model, prompt, loader: { load: () => 'return [{ content: "invalid" }]' },
 					...(factory === create.ObjectGenerator || factory === create.ObjectStreamer ? { schema: z.object({}) } : {}) });
 				await assert.rejects(async () => component(), (error: unknown) => {
-					assert.ok(error instanceof ConfigError); assert.equal(error.message, 'Prompt output validation failed.'); return true;
+					assert.ok(error instanceof ValidationError); assert.equal(error.message, 'Prompt output validation failed.'); return true;
 				});
 			}
 			assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 0);

@@ -1,14 +1,35 @@
-const marker = Symbol.for('casai.error.ConfigError');
-
+/** Invalid component configuration or an unsupported schema/binding contract. */
 export class ConfigError extends Error {
-	private readonly [marker] = true;
 	declare cause?: Error;
 	constructor(message: string, cause?: Error) {
 		super(message, { cause });
 		this.name = 'ConfigError';
 	}
-	/** Recognize errors across compatible package copies, like the SDK's error guards. */
-	static isInstance(error: unknown): error is ConfigError {
-		return error !== null && typeof error === 'object' && marker in error && error[marker] === true;
+}
+
+/** Invalid invocation arguments or values at a Casai-owned validation boundary. */
+export class ValidationError extends Error {
+	declare cause?: Error;
+	constructor(message: string, cause?: Error) {
+		super(message, { cause });
+		this.name = 'ValidationError';
+	}
+}
+
+export class TemplateError extends Error {
+	declare cause?: Error;
+	name: string;
+	constructor(message: string, cause?: Error) {
+		super(message, { cause });
+		this.name = 'TemplateError';
+	}
+}
+
+export class ScriptError extends Error {
+	declare cause?: Error;
+	name: string;
+	constructor(message: string, cause?: Error) {
+		super(message, { cause });
+		this.name = 'ScriptError';
 	}
 }

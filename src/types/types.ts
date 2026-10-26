@@ -1,12 +1,13 @@
-import type { ModelMessage, Schema, GenerateObjectEndEvent, StreamTextOnEndCallback, FlexibleSchema, InferSchema as SDKInferSchema, ToolSet, Output } from 'ai';//do not confuze the 'ai' Schema type with the 'zod' Schema type
-import { z } from 'zod';
+import type { ModelMessage, StreamTextOnEndCallback, FlexibleSchema, InferSchema as SDKInferSchema, ToolSet, Output } from 'ai';
+import type { ObjectFinishCallback } from './sdk.js';
+import type { z } from 'zod';
 import type { ILoaderAny } from 'cascada-engine';
 import type { RaceGroup, RaceLoader } from '../loaders.js';
 
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;
 
 // The omitted SDK output has a known kind; explicit specifications keep their native types.
-export type DefaultTextOutput = AIOutput<string, string, never> & { name: 'text' };
+export type DefaultTextOutput = ReturnType<typeof Output.text> & { name: 'text' };
 
 // Template types
 export type Context = Record<string, any>;
@@ -15,8 +16,8 @@ export type Filters = Record<string, (input: any, ...args: any[]) => any>;
 // Zod 3's tagged definition is excluded even through its Standard Schema surface.
 // Native SDK tools keep the SDK's wider schema contract.
 export type SchemaType<T> = FlexibleSchema<T> & { readonly _def?: object & { readonly typeName?: never } };
-export type InferSchema<S, Fallback = unknown> = S extends { _output: infer O } ? O
-	: S extends { _zod: { output: infer O } } ? O
+// Preserve concrete Zod output through schema intersections; SDK inference alone can widen it.
+export type InferSchema<S, Fallback = unknown> = S extends z.core.$ZodType ? z.core.output<S>
 	: S extends FlexibleSchema<unknown> ? SDKInferSchema<S> : Fallback;
 type SchemaInput<S, Fallback> = '~input' extends keyof S ? S['~input'] extends infer I ? Exclude<I, undefined> : never
 	: S extends { _input: infer I } | { _zod: { input: infer I } } ? 0 extends (1 & I) ? InferSchema<S, Fallback> : I
@@ -35,7 +36,7 @@ type ObjectContextInput<T> = T extends readonly unknown[] | ((...args: any[]) =>
 export type ValidateContextInputSchema<TSchema, INPUT = InferInputSchema<TSchema, Context>> = unknown extends INPUT ? unknown
 	: [ObjectContextInput<INPUT>] extends [never] ? 'Config Error: inputSchema must accept an object context before parsing.' : unknown;
 
-export type ContextFromSchema<TSchema> = TSchema extends FlexibleSchema<infer CONTEXT> ? CONTEXT : undefined;
+export type ContextFromSchema<TSchema> = InferSchema<TSchema, undefined>;
 
 export type FunctionImplementation<
 	InputSchema extends SchemaType<Record<string, any>> | undefined,
@@ -64,8 +65,8 @@ export type RequiredPromptType = Exclude<PromptType, undefined>;
 
 export type AnyPromptSource = string | ModelMessage[] | PromptFunction<string | ModelMessage[]>;
 
-export type PromptFunction<PR extends string | ModelMessage[] = string | ModelMessage[]> =
-	(context: Context) => PR | Promise<PR>;
+export type PromptFunction<PR extends string | ModelMessage[] = string | ModelMessage[], INPUT extends Context = Context> =
+	(context: INPUT) => PR | Promise<PR>;
 
 //export type LLMPromptType = TemplatePromptType | 'text';
 
@@ -74,8 +75,8 @@ export type PromptFunction<PR extends string | ModelMessage[] = string | ModelMe
 //export type PromptOrMessage = { prompt: string } | { messages: NonNullable<GenerateTextConfig['messages']> };
 
 // Utility types
-export type StreamObjectOnFinishEvent<SCHEMA extends z.ZodTypeAny | Schema<any>> =
-	GenerateObjectEndEvent<InferSchema<SCHEMA>>;
+export type StreamObjectOnFinishEvent<SCHEMA extends FlexibleSchema<unknown>> =
+	Parameters<ObjectFinishCallback<InferSchema<SCHEMA>, true>>[0];
 
 export type StreamTextOnFinishEvent<TOOLS extends ToolSet = Record<string, never>, OUTPUT extends AIOutput = AIOutput<string, string, never>, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
 	Parameters<StreamTextOnEndCallback<TOOLS, RUNTIME_CONTEXT, OUTPUT>>[0];

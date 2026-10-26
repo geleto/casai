@@ -79,14 +79,12 @@ export type {
 } from './types/result.js';
 
 // --- Error Types ---
-export { TemplateError } from './TemplateEngine.js';
-export { ScriptError } from './ScriptEngine.js';
-export { ConfigError } from './validate.js';
+export { ConfigError, ValidationError, TemplateError, ScriptError } from './errors.js';
 
 
 // --- Public Utilities & Associated Types ---
 export { race, type RaceGroup, type RaceLoader } from './loaders.js';
 
-export type { ComponentExecutionOptions } from './execution.js';
+export type { ComponentExecutionOptions } from './types/sdk.js';
 export { textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './streams.js';
 export type { StreamSchema } from './streams.js';

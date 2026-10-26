@@ -24,35 +24,6 @@ describe('Independent Casai instances', () => {
 		rmSync(directory, { recursive: true, force: true });
 	});
 
-	it('recognizes foreign validation errors without relying on constructor identity or names', async () => {
-		for (const [author, owner] of [[foreign, local], [local, foreign]]) {
-			const operation = author.create.Function.asTool({ inputSchema: author.z.object({ value: author.z.number().positive() }), execute: input => input.value });
-			const caller = owner.create.Function({ tools: { operation }, execute: ({ operation }) => operation({ value: -1 }) });
-			await assert.rejects(caller(), error => {
-				assert.ok(owner.ConfigError.isInstance(error));
-				assert.ok(author.ConfigError.isInstance(error));
-				assert.ok(error instanceof author.ConfigError);
-				assert.equal(error instanceof owner.ConfigError, false, 'Native instanceof remains constructor-specific.');
-				assert.match(error.message, /input validation failed/);
-				assert.ok(error.cause instanceof Error);
-				return true;
-			});
-			for (const other of [null, undefined, 'ConfigError', {}, new Error('ConfigError'), { name: 'ConfigError' }]) {
-				assert.equal(owner.ConfigError.isInstance(other), false);
-			}
-		}
-	});
-
-	it('distinguishes incompatible callable protocols from descriptor spreads', async () => {
-		const newer = Object.assign(() => undefined, {
-			inputSchema: local.z.object({}), execute: () => 1,
-			bindToolContext: () => ({ tool: {}, context: {} }),
-			[Symbol.for('casai.tool.binding.v2')]: () => undefined,
-		});
-		const caller = local.create.Function({ tools: { newer }, execute: () => 1 });
-		await assert.rejects(caller(), /Incompatible Casai tool binding protocol/);
-	});
-
 	it('preserves foreign component binding and guards through injected and SDK consumers', async () => {
 		for (const [author, owner] of [[foreign, local], [local, foreign]]) {
 			let entered = 0;
@@ -80,6 +51,8 @@ describe('Independent Casai instances', () => {
 			assert.equal(entered, 6);
 			// eslint-disable-next-line @typescript-eslint/no-misused-spread -- Exercise the explicitly unsupported descriptor copy.
 			const spread = { ...operation };
+			assert.equal(typeof Reflect.get(operation, '_bindToolContext'), 'function');
+			assert.equal('_bindToolContext' in spread, false);
 			const makeInvalid = owner.create.Function as unknown as (config: object) => () => Promise<unknown>;
 			await assert.rejects(makeInvalid({ tools: { spread }, execute: () => 1 })(), /Do not spread Casai components/);
 		}
