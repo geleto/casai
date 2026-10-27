@@ -13,8 +13,8 @@ Use JavaScript for application logic, Cascada templates for text, and Cascada sc
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Understanding the Casai API](#understanding-the-casai-api)
-  - [Creating and Calling Components](#creating-and-calling-components)
   - [Common Component Contracts](#common-component-contracts)
+  - [Creating and Calling Components](#creating-and-calling-components)
 - [Configuration Management](#configuration-management)
 - [The Casai Components](#the-casai-components)
 - [Using Components as Tools](#using-components-as-tools)
@@ -130,7 +130,7 @@ Choose a component by the operation you need. `Config` supplies shared settings 
 | [Template](#template) | Render a Cascada template | Template and context → string, or a text stream | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
 | [Script](#script) | Execute a Cascada workflow | Script and context → returned value, or a stream | [Cascada scripts](https://geleto.github.io/cascada-script/#/) |
 | [Function](#function) | Wrap JavaScript logic | Arguments/context → returned value, or the callback's stream | — |
-| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages or rendering context → `.value`, the final output or its native stream; plus the full [SDK result](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns) or [stream result](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
+| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages and application context → the full SDK result, with `.value` for [final application output](#llmagent-results) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
 | [Decision](#decision) | Answer choice, boolean, and score questions | `state`, configured `questions` → [.answers](https://ai-sdk.dev/docs/ai-sdk-core/decisions#question-types) | [Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) |
 | [Embedder](#embedder) | Embed one or many texts | String or string array → [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
 | [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` → [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
@@ -141,6 +141,55 @@ Choose a component by the operation you need. `Config` supplies shared settings 
 | [VoiceSessionSetup](#voicesessionsetup) | Prepare a browser voice session and execute server tools | Instructions/context → session setup; separate `executeTool()` calls | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
 
 Decision, StreamingTranscriber, and VoiceSessionSetup wrap SDK features that are still experimental, so Casai exports them as `Experimental_Decision`, `Experimental_StreamingTranscriber`, and `Experimental_VoiceSessionSetup` until those features are stable.
+
+### Common Component Contracts
+
+LLMAgent, Template, Script, and Function share configuration, application input and composition rules. Their output contracts reflect the operation each performs. Specialized model components use the same configuration conventions with the native inputs and results listed in the [overview](#component-overview).
+
+#### Shared Configuration
+
+Pass a flat settings object to a factory. The resulting component exposes its resolved reusable settings as `.config`; a [Config](#config) or compatible parent component can supply inherited settings. Supported `.run()` overrides apply to one invocation.
+
+| Configuration part | Purpose |
+| :--- | :--- |
+| `context` | Application defaults and private dependencies, such as helpers or clients. Call data combines with these to form one prepared context for the body, prompt preparer and hooks |
+| `inputSchema` | The application input contract. Select declared public defaults, merge call data, then parse before execution; private dependencies stay outside this schema |
+| Source / implementation | The component's main property: `template`, `script`, Function `execute`, or LLMAgent `prompt` with its selected modifier. Other operations use their [own input property](#input-preparation-by-component) |
+| Output contract | Describes the produced application value, using `schema`, SDK `output`, or an implicit/native contract as shown [below](#returned-values) |
+| Operation settings | Model, tool, rendering and execution controls supported by that component |
+
+`inputSchema` is optional for ordinary components. Its declared fields identify public input and which configured values callers may override. Merge those defaults with call input, parse once, then assemble parsed application values with private bindings. Calls/configuration use schema input types; implementations receive parsed types. Configured defaults can satisfy required fields. With no input schema, configured names remain private, while ordinary calls can supply other application fields. See [input and output validation](#input-and-output-validation) for transforms, extra fields and collision protection.
+
+Context is available on every LLMAgent form, including literal text with no hooks. It need only be supplied when required input remains after defaults. Template and Script use it as their execution context; Function receives it as its callback argument; LLMAgent shares it between prompt preparation and [request/step hooks](#application-context-and-hooks). Schemas and context settings can be inherited through the same configuration rules.
+
+There is one application context and one input schema. Native SDK Agent entry points spell the same call input `options`; Casai configuration and `.run()` use `context`. Tools additionally require a declared public input schema and may use `toolContextSchema` for the separate [trusted tool-context boundary](#tool-execution-context).
+
+#### Returned Values
+
+Ordinary calls and `.run()` return promises. After `await`, Template, Script and Function give you the application value itself. LLMAgent gives you an SDK result containing the application output in `.value`.
+
+| Component | Output configuration | What `await component(...)` returns |
+| :--- | :--- | :--- |
+| Template | Implicit text; no output schema | A rendered string, or a text stream with `.asStream` |
+| Script / Function | Optional `schema` | The schema's parsed output; without a schema, the program/callback's returned value |
+| LLMAgent | SDK `output`, defaulting to text | The full SDK result, with `.value`, history and native SDK fields; see [LLMAgent results](#llmagent-results) |
+| Other model components | The operation's native output contract | Its native result, such as embeddings, images or transcription data; see the [component overview](#component-overview) |
+
+The actual output-setting names are `schema` for Script/Function and `output` for LLMAgent; there is no shared `outputSchema` property. A schema's returned value is used, including defaults, stripping and transforms. Script/Function producers return schema input; their callers receive schema output directly, without an added `.value` envelope.
+
+A stream schema returns a stream whose elements are parsed as consumed; awaiting the component does not collect it or validate the entire stream in advance. See [stream schemas](#stream-schemas). LLMAgent's `.value` can be a completed value, a promise or a text stream depending on `output` and `.asStream`; the [agent result table](#llmagent-results) defines those cases and the alternatives such as `textStream`.
+
+To interchange model and coded implementations in a workflow, have a small adapter extract the model result's application value. The workflow can then consume the same value type from either implementation; see [replacement examples](#interchanging-components-in-workflows).
+
+#### Shared Execution Rules
+
+- **Calls and composition:** Every callable has `.run()` for named inputs and supported execution settings, with the same result contract as its ordinary call. Put components or application functions in context to [call them from workflows](#calling-tools-from-coded-components).
+- **Invocation isolation:** Casai's merging, preparation and execution leave shared configuration and caller data intact. Derive a component or use call overrides to select different settings.
+- **Effects:** Schema callbacks stay pure. Component bodies may operate on authorized application state or perform external effects; sequence effectful Cascada calls with `!`. Independent invocations need application-level coordination for shared state.
+- **Streaming:** LLMAgent and Template inherit streaming mode, and `.asStream` enables it. Script/Function declare stream output through `schema`; independently invoked components keep their own modes. See [streaming](#streaming).
+- **Tool adaptation:** `.asTool` exposes completed application output to a model, collecting declared finite streams where necessary. Direct calls retain their normal result and mode. See [using components as tools](#using-components-as-tools).
+
+Template, Script and Function keep these native value contracts. LLMAgent's non-tool forms additionally implement the [SDK Agent and chat UI protocol](#ai-sdk-agent-interface-and-ui-integration).
 
 ### Creating and Calling Components
 
@@ -156,7 +205,7 @@ const invitation = await writer('Write a short invitation to a community dinner.
 
 Each component has a **main property**, the input its operation works on, such as an LLMAgent's `prompt` or a Template's `template`. You set it when creating the component, and a call can replace it for one invocation. The component's [input modifier](#adding-capabilities-with-modifiers) sets its type, never its name: on a plain LLMAgent, `prompt` is literal text or model messages; with `.withTemplate`, it is a template; with `.loadsTemplate`, a template's name. A replacement has the same type as the configured value.
 
-The ordinary call, `component(...)`, takes inputs rather than execution settings. A plain component takes its main input first, including object or array inputs. A plain LLMAgent takes `(prompt, messageHistory?)`: the prompt can be a string or a message array. Rendered forms take their source, context, and any secondary input in that order, omitting source to use the configured one. Every callable component has `.run({ ... })` for named inputs and its supported execution settings. Native SDK abort/timeout controls and explicit cooperative signals on coded-component `.run()` remain available. Script/Template timeouts and inherited end times wait for Phase 7 and Cascada async call context; native engine abort is separate.
+The ordinary call, `component(...)`, takes inputs rather than execution settings. A plain component takes its main input first, including object or array inputs. A plain LLMAgent takes `(prompt, context?, messageHistory?)`, with context omitted before history when no call data is required; the prompt can be a string or message array. Rendered forms take their source, context, and any secondary input in that order, omitting source to use the configured one. Every callable component has `.run({ ... })` for named inputs and its supported execution settings. Native SDK abort/timeout controls and explicit cooperative signals on coded-component `.run()` remain available. Script/Template timeouts and inherited end times wait for Phase 7 and Cascada async call context; native engine abort is separate.
 
 | Component | Main property | Secondary input |
 | :--- | :--- | :--- |
@@ -174,7 +223,7 @@ The ordinary call, `component(...)`, takes inputs rather than execution settings
 
 A Function's callback can't be replaced per call, so a Function is called with its context alone. VoiceSessionSetup's main property is its session `instructions`; an LLMAgent's `instructions` setting is separate and never rendered.
 
-Ordinary calls return promises. In complete mode, LLMAgent returns an SDK result whose `.value` holds the output, and Template returns a string. Script and Function return their program's value parsed by `schema` when configured, including any schema replacements; that is a stream when the schema [declares one](#stream-schemas).
+Calls return promises; the shared [returned-value reference](#returned-values) explains direct values, streams and SDK result objects.
 
 A Template, for example, accepts a one-off template before its context:
 
@@ -325,7 +374,7 @@ Modifiers apply only where their output fits the input. Text and template modifi
 
 ### LLMAgent Call Reference
 
-On a plain LLMAgent, the first argument always means the new prompt: a string or a model-message array. The second is already-prepared history. These forms apply with or without streaming mode.
+Use the order source, context, history, omitting configured sources and unneeded context. A first-position string or model-message array on a plain agent is always a new prompt. These forms apply with or without streaming mode; required context fields must be supplied unless defaults satisfy them.
 
 | Component form | Ordinary call | Meaning |
 | :--- | :--- | :--- |
@@ -334,39 +383,23 @@ On a plain LLMAgent, the first argument always means the new prompt: a string or
 | Plain | `agent(newMessages)` | Supply one or more new prompt messages |
 | Plain | `agent('New prompt', messageHistory)` | Append prompt text after history |
 | Plain | `agent(newMessages, messageHistory)` | Append new messages after history |
+| Plain | `agent(prompt, context, messageHistory?)` | Supply a literal prompt and application data |
+| Plain or loaded text | `agent(context, messageHistory?)` | Use the configured prompt/resource with application data |
+| Loaded text | `agent()` | Load the configured resource name as literal text |
+| Loaded text | `agent(resourceName, context?, messageHistory?)` | Load a one-off resource as literal text; context may be omitted before history |
 | Template/script, including loaded forms | `agent(context)` | Prepare the configured source |
 | Template/script, including loaded forms | `agent(context, messageHistory)` | Prepare a new turn after history |
 | Template/script, including loaded forms | `agent(source, context, messageHistory?)` | Prepare a one-off source |
 | Function prompt | `agent(context, messageHistory?)` | Call the configured prompt function |
+| Function prompt | `agent(promptFunction, context, messageHistory?)` | Call a one-off prompt function |
 
-There is no positional history-only form. Message arrays carry no marker that distinguishes history from new messages: even a variable named `messageHistory` is interpreted as prompt messages when passed first to a plain agent. `agent.run({ messageHistory })` uses the configured prompt when one exists, including preparation and input validation; only an agent without an effective prompt sends history without adding a new turn. Fixed instructions, SDK custom options, and request hooks still apply.
+There is no positional history-only form. Message arrays carry no marker that distinguishes history from new messages: even a variable named `messageHistory` is interpreted as prompt messages when passed first to a plain agent. `agent.run({ messageHistory })` uses the configured prompt when one exists, including preparation and input validation; only an agent without an effective prompt sends history without adding a new turn. Fixed instructions, context validation, and request hooks still apply.
 
-Ordinary calls and `.run()` resolve inputs in the same way: supplied values override configuration, and an omitted or undefined prompt retains the configured prompt. Adding history, execution settings, or an empty `context` does not select a different operation. `messageHistory: []` means no earlier messages and still runs a configured prompt. Every effective prompt string, including `''`, adds a user message regardless of history; an absent prompt adds none. Empty text is not a portable history-only sentinel: [Anthropic text blocks require nonempty text](https://platform.claude.com/docs/en/api/messages/create). For history-only continuation, use no effective prompt, or have a script/function preparer return an empty message array (`[]`), rather than an empty string. If there is neither an effective prompt nor nonempty history, the call is invalid.
+Literal and loaded-text agents accept context even without preparation hooks. Their text stays literal; context supplies hook data and follows the same input validation as rendered forms. On `.loadsText`, a lone array is invalid; use `.run({ messageHistory })` with a configured resource, optionally supplying `context` or a replacement `prompt: resourceName`.
 
-From Cascada, keyword arguments supply the named input/context object; a rendered `agent(messageHistory, topic='recycling')` normalizes to JavaScript `agent({ topic: 'recycling' }, messageHistory)`. Keywords must come last in Cascada, so this marked form is an explicit exception to positional ordering. JavaScript `agent(messageHistory, context)` and the equivalent Cascada call with an unmarked object literal are invalid; use context before history. A lone array is never inferred to be history.
+Ordinary calls and `.run()` resolve inputs in the same way: supplied values override configuration, and an omitted or undefined prompt retains the configured prompt. Adding history, execution settings, or an empty `context` does not select a different operation. `messageHistory: []` means no earlier messages and still runs a configured prompt. Every effective prompt string, including `''`, adds a user message regardless of history; an absent prompt adds none. Empty text is not a portable history-only sentinel: [Anthropic text blocks require nonempty text](https://platform.claude.com/docs/en/api/messages/create). For history-only continuation, use no effective prompt, or have a script/function preparer return an empty message array (`[]`), rather than an empty string. The SDK rejects the call if its final conversation is still empty after `prepareCall`.
 
-### Common Component Contracts
-
-LLMAgent, Template, Script, and Function share the parts that make workflows reusable:
-
-- **Callable operations:** Put a component or application function in `context`, then call it from JavaScript or Cascada.
-- **Named invocation:** Every callable has `.run({ ... })` for named inputs and execution settings, returning the same result as its ordinary call. Function's callback stays fixed at creation.
-- **Application input:** Rendered LLMAgents, Template, Script, and Function accept context. With `inputSchema`, named declarations select configured public defaults; other configured values remain private execution bindings. Merge public defaults and arguments, parse once, reject retained private collisions, then assemble execution context from private bindings and accepted parsed values. Ordinary non-tool components retain the schema's stripping/rejection/open-field behavior for unrelated fields. Casai tools instead require declared root fields and reject unknown raw keys before parsing. Configuration and schema defaults can satisfy required public fields even with empty arguments. Calls use schema input types; implementations use parsed types. Without an input schema, configured names have no public declaration and remain protected under the [private-by-default direction](docs/plan.md#remaining-phase-2-decisions); unrelated ordinary arguments remain available. There is no blanket private-protection bypass; use ordinary-component schema openness for unrelated extras and explicit declarations for intentional overrides.
-- **Configuration:** Reuse compatible settings through Config or component inheritance; each invocation keeps its own input and settings.
-- **Shared inputs stay intact:** Calls and `.run()` do not mutate shared context, nested application data, or configuration. Schema callbacks and implementations treat inputs as read-only; structured transforms return replacements. Cascada's `!` sequences intentional external effects rather than authorizing context mutation.
-- **Intentional state and effects:** Pure component bodies are the default. An explicitly stateful/effectful implementation may operate on persistent state it owns, write to a database, send a message or perform another authorized effect; call it with Cascada's `!` at the appropriate sequencing scope. The component still leaves its configuration and borrowed input data unchanged. Schema callbacks remain pure even when the component body performs effects.
-- **Inherited execution mode:** LLMAgent and Template inherit streaming mode from a parent component. `.asStream` enables it; deriving a component cannot switch it off. Independently invoked components keep their own mode. Script and Function declare streaming through `schema`.
-- **Tool adaptation:** `.asTool` exposes a completed operation with [closed top-level public input](#tool-execution-context) to a model. Finite streaming operations are collected once for tool execution; ordinary calls retain their result and mode.
-
-| Component | The call returns |
-| :--- | :--- |
-| LLMAgent | The full SDK result; its `.value` is final output, delivered as a value or native stream according to output kind and mode |
-| Template | The rendered string; a text stream with `.asStream` |
-| Script / Function | The program's return value: a value, or a stream when `schema` declares one |
-
-Template, Script, and Function have native Casai contracts. They do not accept SDK conversations or implement the SDK Agent result/event protocol. LLMAgent additionally implements that protocol, because it delegates language generation and streaming to the SDK. See [AI SDK integration](#ai-sdk-agent-interface-and-ui-integration).
-
-To replace a model operation inside a workflow, expose its application value through a small adapter and give the coded replacement the same input and value types. The [replacement examples](#interchanging-components-in-workflows) show that boundary. Reusable operations, including implementations also registered as model tools, are called explicitly through [context helpers](#calling-tools-from-coded-components).
+From Cascada, keyword arguments supply the named input/context object; a rendered `agent(messageHistory, topic='recycling')` normalizes to JavaScript `agent({ topic: 'recycling' }, messageHistory)`. Keywords must come last in Cascada, so this marked form is an explicit exception to positional ordering. On rendered/loaded forms, JavaScript `agent(messageHistory, context)` and the equivalent unmarked Cascada call are invalid; use context before history. On a plain agent, that first array is new prompt messages. A lone array is never inferred to be history.
 
 ### Named Arguments and Per-Call Overrides
 
@@ -391,19 +424,18 @@ The `.run()` object is an application-authored settings envelope. Put applicatio
 | LLMAgent field | Meaning |
 | :--- | :--- |
 | `prompt` | The new turn, replacing the configured prompt. On a plain agent, literal text or model messages; on a rendered agent, a template, script, function, or resource name |
-| `context` | Rendering input for template, script, and function forms |
+| `context` | Application input shared by prompt preparation and [request/step hooks](#application-context-and-hooks), including with literal prompts |
 | `messageHistory` | The conversation so far, placed before the new turn |
-| `options` | [Custom call options](#custom-call-options-and-hooks), validated by `callOptionsSchema` |
 | `approvals`, `toolResults` | Decisions and external tool results that [continue](#tool-approvals-and-continuation) a conversation ending in pending tool calls; used with `messageHistory` |
 | Other settings | Model settings, tools, callbacks, `stopWhen`, cancellation, and other supported per-call settings |
 
 Configured `instructions` apply to every call. The [SDK methods](#ai-sdk-agent-interface-and-ui-integration) `.generate()` and `.stream()` take the SDK's own arguments instead, with a literal conversation.
 
-At the top-level invocation/settings layer, `undefined` counts as not supplied and leaves the configured value in place. Inside a supplied `context` object, an own property set to `undefined` remains an explicit shallow override, just like any other value. With configured `name: 'Ada'` and a schema field `z.string().default('x')`, passing `{ name: undefined }` therefore produces `'x'`; omitting `name` retains `'Ada'`. This preserves the existing merge rules. LLMAgent callbacks passed for one call run in addition to configured callbacks.
+At the top-level invocation/settings layer, `undefined` counts as not supplied and leaves the configured value in place. Inside a supplied `context` object, an own property set to `undefined` remains an explicit shallow override, just like any other value. With configured `name: 'Ada'` and a schema field `z.string().default('x')`, passing `{ name: undefined }` therefore produces `'x'`; omitting `name` retains `'Ada'`. This preserves the existing merge rules. LLMAgent lifecycle observers compose with configured observers; control hooks such as `prepareCall`, `prepareStep`, and `onError` replace the configured callback. See [callback policies](#lifecycle-callbacks).
 
 Overrides are isolated: concurrent calls can use different inputs, settings, and history without Casai changing shared components or data. Native parsers such as Zod copy declared containers; opaque references and unchanged branches may remain shared. Casai adds no generic copy planner or deep clone of models, helpers, clients, promises, or streams. Schema callbacks must be pure. Component implementations may deliberately mutate authorized state held in context objects or closures; sequence effectful Cascada calls with `!` and coordinate shared state across independent runs in the host. Configuration settings stay fixed by contract. See [state and snapshot behavior](README.md#invocation-metadata-and-effects); no freeze or proxy is added.
 
-Output contracts, schemas, the Function `execute` implementation, and renderer setup stay fixed. Derive another component to change LLMAgent `output`, Script/Function `schema`, input schemas, filters, render options, or loaders. Per-call lifecycle callbacks on LLMAgent compose with configured callbacks.
+Output contracts, schemas, the Function `execute` implementation, renderer setup, and LLMAgent `id` stay fixed. Derive another component to change them. Agent `id` is metadata, not a model-call setting or a `.run()` override.
 
 Specialized components follow the same pattern. Their ordinary call takes the main property by position: `route('My order arrived damaged.')`, `reranker(question, candidates)`, `illustrator('A watercolor workshop')`, `transcriber(recordedAudio)`, or `speaker('Your replacement is on its way.')`. With an input modifier, it also takes the context the main property is prepared with. `.run()` takes the SDK's input fields and settings by name, such as `reranker.run({ query, documents, topN: 3 })`. `VoiceSessionSetup` has a [session lifecycle](#voicesessionsetup).
 
@@ -424,7 +456,7 @@ Native streams are async iterables with two runtime kinds: `tstream` for text ch
 
 Streams are consumed as they are read. Passing a stream to a component allows it to consume the stream; returning that same source does not restore consumed items. It may have unread items, be exhausted, or have been closed. A Script, Template, or Function returning a stream adds no replay guarantee. Sharing must be explicitly supplied by the underlying source or a sharing helper. LLMAgent's [SDK result getters](#consuming-a-stream) retain their separate ability to create fresh views of one execution.
 
-Two helpers exported from `casai` collect a native stream into its complete value: `collectTextStream(stream)` joins text chunks into one string, and `collectStream(stream)` collects elements into an array. Choose the one that matches the stream; both accept any async iterable, including a streaming LLMAgent's `.value`. In a Script, assigning a `stream` or `tstream` channel takes a snapshot instead: the elements emitted before the assignment in source order, as an array or a string.
+Two helpers exported from `casai` collect a native stream into its complete value: `collectTextStream(stream)` joins text chunks into one string, and `collectStream(stream)` collects elements into an array. Choose the one that matches the stream; both accept any async iterable. A streaming LLMAgent's default-text `.value` uses `collectTextStream`; an explicit SDK `Output` instead gives a promised final `.value`, which you await. In a Script, assigning a `stream` or `tstream` channel takes a snapshot instead: the elements emitted before the assignment in source order, as an array or a string.
 
 Nested calls keep their declared contracts. A Template forwards a child's stream when it streams, and collects it when it renders complete text. See [composition](#streaming-through-templates-and-scripts).
 
@@ -467,7 +499,7 @@ LLMAgent uses SDK `Output.text()` or `Output.array({ element })`, with its SDK v
 
 ### Config
 
-`Config` groups settings for reuse. Pass it as the second factory argument to inherit them:
+`Config` groups the [shared configuration properties](#shared-configuration) and compatible operation settings for reuse. Pass it as the second factory argument to inherit them:
 
 ```typescript
 const defaults = create.Config({
@@ -488,14 +520,14 @@ const shortSummarizer = create.LLMAgent.withTemplate({
 console.log((await shortSummarizer({ text: 'A document to summarize.' })).value);
 ```
 
-A `Config` can be partial. Children supply fixed configuration requirements; the ordinary call supplies application inputs it accepts, such as an unconfigured source or required context fields. A finished callable must already have required settings its shorthand cannot supply, such as registered-tool context and required LLMAgent custom options. `.run()` overrides settings for one invocation. Components can inherit from compatible components, using their original `.config` rather than projected SDK tool properties. Local settings take precedence according to these rules:
+A `Config` can be partial. Children supply fixed configuration requirements; the ordinary call supplies application inputs it accepts, such as an unconfigured source or required context fields. A finished callable must already have required settings its shorthand cannot supply, such as registered-tool context. `.run()` overrides settings for one invocation. Components can inherit from compatible components, using their original `.config` rather than projected SDK tool properties. Local settings take precedence according to these rules:
 
 | Property | Inheritance behavior |
 | :--- | :--- |
 | `context`, `filters`, `tools`, `toolsContext` | Merge by key; a child entry replaces the same parent entry |
 | `loader` | Try child loaders before parent loaders; named race groups combine |
 | Streaming mode on LLMAgent/Template | Inherit from the parent; `.asStream` enables it and no modifier disables it |
-| Other properties, including `model`, `prompt`, schemas, `output`, `options`, `renderOptions`, and `providerOptions` | Replace the whole value |
+| Other properties, including `model`, `prompt`, schemas, `output`, `renderOptions`, and `providerOptions` | Replace the whole value |
 
 Key merging is shallow. A child `context: { settings: { language: 'French' } }` replaces the entire inherited `settings` value. A `toolsContext` entry similarly replaces that tool's whole context value.
 
@@ -503,7 +535,7 @@ Omitting a property inherits it. Explicit `undefined` clears ordinary replacemen
 
 Tool definitions merge only by tool name: a supplied definition replaces the whole inherited definition, never its individual fields. A tool entry set to `undefined` or `null` removes that tool after resolution. For example, `tools: { search: undefined }` removes inherited `search` while retaining other tools. Remove cleared entries before exposing the effective SDK tool registry or passing it to the SDK; infer tool names and required tool context from that same effective registry. This is a tool-registry rule, not a reason to remove ordinary null/undefined application data.
 
-Keep shared fragments compatible with their consumers. A context-only Config can be shared by a Script and an LLMAgent; a Config containing language-model settings is not a standalone Template configuration. The `execute` callback belongs to Function. LLMAgent describes model output with an SDK `Output` specification; Script and Function parse their native result with `schema` and return its produced value. Template produces text. Incompatible inherited properties are rejected along with incompatible local ones.
+Keep shared fragments compatible with their consumers. A context-only Config can be shared by a Script and an LLMAgent; language-model settings require an appropriate model component. Source/implementation and output settings follow the [shared configuration and return contracts](#common-component-contracts). Incompatible inherited properties are rejected along with incompatible local ones.
 
 ### Inspecting Configuration
 
@@ -520,7 +552,7 @@ console.log(shortSummarizer.config.context);         // { language: 'English' }
 
 The following sections cover creating and calling each component and reading its result. [Config](#config) supplies shared settings. Choose a model suited to the operation: a language model for LLMAgents, an embedding model for Embedder, and the corresponding provider model for other AI operations.
 
-LLMAgent, Template, Script, and Function share [composition conventions](#common-component-contracts), input validation, configuration inheritance, and tool adaptation. Preserve an operation's application input and value to [interchange implementations inside a workflow](#interchanging-components-in-workflows). LLMAgent alone adds the SDK Agent and chat UI contract.
+The shared [configuration properties](#shared-configuration), [returned values](#returned-values) and [execution rules](#shared-execution-rules) apply throughout these examples. The sections below focus on each component's operation and supported capabilities.
 
 ### Template
 
@@ -536,7 +568,7 @@ const text = await receipt({ orderId: 'A123', count: 3 });
 console.log(text);
 ```
 
-The main property is `template`. Call with context, or with a one-off template followed by context. The result is a promise for the rendered string. Context can contain functions and other components; Cascada resolves asynchronous values during rendering.
+The main property is `template`. Call with context, or with a one-off template followed by context. Cascada resolves asynchronous context helpers during rendering; see [context in templates and scripts](#context).
 
 For a file or named resource, use `.loadsTemplate`:
 
@@ -552,8 +584,6 @@ console.log(await report({ title: 'Weekly report' }));
 ```
 
 In this form, a one-off `template` is another resource name. `.asTool` and `.loadsTemplate.asTool` expose the rendered string as a tool result. Standalone templates default to no HTML escaping; set `renderOptions: { autoescape: true }` for HTML output.
-
-Template's output is text; structured values belong in Script or Function.
 
 #### Streaming a Template
 
@@ -600,11 +630,9 @@ const totals = create.Script({
 console.log(await totals({ price: 12, quantity: 3 })); // { subtotal: 36 }
 ```
 
-The main property is `script`. Call with context, or with a one-off script followed by context. Use direct `return` values for strings, numbers, objects, arrays, or other supported workflow results. `schema` optionally validates the returned value.
+The main property is `script`. Call with context, or with a one-off script followed by context. Use `return` for strings, numbers, objects, arrays, or other supported workflow results. Output validation follows the shared [returned-value rules](#returned-values).
 
 `.loadsScript` loads a named script through a configured loader. `.asTool` and `.loadsScript.asTool` expose the workflow as a tool; `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. Both inline and loaded scripts can call helpers or components from context.
-
-The returned value is parsed once by `schema` when configured, and the caller receives the schema-produced result. A producer returns the schema input type; the component returns its output type. Reuse that schema when [interchanging workflow implementations](#output-schemas-and-structured-replacements).
 
 A Script streams by returning a `stream` or `tstream` channel, a **future Cascada capability**. This example declares an element stream with a [stream schema](#stream-schemas):
 
@@ -644,7 +672,7 @@ const normalize = create.Function({
 console.log(await normalize({ text: '  HELLO  ' })); // hello
 ```
 
-`execute` may be synchronous or asynchronous; Function returns a promise for its result parsed by `schema` when supplied. Callback output uses the output schema's input type; callers receive its output type. Configured schema-declared context supplies application defaults, while configured undeclared helpers are private bindings outside `inputSchema`. Without `inputSchema`, configured names are protected on every call and remaining ordinary arguments are inferred from the callback. Declare intentional public overrides in `inputSchema`. These signatures and guards are integrated into the production factories. The selected contract has no blanket private-protection bypass.
+`execute` may be synchronous or asynchronous; the shared [input](#shared-configuration) and [output](#returned-values) rules apply. Without `inputSchema`, ordinary arguments beyond the configured private names are inferred from the callback. Declare intentional public overrides of configured fields in `inputSchema`.
 
 A Function can inherit from a `Config` or another Function. If a child changes schemas or context incompatibly, provide an `execute` callback that matches the final configuration. Use `.asTool` to let an LLMAgent call the function; see [tools](#using-components-as-tools) for execution context and validation behavior.
 
@@ -670,7 +698,7 @@ console.log(await collectTextStream(await countdown({ from: 3 }))); // 3... 2...
 
 TypeScript requires `execute` to produce a stream accepted by its schema: `textStreamSchema()` accepts string chunks and `streamSchema(elementSchema)` accepts that element schema's input type. The caller receives parsed elements of its output type. One lazy wrapper applies the schema in the existing consumption pass with one reader and no duplicate producer. The callback runs once and needs no mode flag. Forwarding an input stream retains its current consumption state rather than making it fresh again.
 
-To forward an LLMAgent's output, call a streaming LLMAgent and return its `.value`: `execute: async ({ topic }) => (await liveWriter({ topic })).value` with `schema: textStreamSchema()`, or with a `streamSchema(...)` schema for array output. The forwarded `.value` retains final-output selection, any buffering needed to identify the final step, and throwing terminal failures. The SDK's `textStream` instead includes text across steps and omits error event parts. Full SDK event streams and transcription events are different protocols.
+To forward a streaming LLMAgent's default-text output, return its `.value`: `execute: async ({ topic }) => (await liveWriter({ topic })).value` with `schema: textStreamSchema()`. With an explicit SDK `Output`, `.value` is a promise; the same async function returns its completed parsed value, so use an ordinary matching output schema rather than a stream schema. Both paths retain final-output selection and failure checks. The SDK's `textStream` instead includes text across steps and omits error event parts. Full SDK event streams and transcription events are different protocols.
 
 The callback receives one flat context containing schema-produced application values, private configured dependencies, and separately parsed [tool-context fields](#tool-execution-context). The `_toolOptions` property holds execution metadata, including cancellation. `.asTool` collects a finite returned stream into a completed tool result; it does not send intermediate stream values as SDK preliminary UI results. Use an explicit native SDK tool when that progress protocol is needed.
 
@@ -688,7 +716,7 @@ console.log(answer.text);   // The SDK text accessor is also available.
 
 Plain calls accept prompt text or model messages; rendered forms accept context. All seven input modifiers are supported. `.run()` accepts [named inputs and per-call settings](#named-arguments-and-per-call-overrides).
 
-LLMAgent implements the SDK Agent interface directly. To replace its model operation with coded logic inside a workflow, adapt the SDK result to the workflow's [application value contract](#interchanging-components-in-workflows).
+Non-tool LLMAgents implement the SDK Agent interface directly; `.asTool` forms implement the SDK Tool interface. To replace a model operation with coded logic inside a workflow, adapt the SDK result to the workflow's [application value contract](#interchanging-components-in-workflows).
 
 #### Structured Output
 
@@ -717,7 +745,7 @@ const report = await researcher({ topic: 'battery recycling' });
 console.log(report.value.summary);
 ```
 
-`output` determines parsing, validation, and the inferred type of `result.value`. It is fixed when the component is created. Structured output can be combined with tools. See [SDK structured output](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data).
+`output` determines parsing, validation, and the inferred type of the final application value. It is fixed when the component is created. With `.asStream`, delivery also depends on whether `output` is explicit; see the [result table](#llmagent-results). Structured output can be combined with tools. See [SDK structured output](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data).
 
 Use schema descriptions and the output specification's supported `name` and `description` fields to explain the desired data to the model. The selected model must support the requested output and tool capabilities; Casai does not make every model support every schema or media type.
 
@@ -749,11 +777,28 @@ The default is `isStepCount(1)` when no stopping condition is supplied or inheri
 
 #### LLMAgent Results
 
-The call returns the full [SDK generation result](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns) or [streaming result](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns). Casai adds `value` for final application output and `messageHistory` for conversation state. Streaming changes delivery, not which output `value` represents.
+The call returns the full [SDK generation result](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#returns) or [streaming result](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns). Casai adds `value` for final application output and `messageHistory` for conversation state.
+
+**`value` is the final answer parsed according to `output`. `output` selects the answer's type and validation; `.asStream` changes how it is delivered.** For example, `Output.object({ schema })` produces the schema's parsed object, including its transforms, rather than the model's raw JSON text. In a tool loop, `value` selects the final step's output and excludes earlier steps' text and tool activity. Text within that final step is preserved, including any commentary.
+
+| Configured `output` | `value` without `.asStream` | `value` with `.asStream` |
+| :--- | :--- | :--- |
+| Omitted / default text | `string` | `AsyncIterable<string>` — final-answer text chunks |
+| `Output.text()` | `string` | `Promise<string>` |
+| `Output.object({ schema })` | Parsed object `T` | `Promise<T>` |
+| `Output.array({ element })` | Parsed array `T[]` | `Promise<T[]>` |
+| `Output.choice(...)`, `Output.json()`, or custom `Output` | Parsed value `T` | `Promise<T>` |
+
+Without `.asStream`, `await agent(...)` waits for the completed result and you read `result.value` directly. With `.asStream`, it gives you a live result handle: use `for await` to consume default-text `.value`, or `await result.value` for any explicit `Output`. Awaiting a text iterable does not collect its chunks; use a loop or `collectTextStream(result.value)`.
+
+**In streaming mode, omit `output` for a final-text stream; supply any explicit `Output` for a promised final value.** This includes `Output.text()`. A promised `.value` still leaves `textStream` and the other [SDK stream views](#consuming-a-stream) available while generation runs. All views reuse the same execution.
+
+TypeScript infers `T` from the output specification, including transforms. The table uses the effective configuration, including inheritance: if `output` might be `undefined`, `.value` can be a default-text stream or a promised explicit value. Custom output names do not change delivery. If a custom parser returns an iterable, the promise resolves to that iterable without automatically consuming it.
+
+The rest of the result retains the SDK's contracts, alongside Casai's `messageHistory`:
 
 | Field | Complete result | Streaming result |
 | :--- | :--- | :--- |
-| `value` | Final application output | Native final-output stream for text/arrays; a promise of the final value for other output kinds |
 | `output` | Native SDK parsed output | Promise of native SDK parsed output |
 | `stream` | Absent | Native SDK execution-event stream |
 | `steps` | Array of completed step records | Promise of that array |
@@ -771,11 +816,11 @@ Anthropic's raw `pause_turn` makes `value` unavailable even when normalized to `
 
 `steps` is always completed records, or their promise; it never becomes an async iterable. Use `onStepEnd` for step-completion notifications and `stream` for live text, tool, reasoning, and other execution events. The event stream describes the current execution; `messageHistory` holds the conversation. There is no additional conversation or activity-stream alias.
 
-`.asTool` exposes the same completed application output to another model while direct calls retain the full result. For SDK helpers, LLMAgent also implements the [AI SDK Agent interface](#ai-sdk-agent-interface-and-ui-integration).
+`.asTool` exposes the same completed application output to another model while direct calls retain the full result. Use the non-tool LLMAgent with the [AI SDK Agent interface and UI helpers](#ai-sdk-agent-interface-and-ui-integration).
 
 ### Streaming with `.asStream`
 
-The `.asStream` modifier makes an LLMAgent stream: its ordinary call and `.run()` return a live stream result instead of a complete one.
+The `.asStream` modifier makes an LLMAgent use streaming execution. Its ordinary call and `.run()` return a promise for a live result handle; awaiting it does not wait for generation to finish. With default text, consume `.value` as a text stream:
 
 ```typescript
 const writerStream = create.LLMAgent.asStream({ model });
@@ -787,51 +832,43 @@ for await (const text of textResult.value) {
 console.log(await textResult.usage);
 ```
 
-Create a streaming LLMAgent when its callers should receive a stream, such as a chat handler or a streaming Template. To stream an existing LLMAgent, derive one from it: `create.LLMAgent.asStream({}, writer)`. Within a Template or Script, select the child's streaming mode explicitly; the parent does not change ordinary nested calls. For an array response, configure `Output.array(...)`, and `.value` yields complete elements of the final output, as shown below.
-
-The [SDK streaming result](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#returns) includes text, partial-output and supported array-element streams, tool events, steps, usage, metadata, and response conversion methods. Use `result.stream` for the complete SDK 7 event stream; `fullStream` is its deprecated alias. Final values such as `.output` and `.response` are promises. SDK streams retain their own error behavior: `textStream` omits error event parts, while event streams, callbacks, and result promises expose failure information. Transport/iterator failures can also throw. Casai `value` reports terminal failures through iteration.
-
-The streaming ordinary call and `.run()` always return a promise for the stream result. Awaiting it yields the live handle without waiting for generation to finish.
+Create a streaming LLMAgent when callers need live output or SDK events, such as a chat handler or a streaming Template. To stream an existing LLMAgent, derive one from it: `create.LLMAgent.asStream({}, writer)`. Within a Template or Script, select the child's streaming mode explicitly; the parent does not change ordinary nested calls. The [`value` table](#llmagent-results) shows delivery for each output specification.
 
 `.asStream` follows an input modifier and can be followed by `.asTool`. A component derived from a streaming parent also stays streaming, including `create.LLMAgent({}, writerStream)`. Tool execution consumes one execution and returns validated final output with the same availability and failure rules as `value`; direct invocation remains streaming.
 
 #### Consuming a Stream
 
-Choose the output representation you need:
+Use `.value` when your application needs the final answer. For text as it arrives, partial structured data, or tool activity, choose a native SDK view:
 
-| Output specification | Complete `value` | Streaming `value` |
+| What you need | Result property | What it delivers |
 | :--- | :--- | :--- |
-| Text, the default | Final string | Native `tstream` of final-output text |
-| `Output.array(...)` | Final validated array | Native `stream` of final-output elements |
-| `Output.object(...)` | Final validated object | Promise of that object |
-| `Output.choice(...)` | Final validated choice | Promise of that choice |
-| `Output.json()` | Final parsed JSON | Promise of that JSON |
+| Live model text | `textStream` | Text chunks across model steps, including intermediate commentary. Structured output can appear here as JSON text. |
+| Partial structured output | `partialOutputStream` | Partial parsed snapshots; they can be incomplete and do not establish final schema validity. |
+| Array elements as they become available | `elementStream` | The SDK's element stream, when supported by the output specification. It does not apply Casai's final-answer selection. |
+| Execution activity for a UI or custom consumer | `stream` | SDK events for text, reasoning, tools, step boundaries, errors, and completion. |
+| The SDK's completed parsed output | `output` | A promise with native SDK semantics, without Casai's additional final-answer availability checks. |
 
-Custom output delivery follows the specification's runtime `name`: `text` yields its complete parsed value, `array` iterates it, and other names return its promise. A custom `array` parser must return an iterable or async iterable; Casai does not infer a different mode from the value's shape.
+For example, explicit `Output.text()` lets you display live text and then await the final answer:
 
-This table describes runtime delivery. SDK output specifications usually type their `name` as `string`, so TypeScript cannot distinguish their runtime kind from a custom output with different delivery. Streaming `value` therefore uses a union of the possible deliveries for these specifications, including object and array outputs. For example, an object may be a promised final object or an iterable yielding that object; an array may be promised, yielded whole, or yielded element by element. Narrow it through its async-iterable capability, or use `result.output` when you want the completed value. Default text and literal output names retain precise delivery types; completed values and iterable elements remain inferred from the output specification. Runtime delivery is unchanged.
+```typescript
+const writer = create.LLMAgent.asStream({
+  model,
+  output: Output.text(),
+});
 
-If the configuration's `output` type is optional or includes `undefined`, include default text in the possible `value` types. Native SDK result-property types remain unchanged.
+const result = await writer('Explain battery recycling briefly.');
+// The live result handle is available; generation may still be running.
 
-**Collecting a successful `value` stream produces the same application data as that execution's final parsed `output`.** This compares two views of one execution, not outputs of separate model calls. Text from earlier model steps and tool activity are excluded. Text within the selected SDK step is preserved, including commentary and block concatenation without separators. Omitted/default text can arrive incrementally when effective settings establish terminality under the provider's declared protocol; [unrestricted loops may need buffering](#final-answer-streaming-in-tool-loops). The current core waits for final parsed output for every explicit output specification, including `Output.text()` and `Output.array({ element })`. Text/array `value` streams then yield the final text or array elements. Native SDK event and element streams keep their own delivery behavior.
+for await (const chunk of result.textStream) {
+  process.stdout.write(chunk);
+}
 
-Incremental output requires pure, deterministic schemas: the same input must produce the same parsed value without side effects. The SDK may validate elements repeatedly while streaming and again for final `output`. Casai adds no redundant parsing, but cannot make SDK validation run only once. Keep validators inexpensive and add stateful enrichment, such as random IDs, after validation. This is a schema contract; Casai does not attempt to detect purity.
+const text = await result.value; // Completed final string; the same execution.
+```
 
-When an output has no reliable incremental representation, Casai waits for the final parsed SDK `output`. A text/array `value` stream then emits that final text or its elements; object, choice, and JSON outputs keep their promised final values. The execution still streams SDK events, and no second model call or artificial typing delay is introduced.
+In a tool loop, `textStream` might show `"Let me check."` followed by `"It is 18 C."`; `.value` contains only `"It is 18 C."`. Default-text `.value` may buffer until the final step is known, so it is not always an immediate token stream. The native SDK streams remain live independently; see [final-answer streaming in tool loops](#final-answer-streaming-in-tool-loops).
 
-The SDK views remain available for other purposes:
-
-| Stream | Contains |
-| :--- | :--- |
-| `value` | Final-output text or complete elements, with throwing terminal failures |
-| `textStream` | Native SDK text deltas across steps, including intermediate commentary; error event parts are omitted |
-| `elementStream` | Native SDK array-element delivery; it is not Casai's final-output selection |
-| `stream` | Native SDK execution events, including text, tools, step boundaries, errors, and completion |
-| `partialOutputStream` | Native SDK partial parsed snapshots; these are not complete, validated `value` elements |
-
-SDK methods select their own operation: `writer.stream()` returns a streaming result even when its ordinary call is complete. Native SDK views and Casai `value` share one execution, but select different representations.
-
-For example, process each completed item and handle a cut-off list:
+For structured output, await `.value` for the completed parsed value. An array output gives an ordinary array, so iterate it with `for`, after awaiting:
 
 ```typescript
 const list = create.LLMAgent.asStream({
@@ -841,25 +878,27 @@ const list = create.LLMAgent.asStream({
 const items = await list('Suggest three titles for an article about recycling.');
 
 try {
-  for await (const item of items.value) {
+  for (const item of await items.value) {
     console.log(item.title);
   }
 } catch (error) {
-  console.error('The list was cut short:', error);
+  console.error('No valid final list is available:', error);
 }
 ```
 
-Stream consumption drives completion. Read a stream, forward it to an HTTP response, or call `await result.consumeStream()` when only completion matters. Final-result promises such as `.output`, `.usage`, and `.steps` also trigger consumption automatically; you do not need to drain a stream before awaiting them. Each SDK stream handle follows its native consumption and locking rules. Accessing an SDK stream-valued getter again obtains a fresh view of the same buffered execution; it does not reset a handle already consumed. Casai `.value` reuses that execution and its parsed output without another parse. Native SDK streams retain SDK replay, while a view iterating parsed output retains that value's consumption rules: an ordinary array can be iterated again, but a single-use custom iterator remains exhausted or closed. There is no extra Casai replay buffer or replay promise for arbitrary Script, Template, or Function streams. Consume a stream during generation to display incremental output. Awaiting the component call alone only obtains the result handle.
+Stream consumption drives completion. Read a stream, forward it to an HTTP response, or call `await result.consumeStream()` when only completion matters. Final-result promises, including explicit-output `.value`, `.output`, `.usage`, and `.steps`, also trigger consumption; you do not need to drain a stream first. Each SDK stream handle follows its native consumption and locking rules. Accessing a stream-valued getter again obtains a fresh view of the same buffered execution. Casai `.value` reuses one execution and parsed output; awaiting it again does not reset a custom iterator returned by its parser. There is no extra Casai replay buffer or replay guarantee for arbitrary Script, Template, or Function streams. Awaiting the component call alone only obtains the live result handle.
 
-The native output view rejects on terminal execution failure, cancellation, unavailable final output, or unrecovered output-validation failure. Already delivered items remain delivered. Final validation must succeed before the iterator completes successfully. Recoverable tool errors and successful retries do not automatically fail the output; abandoned-attempt text must not become part of the final value. With SDK streams, use callbacks or the event stream to inspect error parts. See [error handling](#errors-and-retries).
+Casai `value` rejects on terminal execution failure, cancellation, unavailable final output, or unrecovered output-validation failure. Already delivered default-text prefixes remain delivered, and its iterator closes successfully only after final checks pass. Recoverable tool errors and successful retries do not automatically fail the output; abandoned-attempt text must not become part of the final value. SDK streams retain their native error behavior: `textStream` omits error event parts, so finishing that loop alone does not prove a successful final answer. Transport/iterator failures can still throw. Use callbacks or `stream` to inspect error events. See [error handling](#errors-and-retries).
+
+Output schemas must be pure and deterministic. The SDK may validate elements repeatedly during partial updates and again for final output; Casai adds no redundant parsing or exactly-once guarantee. Keep validators inexpensive and add stateful enrichment, such as random IDs, after validation.
+
+The native SDK result properties retain their types and behavior. In SDK 7, `stream` is the execution-event stream and `fullStream` is its deprecated alias. SDK methods select their own operation: `writer.stream()` returns a streaming result even when its ordinary call is complete.
 
 #### Final-Answer Streaming in Tool Loops
 
-A tool loop can emit `"Let me check."`, call a tool, and then produce `"It is 18 C."`. Casai `value` contains only `"It is 18 C."`. The SDK `textStream` contains text from both steps, and `stream` contains their execution events.
-
 When a step starts producing text, Casai may not yet know whether another tool step will follow. An append-only stream cannot retract text already delivered. Casai therefore buffers candidate output until finality is established, discards intermediate candidates from `value`, and releases only final output. **An unrestricted loop may emit nothing through `value` until the loop finishes.** Buffered output is released without simulated typing delays. SDK execution events remain live throughout, so use `stream` or the [SDK UI helpers](#ai-sdk-agent-interface-and-ui-integration) to display progress.
 
-Incremental `value` delivery is eligible when effective settings disallow tool calls and deferred continuation under the provider's declared protocol—for example, after hooks resolve to no tools, `activeTools: []`, or `toolChoice: 'none'`. This assumes the provider respects those controls. Even with no tools advertised, an unexpected call can cause the SDK to continue; `value` then fails after any prefix already delivered. A one-step setting alone does not establish that an eligible final answer will exist; tool-enabled calls buffer until answer availability is known. When controls permit continuation, buffer without inspecting stopping predicates or tracking default-condition provenance. Retries and custom output parsers that could replace a prefix still require buffering. SDK stream transforms, including `smoothStream`, feed both native final output and stream views, so they do not by themselves disable incremental `value` delivery. See the [concrete finality rules](docs/plan.md#loop-finality-and-buffering).
+Incremental `value` delivery is eligible when effective settings disallow tool calls and deferred continuation under the provider's declared protocol—for example, after hooks resolve to no tools, `activeTools: []`, or `toolChoice: 'none'`. This assumes the provider respects those controls. Even with no tools advertised, an unexpected call can cause the SDK to continue; `value` then fails after any prefix already delivered. A one-step setting alone does not establish that an eligible final answer will exist; tool-enabled calls buffer until answer availability is known. When controls permit continuation, buffer without inspecting stopping predicates or tracking default-condition provenance. Retries that could replace a default-text prefix still require buffering. Explicit outputs always use their completed-value promise, including custom parsers. SDK stream transforms, including `smoothStream`, feed both native final output and stream views, so they do not by themselves disable incremental `value` delivery. See the [concrete finality rules](docs/plan.md#loop-finality-and-buffering).
 
 For immediate final-answer streaming, make the answer-producing phase explicit. This example first gathers research notes, then uses a separate streaming writer with the default single model step and no tools:
 
@@ -1145,6 +1184,14 @@ Text and template modifiers prepare the instructions; script and function modifi
 ## Using Components as Tools
 
 Append `.asTool` to a supported factory to let a language model invoke it. Supply a `description` explaining when to use it and an `inputSchema` describing the model-provided arguments.
+
+An LLMAgent tool remains callable and has `.run()` and `.config`, but it is an SDK Tool, not an SDK Agent: it has no Agent `id`/`version` or `.generate()`/`.stream()` methods. Keep the non-tool agent for SDK UI helpers, and derive a matching `.asTool` component when the same behavior is needed as a tool. Derivation leaves the original agent unchanged. This separates the SDK's incompatible Agent and function-tool identity contracts.
+
+Every field declared in a tool's `inputSchema` is model-controlled, including fields a host supplied through SDK `options` when using the Agent form. To keep an identifier such as `userId` trusted, remove it from the tool's public schema and supply it through private configuration or [trusted tool context](#tool-execution-context). A configured or tool-context default alone does not protect a still-public field.
+
+LLMAgent tool arguments supply its application context. To turn named fields into prompt text, configure `.withTemplate`, `.withScript`, or `.withFunction` (including loaded template/script forms). The application owns that source; a model field named `prompt` never automatically overrides it. To deliberately use a field as the whole literal prompt, configure a function that returns it.
+
+A plain `.asTool` uses a configured literal prompt; `.loadsText.asTool` uses a configured resource name. Both can accept declared context fields for hooks, such as `language`, or an empty input schema such as `z.object({})` when no public data is needed. Their ordinary application calls retain the usual explicit source overrides.
 
 ```typescript
 const summarizeTool = create.LLMAgent.withTemplate.asTool({
@@ -1434,7 +1481,7 @@ Chat UIs don't need `resume()`: the SDK UI client sends approval responses with 
 
 ## Template and Script Properties
 
-Templates, scripts, and their AI input modifiers share Cascada rendering settings. Use these properties to provide data, helpers, source loading, and rendering options.
+Templates, scripts, and their AI input modifiers add Cascada rendering settings to the [shared configuration](#shared-configuration). This section covers source handling, context helpers, loading and rendering controls.
 
 ### Source Properties
 
@@ -1444,7 +1491,7 @@ Configured inline templates and scripts are compiled for reuse, with syntax erro
 
 ### Context
 
-Context supplies values, synchronous or asynchronous functions, promises, and other components. Cascada resolves asynchronous values when their results are needed.
+The shared [context](#shared-configuration) can contain values, synchronous or asynchronous functions, promises, and other components. In templates and scripts, Cascada resolves asynchronous values when their results are needed:
 
 ```typescript
 const orderStatus = create.Template({
@@ -1458,7 +1505,7 @@ const orderStatus = create.Template({
 console.log(await orderStatus({ id: 'A123' }));
 ```
 
-Call-time application values merge over named configured public defaults before input parsing, on direct and tool paths alike. Schema defaults apply afterward. Other configured bindings stay outside that parser. After parsing, Casai rejects retained application keys that collide with private bindings, then merges accepted application values with those bindings. Open/catchall acceptance does not authorize a private override; explicitly declare overrideable configured fields in `inputSchema`. Calls use schema input types and require what remains missing; implementations receive types matching the final merge of parsed values and configured/trusted bindings. Existing parent/child merge laws remain unchanged.
+These helpers use the same [application input and private-binding rules](#input-and-output-validation) as other components; Cascada adds asynchronous evaluation of the prepared values.
 
 ### Filters
 
@@ -1536,7 +1583,7 @@ Standalone templates default `autoescape` to `false`; language-model prompt rend
 
 AI components use their operation's SDK settings and retain its result fields. Follow the reference links in the [component overview](#component-overview) for full input and return contracts. Support for individual settings depends on the model and provider.
 
-LLMAgent uses SDK Agent settings such as `output`, `callOptionsSchema`, `options`, `tools`, `runtimeContext`, and `id`, together with SDK lifecycle callbacks. Template, Script, and Function use their [native component contracts](#common-component-contracts); application data and callable helpers belong in `context`. Per-call cancellation and timeouts are described in [cancellation](#cancellation-timeouts-and-usage).
+LLMAgent exposes SDK generation settings, lifecycle callbacks, and [request/step preparation hooks](#application-context-and-hooks). Its non-tool forms also implement the SDK `Agent` interface. The hooks are optional; SDK Agent compatibility does not depend on using them. Template, Script, and Function use their [native component contracts](#common-component-contracts), with application data and callable helpers in `context`. See [cancellation](#cancellation-timeouts-and-usage) for per-call signals and timeouts.
 
 For LLMAgent, common settings include:
 
@@ -1553,8 +1600,8 @@ For LLMAgent, common settings include:
 | `stopWhen` | Control continuation; defaults to one model step |
 | `providerOptions` | Pass provider-specific settings |
 | `maxRetries`, `timeout` | Configure retries and timeouts; a defined call timeout replaces the configured value |
-| `callOptionsSchema`, `options` | Validate and supply custom call options |
-| `prepareCall`, `prepareStep` | Customize a request or individual model steps |
+| `prepareCall` | Prepare request settings once per invocation |
+| `prepareStep` | Adjust settings before each model step, including the first |
 | `onStart`, `onStepEnd`, `onEnd` | Observe execution and completion |
 | `onChunk`, `onError`, `onAbort` | Observe streaming output, errors, and cancellation |
 
@@ -1587,28 +1634,98 @@ Streaming completion callbacks require the stream to progress to completion. `on
 
 Each LLMAgent reports its own usage through these callbacks and the SDK's `usage` fields. Usage for a whole Script or Template workflow will come from Cascada telemetry; see [future features](docs/future.md).
 
-### Custom Call Options and Hooks
+<a id="custom-call-options-and-hooks"></a>
 
-`callOptionsSchema` describes application-specific SDK Agent options on LLMAgent, supplied as `options`. AI SDK helpers such as `createAgentUIStreamResponse` forward their own `options` argument the same way. Cascada's rendering settings use `renderOptions`.
+### Application Context and Hooks
+
+Use `prepareCall` for request-wide decisions and `prepareStep` for decisions based on model/tool execution so far. Both are optional LLMAgent callbacks and apply to ordinary calls, `.run()`, and SDK/UI calls.
+
+| Hook signature | When it runs | What it returns |
+| :--- | :--- | :--- |
+| `prepareCall(request, config, context)` | Once, after context and prompt preparation | The complete editable request; spread `request` to retain its other settings |
+| `prepareStep(step, config, context)` | Before each model step, starting at `stepNumber: 0` | Native partial step overrides, or `undefined` |
+
+The arguments have distinct roles:
+
+- `request` contains editable SDK settings and `messages`: the rendered/literal conversation plus history. It contains no application context or custom options. `step` contains native step information, including `stepNumber`, completed `steps`, and current messages/model; it is not a complete request to spread back.
+- `config` is the flat configuration plus supported call overrides, resolved for this invocation before the hook. It includes `config.context` as configuration/input data and `config.prompt` as the selected source.
+- `context` is the final prepared application object, after merging defaults, input-schema processing and private bindings. Rendered calls pass this same object to their prompt preparer. Defaults, stripping and transforms can make it differ from `config.context`.
+
+Both hooks receive the same config/context objects throughout the invocation; evolving state is in `step`. Reusable hooks can annotate an unused config parameter as `unknown`, or declare only the settings they consume, so unrelated config types do not become dependencies. Callbacks may ignore unused arguments. Native one-argument step callbacks work; native call hooks that read `options` need an explicit adapter to the third argument.
+
+One schema covers data used by both the renderer and hooks. Here, `model` supports tools and `search` is an application-provided tool:
 
 ```typescript
-const accountAgent = create.LLMAgent({
+import { isStepCount } from 'ai';
+
+const researcher = create.LLMAgent.withTemplate({
   model,
-  callOptionsSchema: z.object({ accountId: z.string() }),
-  options: { accountId: 'default-account' },
+  prompt: 'Research this question: {{ question }}',
+  context: { language: 'English' },
+  inputSchema: z.object({
+    question: z.string(),
+    language: z.string(),
+  }),
+  tools: { search },
+  stopWhen: isStepCount(2),
+
+  prepareCall: (request, config, context) => ({
+    ...request,
+    instructions: `Answer in ${context.language}.`,
+  }),
+
+  prepareStep: ({ stepNumber }) => ({
+    toolChoice: stepNumber === 0
+      ? { type: 'tool', toolName: 'search' }
+      : 'none',
+  }),
 });
 
-await accountAgent('Summarize the request.');
-
-await accountAgent.run({
-  prompt: 'Summarize the request.',
-  options: { accountId: 'example-account' },
+await researcher({
+  question: 'What are practical uses of perovskite solar cells?',
+  language: 'Spanish',
 });
 ```
 
-On LLMAgent, use `prepareCall` to consume these validated options and return the prepared request settings. It runs once per invocation, after input preparation. Preserve the other settings when changing a field, as in the [dynamic instructions example](#dynamic-instructions-for-chat-requests). `prepareStep` runs for individual model steps. Templates and scripts used to prepare the prompt run once, rather than rerendering for each tool-loop step. Template, Script, and Function receive their application input directly through `context`, rather than SDK options or conversation mapping.
+The first step requests `search`; if the loop continues, the second answers with tools disabled. Context is prepared once, before rendering or either hook, including on plain-text agents with no renderer. No separate options object or schema is needed.
 
-When custom options are required, the final LLMAgent must have sufficient configured `options`, directly or through inheritance, because the shorthand cannot supply them. `.run()` and SDK calls may override those options for one execution. Missing fixed configuration is rejected when creating the callable; an incomplete reusable definition belongs in `Config`. For request-specific options without a reusable default, bind them when creating the request's agent from that definition. Configured `options` apply when a call supplies no override; an override replaces the whole value. `callOptionsSchema` stays fixed.
+**SDK calls use `options` as the native name for that same raw context.** They apply the same `inputSchema` and configured defaults, but skip loading/rendering the configured prompt. Required fields remain required, even if only the skipped renderer uses them:
+
+```typescript
+await researcher.generate({
+  prompt: 'Research perovskite solar cells.', // Literal conversation.
+  options: { question: 'Perovskite solar cells', language: 'Spanish' },
+});
+```
+
+The types keep that boundary explicit:
+
+| Surface | Application data |
+| :--- | :--- |
+| Casai configuration and `.run()` | `context`; custom `options` and `callOptionsSchema` are rejected |
+| Preparation hooks | Third argument `context`; no custom `options` in request/config |
+| Native SDK methods and UI helpers | `options` carries the same raw context input |
+
+Casai's `.generate()`/`.stream()` let you omit `options` when no context input remains required after defaults; otherwise its required fields must be supplied. Omission still runs the shared input preparation. SDK helpers forward `options` to Casai so a reusable agent can receive request-specific data. Casai applies context's shallow merge, validation and private-binding rules, then consumes it before calling `generateText`/`streamText`. It is not automatically sent to the model or registered tools' `toolsContext`.
+
+The call hook can change the admitted SDK request settings, including `timeout`, streaming error handling/transforms/retries and sandbox. Its complete return wins on every entry path, including explicit SDK/UI settings; omitted or `undefined` editable fields are not restored. Spread `request` to retain them. Use `.run({ prepareCall: anotherHook })` to replace its policy. SDK/UI callers use a differently configured agent for different policy: unlike native `ToolLoopAgent`, their timeout/transform/sandbox settings remain editable by the hook.
+
+Fixed output, caller cancellation, composed observers, approval policy/signing (`toolApproval` and `experimental_toolApprovalSecret`) and the whole `telemetry` setting stay outside the editable request. Configure these normally; supported `.run()` overrides still apply. Use the native `toolApproval` callback for dynamic approval decisions. `prepareStep` keeps native partial overrides, with no timeout override.
+
+Changed request messages do not rewrite original result history. This includes a hook that creates the entire conversation from empty input: only response messages are then recorded. Supply a persistent new turn through call input or a prompt preparer. Step hooks retain SDK rules: model/tool-choice overrides apply to one step; instruction/message/runtime-context/tool-context replacements carry forward. Bound Casai tool context stays fixed; see [tool execution context](#tool-execution-context).
+
+Both hooks may be asynchronous and call ordinary components; see [dynamic instructions](#dynamic-instructions-for-chat-requests). They read explicit invocation cancellation from `context._toolOptions.abortSignal`; SDK-internal timeout signals are not exposed there. `request.tools` contains the authored tool entries from resolved config, before automatic dispatch binding; explicitly bound descriptors stay bound. Context tool helpers keep their earlier bindings even if the hook changes model tools/context. Return replacements and copy changed nested paths; do not mutate configuration or borrowed request/context data. Hooks never rewrite the component's `.config`; there is no deep cloning or freezing. The full `config` argument is not redacted, including configured signing keys. Inherited hooks must remain compatible with derived configuration and parsed context.
+
+For example, with `detail` declared in `inputSchema`, a call hook can choose its timeout:
+
+```typescript
+prepareCall: (request, config, context) => ({
+  ...request,
+  timeout: context.detail === 'deep' ? 60_000 : 10_000,
+})
+```
+
+Before Phase 7, the SDK starts this timeout after preparation and the hook finish. Phase 7 includes preparation in the total budget; see [cancellation and timeouts](#cancellation-timeouts-and-usage).
 
 ## Using Components in Templates and Scripts
 
@@ -1808,7 +1925,7 @@ for (const message of ['My project is called Orchard.', 'What is my project call
 
 `message` is an application-chosen template variable, not a reserved argument. Its contents are data, so text containing `{{ ... }}` is not evaluated again as template source. Only the current context is validated and prepared; earlier rendered messages pass through unchanged. Create the agent with `.asStream` for the same preparation with incremental generation, then obtain history from `await result.messageHistory`.
 
-For a UI conversation, store the prepared `messageHistory` in the application and have the client send only the new turn's data. The SDK's complete conversation doesn't tell Casai which messages were already rendered, so don't pass it to a rendered agent. To regenerate a reply, call again with the same input and the history before that turn. To continue after tool approvals, use [`resume()`](#tool-approvals-and-continuation), which adds no turn. Applications may store original UI text separately for display.
+For a UI conversation, store the prepared `messageHistory` in the application and have the client send only the new turn's data. The SDK's complete conversation doesn't identify a new turn to render, so don't feed it through the rendered Casai call as fresh input. Native `.generate()`/`.stream()` accept that conversation literally, skip rendering and still require the agent's application context contract. To regenerate a reply, call again with the same input and the history before that turn. To continue after tool approvals, use [`resume()`](#tool-approvals-and-continuation), which adds no turn. Applications may store original UI text separately for display.
 
 ## Images and Files in LLMAgent Messages
 
@@ -1835,7 +1952,7 @@ The model and provider determine supported media and formats. Generated files an
 
 ## AI SDK Agent Interface and UI Integration
 
-LLMAgent implements the [AI SDK Agent interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent) through two additional methods, `.generate()` and `.stream()`. They exist for SDK compatibility: SDK helpers such as `createAgentUIStreamResponse` call them. They take the SDK's call arguments, not Casai's: the complete conversation as a literal `prompt` or `messages`, plus custom `options`, `abortSignal`, `timeout`, and callbacks. They never prepare the configured prompt, so text they receive is never rendered. `.generate()` always generates and `.stream()` always streams, whatever the component's mode, and both return full SDK results. In your own code, use the ordinary call or `.run()`.
+LLMAgent forms without `.asTool` implement the [AI SDK Agent interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent) through two additional methods, `.generate()` and `.stream()`. They exist for SDK compatibility: SDK helpers such as `createAgentUIStreamResponse` call them. They take the SDK's call arguments, not Casai's: the complete conversation as a literal `prompt` or `messages`, plus `options` for application context, `abortSignal`, `timeout`, and callbacks. They never prepare the configured prompt, so text they receive is never rendered. `.generate()` always generates and `.stream()` always streams, whatever the component's mode, and both return full SDK results. In your own code, use the ordinary call or `.run()`. An [LLMAgent tool](#using-components-as-tools) has the Tool interface instead; pass its non-tool parent or another non-tool component sharing its configuration to UI helpers.
 
 Template, Script, and Function use native Casai contracts. They can implement operations inside a chat application's workflow, but are not directly accepted by SDK Agent UI helpers. An application can present their text or structured data through its own UI protocol; Casai does not automatically turn native values into a multipart conversation.
 
@@ -1874,7 +1991,7 @@ console.log(complete.output);
 
 The chat client sends `UIMessage[]` to a server handler. The SDK helper validates the messages, converts them to `ModelMessage[]`, calls LLMAgent's `.stream({ prompt: convertedMessages, ... })`, and consumes the SDK event stream to produce assistant message parts. A raw native text or element stream is a different contract. See the [SDK UI response helper](https://ai-sdk.dev/docs/reference/ai-sdk-core/create-agent-ui-stream-response).
 
-**Any LLMAgent can serve this handler, including one with `stopWhen: isStepCount(1)`.** The limit counts model steps within a request, not chat turns. A single step can execute tools and emit UI tool parts, but cannot make another model call to write an answer using their results. Increase the limit when that follow-up is needed.
+**Any non-tool LLMAgent whose input requirements are satisfied can serve this handler, including one with `stopWhen: isStepCount(1)`.** The limit counts model steps within a request, not chat turns. A single step can execute tools and emit UI tool parts, but cannot make another model call to write an answer using their results. Increase the limit when that follow-up is needed.
 
 ```typescript
 import { createAgentUIStreamResponse } from 'ai';
@@ -1900,11 +2017,13 @@ export async function POST(request: Request): Promise<Response> {
 
 Wire the returned `Response` into your server framework and use an SDK UI client to consume it. Text, tool, reasoning, source, and file displays depend on the parts actually emitted and the application's renderers. Structured `.output` does not by itself define a chat widget.
 
-The helper supplies the conversation as literal `prompt`, sent as written after the configured `instructions`; no Casai rendering `context` is required. SDK tools with required execution context need configured `toolsContext` entries, which the native methods use; optional tool-context entries follow their schemas' optionality. These entries are separate from rendering context and `runtimeContext`. Custom `options` are parsed by `callOptionsSchema`; undefined fields preserve configured settings, and native lifecycle observers compose with configured observers under SDK alias precedence.
+For SDK UI handlers, a plain agent with request context such as `language` is usually sufficient. Rendered agents also support the helper, but their configured renderer is skipped and every required context field must still be supplied or defaulted. Use the rendered Casai call when the agent should prepare the new turn.
+
+The helper supplies a literal conversation and passes application context as native `options`. The same `inputSchema` and configured context defaults apply; only source loading/rendering is skipped. SDK tools with required execution context still need configured `toolsContext` entries, separate from application context and `runtimeContext`. Undefined settings preserve configured values; native lifecycle observers compose under SDK alias precedence.
 
 #### Dynamic Instructions for Chat Requests
 
-Put shared behavior in `instructions`. For instructions that depend on the request, use typed call options and `prepareCall` to render a Template once, while keeping the full incoming conversation intact:
+Put shared behavior in `instructions`. For instructions that depend on the request, use application context and `prepareCall` to render a Template once, while keeping the full incoming conversation intact:
 
 ```typescript
 const chatInstructions = create.Template({
@@ -1914,21 +2033,21 @@ const chatInstructions = create.Template({
 
 const localizedChat = create.LLMAgent({
   model,
-  callOptionsSchema: z.object({ language: z.string() }),
-  options: { language: 'English' },
-  prepareCall: async ({ options, ...settings }) => ({
-    ...settings,
-    instructions: await chatInstructions({ language: options.language }),
+  inputSchema: z.object({ language: z.string() }),
+  context: { language: 'English' },
+  prepareCall: async (request, config, context) => ({
+    ...request,
+    instructions: await chatInstructions({ language: context.language }),
   }),
 });
 
 await localizedChat.run({
   prompt: 'What is a solar panel?',
-  options: { language: 'Spanish' },
+  context: { language: 'Spanish' },
 });
 ```
 
-The SDK UI helper can pass the same typed `options` alongside its conversation. This prepares system instructions without rewriting user, tool, approval, or media messages. For an application that renders new user turns, [separate new input from saved prepared history](#render-only-the-new-message).
+The SDK UI helper passes the same raw context as `options: { language: 'Spanish' }` alongside its conversation. This prepares system instructions without rewriting user, tool, approval, or media messages. For an application that renders new user turns, [separate new input from saved prepared history](#render-only-the-new-message).
 
 ## Interchanging Components in Workflows
 
@@ -1994,13 +2113,27 @@ const answerWorkflow = create.Script({
 });
 ```
 
-LLMAgent's SDK `output` and Script/Function's native `schema` both return schema-produced application values. A deterministic string-to-number schema therefore produces a number in either implementation. Each has one declared output-parsing boundary; Casai does not reparse SDK output. Templates stay text-only. Share `inputSchema`, helper signatures, and the application result type; SDK events, conversation history, model settings, and custom SDK options remain LLMAgent concerns.
+LLMAgent's SDK `output` and Script/Function's native `schema` both return schema-produced application values. A deterministic string-to-number schema therefore produces a number in either implementation. Each has one declared output-parsing boundary; Casai does not reparse SDK output. Templates stay text-only. Share `inputSchema`, helper signatures, and the application result type; SDK events, conversation history and the native Agent call protocol remain LLMAgent concerns.
 
 ## Cancellation, Timeouts, and Usage
 
 LLMAgent and specialized SDK operations accept native per-call `abortSignal` and `timeout` settings. Script/Template and Function timeouts arrive in Phase 7, once Cascada provides async call context. In Phase 2, Function, Script, and Template `.run()` accept an explicit signal for cooperative forwarding and pre-start checks, without shared deadlines. Native Script/Template abort is separate and need not precede Phase 7.
 
-Before Phase 7, a numeric `timeout` or the SDK timeout object's `totalMs` retains its native SDK meaning and begins at SDK execution. It does not cover preceding Casai parsing, loaders, or rendering. Casai forwards the complete timeout configuration unchanged. Phase 7 makes the total cover preparation and execution by resolving an absolute end time at invocation entry and taking the earlier of that time and the inherited parent end time. This is an intentional semantic change for existing totals: its release notes and migration guidance must explain that preparation consumes the budget and may require increasing configured totals. SDK non-total limits retain their native meanings.
+Before Phase 7, a numeric `timeout` or the SDK timeout object's `totalMs` retains its native SDK meaning and begins at SDK execution. It does not cover preceding Casai parsing, loaders, or rendering. Casai forwards the final timeout unchanged, including any replacement or omission by `prepareCall`. Phase 7 makes the total cover preparation and execution by resolving an absolute end time at invocation entry and taking the earlier of that time and the inherited parent end time. This is an intentional semantic change for existing totals: its release notes and migration guidance must explain that preparation consumes the budget and may require increasing configured totals. In Phase 7, `prepareCall` may shorten, extend or remove the still-active local total: measure it from the original start and cap it by the parent deadline. It cannot revive an expired call. Work already started keeps its captured deadline; later children inherit the updated one. SDK non-total limits retain their native meanings.
+
+`timeout` is replaced as a whole. Returning `timeout: { stepMs: 5_000 }` removes an earlier total limit, including the local total deadline in Phase 7. To add a step limit while retaining the total and other limits:
+
+```typescript
+prepareCall: request => ({
+  ...request,
+  timeout: {
+    ...(typeof request.timeout === 'number'
+      ? { totalMs: request.timeout }
+      : request.timeout),
+    stepMs: 5_000,
+  },
+})
+```
 
 LLMAgent passes invocation cancellation to the SDK and its tools. Supply a request signal or `AbortSignal.timeout(...)` per call, or call `controller.abort()` on a supplied controller. Reusable component configuration rejects `abortSignal`; cancellation belongs to an invocation. Function callbacks and `.withFunction` preparers receive the signal in their execution options and must forward it to supported operations such as `fetch` or another SDK call. A Script/Template SDK tool entry also captures that signal for its injected registered tools, just as an explicit `.run({ abortSignal })` does. Forwarding does not interrupt rendering or reach arbitrary functions/components supplied in context. Stopping display alone is not cancellation.
 
@@ -2073,17 +2206,9 @@ Matching configured values, including inherited values, satisfy required input f
 
 When an argument is missing, `inputSchema` validates the selected configured application value, overlaid by a bound tool-context value when present. A supplied argument replaces that fallback before validation. For configured numeric `factor: 3` without a context override, omission validates `3`, supplying `5` validates `5`, and supplying `'bad'` fails. Parse completed application input together so cross-field checks and transforms work normally. Unrelated configured/context dependencies remain outside this parse. Casai does not filter caller extras before parsing; it rejects retained private collisions afterward, including keys introduced by transforms. Binding creates a new descriptor for fixed defaults without changing the component; it preserves parsed public SDK arguments and native approval behavior.
 
-Use schemas at the boundary where data enters or leaves a component:
+The [shared configuration](#shared-configuration) and [returned-value reference](#returned-values) define schema settings and result shapes. Optional `toolContextSchema` validates the separate trusted-tool input described in [tool execution context](#tool-execution-context).
 
-| Setting | Validates |
-| :--- | :--- |
-| `inputSchema` | Final configured-plus-call application input on direct and model-tool paths, excluding private dependencies |
-| Script / Function `schema` | The returned workflow/callback value; a stream schema parses root-stream elements lazily |
-| LLMAgent `output` | Model output through an SDK output specification |
-| `toolContextSchema` | Application-supplied tool data, validated separately and merged into the flat Casai context; exposed as native descriptor `contextSchema`, never used to validate `config.context` |
-| LLMAgent `callOptionsSchema` | Application-specific SDK call options |
-
-Every schema boundary uses its produced value: input, trusted context, output, stream element, or custom call option. Defaults, stripping, coercions, and transforms affect the invocation; Casai does not write parsed results into shared configuration or caller context. Resolve named configured public defaults and call/model arguments before one input parse. Other configured bindings stay outside the parser, so unrelated inherited values survive a strict input schema. Reject retained private-name collisions before ordinary context merging; no second author-written input schema or silent private-value restoration is needed. Producers/configuration use schema input types where retained; implementations/consumers use output types and ordinary merge precedence. Explicit native SDK tools retain their output-based context typing, including erased raw-input limitations. See [Phase 2](docs/plan.md#schema-parsing-and-context-isolation).
+Every schema boundary uses its produced value: input, trusted context, output, or stream element. Defaults, stripping, coercions, and transforms affect the invocation; Casai does not write parsed results into shared configuration or caller context. Resolve named configured public defaults and call/model arguments before one input parse. Other configured bindings stay outside the parser, so unrelated inherited values survive a strict input schema. Reject retained private-name collisions before ordinary context merging; no second author-written input schema or silent private-value restoration is needed. Producers/configuration use schema input types where retained; implementations/consumers use output types and ordinary merge precedence. Explicit native SDK tools retain their output-based context typing, including erased raw-input limitations. See [Phase 2](docs/plan.md#schema-parsing-and-context-isolation).
 
 Explicit SDK `Output` and tool objects retain native interfaces, parsing, and transformations. Casai does not rewrite hidden schemas or reparse their results. Casai's own preparation and execution leave supplied context, nested data, configured values, and shared defaults unchanged; native parser behavior, including `.readonly()` freezing, is preserved as described below.
 
@@ -2138,7 +2263,7 @@ console.log(await increment(supplied)); // 3
 console.log(supplied.count); // Still the original string '2'.
 ```
 
-Ordinary calls and `.run()` resolve source maps, parse final application input, and execute with the produced values plus private/trusted bindings. Do not merge raw schema-governed defaults back afterward. SDK compatibility methods and calls without an effective prompt skip rendering input; history alone does not skip a configured prompt. LLMAgent rendering context is explicitly prepared before model dispatch, rather than automatically validated by the SDK.
+Ordinary calls and `.run()` resolve source maps, parse final application input, and execute with the produced values plus private/trusted bindings. Do not merge raw schema-governed defaults back afterward. SDK compatibility methods and calls without an effective prompt skip source loading/rendering, but still prepare and validate application context. History alone does not skip a configured prompt. Casai owns this context preparation before model dispatch.
 
 Tool calls follow the [binding preparation contract](docs/plan.md#context-sources-and-preparation). Each immutable binding pairs its descriptor with the raw incoming context used to select public defaults. Its schema awaits asynchronous preparation when necessary; a separate binding may have a different descriptor. Parsed public input enters native records, UI history, and subsequent model requests. Other configured bindings are never automatically copied there, even for open schemas. A retained extra field remains public input and cannot replace a private binding; the [tool execution context contract](#tool-execution-context) explains absent optional names and runtime declarations. The original component schema and shared tool definitions stay unchanged.
 
@@ -2160,7 +2285,7 @@ A default factory is a function such as `.default(() => [])` that creates a fall
 
 Casai-owned direct, `.run()`, and injected-runner argument failures reject with `ValidationError`, retaining the validation cause; Cascada may wrap that rejection through its normal script/render error path. Actual SDK tool validation keeps native SDK errors such as `InvalidToolInputError`. Callback execution errors retain their native behavior.
 
-Script/Function `schema` parses completed values and returns the produced result, preserving output parsing already implemented today. Stream schemas parse elements lazily in the existing consumer pass and forward parsed elements. Custom options are parsed before `prepareCall`, which receives the schema output type. Reuse SDK/Cascada parsing already performed for that same boundary rather than adding another pass. See [shared output schemas](#output-schemas-and-structured-replacements).
+Script/Function `schema` parses completed values and returns the produced result, preserving output parsing already implemented today. Stream schemas parse elements lazily in the existing consumer pass and forward parsed elements. Application context is prepared before prompt rendering and `prepareCall`; both preparation hooks receive its parsed values. Reuse SDK/Cascada parsing already performed for that same boundary rather than adding another pass. See [shared output schemas](#output-schemas-and-structured-replacements).
 
 **Migration from earlier factories:** input now executes with parsed values: stripping schemas remove undeclared fields, strict schemas reject them, and retained private collisions fail. `_toolCallOptions` no longer bypasses validation. Declare overrideable configured fields in `inputSchema`, and forward trusted dependencies through configuration/tool context. Cascada callers can observe the change even when TypeScript catches typed callers. Ordinary schema stripping gains no warning or extra error. Schema-less calls that override configured defaults need explicit public declarations for those fields; new unrelated arguments remain available without introducing a schema.
 
@@ -2257,7 +2382,7 @@ const classification = await classify({ text: 'How can I reset my password?' });
 await classify({ text: 42 });
 ```
 
-Inheritance checks the final configuration. A per-call override preserves the component's input and result contracts, so changing output schemas or tool types requires creating a component with that new contract. Custom call options (`options`) and rendering input (`context`) have separate inferred types.
+Inheritance checks the final configuration. A per-call override preserves the component's input and result contracts, so changing output schemas or tool types requires creating a component with that new contract. Native SDK `options` uses the same raw application-input contract as Casai `context`; bodies and hooks receive the prepared context's parsed types.
 
 ## Testing Workflows
 
