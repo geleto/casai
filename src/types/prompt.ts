@@ -14,7 +14,8 @@ export type PromptType = TemplatePromptType | ScriptPromptType | FunctionPromptT
 
 export type PromptValue = string | ModelMessage[];
 
-export type AnyPromptSource = PromptValue | PromptFunction;
+// Source admission preserves typed callbacks; the final component checks their parsed context.
+export type AnyPromptSource = PromptValue | PromptFunction<PromptValue, never>;
 
 export type PromptFunction<PR extends PromptValue = PromptValue, INPUT extends Context = Context> =
-	(context: INPUT) => PR | Promise<PR>;
+	(context: INPUT) => PR | PromiseLike<PR>;

@@ -1,8 +1,9 @@
+import type { EmptyMap } from './assert.js';
 // Compile-only consumer contracts; this module must never execute.
 import { create, z, FileSystemLoader } from 'casai';
 import { Output } from 'ai';
-import type { LanguageModel, ModelMessage, generateText, streamText, generateObject, streamObject, GenerateObjectStartEvent, GenerateObjectStepStartEvent, GenerateObjectStepEndEvent, GenerateObjectEndEvent, GenerateTextEndEvent, Telemetry, JSONSchema7 } from 'ai';
-import type { GenerateObjectObjectConfig, StreamObjectArrayConfig, StreamTextOnFinishEvent } from 'casai';
+import type { LanguageModel, ModelMessage, generateText, streamText, Telemetry, JSONSchema7 } from 'ai';
+import type { LLMAgentConfig, StreamTextOnFinishEvent } from 'casai';
 
 import { expectType, expectEqual } from './assert.js';
 declare const model: LanguageModel;
@@ -17,7 +18,7 @@ const tools = { lookup };
 const toolsContext = { lookup: { factor: 2 } };
 const parent = create.Config({ model, tools, toolsContext, output, runtimeContext, prompt: 'Answer.' });
 
-const streamer = create.TextStreamer({
+const streamer = create.LLMAgent.asStream({
 	onStart: _event => {
 		expectEqual<typeof _event.runtimeContext.requestId, string>();
 		expectType<typeof output | undefined>(_event.output);
@@ -43,10 +44,6 @@ const streamer = create.TextStreamer({
 		expectEqual<(typeof _event.staticToolResults)[number]['output'], number>();
 		// @ts-expect-error Structured output stays typed in completion callbacks.
 		expectType<string>(_event.output?.answer);
-	},
-	onFinish: _event => {
-		// @ts-expect-error The alias has the same tool input contract as onEnd.
-		expectType<number>(_event.staticToolCalls[0].input.query);
 	},
 	onChunk: ({ chunk }) => {
 		if (chunk.type === 'tool-call' && !chunk.dynamic) {
@@ -92,12 +89,12 @@ const streamer = create.TextStreamer({
 	}],
 }, parent);
 
-streamer.run({ onEnd: _event => {
+void streamer.run({ onEnd: _event => {
 	expectType<number | undefined>(_event.output?.answer);
 	// @ts-expect-error run() callbacks use the final configured tools.
 	expectType<number>(_event.staticToolCalls[0].input.query);
 } });
-void create.TextGenerator({ onEnd: _event => {
+void create.LLMAgent({ onEnd: _event => {
 	expectEqual<(typeof _event.staticToolCalls)[number]['input']['query'], string>();
 	// @ts-expect-error Generator callbacks use inherited tool types too.
 	expectType<string>(_event.staticToolResults[0].output);
@@ -109,7 +106,7 @@ void create.TextGenerator({ onEnd: _event => {
 
 // A child combines new tools with the parent's tools, and replacements change callback contracts.
 const extra = create.Function.asTool({ inputSchema: z.object({ count: z.number() }), execute: ({ count }) => String(count) });
-create.TextGenerator({ tools: { extra }, prepareStep: () => ({ activeTools: ['lookup', 'extra'] as const }), onEnd: _event => {
+create.LLMAgent({ tools: { extra }, prepareStep: () => ({ activeTools: ['lookup', 'extra'] as const }), onEnd: _event => {
 	for (const call of _event.staticToolCalls) {
 		if (call.toolName === 'extra') {
 			expectType<number>(call.input.count);
@@ -119,7 +116,7 @@ create.TextGenerator({ tools: { extra }, prepareStep: () => ({ activeTools: ['lo
 	}
 } }, parent);
 const replacement = create.Function.asTool({ inputSchema: z.object({ query: z.number() }), toolContextSchema: z.object({ factor: z.number() }), execute: ({ query }) => String(query) });
-create.TextGenerator({ tools: { lookup: replacement }, onEnd: _event => {
+create.LLMAgent({ tools: { lookup: replacement }, onEnd: _event => {
 	expectType<number>(_event.staticToolCalls[0].input.query);
 	// @ts-expect-error Replaced tools change callback inputs.
 	expectEqual<(typeof _event.staticToolCalls)[number]['input']['query'], string>();
@@ -130,106 +127,107 @@ create.Config({ onEnd: _event => {
 	// @ts-expect-error A child fragment retains inherited tools.
 	expectType<number>(_event.staticToolCalls[0].input.query);
 } }, parent);
-const objectParent = create.Config({ model, schema, prompt: 'Answer.' });
-create.Config({ onFinish: _event => {
-	expectEqual<typeof _event.object, { answer: number } | undefined>();
+const objectParent = create.Config({ model, output, prompt: 'Answer.' });
+create.Config({ onEnd: _event => {
+	expectEqual<typeof _event.output, { answer: number } | undefined>();
 	// @ts-expect-error A schema-bearing fragment retains its object type.
-	expectType<string>(_event.object?.answer);
+	expectType<string>(_event.output?.answer);
 } }, objectParent);
 
-const objectGenerator = create.ObjectGenerator({ onFinish: _event => {
-	expectEqual<typeof _event.object, { answer: number } | undefined>();
+const objectGenerator = create.LLMAgent({ onEnd: _event => {
+	expectEqual<typeof _event.output, { answer: number } | undefined>();
 	// @ts-expect-error Generated objects follow the inherited schema.
-	expectType<string>(_event.object?.answer);
+	expectType<string>(_event.output?.answer);
 } }, objectParent);
-const objectStreamer = create.ObjectStreamer({ model, schema, prompt: 'Answer.', onFinish: _event => {
-	expectEqual<typeof _event.object, { answer: number } | undefined>();
+const objectStreamer = create.LLMAgent.asStream({ model, prompt: 'Answer.', onEnd: _event => {
+	expectEqual<typeof _event.output, { answer: number } | undefined>();
 	expectType<string>(_event.callId);
 	// @ts-expect-error Streamed objects follow the schema and can be undefined.
-	expectType<string>(_event.object?.answer);
-} });
-objectStreamer.run({ onFinish: _event => {
+	expectType<string>(_event.output?.answer);
+}, output: Output.object({ schema: schema }) });
+void objectStreamer.run({ onEnd: _event => {
 	// @ts-expect-error run() retains the generated object's schema.
-	expectType<string>(_event.object?.answer);
+	expectType<string>(_event.output?.answer);
 } });
-create.ObjectStreamer({ model, schema, output: 'array', onFinish: _event => {
-	expectType<number | undefined>(_event.object?.[0].answer);
+create.LLMAgent.asStream({ model, onEnd: _event => {
+	expectType<number | undefined>(_event.output?.[0].answer);
 	// @ts-expect-error Array output wraps the schema's element type.
-	expectType<string>(_event.object?.[0].answer);
-} });
-create.ObjectGenerator({ model, output: 'enum', enum: ['red', 'blue'] as const, onFinish: _event => {
-	expectType<'red' | 'blue' | undefined>(_event.object);
+	expectType<string>(_event.output?.[0].answer);
+}, output: Output.array({ element: schema }) });
+create.LLMAgent({ model, onEnd: _event => {
+	expectType<'red' | 'blue' | undefined>(_event.output);
 	// @ts-expect-error Enum completion values retain their literal union.
-	expectType<'green'>(_event.object);
-} });
-create.ObjectStreamer({ model, output: 'no-schema', onFinish: _event => {
+	expectType<'green'>(_event.output);
+}, output: Output.choice({ options: ['red', 'blue'] as const }) });
+create.LLMAgent.asStream({ model, onEnd: _event => {
 	// @ts-expect-error Schemaless JSON cannot be assumed to be a number.
-	expectType<number>(_event.object);
-} });
-const annotatedObject: GenerateObjectObjectConfig<never, { answer: number }> = { model, schema, onFinish: _event => {
+	expectType<number>(_event.output);
+}, output: Output.json() });
+const annotatedObject: LLMAgentConfig<EmptyMap, EmptyMap, string, typeof output> & { model: LanguageModel } = { model, output, onEnd: _event => {
 	// @ts-expect-error Exported config types specialize the same callback.
-	expectType<string>(_event.object?.answer);
+	expectType<string>(_event.output?.answer);
 } };
-create.ObjectGenerator(annotatedObject);
-const annotatedArray: StreamObjectArrayConfig<never, { answer: number }> = { model, schema, output: 'array', onFinish: _event => {
+create.LLMAgent(annotatedObject);
+const arrayOutput = Output.array({ element: schema });
+const annotatedArray: LLMAgentConfig<EmptyMap, EmptyMap, string, typeof arrayOutput> & { model: LanguageModel } = { model, output: arrayOutput, onEnd: _event => {
 	// @ts-expect-error Exported array config types specialize the same callback.
-	expectType<string>(_event.object?.[0].answer);
+	expectType<string>(_event.output?.[0].answer);
 } };
-create.ObjectStreamer(annotatedArray);
+create.LLMAgent.asStream(annotatedArray);
 
 // Rendered and loaded factories share the same callback contracts.
-create.TextGenerator.withTemplate({ model, tools, toolsContext, prompt: '{{ topic }}', onEnd: _event => {
+create.LLMAgent.withTemplate({ model, tools, toolsContext, prompt: '{{ topic }}', onEnd: _event => {
 	// @ts-expect-error Template rendering preserves tool input types.
 	expectType<number>(_event.staticToolCalls[0].input.query);
 } });
-create.ObjectStreamer.withFunction({ model, schema, prompt: () => 'Input.', onFinish: _event => {
+create.LLMAgent.withFunction.asStream({ model, prompt: () => 'Input.', onEnd: _event => {
 	// @ts-expect-error Function prompts preserve schema types.
-	expectType<string>(_event.object?.answer);
-} });
-create.ObjectGenerator.loadsText({ schema, loader: new FileSystemLoader('tests'), onFinish: _event => {
+	expectType<string>(_event.output?.answer);
+}, output: Output.object({ schema: schema }) });
+create.LLMAgent.loadsText({ loader: new FileSystemLoader('tests'), onEnd: _event => {
 	// @ts-expect-error Loaded prompts preserve schema types.
-	expectType<string>(_event.object?.answer);
-} }, create.Config({ model }));
+	expectType<string>(_event.output?.answer);
+}, output: Output.object({ schema: schema }) }, create.Config({ model }));
 
 // Invalid callback arguments and return values must fail at every entry point.
 // @ts-expect-error Observer callbacks cannot return arbitrary values.
-create.TextGenerator({ model, onEnd: () => 123 });
+create.LLMAgent({ model, onEnd: () => 123 });
 // @ts-expect-error A callback cannot require a different event type.
-create.TextStreamer({ model, onChunk: (_event: number) => undefined });
+create.LLMAgent.asStream({ model, onChunk: (_event: number) => undefined });
 // @ts-expect-error Stop conditions must return boolean, including async callbacks in arrays.
-create.TextGenerator({ model, stopWhen: [async () => 'yes'] });
+create.LLMAgent({ model, stopWhen: [async () => 'yes'] });
 // @ts-expect-error Step preparation cannot enable nonexistent tools.
-create.TextGenerator({ prepareStep: () => ({ activeTools: ['missing'] }) }, parent);
+create.LLMAgent({ prepareStep: () => ({ activeTools: ['missing'] }) }, parent);
 // @ts-expect-error run() retains callback return checking.
-streamer.run({ onEnd: async () => 123 });
+void streamer.run({ onEnd: async () => 123 });
 // @ts-expect-error run() cannot prepare a step with invalid runtime context.
-streamer.run({ prepareStep: () => ({ runtimeContext: { requestId: 123 } }) });
+void streamer.run({ prepareStep: () => ({ runtimeContext: { requestId: 123 } }) });
 // @ts-expect-error Nested input refiners cannot change tool input types.
-streamer.run({ experimental_refineToolInput: { lookup: () => ({ query: 123 }) } });
+void streamer.run({ experimental_refineToolInput: { lookup: () => ({ query: 123 }) } });
 // @ts-expect-error Repair callbacks return a repaired tool call or null asynchronously.
-create.TextGenerator({ model, repairToolCall: () => null });
+create.LLMAgent({ model, repairToolCall: () => null });
 // @ts-expect-error Object repair callbacks cannot return numbers.
-create.ObjectGenerator({ model, schema, repairText: async () => 123 });
+create.LLMAgent({ model, repairText: async () => 123, output: Output.object({ schema: schema }) });
 // @ts-expect-error Object observers cannot return arbitrary values.
-create.ObjectStreamer({ model, schema, onFinish: () => 123 });
+create.LLMAgent.asStream({ model, onEnd: () => 123, output: Output.object({ schema: schema }) });
 // @ts-expect-error Shared fragments check observer return values too.
 create.Config({ onEnd: async () => 123 }, parent);
 // SDK error observers may return ignored values because one overload returns void.
-create.TextStreamer({ model, onError: () => 123 });
+create.LLMAgent.asStream({ model, onError: () => 123 });
 
-const inheritedFinish = create.ObjectGenerator({ model, schema, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } });
+const inheritedFinish = create.LLMAgent({ model, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); }, output: Output.object({ schema: schema }) });
 // @ts-expect-error Replacing a schema must also replace an incompatible inherited callback.
-create.ObjectGenerator({ schema: z.object({ label: z.string() }) }, inheritedFinish);
-create.ObjectGenerator({ schema: z.object({ label: z.string() }), onFinish: _event => { expectType<string | undefined>(_event.object?.label); } }, inheritedFinish);
+create.LLMAgent({ output: Output.object({ schema: z.object({ label: z.string() }) }) }, inheritedFinish);
+create.LLMAgent({ onEnd: _event => { expectType<string | undefined>(_event.output?.label); }, output: Output.object({ schema: z.object({ label: z.string() }) }) }, inheritedFinish);
 
 
 // Exact optional consumer settings reject explicitly absent callbacks.
-objectStreamer.run({});
+void objectStreamer.run({});
 // @ts-expect-error Optional callbacks cannot require arbitrary event types.
-objectStreamer.run({ onFinish: (_event: number) => undefined });
-const inheritedText = create.TextGenerator({ onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input']['query'], string>(); } }, parent);
+void objectStreamer.run({ onEnd: (_event: number) => undefined });
+const inheritedText = create.LLMAgent({ onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input']['query'], string>(); } }, parent);
 // @ts-expect-error A tool replacement also requires replacing incompatible inherited callbacks.
-create.TextGenerator({ tools: { lookup: replacement } }, inheritedText);
+create.LLMAgent({ tools: { lookup: replacement } }, inheritedText);
 
 // Alias callbacks are independently contextualized; SDK additions must update this inventory.
 type Callback = (...args: any[]) => any;
@@ -243,25 +241,16 @@ type TextCallbackNames = 'toolApproval' | 'stopWhen' | 'prepareStep' | 'repairTo
 	| 'onToolExecutionStart' | 'onToolExecutionEnd' | 'experimental_onToolCallStart' | 'experimental_onToolCallFinish';
 expectEqual<CallbackKeys<TextSDK>, TextCallbackNames>();
 expectEqual<CallbackKeys<Parameters<typeof generateText>[0]>, Exclude<TextCallbackNames, 'experimental_transform' | 'onChunk' | 'onError' | 'onAbort'>>();
-type ObjectCallbackNames = 'repairText' | 'experimental_repairText' | 'experimental_download' | 'onStart' | 'experimental_onStart'
-	| 'onStepStart' | 'experimental_onStepStart' | 'onStepEnd' | 'onStepFinish' | 'onFinish';
-expectEqual<CallbackKeys<Parameters<typeof generateObject>[0]>, ObjectCallbackNames>();
-expectEqual<CallbackKeys<Parameters<typeof streamObject>[0]>, ObjectCallbackNames | 'onError'>();
-
-create.TextStreamer({
-	experimental_onStart: _event => { expectEqual<typeof _event, TextEvent<'onStart'>>(); },
-	experimental_onStepStart: _event => { expectEqual<typeof _event, TextEvent<'onStepStart'>>(); },
-	onStepFinish: _event => { expectEqual<typeof _event, TextEvent<'onStepEnd'>>(); },
+create.LLMAgent.asStream({
+	onStart: _event => { expectEqual<typeof _event, TextEvent<'onStart'>>(); },
+	onStepStart: _event => { expectEqual<typeof _event, TextEvent<'onStepStart'>>(); },
+	onStepEnd: _event => { expectEqual<typeof _event, TextEvent<'onStepEnd'>>(); },
 	onLanguageModelCallStart: _event => { expectEqual<typeof _event, TextEvent<'onLanguageModelCallStart'>>(); },
-	experimental_onLanguageModelCallStart: _event => { expectEqual<typeof _event, TextEvent<'onLanguageModelCallStart'>>(); },
 	onLanguageModelCallEnd: _event => { expectEqual<typeof _event, TextEvent<'onLanguageModelCallEnd'>>(); },
-	experimental_onLanguageModelCallEnd: _event => { expectEqual<typeof _event, TextEvent<'onLanguageModelCallEnd'>>(); },
 	onToolExecutionStart: _event => { expectEqual<typeof _event, TextEvent<'onToolExecutionStart'>>(); },
-	experimental_onToolCallStart: _event => { expectEqual<typeof _event, TextEvent<'onToolExecutionStart'>>(); },
 	onToolExecutionEnd: _event => { expectEqual<typeof _event, TextEvent<'onToolExecutionEnd'>>(); },
-	experimental_onToolCallFinish: _event => { expectEqual<typeof _event, TextEvent<'onToolExecutionEnd'>>(); },
 	onError: _event => { expectEqual<typeof _event.error, unknown>(); return { retry: true }; },
-	experimental_repairToolCall: async _options => {
+	repairToolCall: async _options => {
 		expectEqual<typeof _options, TextEvent<'repairToolCall'>>();
 		return _options.toolCall;
 	},
@@ -277,24 +266,11 @@ create.TextStreamer({
 	},
 }, parent);
 
-// Object callbacks other than finish use the SDK's fixed lifecycle events.
-create.ObjectGenerator({
-	model, schema,
-	onStart: _event => { expectEqual<typeof _event, GenerateObjectStartEvent>(); },
-	experimental_onStart: _event => { expectEqual<typeof _event, GenerateObjectStartEvent>(); },
-	onStepStart: _event => { expectEqual<typeof _event, GenerateObjectStepStartEvent>(); },
-	experimental_onStepStart: _event => { expectEqual<typeof _event, GenerateObjectStepStartEvent>(); },
-	onStepEnd: _event => { expectEqual<typeof _event, GenerateObjectStepEndEvent>(); },
-	onStepFinish: _event => { expectEqual<typeof _event, GenerateObjectStepEndEvent>(); },
-	onFinish: _event => { expectEqual<typeof _event, GenerateObjectEndEvent<{ answer: number }>>(); },
-	repairText: async _options => { expectEqual<typeof _options.text, string>(); return _options.text; },
-	experimental_repairText: async _options => { expectEqual<typeof _options.text, string>(); return null; },
-});
-objectStreamer.run({ onError: _event => { expectEqual<typeof _event.error, unknown>(); } });
-void objectGenerator.run({ onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } });
+void objectStreamer.run({ onError: _event => { expectEqual<typeof _event.error, unknown>(); } });
+void objectGenerator.run({ onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } });
 
 // Nested telemetry callbacks retain the SDK's own broad event contracts.
-create.TextGenerator({ model, telemetry: { integrations: {
+create.LLMAgent({ model, telemetry: { integrations: {
 	onStart: _event => { expectEqual<typeof _event, Parameters<NonNullable<Telemetry['onStart']>>[0]>(); },
 	onStepStart: _event => { expectEqual<typeof _event, Parameters<NonNullable<Telemetry['onStepStart']>>[0]>(); },
 	onLanguageModelCallStart: _event => { expectEqual<typeof _event, Parameters<NonNullable<Telemetry['onLanguageModelCallStart']>>[0]>(); },
@@ -311,121 +287,114 @@ create.TextGenerator({ model, telemetry: { integrations: {
 	executeLanguageModelCall: _options => _options.execute(),
 	executeTool: _options => _options.execute(),
 } } });
-create.ObjectStreamer({ model, schema, experimental_telemetry: { integrations: [{
+create.LLMAgent.asStream({ model, telemetry: { integrations: [{
 	onError: _error => { expectEqual<typeof _error, unknown>(); },
 	executeTool: _options => _options.execute(),
-}] } });
+}] }, output: Output.object({ schema: schema }) });
 
-// Nested SDK test hooks also retain their callback return contracts.
-create.TextGenerator({ model, _internal: { generateId: () => 'id', generateCallId: () => 'call', now: () => 0 } });
-create.TextStreamer({ model, _internal: { generateId: () => 'id', generateCallId: () => 'call', now: () => 0 } });
-create.ObjectGenerator({ model, schema, _internal: { generateId: () => 'id', currentDate: () => new Date() } });
-create.ObjectStreamer({ model, schema, _internal: { generateId: () => 'id', currentDate: () => new Date(), now: () => 0 } });
-// @ts-expect-error Identifier hooks return strings.
-create.TextGenerator({ model, _internal: { generateCallId: () => 123 } });
-// @ts-expect-error Clock hooks return numbers.
-create.TextStreamer({ model, _internal: { now: () => new Date() } });
-// @ts-expect-error Object-generation date hooks return Date values.
-create.ObjectGenerator({ model, schema, _internal: { currentDate: () => 123 } });
-// @ts-expect-error Object-stream clock hooks return numbers.
-create.ObjectStreamer({ model, schema, _internal: { now: () => 'now' } });
+// Native test hooks and retired settings are absent from Casai configuration.
+// @ts-expect-error Test hooks belong to the SDK internals.
+create.LLMAgent({ model, _internal: { now: () => 0 } });
+// @ts-expect-error Retired observer aliases are only accepted by native Agent entry points.
+create.LLMAgent({ model, onFinish: () => { /* unsupported observer */ } });
+// @ts-expect-error Telemetry uses its current native setting name.
+create.LLMAgent({ model, experimental_telemetry: {} });
 
 // PromiseLike return support follows each SDK callback's declared contract.
 declare const voidThenable: PromiseLike<void>;
 declare const booleanThenable: PromiseLike<boolean>;
-create.TextGenerator({ model, onEnd: () => voidThenable, stopWhen: () => booleanThenable });
-create.ObjectStreamer({ model, schema, onFinish: () => voidThenable });
-// @ts-expect-error Object error handlers specifically require a full Promise when async.
-objectStreamer.run({ onError: () => voidThenable });
+create.LLMAgent({ model, onEnd: () => voidThenable, stopWhen: () => booleanThenable });
+create.LLMAgent.asStream({ model, onEnd: () => voidThenable, output: Output.object({ schema: schema }) });
+void objectStreamer.run({ onError: () => voidThenable });
 // @ts-expect-error Text-repair callbacks specifically require a full Promise.
-create.ObjectGenerator({ model, schema, repairText: () => ({ then: () => undefined }) });
+create.LLMAgent({ model, repairText: () => ({ then: () => undefined }), output: Output.object({ schema: schema }) });
 // The SDK text error handler union contains plain void, permitting ignored sync/async returns.
-create.TextStreamer({ model, onError: async () => 123 });
+create.LLMAgent.asStream({ model, onError: async () => 123 });
 // @ts-expect-error Generic telemetry wrappers must preserve the execute callback's result type.
-create.TextGenerator({ model, telemetry: { integrations: { executeTool: async () => 123 } } });
+create.LLMAgent({ model, telemetry: { integrations: { executeTool: async () => 123 } } });
 
 // Every callback family checks return types, including aliases and nested functions.
 // @ts-expect-error Lifecycle observers return void or PromiseLike<void>.
-create.TextGenerator({ model, onStart: () => 123 });
+create.LLMAgent({ model, onStart: () => 123 });
 // @ts-expect-error Deprecated lifecycle aliases retain return checking.
-create.TextGenerator({ model, experimental_onStart: async () => 123 });
+create.LLMAgent({ model, onStart: async () => 123 });
 // @ts-expect-error Step-start observers cannot return values.
-create.TextGenerator({ model, onStepStart: () => 'start' });
+create.LLMAgent({ model, onStepStart: () => 'start' });
 // @ts-expect-error Step-completion observers cannot return values.
-create.TextGenerator({ model, onStepFinish: async () => true });
+create.LLMAgent({ model, onStepEnd: async () => true });
 // @ts-expect-error Model-call observers cannot return values.
-create.TextGenerator({ model, onLanguageModelCallStart: () => 123 });
+create.LLMAgent({ model, onLanguageModelCallStart: () => 123 });
 // @ts-expect-error Parsed model-response observers cannot return values.
-create.TextGenerator({ model, onLanguageModelCallEnd: async () => 123 });
+create.LLMAgent({ model, onLanguageModelCallEnd: async () => 123 });
 // @ts-expect-error Tool-execution observers cannot return values.
-create.TextGenerator({ model, onToolExecutionStart: () => 123 });
+create.LLMAgent({ model, onToolExecutionStart: () => 123 });
 // @ts-expect-error Tool-execution completion observers cannot return values.
-create.TextStreamer({ onToolExecutionEnd: async () => 123 }, parent);
+create.LLMAgent.asStream({ onToolExecutionEnd: async () => 123 }, parent);
 // @ts-expect-error Chunk observers cannot return arbitrary values.
-streamer.run({ onChunk: async () => 123 });
+void streamer.run({ onChunk: async () => 123 });
 // @ts-expect-error Abort observers cannot return arbitrary values.
-streamer.run({ onAbort: () => 123 });
+void streamer.run({ onAbort: () => 123 });
 // @ts-expect-error A stop condition must return a boolean.
-streamer.run({ stopWhen: () => 123 });
+void streamer.run({ stopWhen: () => 123 });
 // @ts-expect-error Step preparation rejects an invalid tool choice.
-streamer.run({ prepareStep: () => ({ toolChoice: { type: 'tool', toolName: 'missing' } }) });
+void streamer.run({ prepareStep: () => ({ toolChoice: { type: 'tool', toolName: 'missing' } }) });
 // @ts-expect-error Transform callbacks must produce a TransformStream.
-streamer.run({ experimental_transform: [() => 123] });
+void streamer.run({ experimental_transform: [() => 123] });
 // @ts-expect-error Transforms preserve the SDK event stream's input and output element types.
-streamer.run({ experimental_transform: () => new TransformStream<string, number>() });
+void streamer.run({ experimental_transform: () => new TransformStream<string, number>() });
 // @ts-expect-error Download callbacks return downloaded binary data or null.
-create.TextGenerator({ model, experimental_download: async () => [{ data: 'text', mediaType: 'text/plain' }] });
+create.LLMAgent({ model, experimental_download: async () => [{ data: 'text', mediaType: 'text/plain' }] });
 // @ts-expect-error Tool approval callbacks return a valid approval status.
-streamer.run({ toolApproval: { lookup: () => true } });
+void streamer.run({ toolApproval: { lookup: () => true } });
 // @ts-expect-error Generic tool approval callbacks return a valid approval status.
-create.TextGenerator({ toolApproval: () => 123 }, parent);
+create.LLMAgent({ toolApproval: () => 123 }, parent);
 // @ts-expect-error Refiners must reference a configured tool.
-streamer.run({ experimental_refineToolInput: { missing: () => ({ query: 'input' }) } });
+void streamer.run({ experimental_refineToolInput: { missing: () => ({ query: 'input' }) } });
 // @ts-expect-error Extra refiner keys cannot hide alongside valid configured keys.
-streamer.run({ experimental_refineToolInput: { lookup: input => input, missing: () => ({ query: 'input' }) } });
+void streamer.run({ experimental_refineToolInput: { lookup: input => input, missing: () => ({ query: 'input' }) } });
 // @ts-expect-error Approval maps can only configure existing tools.
-streamer.run({ toolApproval: { lookup: 'approved', missing: 'approved' } });
+void streamer.run({ toolApproval: { lookup: 'approved', missing: 'approved' } });
 // @ts-expect-error Factory input-refinement maps only accept configured tool names.
-create.TextGenerator({ experimental_refineToolInput: { lookup: input => input, missing: () => ({ query: 'input' }) } }, parent);
+create.LLMAgent({ experimental_refineToolInput: { lookup: input => input, missing: () => ({ query: 'input' }) } }, parent);
 // @ts-expect-error Shared fragments cannot retain an unknown refiner key.
 create.Config({ experimental_refineToolInput: { lookup: input => input, missing: () => ({ query: 'input' }) } }, parent);
 // @ts-expect-error Standalone factories reject extra approval-map names.
-create.TextGenerator({ model, tools, toolsContext, toolApproval: { lookup: 'approved', missing: 'approved' } });
+create.LLMAgent({ model, tools, toolsContext, toolApproval: { lookup: 'approved', missing: 'approved' } });
 // @ts-expect-error Shared fragments reject extra approval-map names.
 create.Config({ toolApproval: { lookup: 'approved', missing: 'approved' } }, parent);
 declare const refiners: { lookup?: (input: { query: string }) => PromiseLike<{ query: string }> };
-streamer.run({ experimental_refineToolInput: refiners });
-create.TextGenerator({ experimental_refineToolInput: refiners }, parent);
+void streamer.run({ experimental_refineToolInput: refiners });
+create.LLMAgent({ experimental_refineToolInput: refiners }, parent);
 declare const approval: NonNullable<TextSDK['toolApproval']>;
-streamer.run({ toolApproval: approval });
+void streamer.run({ toolApproval: approval });
 type LookupApproval = Exclude<NonNullable<TextSDK['toolApproval']>, Callback>['lookup'];
 declare const optionalApprovalCallbacks: { lookup?: Extract<LookupApproval, Callback> };
 declare const optionalApprovalStatuses: { lookup?: Exclude<LookupApproval, Callback> };
-create.TextGenerator({ model, tools, toolsContext, runtimeContext, toolApproval: optionalApprovalCallbacks });
-create.TextGenerator({ model, tools, toolsContext, runtimeContext, toolApproval: optionalApprovalStatuses });
+create.LLMAgent({ model, tools, toolsContext, runtimeContext, toolApproval: optionalApprovalCallbacks });
+create.LLMAgent({ model, tools, toolsContext, runtimeContext, toolApproval: optionalApprovalStatuses });
 const deferredOptionalCallbacks = create.Config({ toolApproval: optionalApprovalCallbacks });
 const deferredOptionalStatuses = create.Config({ toolApproval: optionalApprovalStatuses });
-create.TextStreamer({ model, tools, toolsContext, runtimeContext }, deferredOptionalCallbacks);
-create.TextStreamer({ model, tools, toolsContext, runtimeContext }, deferredOptionalStatuses);
-streamer.run({ toolApproval: optionalApprovalCallbacks });
-streamer.run({ toolApproval: optionalApprovalStatuses });
+create.LLMAgent.asStream({ model, tools, toolsContext, runtimeContext }, deferredOptionalCallbacks);
+create.LLMAgent.asStream({ model, tools, toolsContext, runtimeContext }, deferredOptionalStatuses);
+void streamer.run({ toolApproval: optionalApprovalCallbacks });
+void streamer.run({ toolApproval: optionalApprovalStatuses });
 // The SDK approval-status union explicitly includes undefined, including in exact consumers.
-streamer.run({ toolApproval: { lookup: undefined } });
-create.TextGenerator({ model, tools, toolsContext, toolApproval: { lookup: undefined } });
+void streamer.run({ toolApproval: { lookup: undefined } });
+create.LLMAgent({ model, tools, toolsContext, toolApproval: { lookup: undefined } });
 const deferredRefiners = create.Config({ experimental_refineToolInput: { lookup: (input: { query: string }) => input } });
-create.TextGenerator({ model, tools, toolsContext }, deferredRefiners);
+create.LLMAgent({ model, tools, toolsContext }, deferredRefiners);
 // @ts-expect-error Deferred refiner names must exist in the consuming component's final tools.
-create.TextGenerator({ model, tools: { extra } }, deferredRefiners);
+create.LLMAgent({ model, tools: { extra } }, deferredRefiners);
 // @ts-expect-error Deferred refiners must match the consuming tool's input type.
-create.TextGenerator({ model, tools: { lookup: replacement }, toolsContext }, deferredRefiners);
+create.LLMAgent({ model, tools: { lookup: replacement }, toolsContext }, deferredRefiners);
 const deferredApproval = create.Config({ toolApproval: { lookup: 'approved' as const } });
-create.TextStreamer({ model, tools, toolsContext }, deferredApproval);
+create.LLMAgent.asStream({ model, tools, toolsContext }, deferredApproval);
 // @ts-expect-error Deferred approval names must exist in the consuming component's final tools.
-create.TextStreamer({ model, tools: { extra } }, deferredApproval);
+create.LLMAgent.asStream({ model, tools: { extra } }, deferredApproval);
 const deferredApprovalCallback = create.Config({ toolApproval: { lookup: (input: { query: string }) => input.query ? 'approved' : 'denied' } });
-create.TextGenerator({ model, tools, toolsContext }, deferredApprovalCallback);
+create.LLMAgent({ model, tools, toolsContext }, deferredApprovalCallback);
 // @ts-expect-error Deferred approval callback inputs must match the eventual tool schema.
-create.TextGenerator({ model, tools: { lookup: replacement }, toolsContext }, deferredApprovalCallback);
+create.LLMAgent({ model, tools: { lookup: replacement }, toolsContext }, deferredApprovalCallback);
 create.Config({ toolApproval: { lookup: (_input, _options) => {
 	expectEqual<typeof _input, unknown>();
 	expectEqual<typeof _options.runtimeContext, Record<string, unknown>>();
@@ -441,68 +410,67 @@ create.Config({ toolApproval: { lookup: (_input: { query: string }) => 123 } });
 // @ts-expect-error Async approval callbacks must still resolve an SDK approval status.
 create.Config({ toolApproval: { lookup: async (_input: { query: string }) => true } });
 // @ts-expect-error Download callback parameters are not text.
-create.ObjectGenerator({ model, schema, experimental_download: async (_requests: string) => [] });
+create.LLMAgent({ model, experimental_download: async (_requests: string) => [], output: Output.object({ schema: schema }) });
 // @ts-expect-error Object lifecycle observers cannot return arbitrary values.
-create.ObjectGenerator({ model, schema, onStepEnd: async () => 123 });
+create.LLMAgent({ model, onStepEnd: async () => 123, output: Output.object({ schema: schema }) });
 // @ts-expect-error Object repair callbacks must return a promise.
 void objectGenerator.run({ experimental_repairText: () => null });
 // @ts-expect-error Telemetry callbacks retain nested return validation.
-create.TextGenerator({ model, telemetry: { integrations: { onError: () => 123 } } });
-// @ts-expect-error Object error observers use void | Promise<void>, so returns are validated.
-objectStreamer.run({ onError: () => 123 });
+create.LLMAgent({ model, telemetry: { integrations: { onError: () => 123 } } });
+void objectStreamer.run({ onError: () => 123 });
 
 // Every prompt factory overload supplies the same inferred callback context.
 const loader = new FileSystemLoader('tests');
-create.TextGenerator.withText({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.withTemplate({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.withScript({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.loadsText({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.loadsTemplate({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.loadsScript({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.withFunction({ prompt: () => 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.withText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.withTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.withScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.loadsText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.loadsTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.loadsScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextGenerator.withFunction.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: () => 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextStreamer.withText({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextStreamer.withTemplate({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextStreamer.withScript({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextStreamer.loadsText({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextStreamer.loadsTemplate({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextStreamer.loadsScript({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.TextStreamer.withFunction({ prompt: () => 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
-create.ObjectGenerator.withText({ prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.withTemplate({ prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.withScript({ prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.loadsText({ prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.loadsTemplate({ prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.loadsScript({ prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.withFunction({ prompt: () => 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.withText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.withTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.withScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.loadsText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.loadsTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.loadsScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectGenerator.withFunction.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: () => 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectStreamer.withText({ prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectStreamer.withTemplate({ prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectStreamer.withScript({ prompt: 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectStreamer.loadsText({ prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectStreamer.loadsTemplate({ prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectStreamer.loadsScript({ prompt: 'input', loader, onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
-create.ObjectStreamer.withFunction({ prompt: () => 'input', onFinish: _event => { expectEqual<typeof _event.object, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withText({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withTemplate({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withScript({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsText({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsTemplate({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsScript({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withFunction({ prompt: () => 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withFunction.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: () => 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withText.asStream({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withTemplate.asStream({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withScript.asStream({ prompt: 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsText.asStream({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsTemplate.asStream({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.loadsScript.asStream({ prompt: 'input', loader, onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withFunction.asStream({ prompt: () => 'input', onEnd: _event => { expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>(); } }, parent);
+create.LLMAgent.withText({ prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withTemplate({ prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withScript({ prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsText({ prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsTemplate({ prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsScript({ prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withFunction({ prompt: () => 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsText.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsTemplate.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsScript.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withFunction.asTool({ inputSchema: z.object({ topic: z.string() }), prompt: () => 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withText.asStream({ prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withTemplate.asStream({ prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withScript.asStream({ prompt: 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsText.asStream({ prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsTemplate.asStream({ prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.loadsScript.asStream({ prompt: 'input', loader, onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
+create.LLMAgent.withFunction.asStream({ prompt: () => 'input', onEnd: _event => { expectEqual<typeof _event.output, { answer: number } | undefined>(); } }, objectParent);
 
 // SDK public lifecycle hooks are singular; arrays belong to stop conditions, transforms, and telemetry integrations.
 // @ts-expect-error Completion observers cannot be supplied as callback arrays.
-streamer.run({ onEnd: [() => undefined] });
+void streamer.run({ onEnd: [() => undefined] });
 // @ts-expect-error Tool-execution observers cannot be supplied as callback arrays.
-create.TextGenerator({ model, onToolExecutionStart: [() => undefined] });
-create.TextGenerator({ model, telemetry: { integrations: [{
-	onStart: (_event: GenerateObjectStartEvent) => { expectEqual<typeof _event, GenerateObjectStartEvent>(); },
+create.LLMAgent({ model, onToolExecutionStart: [() => undefined] });
+create.LLMAgent({ model, telemetry: { integrations: [{
+	onStart: _event => { expectEqual<typeof _event, Parameters<NonNullable<Telemetry['onStart']>>[0]>(); },
 	executeLanguageModelCall: async _options => {
 		expectEqual<typeof _options.callId, string>();
 		return await _options.execute();
@@ -515,14 +483,14 @@ create.TextGenerator({ model, telemetry: { integrations: [{
 	},
 }] } });
 // @ts-expect-error Every integration in the array validates observer return values.
-create.TextGenerator({ model, telemetry: { integrations: [{ onError: () => undefined }, { onStepEnd: async () => 123 }] } });
+create.LLMAgent({ model, telemetry: { integrations: [{ onError: () => undefined }, { onStepEnd: async () => 123 }] } });
 // @ts-expect-error Model-call wrappers preserve the generic execute result, including inside arrays.
-create.TextGenerator({ model, telemetry: { integrations: [{ executeLanguageModelCall: async () => 'response' }] } });
+create.LLMAgent({ model, telemetry: { integrations: [{ executeLanguageModelCall: async () => 'response' }] } });
 // @ts-expect-error Step observers are contravariant even though SDK operation-level telemetry observers are bivariant.
-create.TextGenerator({ model, telemetry: { integrations: [{ onStepEnd: (_event: { text: 'only-this-text' }) => undefined }] } });
+create.LLMAgent({ model, telemetry: { integrations: [{ onStepEnd: (_event: { text: 'only-this-text' }) => undefined }] } });
 
 // Tool names and dynamic flags narrow heterogeneous callback inputs and tool-result/error unions.
-create.TextStreamer({ model, tools: { lookup, extra }, toolsContext, onToolExecutionStart: ({ toolCall }) => {
+create.LLMAgent.asStream({ model, tools: { lookup, extra }, toolsContext, onToolExecutionStart: ({ toolCall }) => {
 	if (toolCall.dynamic) {
 		expectEqual<typeof toolCall.input, unknown>();
 		// @ts-expect-error Dynamic inputs must be validated before using static fields.
@@ -548,8 +516,8 @@ create.TextStreamer({ model, tools: { lookup, extra }, toolsContext, onToolExecu
 	}
 } });
 // @ts-expect-error A hook for all calls cannot require only one static tool variant.
-create.TextGenerator({ model, tools: { lookup, extra }, toolsContext, onToolExecutionStart: (_event: { toolCall: { toolName: 'lookup', input: { query: string } } }) => undefined });
-streamer.run({ repairToolCall: async ({ toolCall, inputSchema }) => {
+create.LLMAgent({ model, tools: { lookup, extra }, toolsContext, onToolExecutionStart: (_event: { toolCall: { toolName: 'lookup', input: { query: string } } }) => undefined });
+void streamer.run({ repairToolCall: async ({ toolCall, inputSchema }) => {
 	expectEqual<typeof toolCall.input, string>();
 	const _jsonSchema = await inputSchema({ toolName: 'lookup' });
 	expectEqual<typeof _jsonSchema, JSONSchema7>();
@@ -564,34 +532,34 @@ const variantSchema = z.discriminatedUnion('kind', [
 	z.object({ kind: z.literal('label'), value: z.string() }),
 ]);
 type Variant = { kind: 'count', value: number } | { kind: 'label', value: string };
-create.ObjectStreamer({ model, schema: variantSchema, onFinish: _event => {
-	expectEqual<typeof _event.object, Variant | undefined>();
-	const object = _event.object;
+create.LLMAgent.asStream({ model, onEnd: _event => {
+	expectEqual<typeof _event.output, Variant | undefined>();
+	const object = _event.output;
 	if (object?.kind === 'count') {
 		expectEqual<typeof object.value, number>();
 		// @ts-expect-error Object callbacks expose parsed values rather than transform inputs.
 		expectType<string>(object.value);
 	} else if (object) expectEqual<typeof object.value, string>();
-} });
-create.TextStreamer({ model, output: Output.object({ schema: variantSchema }), onEnd: _event => {
+}, output: Output.object({ schema: variantSchema }) });
+create.LLMAgent.asStream({ model, output: Output.object({ schema: variantSchema }), onEnd: _event => {
 	expectEqual<typeof _event.output, Variant | undefined>();
 	const object = _event.output;
 	if (object?.kind === 'count') expectEqual<typeof object.value, number>();
 } });
 // @ts-expect-error A completion observer cannot require only one possible schema union member.
-create.ObjectGenerator({ model, schema: variantSchema, onFinish: (_event: GenerateObjectEndEvent<Extract<Variant, { kind: 'count' }>>) => undefined });
+create.LLMAgent({ model, onEnd: (_event: { output?: Extract<Variant, { kind: 'count' }> }) => undefined, output: Output.object({ schema: variantSchema }) });
 
 // Tool selection settings always use the final tools, including inheritance, fragments, and run overrides.
-create.TextGenerator({ activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] }, parent);
-streamer.run({ activeTools: ['lookup'], toolChoice: 'auto', toolOrder: ['lookup'] });
-streamer.run({ activeTools: [], toolChoice: 'none', toolOrder: [] });
+create.LLMAgent({ activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] }, parent);
+void streamer.run({ activeTools: ['lookup'], toolChoice: 'auto', toolOrder: ['lookup'] });
+void streamer.run({ activeTools: [], toolChoice: 'none', toolOrder: [] });
 create.Config({ activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] }, parent);
 // @ts-expect-error Inherited active-tools lists cannot name an unconfigured tool.
-create.TextGenerator({ activeTools: ['missing'] }, parent);
+create.LLMAgent({ activeTools: ['missing'] }, parent);
 // @ts-expect-error Inherited tool-choice objects cannot name an unconfigured tool.
-create.TextStreamer({ toolChoice: { type: 'tool', toolName: 'missing' } }, parent);
+create.LLMAgent.asStream({ toolChoice: { type: 'tool', toolName: 'missing' } }, parent);
 // @ts-expect-error Inherited tool ordering cannot name an unconfigured tool.
-create.TextGenerator({ toolOrder: ['lookup', 'missing'] }, parent);
+create.LLMAgent({ toolOrder: ['lookup', 'missing'] }, parent);
 // @ts-expect-error Config fragments with known tools validate active-tool names immediately.
 create.Config({ activeTools: ['missing'] }, parent);
 // @ts-expect-error Config fragments with known tools validate tool-choice names immediately.
@@ -599,28 +567,28 @@ create.Config({ toolChoice: { type: 'tool', toolName: 'missing' } }, parent);
 // @ts-expect-error Config fragments with known tools validate ordering names immediately.
 create.Config({ toolOrder: ['missing'] }, parent);
 // @ts-expect-error run() cannot enable an unconfigured tool.
-streamer.run({ activeTools: ['missing'] });
+void streamer.run({ activeTools: ['missing'] });
 // @ts-expect-error run() cannot select an unconfigured tool.
-streamer.run({ toolChoice: { type: 'tool', toolName: 'missing' } });
+void streamer.run({ toolChoice: { type: 'tool', toolName: 'missing' } });
 // @ts-expect-error run() cannot order an unconfigured tool.
-streamer.run({ toolOrder: ['missing'] });
+void streamer.run({ toolOrder: ['missing'] });
 // @ts-expect-error Standalone selection validation must not widen a concrete tool map.
-create.TextGenerator({ model, tools, toolsContext, activeTools: ['missing'] });
+create.LLMAgent({ model, tools, toolsContext, activeTools: ['missing'] });
 // @ts-expect-error Standalone tool-choice validation must not widen a concrete tool map.
-create.TextGenerator({ model, tools, toolsContext, toolChoice: { type: 'tool', toolName: 'missing' } });
+create.LLMAgent({ model, tools, toolsContext, toolChoice: { type: 'tool', toolName: 'missing' } });
 // @ts-expect-error Standalone ordering validation must not widen a concrete tool map.
-create.TextStreamer({ model, tools, toolsContext, toolOrder: ['missing'] });
+create.LLMAgent.asStream({ model, tools, toolsContext, toolOrder: ['missing'] });
 const deferredSelection = create.Config({ activeTools: ['lookup'] as const, toolChoice: { type: 'tool', toolName: 'lookup' } as const, toolOrder: ['lookup'] as const });
-create.TextGenerator({ model, tools, toolsContext }, deferredSelection);
+create.LLMAgent({ model, tools, toolsContext }, deferredSelection);
 // @ts-expect-error A deferred selection must refer to tools in the consuming component.
-create.TextGenerator({ model, tools: { extra } }, deferredSelection);
+create.LLMAgent({ model, tools: { extra } }, deferredSelection);
 const selectedParent = create.Config({ tools, toolsContext, activeTools: ['lookup'] as const });
 // @ts-expect-error An invalid selector inherited from an annotated provider must be checked too.
-create.TextGenerator({ model }, { config: { tools, toolsContext, toolOrder: ['missing'] as const } });
-create.TextGenerator({ model, tools: { extra }, activeTools: ['lookup', 'extra'], toolOrder: ['extra', 'lookup'] }, selectedParent);
+create.LLMAgent({ model }, { config: { tools, toolsContext, toolOrder: ['missing'] as const } });
+create.LLMAgent({ model, tools: { extra }, activeTools: ['lookup', 'extra'], toolOrder: ['extra', 'lookup'] }, selectedParent);
 declare const unknownSelection: readonly string[];
 // @ts-expect-error A broad string list cannot guarantee that each selected tool exists.
-streamer.run({ activeTools: unknownSelection });
+void streamer.run({ activeTools: unknownSelection });
 // @ts-expect-error Deferred fragments still reject malformed active-tools values before tools are supplied.
 create.Config({ activeTools: 123 });
 // @ts-expect-error Deferred fragments still reject malformed tool-choice values before tools are supplied.
@@ -629,7 +597,7 @@ create.Config({ toolChoice: 'missing' });
 create.Config({ toolOrder: [123] });
 
 // Inline configured runtime values are defaults; later runs and steps retain their value types.
-const inlineRuntime = create.TextGenerator({
+const inlineRuntime = create.LLMAgent({
 	model, prompt: 'Answer.',
 	runtimeContext: { requestId: 'initial', retry: 0, details: { enabled: true }, labels: ['initial'], now: new Date(), format: (value: number) => String(value) },
 	onStart: _event => {
@@ -651,55 +619,54 @@ void inlineRuntime.run({ prepareStep: _options => {
 void inlineRuntime.run({ runtimeContext: { requestId: 123, retry: 1, details: { enabled: false }, labels: [], now: new Date(), format: String } });
 // @ts-expect-error Nested runtime defaults still enforce their field types.
 void inlineRuntime.run({ prepareStep: () => ({ runtimeContext: { requestId: 'next', retry: 1, details: { enabled: 'yes' }, labels: [], now: new Date(), format: String } }) });
-const inlineRuntimeStream = create.TextStreamer({ model, prompt: 'Answer.', runtimeContext: { requestId: 'initial' } });
-inlineRuntimeStream.run({ runtimeContext: { requestId: 'next' }, onEnd: _event => { expectEqual<typeof _event.runtimeContext.requestId, string>(); } });
+const inlineRuntimeStream = create.LLMAgent.asStream({ model, prompt: 'Answer.', runtimeContext: { requestId: 'initial' } });
+void inlineRuntimeStream.run({ runtimeContext: { requestId: 'next' }, onEnd: _event => { expectEqual<typeof _event.runtimeContext.requestId, string>(); } });
 
-// A fragment usable by text and object components receives the union of their finish events.
-// eslint-disable-next-line @typescript-eslint/no-generated-empty-object-type -- A fragment without tools intentionally specializes both text events to an empty tool map.
-type FragmentFinish = GenerateTextEndEvent<Record<never, never>> | StreamTextOnFinishEvent<Record<never, never>> | GenerateObjectEndEvent<unknown>;
-const sharedFinish = create.Config({ onFinish: _event => {
+// Incomplete fragments use the native event with unknown parsed output.
+type FragmentFinish = StreamTextOnFinishEvent<EmptyMap, import('ai').OutputInterface<unknown, unknown, unknown>>;
+const sharedFinish = create.Config({ onEnd: _event => {
 	expectEqual<typeof _event, FragmentFinish>();
-	// @ts-expect-error A shared callback cannot assume that every consuming component generates an object.
-	expectType<unknown>(_event.object);
-	if ('object' in _event) expectEqual<typeof _event.object, unknown>();
-	else expectEqual<typeof _event.text, string>();
+	expectEqual<typeof _event.output, unknown>();
+	expectEqual<typeof _event.text, string>();
+	// @ts-expect-error A fragment cannot assume the output selected by its consumer.
+	expectType<{ answer: number }>(_event.output);
 } });
-create.TextGenerator({ model }, sharedFinish);
-create.TextStreamer({ model }, sharedFinish);
-create.ObjectGenerator({ model, schema }, sharedFinish);
-create.ObjectStreamer({ model, schema }, sharedFinish);
+create.LLMAgent({ model }, sharedFinish);
+create.LLMAgent.asStream({ model }, sharedFinish);
+create.LLMAgent({ model, output }, sharedFinish);
+create.LLMAgent.asStream({ model, output }, sharedFinish);
 
 // Explicit runtime-context unions keep their discriminants and correlated payloads.
 type RuntimeVariant = { kind: 'count', value: number } | { kind: 'label', value: string };
 declare const discriminatedRuntime: RuntimeVariant;
-const variantRuntimeGenerator = create.TextGenerator({ model, prompt: 'Answer.', runtimeContext: discriminatedRuntime, onStart: _event => {
+const variantRuntimeGenerator = create.LLMAgent({ model, prompt: 'Answer.', runtimeContext: discriminatedRuntime, onStart: _event => {
 	const context = _event.runtimeContext;
 	expectEqual<typeof context, RuntimeVariant>();
 	if (context.kind === 'count') expectEqual<typeof context.value, number>();
 	else expectEqual<typeof context.value, string>();
 } });
 void variantRuntimeGenerator.run({ runtimeContext: { kind: 'count', value: 2 } });
-void variantRuntimeGenerator.run({ prepareStep: () => ({ runtimeContext: { kind: 'label', value: 'next' } }) });
+void variantRuntimeGenerator.run({ prepareStep: () => ({ runtimeContext: { kind: 'label' as const, value: 'next' } }) });
 // @ts-expect-error Annotated runtime contexts retain their allowed discriminants.
 void variantRuntimeGenerator.run({ runtimeContext: { kind: 'other', value: 2 } });
 // @ts-expect-error Runtime-context payloads stay correlated with their discriminants.
 void variantRuntimeGenerator.run({ prepareStep: () => ({ runtimeContext: { kind: 'count', value: 'wrong' } }) });
 const variantRuntimeParent = create.Config({ model, prompt: 'Answer.', runtimeContext: discriminatedRuntime });
-create.TextStreamer({}, variantRuntimeParent).run({ runtimeContext: { kind: 'label', value: 'next' }, onEnd: _event => {
+void create.LLMAgent.asStream({}, variantRuntimeParent).run({ runtimeContext: { kind: 'label', value: 'next' }, onEnd: _event => {
 	expectEqual<typeof _event.runtimeContext, RuntimeVariant>();
 } });
 // @ts-expect-error Inherited annotated runtime-context unions are not widened to unrelated tags.
-create.TextStreamer({}, variantRuntimeParent).run({ runtimeContext: { kind: 'other', value: 2 } });
+void create.LLMAgent.asStream({}, variantRuntimeParent).run({ runtimeContext: { kind: 'other', value: 2 } });
 
 // Structural parents infer mutable runtime defaults just like Config-created parents.
-const structuralRuntimeGenerator = create.TextGenerator.withTemplate({ prompt: 'Answer.' }, { config: { model, runtimeContext: { requestId: 'initial' } } });
+const structuralRuntimeGenerator = create.LLMAgent.withTemplate({ prompt: 'Answer.' }, { config: { model, runtimeContext: { requestId: 'initial' } } });
 void structuralRuntimeGenerator.run({ runtimeContext: { requestId: 'next' } });
-const structuralRuntimeStreamer = create.TextStreamer.withTemplate({ prompt: 'Answer.' }, { config: { model, runtimeContext: { requestId: 'initial' } } });
+const structuralRuntimeStreamer = create.LLMAgent.withTemplate.asStream({ prompt: 'Answer.' }, { config: { model, runtimeContext: { requestId: 'initial' } } });
 void structuralRuntimeStreamer.run({ runtimeContext: { requestId: 'next' } });
-create.TextGenerator.withTemplate({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, runtimeContext: { requestId: 'initial' }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] } });
-create.TextStreamer.withTemplate({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, runtimeContext: { requestId: 'initial' }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] } });
-create.TextGenerator.withTemplate({ prompt: 'Answer.', tools: { extra } }, { config: { model, tools, toolsContext, activeTools: ['lookup', 'extra'], toolOrder: ['extra', 'lookup'] } });
+create.LLMAgent.withTemplate({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, runtimeContext: { requestId: 'initial' }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] } });
+create.LLMAgent.withTemplate.asStream({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, runtimeContext: { requestId: 'initial' }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'] } });
+create.LLMAgent.withTemplate({ prompt: 'Answer.', tools: { extra } }, { config: { model, tools, toolsContext, activeTools: ['lookup', 'extra'], toolOrder: ['extra', 'lookup'] } });
 // @ts-expect-error Structural parent selector inference cannot admit unknown tool names.
-create.TextStreamer.withTemplate({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, activeTools: ['missing'] } });
+create.LLMAgent.withTemplate.asStream({ prompt: 'Answer.' }, { config: { model, tools, toolsContext, activeTools: ['missing'] } });
 // @ts-expect-error Structural parent defaults still retain their value kinds.
 void structuralRuntimeStreamer.run({ runtimeContext: { requestId: 123 } });

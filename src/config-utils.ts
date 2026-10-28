@@ -2,7 +2,6 @@ import { ConfigError, ValidationError } from './errors.js';
 import { configMapKeys } from './types/merge.js';
 import type { MergedConfig, ProcessedConfig } from './types/merge.js';
 import * as configs from './types/config.js';
-import type { ModelMessage } from 'ai';
 import { mergeLoaders, processLoaders, type CasaiAILoader } from './loaders.js';
 import { validateConfigBasics } from './validate.js';
 
@@ -14,7 +13,7 @@ export function processConfig<T extends Partial<configs.LoaderConfig> & Record<s
 	for (const key of configMapKeys) {
 		if (config[key] !== undefined) Object.assign(processed, { [key]: { ...config[key] as Record<string, unknown> } });
 	}
-	if (config.messages !== undefined) Object.assign(processed, { messages: [...config.messages as ModelMessage[]] });
+	if (Array.isArray(config.prompt)) Object.assign(processed, { prompt: [...config.prompt as unknown[]] });
 	if ('loader' in config && config.loader) {
 		const loader = processLoaders(config.loader);
 		return { ...processed, loader };
@@ -23,7 +22,7 @@ export function processConfig<T extends Partial<configs.LoaderConfig> & Record<s
 }
 
 /**
- * Merge partial configs using the shared map, message and loader policies.
+ * Merge partial configs using the shared map and loader policies.
  */
 export function mergeConfigs<
 	TParent extends Record<string, any>,
@@ -33,7 +32,7 @@ export function mergeConfigs<
 	childConfig: TChild,
 	ErrorClass: typeof ConfigError | typeof ValidationError = ConfigError,
 ): MergedConfig<TParent, TChild> {
-	// Validate raw values before map/message/loader merging can consume them.
+	// Validate raw values before map/loader merging can consume them.
 	validateConfigBasics(childConfig, ErrorClass);
 	// Evaluate debug logging using the most specific config (child overrides parent).
 	const childHasDebug = Object.prototype.hasOwnProperty.call(childConfig, 'debug');
@@ -47,6 +46,9 @@ export function mergeConfigs<
 
 	// Start shallow merge
 	const merged: Record<string, unknown> = { ...parentConfig, ...childConfig };
+	if (parentConfig.streaming === true || childConfig.streaming === true) merged.streaming = true;
+	if (parentConfig.asTool === true || childConfig.asTool === true) merged.asTool = true;
+	if (Array.isArray(merged.prompt)) merged.prompt = [...merged.prompt as unknown[]];
 
 	// Now handle known deep merges:
 	for (const key of configMapKeys) {
@@ -77,17 +79,6 @@ export function mergeConfigs<
 		merged.loader = processLoaders(childLoaders);
 	} else if (parentLoaders) {
 		merged.loader = processLoaders(parentLoaders);
-	}
-
-	if ('messages' in parentConfig && 'messages' in childConfig) {
-		const parentMessages = (parentConfig as { messages?: ModelMessage[] }).messages ?? [];
-		const childMessages = (childConfig as { messages?: ModelMessage[] }).messages ?? [];
-		merged.messages = [
-			...parentMessages,
-			...childMessages,
-		];
-	} else if (merged.messages !== undefined) {
-		merged.messages = [...merged.messages as ModelMessage[]];
 	}
 
 	return merged as MergedConfig<TParent, TChild>;

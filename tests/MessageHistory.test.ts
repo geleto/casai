@@ -51,8 +51,8 @@ describe('Message history across tool steps', () => {
 			it(`should expose history for plain ${rendered ? 'function' : 'text'} ${streaming ? 'streams' : 'generators'}`, async () => {
 				const model = toolLoopModel(0);
 				const component = rendered
-					? streaming ? create.TextStreamer.withFunction({ model, prompt: () => 'Input.' }) : create.TextGenerator.withFunction({ model, prompt: () => 'Input.' })
-					: streaming ? create.TextStreamer({ model, prompt: 'Input.' }) : create.TextGenerator({ model, prompt: 'Input.' });
+					? streaming ? create.LLMAgent.withFunction.asStream({ model, prompt: () => 'Input.' }) : create.LLMAgent.withFunction({ model, prompt: () => 'Input.' })
+					: streaming ? create.LLMAgent.asStream({ model, prompt: 'Input.' }) : create.LLMAgent({ model, prompt: 'Input.' });
 				const call: () => ReturnType<typeof component> = component;
 				const result = await call();
 				const response = await result.response;
@@ -77,8 +77,8 @@ describe('Message history across tool steps', () => {
 				const failure = new Error('Provider failed');
 				const model = new MockLanguageModelV3({ doStream: async () => { throw failure; } });
 				const errors = [];
-				const streamer = create.TextStreamer({
-					model, prompt: 'Input.', messages: [{ role: 'assistant', content: 'Earlier.' }],
+				const streamer = create.LLMAgent.asStream({
+					model, prompt: 'Input.',
 					maxRetries: 0, onError: ({ error }) => errors.push(error),
 				});
 				await (await streamer()).consumeStream();
@@ -90,8 +90,8 @@ describe('Message history across tool steps', () => {
 
 	it('should propagate failed stream metadata when it is requested', async () => {
 		const model = new MockLanguageModelV3({ doStream: async () => { throw new Error('Provider failed'); } });
-		const streamer = create.TextStreamer({ model, prompt: 'Input.', maxRetries: 0, onError: () => undefined });
-		const result = streamer();
+		const streamer = create.LLMAgent.asStream({ model, prompt: 'Input.', maxRetries: 0, onError: () => undefined });
+		const result = (await streamer());
 		const response = result.response;
 		await rejects(async () => await response, /No output generated/);
 		await rejects(result.messageHistory);
@@ -104,9 +104,10 @@ describe('Message history across tool steps', () => {
 				const double = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), execute: ({ value }) => value * 2 });
 				const system: ModelMessage = { role: 'system', content: 'Configured instruction.' };
 				const history: ModelMessage[] = [{ role: 'user', content: 'Earlier question.' }, { role: 'assistant', content: 'Earlier answer.' }];
-				const config = { model, tools: { double }, messages: [system], allowSystemInMessages: true, stopWhen: stepCountIs(toolSteps + 1) };
-				const component = streaming ? create.TextStreamer(config) : create.TextGenerator(config);
-				const result = await component('Use double.', history);
+				const config = { model, tools: { double }, instructions: system.content, allowSystemInMessages: true, stopWhen: stepCountIs(toolSteps + 1) };
+				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
+				const call: (prompt: string, history: ModelMessage[]) => ReturnType<typeof component> = component;
+				const result = await call('Use double.', history);
 				expect(await result.text).to.equal('DONE');
 				const response = await result.response;
 				const steps = await result.steps;
@@ -134,7 +135,7 @@ describe('Message history across tool steps', () => {
 
 				// Reusing the history sends every call/result pair exactly once.
 				const nextModel = toolLoopModel(0);
-				const next = await component.run({ model: nextModel, prompt: 'Continue.', messages: conversation });
+				const next = await component.run({ model: nextModel, prompt: 'Continue.', messageHistory: conversation });
 				expect(await next.text).to.equal('DONE');
 				const nextCall = streaming ? nextModel.doStreamCalls[0] : nextModel.doGenerateCalls[0];
 				expect(nextCall.prompt.map(message => message.role)).to.deep.equal(['system', 'user', 'assistant', 'user', ...roles, 'user']);

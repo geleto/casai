@@ -59,6 +59,7 @@ Casai does not load `.env` itself. Other providers use their own packages and cr
 
 An `LLMAgent` prepares a prompt and returns a complete model result. Its default output is text:
 
+<!-- typecheck: quick-start -->
 ```typescript
 import { create } from 'casai';
 import { openai } from '@ai-sdk/openai';
@@ -71,7 +72,7 @@ const explain = create.LLMAgent.withTemplate({
   model,
   prompt: 'Explain {{ topic }} in three short sentences for {{ audience }}.',
   context: { audience: 'a beginner' },
-  inputSchema: z.object({ topic: z.string() }),
+  inputSchema: z.object({ topic: z.string(), audience: z.string() }),
 });
 
 const result = await explain({ topic: 'solar panels' });
@@ -82,6 +83,7 @@ The `.withTemplate` modifier renders the prompt using the call's input and confi
 
 Select an output schema when you need typed data:
 
+<!-- typecheck: quick-extract -->
 ```typescript
 const extract = create.LLMAgent.withTemplate({
   model,
@@ -98,6 +100,7 @@ console.log(ideas.value.ideas);
 
 You can call components from a Cascada script to describe the same workflow:
 
+<!-- typecheck: quick-workflow -->
 ```typescript
 const explainAndExtract = create.Script({
   context: { explain, extract },
@@ -127,8 +130,8 @@ Choose a component by the operation you need. `Config` supplies shared settings 
 | Component | What it does | Main inputs → result | Reference |
 | :--- | :--- | :--- | :--- |
 | [Config](#config) | Shared configuration | Settings and optional parent → `.config` | — |
-| [Template](#template) | Render a Cascada template | Template and context → string, or a text stream | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
-| [Script](#script) | Execute a Cascada workflow | Script and context → returned value, or a stream | [Cascada scripts](https://geleto.github.io/cascada-script/#/) |
+| [Template](#template) | Render a Cascada template | ? | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
+| [Script](#script) | Execute a Cascada workflow | Script and context → returned value, or a stream | ? |
 | [Function](#function) | Wrap JavaScript logic | Arguments/context → returned value, or the callback's stream | — |
 | [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages and application context → the full SDK result, with `.value` for [final application output](#llmagent-results) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
 | [Decision](#decision) | Answer choice, boolean, and score questions | `state`, configured `questions` → [.answers](https://ai-sdk.dev/docs/ai-sdk-core/decisions#question-types) | [Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) |
@@ -186,6 +189,7 @@ To interchange model and coded implementations in a workflow, have a small adapt
 - **Calls and composition:** Every callable has `.run()` for named inputs and supported execution settings, with the same result contract as its ordinary call. Put components or application functions in context to [call them from workflows](#calling-tools-from-coded-components).
 - **Invocation isolation:** Casai's merging, preparation and execution leave shared configuration and caller data intact. Derive a component or use call overrides to select different settings.
 - **Effects:** Schema callbacks stay pure. Component bodies may operate on authorized application state or perform external effects; sequence effectful Cascada calls with `!`. Independent invocations need application-level coordination for shared state.
+- **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. An explicit source modifier replaces the inherited source mode; a base factory preserves it. Use `.withText`, `.withTemplate` or `.withScript` to return to inline source. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded.
 - **Streaming:** LLMAgent and Template inherit streaming mode, and `.asStream` enables it. Script/Function declare stream output through `schema`; independently invoked components keep their own modes. See [streaming](#streaming).
 - **Tool adaptation:** `.asTool` exposes completed application output to a model, collecting declared finite streams where necessary. Direct calls retain their normal result and mode. See [using components as tools](#using-components-as-tools).
 
@@ -195,6 +199,7 @@ Template, Script and Function keep these native value contracts. LLMAgent's non-
 
 Pass reusable settings to a factory, then supply task-specific input to the component it returns:
 
+<!-- typecheck: configured-prompt -->
 ```typescript
 const writer = create.LLMAgent({ model, prompt: 'Write a short welcome message.' });
 
@@ -227,6 +232,7 @@ Calls return promises; the shared [returned-value reference](#returned-values) e
 
 A Template, for example, accepts a one-off template before its context:
 
+<!-- typecheck: template-defaults -->
 ```typescript
 const greeting = create.Template({
   template: 'Hello {{ name }}!',
@@ -267,6 +273,7 @@ A modifier changes the type of the [main property](#creating-and-calling-compone
 
 Use a template when the input is text with variables, helper calls, or includes. Configured `context` supplies private bindings and explicitly declared public defaults. `inputSchema` parses caller data merged over those public defaults; other configured bindings stay outside validation. Here `language` is a private configured binding, so callers supply `text` but cannot override `language`:
 
+<!-- typecheck: template-prompt -->
 ```typescript
 const translate = create.LLMAgent.withTemplate({
   model,
@@ -282,6 +289,7 @@ console.log((await translate({ text: 'Good morning' })).value);
 
 Use a script for a preparation workflow, or a JavaScript function for logic such as formatting, fetching data, or calling an API. The function may be asynchronous. It receives the prepared context; the [execution-metadata API](#tool-execution-context) exposes options such as `abortSignal` through that context's `_toolOptions` property:
 
+<!-- typecheck: function-prompt -->
 ```typescript
 const summarize = create.LLMAgent.withFunction({
   model,
@@ -296,13 +304,14 @@ For an LLMAgent, scripts and functions can return text or model-message arrays t
 
 Forward the preparer's signal when fetching input:
 
+<!-- typecheck: async-prompt -->
 ```typescript
 const summarizeDocument = create.LLMAgent.withFunction({
   model,
   inputSchema: z.object({ documentId: z.string() }),
   prompt: async ({ documentId, _toolOptions: { abortSignal } }) => {
     const response = await fetch(`https://example.com/documents/${encodeURIComponent(documentId)}`, {
-      signal: abortSignal,
+      signal: abortSignal ?? null,
     });
     if (!response.ok) throw new Error(`Document request failed: ${response.status}`);
     return `Summarize this document: ${await response.text()}`;
@@ -333,8 +342,8 @@ Choose a modifier supported by the component: ✅ = supported; ❌ = not applica
 | Component | [.withText](#text-and-template-modifiers) | [.withTemplate](#text-and-template-modifiers) | [.withScript](#script-and-function-modifiers) | [.withFunction](#script-and-function-modifiers) | [.loadsText](#text-and-template-modifiers) | [.loadsTemplate](#text-and-template-modifiers) | [.loadsScript](#script-and-function-modifiers) | [.asStream](#streaming) | [.asTool](#using-components-as-tools) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | [Config](#config) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| [Template](#template) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
-| [Script](#script) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| [Template](#template) | ❌ | ? | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
+| [Script](#script) | ❌ | ❌ | ? | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | [Function](#function) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | [LLMAgent](#llmagent) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [Decision](#decision) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
@@ -409,6 +418,7 @@ Anything required that the shorthand cannot supply must be satisfied by resolved
 
 Template accepts `.run({ template, context, toolsContext, abortSignal })`, Script accepts `.run({ script, context, toolsContext, abortSignal })`, and Function accepts `.run({ context, toolsContext, abortSignal })`. Omit a source to use its configured value. `toolsContext` supplies request-specific application data to registered tools; it merges by tool name, replacing each supplied entry as a whole. It does not change tool definitions or schemas. Function's `execute` callback and schemas remain fixed. A signal is checked before starting and forwarded to cooperative callbacks and injected registered tools. It does not interrupt rendering or automatically reach arbitrary functions/components supplied in context. Script/Template and Function timeouts wait for [Phase 7](docs/plan.md#phase-7-async-call-context-and-deadlines) and Cascada async call context. Native engine abort is a separate enhancement.
 
+<!-- typecheck: run-overrides -->
 ```typescript
 const detailed = await explain.run({
   prompt: 'Explain {{ topic }} with one practical example for {{ audience }}.',
@@ -501,6 +511,7 @@ LLMAgent uses SDK `Output.text()` or `Output.array({ element })`, with its SDK v
 
 `Config` groups the [shared configuration properties](#shared-configuration) and compatible operation settings for reuse. Pass it as the second factory argument to inherit them:
 
+<!-- typecheck: config-inheritance -->
 ```typescript
 const defaults = create.Config({
   model,
@@ -525,13 +536,13 @@ A `Config` can be partial. Children supply fixed configuration requirements; the
 | Property | Inheritance behavior |
 | :--- | :--- |
 | `context`, `filters`, `tools`, `toolsContext` | Merge by key; a child entry replaces the same parent entry |
-| `loader` | Try child loaders before parent loaders; named race groups combine |
+| `loader` | Compose chains and races; `raceParent(...)` adds concurrent sources and `overrideParent(...)` replaces inherited loaders. See [loader composition](#loader-composition-and-inheritance). |
 | Streaming mode on LLMAgent/Template | Inherit from the parent; `.asStream` enables it and no modifier disables it |
 | Other properties, including `model`, `prompt`, schemas, `output`, `renderOptions`, and `providerOptions` | Replace the whole value |
 
 Key merging is shallow. A child `context: { settings: { language: 'French' } }` replaces the entire inherited `settings` value. A `toolsContext` entry similarly replaces that tool's whole context value.
 
-Omitting a property inherits it. Explicit `undefined` clears ordinary replacement properties. For merged maps, an omitted, empty, or `undefined` whole map retains inherited entries; an explicitly `undefined` entry replaces that entry. An empty or `undefined` `loader` value retains the inherited loaders. These rules apply to configuration inheritance; in call-time arguments, `undefined` means not supplied.
+Omitting a property inherits it. Explicit `undefined` clears ordinary replacement properties. For merged maps, an omitted, empty, or `undefined` whole map retains inherited entries; an explicitly `undefined` entry replaces that entry. Loader inheritance has its [own rules and implementation status](#loader-composition-and-inheritance). These rules apply to configuration inheritance; in call-time arguments, `undefined` means not supplied.
 
 Tool definitions merge only by tool name: a supplied definition replaces the whole inherited definition, never its individual fields. A tool entry set to `undefined` or `null` removes that tool after resolution. For example, `tools: { search: undefined }` removes inherited `search` while retaining other tools. Remove cleared entries before exposing the effective SDK tool registry or passing it to the SDK; infer tool names and required tool context from that same effective registry. This is a tool-registry rule, not a reason to remove ordinary null/undefined application data.
 
@@ -541,6 +552,7 @@ Keep shared fragments compatible with their consumers. A context-only Config can
 
 `Config` and every callable component, including `Function` and tool forms, expose resolved configuration through `.config`:
 
+<!-- typecheck: config-inspection -->
 ```typescript
 console.log(shortSummarizer.config.maxOutputTokens); // 150
 console.log(shortSummarizer.config.context);         // { language: 'English' }
@@ -558,6 +570,7 @@ The shared [configuration properties](#shared-configuration), [returned values](
 
 `Template` renders text with Cascada. Use it for prompts, reports, messages, or presentation without necessarily making a model call.
 
+<!-- typecheck: template -->
 ```typescript
 const receipt = create.Template({
   template: 'Order {{ orderId }} contains {{ count }} items.',
@@ -572,6 +585,7 @@ The main property is `template`. Call with context, or with a one-off template f
 
 For a file or named resource, use `.loadsTemplate`:
 
+<!-- typecheck: loaded-template -->
 ```typescript
 import { FileSystemLoader } from 'casai';
 
@@ -589,6 +603,7 @@ In this form, a one-off `template` is another resource name. `.asTool` and `.loa
 
 Create a Template with `.asStream` to receive its text as it renders, from Cascada's future `renderStringStream`. Children that should stream into it are also created with `.asStream`; the same Template source collects or forwards their text:
 
+<!-- typecheck-skip: phase-6 -->
 ```typescript
 const writeIntro = create.LLMAgent.withTemplate.asStream({
   model,
@@ -617,6 +632,7 @@ See the [Cascada template reference](https://github.com/geleto/cascada/blob/mast
 
 `Script` runs a Cascada workflow and returns its value. Use it to call components, combine data, and express dependencies between asynchronous operations.
 
+<!-- typecheck: script -->
 ```typescript
 const totals = create.Script({
   inputSchema: z.object({ price: z.number(), quantity: z.number() }),
@@ -636,6 +652,7 @@ The main property is `script`. Call with context, or with a one-off script follo
 
 A Script streams by returning a `stream` or `tstream` channel, a **future Cascada capability**. This example declares an element stream with a [stream schema](#stream-schemas):
 
+<!-- typecheck: script-stream -->
 ```typescript
 const guideTitles = create.Script({
   inputSchema: z.object({ topics: z.array(z.string()) }),
@@ -662,6 +679,7 @@ See [Cascada script documentation](https://geleto.github.io/cascada-script/#/) f
 
 `Function` wraps JavaScript logic with reusable configuration and validation. Use it for application services, transformations, or SDK tools.
 
+<!-- typecheck: function -->
 ```typescript
 const normalize = create.Function({
   inputSchema: z.object({ text: z.string() }),
@@ -680,6 +698,7 @@ A Function can inherit from a `Config` or another Function. If a child changes s
 
 A Function streams when `execute` returns an async iterable, such as an async generator, and its `schema` is a [stream schema](#stream-schemas):
 
+<!-- typecheck: function-stream -->
 ```typescript
 const countdown = create.Function({
   inputSchema: z.object({ from: z.number() }),
@@ -706,6 +725,7 @@ The callback receives one flat context containing schema-produced application va
 
 `LLMAgent` generates a complete language-model result, or streams it when created with [`.asStream`](#streaming-with-asstream). Use it for writing, extraction, classification, image understanding, or tasks involving tools. Text is the default output, and one model step is the default stopping condition.
 
+<!-- typecheck: complete -->
 ```typescript
 const writer = create.LLMAgent({ model });
 const answer = await writer('Explain battery recycling briefly.');
@@ -730,6 +750,7 @@ Set `output` to describe the value you need:
 | One allowed string | `Output.choice({ options: ['yes', 'no'] })` |
 | JSON without a fixed schema | `Output.json()` |
 
+<!-- typecheck: structured -->
 ```typescript
 const researcher = create.LLMAgent.withTemplate({
   model,
@@ -753,6 +774,7 @@ Use schema descriptions and the output specification's supported `name` and `des
 
 An LLMAgent can execute tools during a model step. To let the model read their results and continue, configure more than one step:
 
+<!-- typecheck: tools -->
 ```typescript
 import { isStepCount } from 'ai';
 
@@ -822,6 +844,7 @@ Anthropic's raw `pause_turn` makes `value` unavailable even when normalized to `
 
 The `.asStream` modifier makes an LLMAgent use streaming execution. Its ordinary call and `.run()` return a promise for a live result handle; awaiting it does not wait for generation to finish. With default text, consume `.value` as a text stream:
 
+<!-- typecheck: streaming -->
 ```typescript
 const writerStream = create.LLMAgent.asStream({ model });
 const textResult = await writerStream('Explain battery recycling briefly.');
@@ -850,6 +873,7 @@ Use `.value` when your application needs the final answer. For text as it arrive
 
 For example, explicit `Output.text()` lets you display live text and then await the final answer:
 
+<!-- typecheck: explicit-text -->
 ```typescript
 const writer = create.LLMAgent.asStream({
   model,
@@ -870,6 +894,7 @@ In a tool loop, `textStream` might show `"Let me check."` followed by `"It is 18
 
 For structured output, await `.value` for the completed parsed value. An array output gives an ordinary array, so iterate it with `for`, after awaiting:
 
+<!-- typecheck: explicit-array -->
 ```typescript
 const list = create.LLMAgent.asStream({
   model,
@@ -902,6 +927,7 @@ Incremental `value` delivery is eligible when effective settings disallow tool c
 
 For immediate final-answer streaming, make the answer-producing phase explicit. This example first gathers research notes, then uses a separate streaming writer with the default single model step and no tools:
 
+<!-- typecheck: research-then-stream -->
 ```typescript
 import { isStepCount } from 'ai';
 
@@ -933,6 +959,7 @@ for await (const chunk of answer.value) {
 
 `Decision` answers named choice, boolean, or score questions against shared state. Use it to route requests, apply a rubric, or evaluate several related questions. It is exported as `Experimental_Decision` while the SDK's `experimental_decide` is experimental.
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const route = create.Experimental_Decision({
   model: decisionModel,
@@ -963,6 +990,7 @@ See [SDK Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) for question 
 
 `Embedder` converts text into vectors for semantic search, similarity, clustering, and retrieval. Pass one string or an array directly:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const embedder = create.Embedder({ model: embeddingModel });
 
@@ -977,6 +1005,7 @@ An array always represents a batch, with one output vector per input. The SDK ha
 
 Per-call settings go through `.run()`, which uses the SDK's input field names:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 await embedder.run({ values: ['First document', 'Second document'], maxParallelCalls: 2 });
 await embedder.run({ value: 'Another document', abortSignal: AbortSignal.timeout(5_000) });
@@ -992,6 +1021,7 @@ See [single-input results](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#r
 
 `Reranker` orders candidate documents by relevance to a query. Use it after keyword, vector, or hybrid retrieval to select useful context for an LLMAgent or improve search results.
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const reranker = create.Reranker({ model: rerankingModel });
 const ranked = await reranker.run({
@@ -1012,6 +1042,7 @@ Supply `query`, `documents`, and optionally `topN` in `.run()`. The ordinary cal
 
 As a tool, the model supplies only the query. Candidates come from configured `documents` or from a preparer, so the model never copies documents into its tool arguments. A function preparer can fetch candidates for each query, making one component a retrieve-and-rerank tool:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const findPolicy = create.Reranker.withFunction.asTool({
   model: rerankingModel,
@@ -1030,6 +1061,7 @@ The result preserves the SDK ranking and document mapping. Reranker operates on 
 
 `ImageGenerator` generates images from a prompt and supports editing when the model provides it.
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const illustrator = create.ImageGenerator({ model: imageModel });
 const pictures = await illustrator.run({
@@ -1048,6 +1080,7 @@ The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#return
 
 An image exposes `.uint8Array`, `.base64`, and `.mediaType`. For editing, supply the source bytes in a prompt object:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 import { readFile } from 'node:fs/promises';
 
@@ -1066,6 +1099,7 @@ This requires an editing-capable model. Serve image bytes with their reported me
 
 `Transcriber` turns a recording into a completed transcript.
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 import { readFile } from 'node:fs/promises';
 
@@ -1085,6 +1119,7 @@ Use `.withScript`, `.withFunction`, or `.loadsScript` to obtain audio before tra
 
 `StreamingTranscriber` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It is exported as `Experimental_StreamingTranscriber` while the SDK's `experimental_streamTranscribe` is experimental.
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const transcriberStream = create.Experimental_StreamingTranscriber({
   model: streamingTranscriptionModel,
@@ -1107,6 +1142,7 @@ Casai preserves transcript delta, partial, and final events rather than converti
 
 Script/function modifiers can obtain raw audio; the format remains an invocation setting. `.asTool` is available only after `.withScript`, `.withFunction`, or `.loadsScript`. Its model-facing arguments are the preparer's named input fields, not a raw stream:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const transcribeRecording = create.Experimental_StreamingTranscriber.withFunction.asTool({
   model: streamingTranscriptionModel,
@@ -1124,6 +1160,7 @@ Here `openRecordingAsPcmStream` is an application helper that opens a fresh, fin
 
 `SpeechGenerator` converts text into spoken audio.
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const speaker = create.SpeechGenerator({ model: speechModel });
 const spoken = await speaker('Your replacement is on its way.');
@@ -1137,6 +1174,7 @@ The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech#retur
 
 `spoken.audio` exposes `.uint8Array`, `.base64`, and `.mediaType`. To return playable audio from a server handler:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const audioResponse = new Response(Uint8Array.from(spoken.audio.uint8Array), {
   headers: { 'Content-Type': spoken.audio.mediaType },
@@ -1151,6 +1189,7 @@ When saving to a file, choose an extension matching the actual media type or con
 
 In the SDK's realtime design, the browser runs the session: it captures and plays audio, sends text, interrupts responses, and receives tool calls. The server creates a short-lived token for each session, with the instructions and voice included, and runs tools that need server-side data or secrets. `VoiceSessionSetup` is that server half:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const support = create.Experimental_VoiceSessionSetup.withTemplate({
   model: realtimeModel,
@@ -1193,6 +1232,7 @@ LLMAgent tool arguments supply its application context. To turn named fields int
 
 A plain `.asTool` uses a configured literal prompt; `.loadsText.asTool` uses a configured resource name. Both can accept declared context fields for hooks, such as `language`, or an empty input schema such as `z.object({})` when no public data is needed. Their ordinary application calls retain the usual explicit source overrides.
 
+<!-- typecheck: agent-tool -->
 ```typescript
 const summarizeTool = create.LLMAgent.withTemplate.asTool({
   model,
@@ -1243,6 +1283,7 @@ An SDK tool can yield preliminary results from an async generator. When called t
 
 Template, Script, and Function call reusable operations as normal context methods. An LLMAgent can expose the same implementation as an SDK tool, allowing the model to choose when to call it. Native components need only the callable helper in `context`:
 
+<!-- typecheck: coded-tools -->
 ```typescript
 const numberInput = z.object({ a: z.number(), b: z.number() });
 const multiplyNumbers = create.Function({
@@ -1290,6 +1331,7 @@ Template, Script, and Function also accept configured `tools` and `toolsContext`
 
 The [configuration merge rules](#configuration-management) apply to coded registries too: replacing an inherited tool replaces its whole definition; setting its entry to `null` or `undefined` removes it. Removed tools have no injected wrapper or required `toolsContext` entry. Coded `.run()` can override context for the fixed tools but cannot change their definitions.
 
+<!-- typecheck: model-script-tools -->
 ```typescript
 const tools = { multiply: multiplyTool };
 
@@ -1313,6 +1355,7 @@ Keep one application `inputSchema`, parsed values, configured defaults and the p
 
 Configured values need no separate schema merely to be available to an implementation:
 
+<!-- typecheck: private-tool-context -->
 ```typescript
 const scale = create.Function.asTool({
   description: 'Scale a number by the configured factor.',
@@ -1340,6 +1383,7 @@ Casai `.asTool` configuration accepts optional `toolContextSchema`. It validates
 
 Top-level `contextSchema` is forbidden in Casai factory configuration and reusable `Config` fragments, including inherited configuration. Types reject it, and runtime construction throws `ConfigError` directing you to `toolContextSchema`, even if the wrong key is explicitly `undefined` or both names are supplied. Native SDK tools inside `tools` retain their valid `contextSchema` property. An ordinary application field named `contextSchema` inside `config.context` is unaffected.
 
+<!-- typecheck: tool-context -->
 ```typescript
 const contextualScale = create.Function.asTool({
   description: 'Scale a number by an application-provided factor.',
@@ -1380,6 +1424,7 @@ For configured `factor: 3`, bound context `{ factor: 5 }`, and omitted arguments
 
 **Native SDK registration:** a Casai owner binds its registry automatically. To register a Casai tool directly with an SDK agent and also supply incoming context, create the matching pair with `bindToolContext`:
 
+<!-- typecheck: bound-tool -->
 ```typescript
 const scaleByFive = contextualScale.bindToolContext({ factor: 5 });
 const agent = new ToolLoopAgent({
@@ -1397,6 +1442,7 @@ const agent = new ToolLoopAgent({
 
 Function and `.withFunction` infer `_toolOptions` as the shared exported `ComponentExecutionOptions` type. It is derived from the SDK, with native `context` omitted and call ID/messages optional because the same callback also handles ordinary calls:
 
+<!-- typecheck: execution-options-type -->
 ```typescript
 import type { ToolExecutionOptions } from 'ai';
 
@@ -1408,6 +1454,7 @@ type ComponentExecutionOptions =
 
 Applications normally use the inferred type; reusable helpers can import `ComponentExecutionOptions` from Casai rather than repeat this definition. Native SDK tool executors still receive the full SDK options type, with required tool metadata and separately typed `context`.
 
+<!-- typecheck: execution-options -->
 ```typescript
 // factor comes from configuration or tool context.
 execute: ({ value, factor, _toolOptions }) => {
@@ -1422,6 +1469,7 @@ Pass selected application fields to another component, for example `child({ valu
 
 Incoming tool context is not automatically forwarded to an inner registry. A Function bridge can pass it explicitly to a reusable Script or Template through that component's `.run()` settings:
 
+<!-- typecheck: forward-cancellation -->
 ```typescript
 // pipeline is an existing component with a registered lookup tool.
 execute: ({ id, db, _toolOptions }) => pipeline.run({
@@ -1441,6 +1489,7 @@ Tool definitions and `toolsContext` merge by tool name through configuration and
 
 An LLMAgent can return control when a tool needs approval or an external result. A larger `stopWhen` limit does not resolve that pending input. With SDK 7, use `toolApproval` for an approval policy:
 
+<!-- typecheck: approvals -->
 ```typescript
 const reviewCalculator = create.LLMAgent({
   model,
@@ -1457,6 +1506,7 @@ const requests = pending.content.filter(
 
 The call returns these requests; it does not remain open waiting for a person. Collect the decisions in your application, then continue with `.resume()`:
 
+<!-- typecheck-skip: phase-4 -->
 ```typescript
 const result = await reviewCalculator.resume({
   messageHistory: pending.messageHistory,
@@ -1493,6 +1543,7 @@ Configured inline templates and scripts are compiled for reuse, with syntax erro
 
 The shared [context](#shared-configuration) can contain values, synchronous or asynchronous functions, promises, and other components. In templates and scripts, Cascada resolves asynchronous values when their results are needed:
 
+<!-- typecheck: template-context -->
 ```typescript
 const orderStatus = create.Template({
   template: 'Order {{ id }}: {{ getStatus(id) }}',
@@ -1511,6 +1562,7 @@ These helpers use the same [application input and private-binding rules](#input-
 
 Filters transform values using the template pipeline operator. They may be synchronous or asynchronous:
 
+<!-- typecheck: filters -->
 ```typescript
 const label = create.Template({
   template: '{{ title | shout }}',
@@ -1524,6 +1576,7 @@ console.log(await label({ title: 'Weekly report' }));
 
 A loader resolves named sources for `.loadsText`, `.loadsTemplate`, and `.loadsScript`, as well as template/script imports and includes.
 
+<!-- typecheck: loaded-agent -->
 ```typescript
 import { FileSystemLoader } from 'casai';
 
@@ -1547,6 +1600,7 @@ Put a template such as `Summarize this document: {{ text }}` in `./prompts/summa
 
 A loader function returns source text, a `{ src, path, noCache }` object, or `null` when it cannot find the resource. It may return a promise. Plain `.loadsText` requires text source, rather than a precompiled template or script.
 
+<!-- typecheck: custom-loader -->
 ```typescript
 const sources: Record<string, string> = {
   'welcome.njk': 'Welcome {{ name }}!',
@@ -1560,14 +1614,62 @@ const welcome = create.Template.loadsTemplate({
 console.log(await welcome({ name: 'Ada' }));
 ```
 
-Loader arrays provide sequential fallback. Inheritance tries child loaders before parent loaders. Use `race([loaderA, loaderB], 'groupName')`, imported from `casai`, to load concurrently and use the first successful result. Matching named groups merge across inheritance, and duplicate loader instances are removed.
-
 For custom object/class loaders, implement `load(name)` with the same return contract. Optional `isRelative(name)` and `resolve(from, to)` methods support relative imports; an optional `on(event, handler)` interface supports load/update events and cache invalidation. Return `null` for a missing resource to permit fallback, and throw for an actual loading failure.
+
+#### Loader Composition and Inheritance
+
+**Agreed design, awaiting implementation:** Casai will expose Cascada's `raceLoaders(array)` and add `raceParent(group)` and `overrideParent(group)`. Recursive chains and relative-import overrides also require Cascada changes. The current implementation is described at the end of this section.
+
+Use a chain when order matters and a race when adding another collection of resources:
+
+| Composition | Lookup |
+| :--- | :--- |
+| `[loaderA, loaderB]` | Try A, then B only if A returns `null` |
+| `raceLoaders([loaderA, loaderB])` | Start both; use the first successful result |
+| `raceLoaders([[loaderA, loaderB], loaderC])` | Race the A-then-B chain against C |
+| `raceLoaders([[loaderA, loaderB]])` | One competitor: the A-then-B chain |
+
+**The main use of a race is concurrent discovery across different resource collections.** For example, one loader holds billing templates and another holds support templates. Both start looking for a requested name immediately, so finding a support template does not wait for the billing loader to report a miss. The same resource need not exist in both. Racing duplicate copies is also supported, but completion order then determines which copy wins; use a chain for deliberate overrides.
+
+`raceLoaders` takes exactly one array argument: its entries are the competitors. An array *inside* that list is one sequential chain. Empty and single-member lists are valid, so callers can assemble lists from configuration without special cases. An empty race is a miss. If every competitor misses, outer fallback can continue; if none succeeds and one fails, the race reports a loading error. Already-started loads are not cancelled.
+
+Casai's parent modifiers select how a child loader group combines with inherited loaders:
+
+| Whole `loader` property | Inheritance |
+| :--- | :--- |
+| `raceParent(group)` | Race the child group against the inherited group |
+| `overrideParent(group)` | Use only the supplied group |
+| Omitted | Keep the inherited group |
+
+For example, let `remoteA` hold billing resources, `remoteB` hold support resources, and `sharedLoader` hold shared resources. All four variables below are ordinary configured loaders:
+
+<!-- typecheck-skip: loader-composition -->
+```typescript
+import { create, raceLoaders, raceParent } from 'casai';
+
+const parent = create.Config({ loader: sharedLoader });
+const page = create.Template.loadsTemplate({
+  template: 'billing/invoice.njk',
+  loader: raceParent([
+    localLoader,
+    raceLoaders([remoteA, remoteB]),
+  ]),
+}, parent);
+```
+
+The inherited group and `localLoader` start together. If `localLoader` misses, the child starts `remoteA` and `remoteB` together. The first success from the child or inherited group supplies the resource. Local priority applies within the child chain; it does not give the child priority over the inherited group. To replace the inherited group entirely, use `overrideParent(...)` around that same child chain.
+
+Parent modifiers apply only to the whole `loader` property: do not nest them inside arrays or races. Chains and races themselves can nest freely, without group names or automatic named-group merging. For an unusual arrangement, explicitly include `parent.config.loader` inside `overrideParent(...)`.
+
+Ordered overrides also apply to relative imports in the agreed design: if `[overrides, base]` finds `pages/main` in `base`, its `./part` import searches for `pages/part` in `overrides` first, then `base`. A race preserves the winning member's resolution scope, which can itself be a chain; it does not search unrelated competitors for relative dependencies. Successful cacheable sources are reused until invalidation; `noCache` and reload policies can trigger discovery again.
+
+**Current implementation:** Casai still exports `race(loaders, groupName?)`; matching named groups merge across inheritance. Child loaders precede parent loaders, and an empty or `undefined` loader value retains the parent chain. Cascada supports nested races, but not arrays nested inside chains or races. Relative imports stay with their source loader. `raceParent` and `overrideParent` are not available yet. The ordinary parent/child lookup order for the new API remains open; the explicit modifiers above are settled. See the [implementation plan](docs/plan.md#loader-composition-and-inheritance).
 
 ### Render Options
 
 `renderOptions` configures Cascada rendering, for example `trimBlocks` or standalone template HTML escaping:
 
+<!-- typecheck: render-options -->
 ```typescript
 const page = create.Template({
   template: '<h1>{{ title }}</h1>',
@@ -1607,6 +1709,7 @@ For LLMAgent, common settings include:
 
 Casai does not impose sampling defaults. An omitted setting uses SDK/provider behavior. Use current SDK setting names in configuration and `.run()`, such as `instructions`, `telemetry`, `repairToolCall`, and `include`; deprecated setting aliases are rejected. `abortSignal` is a per-call setting and is rejected in constructor configuration. For cancellation, pass an abort signal for one call:
 
+<!-- typecheck: caller-signal -->
 ```typescript
 const result = await explain.run({
   context: { topic: 'solar panels' },
@@ -1618,6 +1721,7 @@ const result = await explain.run({
 
 Callbacks are useful for recording usage, inspecting tool activity, and updating application state:
 
+<!-- typecheck: observers -->
 ```typescript
 const observed = create.LLMAgent({
   model,
@@ -1648,13 +1752,14 @@ Use `prepareCall` for request-wide decisions and `prepareStep` for decisions bas
 The arguments have distinct roles:
 
 - `request` contains editable SDK settings and `messages`: the rendered/literal conversation plus history. It contains no application context or custom options. `step` contains native step information, including `stepNumber`, completed `steps`, and current messages/model; it is not a complete request to spread back.
-- `config` is the flat configuration plus supported call overrides, resolved for this invocation before the hook. It includes `config.context` as configuration/input data and `config.prompt` as the selected source.
-- `context` is the final prepared application object, after merging defaults, input-schema processing and private bindings. Rendered calls pass this same object to their prompt preparer. Defaults, stripping and transforms can make it differ from `config.context`.
+- `config` is the flat configuration plus supported call overrides, resolved for this invocation before the hook. Its `context` includes caller overrides of public defaults, before parsing; its `prompt` is the selected source.
+- `context` is the final prepared application object, after merging defaults, input-schema processing and private bindings. Rendered calls pass this same object to their prompt preparer. Defaults, stripping and transforms can make it differ from `config.context`. SDK tool arguments enter this object; their raw form is not reconstructed in `config`.
 
 Both hooks receive the same config/context objects throughout the invocation; evolving state is in `step`. Reusable hooks can annotate an unused config parameter as `unknown`, or declare only the settings they consume, so unrelated config types do not become dependencies. Callbacks may ignore unused arguments. Native one-argument step callbacks work; native call hooks that read `options` need an explicit adapter to the third argument.
 
 One schema covers data used by both the renderer and hooks. Here, `model` supports tools and `search` is an application-provided tool:
 
+<!-- typecheck: hooks -->
 ```typescript
 import { isStepCount } from 'ai';
 
@@ -1691,6 +1796,7 @@ The first step requests `search`; if the loop continues, the second answers with
 
 **SDK calls use `options` as the native name for that same raw context.** They apply the same `inputSchema` and configured defaults, but skip loading/rendering the configured prompt. Required fields remain required, even if only the skipped renderer uses them:
 
+<!-- typecheck: native-context -->
 ```typescript
 await researcher.generate({
   prompt: 'Research perovskite solar cells.', // Literal conversation.
@@ -1708,7 +1814,7 @@ The types keep that boundary explicit:
 
 Casai's `.generate()`/`.stream()` let you omit `options` when no context input remains required after defaults; otherwise its required fields must be supplied. Omission still runs the shared input preparation. SDK helpers forward `options` to Casai so a reusable agent can receive request-specific data. Casai applies context's shallow merge, validation and private-binding rules, then consumes it before calling `generateText`/`streamText`. It is not automatically sent to the model or registered tools' `toolsContext`.
 
-The call hook can change the admitted SDK request settings, including `timeout`, streaming error handling/transforms/retries and sandbox. Its complete return wins on every entry path, including explicit SDK/UI settings; omitted or `undefined` editable fields are not restored. Spread `request` to retain them. Use `.run({ prepareCall: anotherHook })` to replace its policy. SDK/UI callers use a differently configured agent for different policy: unlike native `ToolLoopAgent`, their timeout/transform/sandbox settings remain editable by the hook.
+The call hook can change the admitted SDK request settings, including `timeout`, streaming error handling/transforms/retries and sandbox. Its complete return wins on every entry path, including explicit SDK/UI settings; omitted or `undefined` editable fields are not restored. Spread `request` to retain them. A replacement must include `toolsContext` when its declared tools require context. Use `.run({ prepareCall: anotherHook })` to replace its policy. SDK/UI callers use a differently configured agent for different policy: unlike native `ToolLoopAgent`, their timeout/transform/sandbox settings remain editable by the hook.
 
 Fixed output, caller cancellation, composed observers, approval policy/signing (`toolApproval` and `experimental_toolApprovalSecret`) and the whole `telemetry` setting stay outside the editable request. Configure these normally; supported `.run()` overrides still apply. Use the native `toolApproval` callback for dynamic approval decisions. `prepareStep` keeps native partial overrides, with no timeout override.
 
@@ -1718,6 +1824,7 @@ Both hooks may be asynchronous and call ordinary components; see [dynamic instru
 
 For example, with `detail` declared in `inputSchema`, a call hook can choose its timeout:
 
+<!-- typecheck: context-timeout -->
 ```typescript
 prepareCall: (request, config, context) => ({
   ...request,
@@ -1735,6 +1842,7 @@ Place components in context to call them from Cascada. Use scripts to assemble d
 
 This workflow creates a summary and extracts tags independently:
 
+<!-- typecheck: orchestration -->
 ```typescript
 const summarizeText = create.LLMAgent.withTemplate({
   model,
@@ -1767,6 +1875,7 @@ Both operations can run concurrently because neither depends on the other's resu
 
 ### Template for Presentation
 
+<!-- typecheck: presentation -->
 ```typescript
 const report = create.Template({
   template: `
@@ -1783,18 +1892,19 @@ console.log(await report(analysis));
 
 A template can also invoke an asynchronous component directly, for example `{{ summarizeText({ text: text }).value }}` when `summarizeText` is a non-streaming text LLMAgent supplied in its context. Casai doesn't detect LLMAgent results, so a template reads `.value` explicitly, as a Script does. Use JavaScript helpers in context for application-specific behavior; Cascada resolves their promises like component calls.
 
-Before Phase 6, a streaming text agent's `value` is an async iterable and cannot be interpolated directly as a scalar. Consume it with the template's supported async loop, or use a non-streaming agent:
+Before Phase 6, a streaming agent with omitted `output` returns an async iterable as `value`; it cannot be interpolated directly as a scalar. Consume it with the template's supported async loop, or use a non-streaming agent:
 
 ```nunjucks
 {% for chunk in writeText({ text: text }).value %}{{ chunk }}{% endfor %}
 ```
 
-The same loop works with the current TextStreamer. Reading `.text` instead bypasses `value`'s output-availability checks and is not a general substitute. Automatic collection during scalar interpolation belongs to the Phase 6 integration.
+Explicit `Output.text()` instead gives a promised final string through `value`. Reading native `.text` bypasses `value`'s output-availability checks and is not a general substitute. Automatic collection of iterable values during scalar interpolation belongs to the Phase 6 integration.
 
 ### Streaming Through Templates and Scripts
 
 The Phase 6 integration preserves each nested call's declared contract when streaming a parent. A child streams when it was created with `.asStream`, or is a Script or Function whose schema declares a stream. In the newsletter above, `writeIntro` is explicitly a streaming LLMAgent; Phase 6 lets the Template collect its text during generation or forward its chunks during streaming without changing source:
 
+<!-- typecheck-skip: phase-6 -->
 ```typescript
 const page = await newsletter({ topic: 'battery recycling' });
 const live = await liveNewsletter({ topic: 'battery recycling' });
@@ -1835,6 +1945,7 @@ Approval is also scoped to the model-loop call. A trusted Script, Template or Fu
 
 Script failures propagate through dependent values while unrelated work can continue. Bind a result and use `is error` when you want a fallback:
 
+<!-- typecheck: recovery -->
 ```typescript
 const resilientSummary = create.Script({
   context: { summarizeText },
@@ -1855,6 +1966,7 @@ A bare side-effect call discards its result, including a failure; bind and inspe
 
 Each call carries the conversation so far as its `messageHistory`. The ordinary call takes the new prompt or context first and the message history last, and the result's `messageHistory` holds that history, the new turn, and the reply. Store it and pass it to the next call. A component holds no conversation of its own, so one component serves many users.
 
+<!-- typecheck: history -->
 ```typescript
 import type { ModelMessage } from 'ai';
 
@@ -1878,6 +1990,7 @@ messageHistory = second.messageHistory;
 
 To continue with history alone:
 
+<!-- typecheck: history-run -->
 ```typescript
 const continued = await chat.run({ messageHistory });
 ```
@@ -1908,6 +2021,7 @@ Casai does not persist, summarize, or truncate history automatically. Store it p
 
 Pass a new message as data in rendering context, alongside previously prepared history. Casai renders the configured template for this call and keeps the rendered prompt in the returned history:
 
+<!-- typecheck: rendered-history -->
 ```typescript
 const templatedChat = create.LLMAgent.withTemplate({
   model,
@@ -1931,6 +2045,7 @@ For a UI conversation, store the prepared `messageHistory` in the application an
 
 For image understanding, pass an image content part to a capable language model:
 
+<!-- typecheck: vision -->
 ```typescript
 const vision = create.LLMAgent({ model: visionModel });
 const description = await vision([
@@ -1972,6 +2087,7 @@ The model may choose tools from this map. To reuse their application implementat
 
 The SDK methods choose the mode themselves, so a streaming helper can use any LLMAgent:
 
+<!-- typecheck: native-methods -->
 ```typescript
 const writer = create.LLMAgent({ model });
 const streamer = create.LLMAgent.asStream({ model });
@@ -1987,12 +2103,15 @@ console.log(complete.output);
 
 `.stream()` delegates to SDK model streaming regardless of `.asStream`. `.generate()` delegates to SDK generation. Each starts one execution with the configured stopping condition; Casai retains the SDK's result fields, events, usage, and callbacks.
 
+These methods accept native Agent parameters, including `options` for application input. Use `.run()` for Casai settings overrides such as `model` or `prepareCall`; derive another component to change fixed contracts such as `output`.
+
 ### What the Chat UI Uses
 
 The chat client sends `UIMessage[]` to a server handler. The SDK helper validates the messages, converts them to `ModelMessage[]`, calls LLMAgent's `.stream({ prompt: convertedMessages, ... })`, and consumes the SDK event stream to produce assistant message parts. A raw native text or element stream is a different contract. See the [SDK UI response helper](https://ai-sdk.dev/docs/reference/ai-sdk-core/create-agent-ui-stream-response).
 
 **Any non-tool LLMAgent whose input requirements are satisfied can serve this handler, including one with `stopWhen: isStepCount(1)`.** The limit counts model steps within a request, not chat turns. A single step can execute tools and emit UI tool parts, but cannot make another model call to write an answer using their results. Increase the limit when that follow-up is needed.
 
+<!-- typecheck: ui -->
 ```typescript
 import { createAgentUIStreamResponse } from 'ai';
 
@@ -2025,6 +2144,7 @@ The helper supplies a literal conversation and passes application context as nat
 
 Put shared behavior in `instructions`. For instructions that depend on the request, use application context and `prepareCall` to render a Template once, while keeping the full incoming conversation intact:
 
+<!-- typecheck: dynamic-instructions -->
 ```typescript
 const chatInstructions = create.Template({
   template: 'Answer clearly and concisely in {{ language }}.',
@@ -2057,6 +2177,7 @@ Keep the application operation's **input and returned value** stable, then put t
 
 A Script can call the same `summarize({ text })` operation whether its implementation uses a model or coded logic:
 
+<!-- typecheck: text-interchange -->
 ```typescript
 const summaryInput = z.object({ text: z.string() });
 const modelSummary = create.LLMAgent.withTemplate({
@@ -2087,6 +2208,7 @@ A Template that accepts `{ text }` and returns a string can also occupy this con
 
 Reuse one application schema, with the configuration appropriate to each implementation:
 
+<!-- typecheck: structured-interchange -->
 ```typescript
 const answerInput = z.object({ question: z.string() });
 const answerSchema = z.object({ answer: z.string(), confidence: z.number() });
@@ -2123,6 +2245,7 @@ Before Phase 7, a numeric `timeout` or the SDK timeout object's `totalMs` retain
 
 `timeout` is replaced as a whole. Returning `timeout: { stepMs: 5_000 }` removes an earlier total limit, including the local total deadline in Phase 7. To add a step limit while retaining the total and other limits:
 
+<!-- typecheck: step-timeout -->
 ```typescript
 prepareCall: request => ({
   ...request,
@@ -2172,6 +2295,7 @@ Use Embedder to index document text and embed search queries. Your vector store 
 
 The following example assumes your application provides `searchIndex(vector)`, which returns document strings from an index built with the same embedding model:
 
+<!-- typecheck-skip: phase-5 -->
 ```typescript
 const embedder = create.Embedder({ model: embeddingModel });
 const reranker = create.Reranker({ model: rerankingModel });
@@ -2214,6 +2338,7 @@ Explicit SDK `Output` and tool objects retain native interfaces, parsing, and tr
 
 Custom schema callbacks must be **pure**: check or compute a value without changing data they receive, changing shared data, or performing external operations. This applies to validators, refinements, preprocessors, transforms, and default/catch factories. If a transform changes an object or array, return a new one. Copy any nested object you change as well; unchanged parts can stay shared:
 
+<!-- typecheck: pure-transform -->
 ```typescript
 const profileSchema = z.object({
   profile: z.object({ name: z.string(), city: z.string() })
@@ -2235,6 +2360,7 @@ Schema processing uses the SDK's supported schema interfaces, including lazy SDK
 
 Configuration may supply some required fields and the call supplies the rest. Resolve those values using the existing merge rules, then validate the merged application context once:
 
+<!-- typecheck: input-defaults -->
 ```typescript
 const welcome = create.LLMAgent.withTemplate({
   model,
@@ -2252,6 +2378,7 @@ The shorthand caller and `.run({ context })` use the same input types. A supplie
 
 For example, a schema can convert a string without modifying the caller's object:
 
+<!-- typecheck: parsed-input -->
 ```typescript
 const increment = create.Function({
   inputSchema: z.object({ count: z.string().transform(Number) }),
@@ -2291,6 +2418,7 @@ Script/Function `schema` parses completed values and returns the produced result
 
 When migrating a schema-less component that accepts arbitrary template variables, use an open schema to retain unrelated inputs. A plain `z.object({ name: z.string() })` strips an undeclared `extra` at runtime, and closed-shape call types reject it. `z.looseObject` preserves it:
 
+<!-- typecheck: open-input -->
 ```typescript
 const greeting = create.Template({
   template: 'Hello {{ name }}! {{ extra }}',
@@ -2331,6 +2459,7 @@ Injected tool calls use Casai's `ValidationError` for argument and tool-context 
 
 For streaming, handle event errors as well as thrown errors. This example uses the full event stream so tool failures are visible alongside text:
 
+<!-- typecheck: stream-errors -->
 ```typescript
 const controller = new AbortController();
 
@@ -2367,6 +2496,7 @@ For cancellation setup and the current limits on nested propagation, see [Cancel
 
 Casai infers input types from schemas, context, and function signatures. Output specifications determine the type of generated values; tool maps retain typed arguments and results. Use `import type` for SDK types such as `ModelMessage` and `ToolExecutionOptions`.
 
+<!-- typecheck: type-checking -->
 ```typescript
 const classify = create.LLMAgent.withTemplate({
   model,
@@ -2388,6 +2518,7 @@ Inheritance checks the final configuration. A per-call override preserves the co
 
 Test orchestration with deterministic helpers in context, without making model calls. A test double only needs to supply the values that the workflow consumes:
 
+<!-- typecheck: mock-workflow -->
 ```typescript
 import assert from 'node:assert/strict';
 

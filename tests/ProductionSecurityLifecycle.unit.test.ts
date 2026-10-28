@@ -133,9 +133,9 @@ describe('Production security lifecycle and native boundaries', () => {
 					assert.equal(logged.length, 1);
 					assert.ok(safeContextError(logged[0]), 'Native default logging retains the private diagnostic cause.');
 					const handled: unknown[] = [];
-					const streamer = create.TextStreamer({ model, messages, tools: { probe: fresh.tool }, toolsContext: { probe: fresh.context },
+					const streamer = create.LLMAgent.asStream({ model, prompt: messages, tools: { probe: fresh.tool }, toolsContext: { probe: fresh.context },
 						onError: ({ error }) => { handled.push(error); } });
-					const explicit = streamer();
+					const explicit = (await streamer());
 					await assert.rejects(async () => { for await (const _chunk of explicit.value) { /* consume */ } }, safeContextError);
 					assert.equal(handled.length, 1);
 					assert.ok(safeContextError(handled[0]));

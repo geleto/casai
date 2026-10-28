@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import { create, z } from 'casai';
 import type { FunctionConfig } from 'casai';
 import type { LanguageModel } from 'ai';
@@ -94,7 +95,7 @@ const fragment = create.Config({ inputSchema, execute: ({ value }) => {
 	return value;
 } });
 void create.Function({}, fragment)({ value: '5' });
-const inheritedPrompt = create.TextGenerator.withFunction({ model, prompt: ({ value }) => {
+const inheritedPrompt = create.LLMAgent.withFunction({ model, prompt: ({ value }) => {
 	expectEqual<typeof value, string | number>();
 	return String(value);
 } }, parent);
@@ -108,7 +109,7 @@ const template = create.Template({ inputSchema, template: '{{ value }}', context
 void template();
 // @ts-expect-error Run must protect fields private in the absent branch.
 void template.run({ context: { value: '7' } });
-const text = create.TextGenerator.withFunction({ model, inputSchema, prompt: ({ value }) => {
+const text = create.LLMAgent.withFunction({ model, inputSchema, prompt: ({ value }) => {
 	expectEqual<typeof value, string | number>();
 	return String(value);
 } });
@@ -116,24 +117,24 @@ void text({ value: '5' });
 void text.run({ context: { value: '5' } });
 // @ts-expect-error Required input cannot be omitted.
 void text.run({});
-const stream = create.TextStreamer.withFunction({ model, inputSchema, context: { value: '5' }, prompt: ({ value }) => {
+const stream = create.LLMAgent.withFunction.asStream({ model, inputSchema, context: { value: '5' }, prompt: ({ value }) => {
 	expectEqual<typeof value, string | number>();
 	return String(value);
 } });
 void stream();
 // @ts-expect-error Run cannot overwrite a possibly private field.
 void stream.run({ context: { value: '7' } });
-const object = create.ObjectGenerator.withFunction({ model, inputSchema, schema: z.object({ answer: z.string() }), prompt: ({ value }) => {
+const object = create.LLMAgent.withFunction({ model, inputSchema, prompt: ({ value }) => {
 	expectEqual<typeof value, string | number>();
 	return String(value);
-} });
+}, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 void object({ value: '5' });
-const objectStream = create.ObjectStreamer.withFunction({ model, inputSchema, schema: z.object({ answer: z.string() }), prompt: ({ value }) => {
+const objectStream = create.LLMAgent.withFunction.asStream({ model, inputSchema, prompt: ({ value }) => {
 	expectEqual<typeof value, string | number>();
 	return String(value);
-} });
+}, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 void objectStream.run({ context: { value: '5' } });
-const rendered = create.TextGenerator.withTemplate({ model, inputSchema, prompt: '{{ value }}', context: { value: '5' } });
+const rendered = create.LLMAgent.withTemplate({ model, inputSchema, prompt: '{{ value }}', context: { value: '5' } });
 void rendered();
 // @ts-expect-error Rendered calls have the same privacy rule.
 void rendered({ value: '7' });

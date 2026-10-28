@@ -46,16 +46,16 @@ const newFragment = create.Config({
 }, owner);
 void create.Function({}, newFragment)();
 
-const preparer = create.TextGenerator.withFunction({
+const preparer = create.LLMAgent.withFunction({
 	model, tools: { defaulted }, toolsContext: { defaulted: { value: 4 } },
 	prompt: async ({ defaulted }) => String(await defaulted({})),
 });
 // @ts-expect-error A retained preparer also depends on the captured public default.
 void preparer.run({ toolsContext: { defaulted: {} } });
 // @ts-expect-error The inherited preparer retains the same helper contract.
-create.TextGenerator.withFunction({ toolsContext: { defaulted: {} } }, preparer);
+create.LLMAgent.withFunction({ toolsContext: { defaulted: {} } }, preparer);
 void preparer.run({ toolsContext: { defaulted: { value: 5 } } });
-create.TextGenerator.withFunction({
+create.LLMAgent.withFunction({
 	toolsContext: { defaulted: {} }, prompt: async ({ defaulted }) => String(await defaulted({ value: 6 })),
 }, preparer);
 
@@ -67,27 +67,27 @@ const fromNumber = create.Function.asTool({
 	inputSchema: z.object({ value: z.number() }),
 	toolContextSchema: z.object({ factor: z.number() }), context: { factor: 1 }, execute: ({ value }) => value,
 });
-const rawCaller = create.TextGenerator.withFunction({
+const rawCaller = create.LLMAgent.withFunction({
 	model, tools: { operation: fromText }, toolsContext: { operation: { factor: 1 } },
 	prompt: async ({ operation }) => String(await operation({ value: '4' })),
 });
-create.TextGenerator.withFunction({
+create.LLMAgent.withFunction({
 	tools: { operation: fromNumber }, prompt: async ({ operation }) => String(await operation({ value: 4 })),
 }, rawCaller);
 void rawCaller.run({ tools: { operation: fromText } });
 // @ts-expect-error Equal parsed outputs do not make different raw inputs interchangeable.
 void rawCaller.run({ tools: { operation: fromNumber } });
 // @ts-expect-error An inherited preparer retains its original raw calls.
-create.TextGenerator.withFunction({ tools: { operation: fromNumber } }, rawCaller);
+create.LLMAgent.withFunction({ tools: { operation: fromNumber } }, rawCaller);
 // Model-only registries use the SDK descriptor contract, with no coded helper consumer.
-void create.TextGenerator({
+void create.LLMAgent({
 	model, prompt: 'ready', tools: { operation: fromText }, toolsContext: { operation: { factor: 1 } },
 }).run({ tools: { operation: fromNumber } });
 
 // Native scalar/array helpers retain their native (non-generic) call contracts.
 const nativeNumber = tool({ inputSchema: z.number(), execute: value => value });
 const nativeArray = tool({ inputSchema: z.array(z.number()), execute: value => value.length });
-const nativeOwner = create.TextGenerator.withFunction({
+const nativeOwner = create.LLMAgent.withFunction({
 	model, tools: { nativeNumber, nativeArray },
 	prompt: async helpers => String(await helpers.nativeNumber(3) + await helpers.nativeArray([1, 2])),
 });
@@ -140,7 +140,7 @@ const factorSchema = z.object({ value: z.number(), factor: z.number().default(2)
 const defaultedFactor = create.Function.asTool({ inputSchema: factorSchema, execute: input => input.value * input.factor });
 const factorOwner = create.Function({ tools: { operation: configuredFactor }, execute: ({ operation }) => operation({ value: 3 }) });
 void create.Function({ tools: { operation: defaultedFactor } }, factorOwner)();
-const factorPreparer = create.TextGenerator.withFunction({ model, tools: { operation: configuredFactor },
+const factorPreparer = create.LLMAgent.withFunction({ model, tools: { operation: configuredFactor },
 	prompt: async ({ operation }) => String(await operation({ value: 3 })) });
 void factorPreparer.run({ tools: { operation: defaultedFactor } });
 
@@ -150,13 +150,13 @@ const parsedOperation = create.Function.asTool({ inputSchema: z.object({ value: 
 	toolContextSchema: parsedContext, context: { factor: 1 }, execute: input => input.value * input.factor });
 const parsedReplacement = create.Function.asTool({ inputSchema: z.object({ value: z.number() }),
 	toolContextSchema: z.object({ factor: z.union([z.string(), z.number()]).transform(Number) }), context: { factor: 1 }, execute: input => input.value * input.factor + 1 });
-const parsedPreparer = create.TextGenerator.withFunction({ model, tools: { operation: parsedOperation },
+const parsedPreparer = create.LLMAgent.withFunction({ model, tools: { operation: parsedOperation },
 	toolsContext: { operation: { factor: '3' } }, prompt: async ({ operation }) => String(await operation({ value: 2 })) });
-const parsedStreamPreparer = create.TextStreamer.withFunction({ model, tools: { operation: parsedOperation },
+const parsedStreamPreparer = create.LLMAgent.withFunction.asStream({ model, tools: { operation: parsedOperation },
 	toolsContext: { operation: { factor: '3' } }, prompt: async ({ operation }) => String(await operation({ value: 2 })) });
 void parsedPreparer.run({ tools: { operation: parsedReplacement } });
 void parsedStreamPreparer.run({ tools: { operation: parsedReplacement } });
-const parsedModel = create.TextGenerator({ model, prompt: 'ready', tools: { operation: parsedOperation }, toolsContext: { operation: { factor: '3' } } });
+const parsedModel = create.LLMAgent({ model, prompt: 'ready', tools: { operation: parsedOperation }, toolsContext: { operation: { factor: '3' } } });
 void parsedModel.run({ tools: { operation: parsedReplacement } });
 // @ts-expect-error Application-supplied context remains the raw schema input.
 void parsedPreparer.run({ toolsContext: { operation: { factor: 3 } } });
@@ -216,7 +216,7 @@ void withA.run({ toolsContext: { independentFields: branchDefaults } });
 
 const modelContext = { toolContextSchema: z.object({ factor: z.number() }), context: { factor: 1 } };
 const open = tool({ contextSchema: modelContext.toolContextSchema, inputSchema: z.looseObject({ value: z.number() }), execute: input => input.value });
-const openPreparer = create.TextGenerator.withFunction({ model, tools: { open }, toolsContext: { open: { factor: 1 } },
+const openPreparer = create.LLMAgent.withFunction({ model, tools: { open }, toolsContext: { open: { factor: 1 } },
 	prompt: async ({ open }) => String(await open({ value: 1, extra: 'text' })) });
 const closed = tool({ contextSchema: modelContext.toolContextSchema, inputSchema: z.object({ value: z.number() }), execute: input => input.value });
 // @ts-expect-error A closed replacement no longer accepts arbitrary public fields.
@@ -233,7 +233,7 @@ const mixed = tool({ contextSchema: modelContext.toolContextSchema, inputSchema:
 const changedMixed = tool({ contextSchema: modelContext.toolContextSchema, inputSchema: z.union([
 	z.strictObject({ kind: z.literal('a') }), z.looseObject({ kind: z.literal('b') }),
 ]), execute: () => 1 });
-const mixedOwner = create.TextGenerator.withFunction({ model, tools: { mixed }, toolsContext: { mixed: { factor: 1 } },
+const mixedOwner = create.LLMAgent.withFunction({ model, tools: { mixed }, toolsContext: { mixed: { factor: 1 } },
 	prompt: async ({ mixed }) => String(await mixed({ kind: 'a', extra: 'valid' })) });
 // @ts-expect-error Moving openness to another branch invalidates an existing call.
 void mixedOwner.run({ tools: { mixed: changedMixed } });

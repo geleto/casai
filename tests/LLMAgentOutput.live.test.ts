@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 import 'dotenv/config';
 import * as chai from 'chai';
@@ -12,7 +13,7 @@ chai.use(chaiAsPromised);
 
 const { expect } = chai;
 
-describe('create.ObjectGenerator', function () {
+describe('create.LLMAgent', function () {
 	this.timeout(timeout); // Increase timeout for tests that call the real API
 
 	// --- Schemas for testing ---
@@ -33,13 +34,9 @@ describe('create.ObjectGenerator', function () {
 
 	describe('Core Functionality by Output Type', () => {
 		it('should generate a single object with output: "object" (default) and allow property access', async () => {
-			const generator = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-				prompt: 'Generate a JSON object for an item named "Test" with a value of 42.',
-			});
+			const generator = create.LLMAgent({ model, ...temperatureConfig, prompt: 'Generate a JSON object for an item named "Test" with a value of 42.', output: Output.object({ schema: simpleSchema }) });
 
-			const { object } = await generator();
+			const { output: object } = await generator();
 			// Test direct property access and type
 			expect(object.name).to.equal('Test');
 			expect(object.value).to.equal(42);//check type
@@ -48,14 +45,9 @@ describe('create.ObjectGenerator', function () {
 		});
 
 		it('should generate an array of objects with output: "array"', async () => {
-			const generator = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				output: 'array',
-				schema: arraySchema.element, // Pass the element schema for arrays
-				prompt: 'Generate a JSON array with two items: {id: 1, item: "A"} and {id: 2, item: "B"}.',
-			});
+			const generator = create.LLMAgent({ model, ...temperatureConfig, prompt: 'Generate a JSON array with two items: {id: 1, item: "A"} and {id: 2, item: "B"}.', output: Output.array({ element: arraySchema.element }) });
 
-			const { object } = await generator();
+			const { output: object } = await generator();
 			expect(object).to.be.an('array').with.lengthOf(2);
 			expect(object[0].item).to.equal('A');//check type
 			expect(object).to.deep.equal([
@@ -66,14 +58,9 @@ describe('create.ObjectGenerator', function () {
 		});
 
 		it('should generate an enum value and allow type-safe assignment', async () => {
-			const generator = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				output: 'enum',
-				enum: enumValues,
-				prompt: 'From the list [Red, Green, Blue], choose the color of the sky. Output only the color name.',
-			});
+			const generator = create.LLMAgent({ model, ...temperatureConfig, prompt: 'From the list [Red, Green, Blue], choose the color of the sky. Output only the color name.', output: Output.choice({ options: [...enumValues] }) });
 
-			const { object: color } = await generator();
+			const { output: color } = await generator();
 			// This compile-time check confirms TypeScript infers the correct, specific enum type
 			const resultColor: Color = color;
 
@@ -83,13 +70,10 @@ describe('create.ObjectGenerator', function () {
 
 		it('should generate an object when prompt is provided only at runtime', async () => {
 			// Generator is created without a prompt
-			const generator = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-			});
+			const generator = create.LLMAgent({ model, ...temperatureConfig, output: Output.object({ schema: simpleSchema }) });
 
 			// Prompt is provided in the call
-			const { object } = await generator('Generate an object named "Prompt" with value 101.');
+			const { output: object } = await generator('Generate an object named "Prompt" with value 101.');
 			expect(object.value).to.equal(101);//check type
 			expect(object).to.deep.equal({ name: 'Prompt', value: 101 });
 		});
@@ -108,36 +92,29 @@ describe('create.ObjectGenerator', function () {
 		});
 
 		it('should inherit model, context, and filters from a parent create.Config', async () => {
-			const generator = create.ObjectGenerator.withTemplate(
-				{
-					schema: simpleSchema,
-					prompt: 'Generate an object with name set to "{{ entity | upper }}" and value set to {{ defaultId }}.',
-				},
+			const generator = create.LLMAgent.withTemplate(
+				{ prompt: 'Generate an object with name set to "{{ entity | upper }}" and value set to {{ defaultId }}.', output: Output.object({ schema: simpleSchema }) },
 				parentConfig,
 			);
 
 			expect(generator.config.model).to.exist;
 			expect(generator.config.temperature).to.equal(temperature ?? undefined);
 
-			const { object } = await generator();
+			const { output: object } = await generator();
 			expect(object.value).to.equal(123);//check type
 
 			expect(object).to.deep.equal({ name: 'USER', value: 123 });
 		});
 
 		it('should inherit output type and schema from a parent config', async () => {
-			const parentGenerator = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				output: 'array',
-				schema: arraySchema.element,
-			});
+			const parentGenerator = create.LLMAgent({ model, ...temperatureConfig, output: Output.array({ element: arraySchema.element }) });
 
-			const childGenerator = create.ObjectGenerator({
+			const childGenerator = create.LLMAgent({
 				prompt: 'Generate an array with one item: {id: 9, item: "Inherited"}.'
 			}, parentGenerator);
 
 			expect(childGenerator.config.output).to.equal('array');
-			const { object } = await childGenerator();
+			const { output: object } = await childGenerator();
 			expect(object).to.be.an('array').with.lengthOf(1);
 			expect(object[0].id).to.equal(9);//check type
 			expect(object).to.deep.equal([{ id: 9, item: 'Inherited' }]);
@@ -146,15 +123,14 @@ describe('create.ObjectGenerator', function () {
 		it('should correctly assign enum type when inheriting from a parent config', async () => {
 			const parentConfig = create.Config({
 				model, ...temperatureConfig,
-				output: 'enum'
+				output: Output.choice({ options: [...enumValues] })
 			});
-			const childGenerator = create.ObjectGenerator({
-				enum: enumValues,
+			const childGenerator = create.LLMAgent({
 				prompt: 'From the available colors, what color is a fire truck?'
 			}, parentConfig);
 
 			const result = await childGenerator();
-			const { object: color } = result;
+			const { output: color } = result;
 			// This compile-time check confirms TypeScript infers the correct, specific enum type
 			const resultColor: Color = color;
 			expect(resultColor).to.equal('Red');
@@ -163,55 +139,40 @@ describe('create.ObjectGenerator', function () {
 		it('should inherit `output: array` from a parent config', async () => {
 			const parentConfig = create.Config({
 				model, ...temperatureConfig,
-				output: 'array',
-				schema: z.object({ id: z.number(), success: z.boolean() })
+				output: Output.array({ element: z.object({ id: z.number(), success: z.boolean() }) })
 			});
 
-			const childGenerator = create.ObjectGenerator({
+			const childGenerator = create.LLMAgent({
 				prompt: 'Generate a JSON array with these exact two items: {id: 1, success: true} and {id: 2, success: false}.'
 			}, parentConfig);
 
-			const { object } = await childGenerator();
+			const { output: object } = await childGenerator();
 			expect(object).to.eql([{ id: 1, success: true }, { id: 2, success: false }]);
 		});
 
 		it('should generate an object when inheriting and prompt is at runtime', async () => {
-			const parentWithSchema = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				schema: simpleSchema
-			});
-			const childGenerator = create.ObjectGenerator({}, parentWithSchema);
-			const { object } = await childGenerator('Generate an object for "InheritedRuntime" with value 789.');
+			const parentWithSchema = create.LLMAgent({ model, ...temperatureConfig, output: Output.object({ schema: simpleSchema }) });
+			const childGenerator = create.LLMAgent({}, parentWithSchema);
+			const { output: object } = await childGenerator('Generate an object for "InheritedRuntime" with value 789.');
 			expect(object).to.deep.equal({ name: 'InheritedRuntime', value: 789 });
 			expect(object.value).to.equal(789);//check type
 		});
 
 		it('should override parent properties (context, temperature)', async () => {
-			const generator = create.ObjectGenerator.withTemplate({
-				...(temperature !== null ? { temperature: 0.8 } : {}),
-				schema: simpleSchema,
-				context: { entity: 'product' }, // Override entity
-				prompt: 'Generate an object for "{{ entity }}" with value {{ defaultId }}.',
-			}, parentConfig);
+			const generator = create.LLMAgent.withTemplate({ ...(temperature !== null ? { temperature: 0.8 } : {}), context: { entity: 'product' }, prompt: 'Generate an object for "{{ entity }}" with value {{ defaultId }}.', output: Output.object({ schema: simpleSchema }) }, parentConfig);
 
 			expect(generator.config.temperature).to.equal(temperature !== null ? 0.8 : undefined);
-			const { object } = await generator();
+			const { output: object } = await generator();
 			expect(object).to.deep.equal({ name: 'product', value: 123 });
 			expect(object.value).to.equal(123);//check type
 		});
 
 		it('should override an inherited schema with a child schema', async () => {
 			const locationSchema = z.object({ city: z.string(), country: z.string() });
-			const parentWithSchema = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				schema: simpleSchema, // Parent has the 'name'/'value' schema
-			});
-			const childWithSchema = create.ObjectGenerator({
-				schema: locationSchema, // Child has the 'city'/'country' schema
-				prompt: 'Generate a JSON object for the location: Paris, France.',
-			}, parentWithSchema);
+			const parentWithSchema = create.LLMAgent({ model, ...temperatureConfig, output: Output.object({ schema: simpleSchema }) });
+			const childWithSchema = create.LLMAgent({ prompt: 'Generate a JSON object for the location: Paris, France.', output: Output.object({ schema: locationSchema }) }, parentWithSchema);
 
-			const { object } = await childWithSchema();
+			const { output: object } = await childWithSchema();
 			expect(object).to.deep.equal({ city: 'Paris', country: 'France' });
 			expect(object.city).to.equal('Paris');//check type
 		});
@@ -223,65 +184,46 @@ describe('create.ObjectGenerator', function () {
 			loader2.addString('object2.njk', 'Generate an object with these exact properties - name: "{{ name }}" and value: {{ value }}.');
 
 			const parent = create.Config({ loader: [loader1] });
-			const generator = create.ObjectGenerator.loadsTemplate({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-				loader: [loader2]
-			}, parent);
+			const generator = create.LLMAgent.loadsTemplate({ model, ...temperatureConfig, loader: [loader2], output: Output.object({ schema: simpleSchema }) }, parent);
 
 			expect(generator.config.loader).to.be.an('array').with.lengthOf(2);
 			expect(generator.config.loader).to.deep.equal([loader2, loader1]);
 
 			//test the loader functionality using named templates
-			const { object: object1 } = await generator('object1.njk', { name: 'Test', value: 10 });
+			const { output: object1 } = await generator('object1.njk', { name: 'Test', value: 10 });
 			expect(object1).to.deep.equal({ name: 'Test', value: 10 });
 
-			const { object: object2 } = await generator('object2.njk', { name: 'Test2', value: 20 });
+			const { output: object2 } = await generator('object2.njk', { name: 'Test2', value: 20 });
 			expect(object2).to.deep.equal({ name: 'Test2', value: 20 });
 		});
 	});
 
 	describe('Template Engine Features', () => {
 		it('should resolve an asynchronous function from context', async () => {
-			const generator = create.ObjectGenerator.withTemplate({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-				context: {
-					fetchData: async () => ({ name: 'Async', value: await Promise.resolve(10) }),
-				},
-				prompt: 'Generate an object using this data: {{ fetchData() | dump }}.',
-			});
+			const generator = create.LLMAgent.withTemplate({ model, ...temperatureConfig, context: {
+				fetchData: async () => ({ name: 'Async', value: await Promise.resolve(10) }),
+			}, prompt: 'Generate an object using this data: {{ fetchData() | dump }}.', output: Output.object({ schema: simpleSchema }) });
 
-			const { object } = await generator();
+			const { output: object } = await generator();
 			expect(object).to.deep.equal({ name: 'Async', value: 10 });
 		});
 
 		it('should apply an asynchronous filter with arguments', async () => {
-			const generator = create.ObjectGenerator.withTemplate({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-				filters: {
-					createObject: async (name: string, val: number) => {
-						await new Promise(resolve => setTimeout(resolve, 10)); // Simulate async work
-						return { name, value: val };
-					},
+			const generator = create.LLMAgent.withTemplate({ model, ...temperatureConfig, filters: {
+				createObject: async (name: string, val: number) => {
+					await new Promise(resolve => setTimeout(resolve, 10)); // Simulate async work
+					return { name, value: val };
 				},
-				prompt: 'Generate this object: {{ "Filtered" | createObject(25) | dump }}',
-			});
+			}, prompt: 'Generate this object: {{ "Filtered" | createObject(25) | dump }}', output: Output.object({ schema: simpleSchema }) });
 
-			const { object } = await generator();
+			const { output: object } = await generator();
 			expect(object).to.deep.equal({ name: 'Filtered', value: 25 });
 		});
 
 		it('should merge config and runtime context correctly', async () => {
-			const generator = create.ObjectGenerator.withTemplate({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-				inputSchema: z.object({ name: z.string(), value: z.number() }), context: { name: 'Config', value: 1 },
-				prompt: 'Generate an object with name "{{ name }}" and value {{ value }}.',
-			});
+			const generator = create.LLMAgent.withTemplate({ model, ...temperatureConfig, inputSchema: z.object({ name: z.string(), value: z.number() }), context: { name: 'Config', value: 1 }, prompt: 'Generate an object with name "{{ name }}" and value {{ value }}.', output: Output.object({ schema: simpleSchema }) });
 			// Runtime context ({ name: 'Runtime' }) overrides the key from the config context.
-			const { object } = await generator({ name: 'Runtime' });
+			const { output: object } = await generator({ name: 'Runtime' });
 			expect(object).to.deep.equal({ name: 'Runtime', value: 1 });
 		});
 	});
@@ -291,38 +233,28 @@ describe('create.ObjectGenerator', function () {
 		stringLoader.addString('object.njk', 'Generate an object with name "{{ name }}" and value {{ value }}.');
 
 		it('should load a template using .loadsTemplate modifier', async () => {
-			const generator = create.ObjectGenerator.loadsTemplate({
-				model, ...temperatureConfig,
-				schema: simpleSchema,
-				loader: stringLoader,
-				prompt: 'object.njk',
-			});
+			const generator = create.LLMAgent.loadsTemplate({ model, ...temperatureConfig, loader: stringLoader, prompt: 'object.njk', output: Output.object({ schema: simpleSchema }) });
 
-			const { object } = await generator({ name: 'Loaded', value: 500 });
+			const { output: object } = await generator({ name: 'Loaded', value: 500 });
 			expect(object).to.deep.equal({ name: 'Loaded', value: 500 });
 		});
 	});
 
 	describe('Callable Interface Overloads', () => {
-		const generatorWithPrompt = create.ObjectGenerator.withTemplate({
-			model, ...temperatureConfig,
-			schema: simpleSchema,
-			prompt: 'Generate an object with name "{{ name }}" and value {{ value }}.',
-			inputSchema: z.object({ name: z.string(), value: z.number() }), context: { name: 'Default', value: 0 },
-		});
+		const generatorWithPrompt = create.LLMAgent.withTemplate({ model, ...temperatureConfig, prompt: 'Generate an object with name "{{ name }}" and value {{ value }}.', inputSchema: z.object({ name: z.string(), value: z.number() }), context: { name: 'Default', value: 0 }, output: Output.object({ schema: simpleSchema }) });
 
 		it('handles call with no arguments: generator()', async () => {
-			const { object } = await generatorWithPrompt();
+			const { output: object } = await generatorWithPrompt();
 			expect(object).to.deep.equal({ name: 'Default', value: 0 });
 		});
 
 		it('handles call with context override: generator({ name: "Override" })', async () => {
-			const { object } = await generatorWithPrompt({ name: 'Override' });
+			const { output: object } = await generatorWithPrompt({ name: 'Override' });
 			expect(object).to.deep.equal({ name: 'Override', value: 0 });
 		});
 
 		it('handles call with prompt and context override', async () => {
-			const { object } = await generatorWithPrompt(
+			const { output: object } = await generatorWithPrompt(
 				'Generate a JSON object with a "name" of "{{ name }}" and a "value" of {{ value }}.',
 				{ name: 'Final', value: 99 },
 			);
@@ -330,77 +262,17 @@ describe('create.ObjectGenerator', function () {
 		});
 	});
 
-	describe('Error Handling and Validation', () => {
-		it('should throw ConfigError if no model is provided', () => {
-			expect(() => create.ObjectGenerator({ schema: simpleSchema } as never)).to.throw(
-				ConfigError,
-				'Object generator configs require a \'model\' property',
-			);
-		});
-
-		it('should throw ConfigError if output is "object" but no schema is provided', () => {
-			expect(() => create.ObjectGenerator({ model, ...temperatureConfig, output: 'object' } as never)).to.throw(
-				ConfigError,
-				'An \'output\' of \'object\' requires a \'schema\' property',
-			);
-		});
-
-		it('should throw ConfigError if output is "array" but no schema is provided', () => {
-			expect(() => create.ObjectGenerator({ model, ...temperatureConfig, output: 'array' } as never)).to.throw(
-				ConfigError,
-				'An \'output\' of \'array\' requires a \'schema\' property',
-			);
-		});
-
-		it('should throw ConfigError if output is "enum" but no enum array is provided', () => {
-			expect(() => create.ObjectGenerator({ model, ...temperatureConfig, output: 'enum' } as never)).to.throw(
-				ConfigError,
-				'An \'output\' of \'enum\' requires an \'enum\' property with a string array',
-			);
-		});
-
-		it('should not throw ConfigError if output is "no-schema" but a schema is provided (validation handled at TypeScript level)', () => {
-			// This validation is now handled at the TypeScript level, not runtime
-			expect(() =>
-				create.ObjectGenerator({
-					model, ...temperatureConfig,
-					output: 'no-schema',
-					schema: simpleSchema,
-				} as never),
-			).to.not.throw();
-		});
-
-		it('should reject at runtime if no prompt is provided in config or call', async () => {
-			const generator = create.ObjectGenerator({ model, ...temperatureConfig, schema: simpleSchema });
-			await expect(generator(undefined as unknown as string)).to.be.rejectedWith(
-				ConfigError,
-				'Either \'prompt\' (string or messages array) or \'messages\' must be provided',
-			);
-		});
-
+	describe('Provider output validation', () => {
 		it('should reject the promise if the LLM output fails schema validation', async () => {
 			const strictSchema = z.object({
 				name: z.string(),
 				value: z.number().refine(value => value >= 100, 'Value must be at least 100'),
 			});
-			const generator = create.ObjectGenerator({
-				model, ...temperatureConfig,
-				schema: strictSchema,
-				prompt: 'Generate an object for "ValidationTest" with value 42. The value must be a number.',
-			});
+			const generator = create.LLMAgent({ model, ...temperatureConfig, prompt: 'Generate an object for "ValidationTest" with value 42. The value must be a number.', output: Output.object({ schema: strictSchema }) });
 			await expect(generator()).to.be.rejectedWith(/schema|validation|response/i);
 		});
 
-		it('should throw ConfigError for invalid output type', () => {
-			expect(() =>
-				create.ObjectGenerator({
-					model, ...temperatureConfig,
-					schema: simpleSchema,
-					// @ts-expect-error - Intentionally invalid
-					output: 'invalid-type',
-				}),
-			).to.throw(ConfigError, `Invalid 'output' mode: 'invalid-type'`);
-		});
+
 	});
 
 	describe('.loadsText functionality', () => {
@@ -409,30 +281,19 @@ describe('create.ObjectGenerator', function () {
 		stringLoader.addString('complex.txt', 'Generate an object with name "Runtime" and value 100.');
 
 		it('should load and use plain text from a loader', async () => {
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: stringLoader,
-				schema: simpleSchema,
-				prompt: 'simple.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: stringLoader, prompt: 'simple.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator();
-			expect(result.object).to.have.property('name', 'Test');
-			expect(result.object).to.have.property('value', 42);
+			expect(result.output).to.have.property('name', 'Test');
+			expect(result.output).to.have.property('value', 42);
 		});
 
 		it('should load text at runtime with one-off prompt', async () => {
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: stringLoader,
-				schema: simpleSchema
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: stringLoader, output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator('complex.txt');
-			expect(result.object).to.have.property('name', 'Runtime');
-			expect(result.object).to.have.property('value', 100);
+			expect(result.output).to.have.property('name', 'Runtime');
+			expect(result.output).to.have.property('value', 100);
 		});
 
 		it('should handle multiple loaders in array', async () => {
@@ -442,28 +303,17 @@ describe('create.ObjectGenerator', function () {
 			const loader2 = new StringLoader();
 			loader2.addString('test2.txt', 'Generate an object with name "Second" and value 2.');
 
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: [loader1, loader2],
-				schema: simpleSchema,
-				prompt: 'test2.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: [loader1, loader2], prompt: 'test2.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator();
-			expect(result.object).to.have.property('name', 'Second');
-			expect(result.object).to.have.property('value', 2);
+			expect(result.output).to.have.property('name', 'Second');
+			expect(result.output).to.have.property('value', 2);
 		});
 
 		it('should throw ConfigError if no loader is provided', () => {
 			expect(() =>
 				// @ts-expect-error - no loader provided
-				create.ObjectGenerator.loadsText({
-					model,
-					...temperatureConfig,
-					schema: simpleSchema,
-					prompt: 'file.txt'
-				})
+				create.LLMAgent.loadsText({ model, ...temperatureConfig, prompt: 'file.txt', output: Output.object({ schema: simpleSchema }) })
 			).to.throw(
 				ConfigError,
 				"A 'loader' is required for this operation"
@@ -472,23 +322,12 @@ describe('create.ObjectGenerator', function () {
 
 		it('should reject when a configured text prompt is missing', async () => {
 			// Named text loads when the component is called, as named templates and scripts do.
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: new StringLoader(),
-				schema: simpleSchema,
-				prompt: 'nonexistent.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: new StringLoader(), prompt: 'nonexistent.txt', output: Output.object({ schema: simpleSchema }) });
 			await expect(generator()).to.be.rejectedWith(/not found/);
 		});
 
 		it('should throw if loader fails to find text at runtime', async () => {
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: new StringLoader(),
-				schema: simpleSchema
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: new StringLoader(), output: Output.object({ schema: simpleSchema }) });
 
 			await expect(generator('nonexistent.txt')).to.be.rejectedWith(/not found/);
 		});
@@ -501,17 +340,11 @@ describe('create.ObjectGenerator', function () {
 				return templates[name] || '';
 			};
 
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: functionalLoader,
-				schema: simpleSchema,
-				prompt: 'func.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: functionalLoader, prompt: 'func.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator();
-			expect(result.object).to.have.property('name', 'Functional');
-			expect(result.object).to.have.property('value', 99);
+			expect(result.output).to.have.property('name', 'Functional');
+			expect(result.output).to.have.property('value', 99);
 		});
 
 	});
@@ -522,30 +355,19 @@ describe('create.ObjectGenerator', function () {
 		asyncStringLoader.addString('async-complex.txt', 'Generate an object with name "AsyncRuntime" and value 100.');
 
 		it('should load and use plain text from an async loader', async () => {
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: asyncStringLoader,
-				schema: simpleSchema,
-				prompt: 'async-simple.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: asyncStringLoader, prompt: 'async-simple.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator();
-			expect(result.object).to.have.property('name', 'AsyncTest');
-			expect(result.object).to.have.property('value', 42);
+			expect(result.output).to.have.property('name', 'AsyncTest');
+			expect(result.output).to.have.property('value', 42);
 		});
 
 		it('should load text at runtime with one-off prompt using async loader', async () => {
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: asyncStringLoader,
-				schema: simpleSchema
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: asyncStringLoader, output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator('async-complex.txt');
-			expect(result.object).to.have.property('name', 'AsyncRuntime');
-			expect(result.object).to.have.property('value', 100);
+			expect(result.output).to.have.property('name', 'AsyncRuntime');
+			expect(result.output).to.have.property('value', 100);
 		});
 
 		it('should handle multiple async loaders in array', async () => {
@@ -555,40 +377,23 @@ describe('create.ObjectGenerator', function () {
 			const loader2 = new AsyncStringLoader();
 			loader2.addString('async-test2.txt', 'Generate an object with name "AsyncSecond" and value 2.');
 
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: [loader1, loader2],
-				schema: simpleSchema,
-				prompt: 'async-test2.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: [loader1, loader2], prompt: 'async-test2.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator();
-			expect(result.object).to.have.property('name', 'AsyncSecond');
-			expect(result.object).to.have.property('value', 2);
+			expect(result.output).to.have.property('name', 'AsyncSecond');
+			expect(result.output).to.have.property('value', 2);
 		});
 
 		it('should throw if async loader fails to find text at creation time', async () => {
 			// The error is actually thrown at runtime when the generator is called, not at creation time
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: new AsyncStringLoader(),
-				schema: simpleSchema,
-				prompt: 'nonexistent-async.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: new AsyncStringLoader(), prompt: 'nonexistent-async.txt', output: Output.object({ schema: simpleSchema }) });
 
 			// The generator is created successfully, but fails when called
 			await expect(generator()).to.be.rejectedWith(/not found/);
 		});
 
 		it('should throw if async loader fails to find text at runtime', async () => {
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: new AsyncStringLoader(),
-				schema: simpleSchema
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: new AsyncStringLoader(), output: Output.object({ schema: simpleSchema }) });
 
 			await expect(generator('nonexistent-async.txt')).to.be.rejectedWith(/not found/);
 		});
@@ -601,17 +406,11 @@ describe('create.ObjectGenerator', function () {
 				return Promise.resolve(templates[name] || '');
 			};
 
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: functionalAsyncLoader,
-				schema: simpleSchema,
-				prompt: 'async-func.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: functionalAsyncLoader, prompt: 'async-func.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator();
-			expect(result.object).to.have.property('name', 'AsyncFunctional');
-			expect(result.object).to.have.property('value', 99);
+			expect(result.output).to.have.property('name', 'AsyncFunctional');
+			expect(result.output).to.have.property('value', 99);
 		});
 
 		it('should handle mixed sync and async loaders', async () => {
@@ -622,17 +421,11 @@ describe('create.ObjectGenerator', function () {
 			asyncLoader.addString('mixed.txt', 'Generate an object with name "AsyncMixed" and value 75.');
 
 			// The first loader to return a value will be used
-			const generator = create.ObjectGenerator.loadsText({
-				model,
-				...temperatureConfig,
-				loader: [asyncLoader, syncLoader],
-				schema: simpleSchema,
-				prompt: 'mixed.txt'
-			});
+			const generator = create.LLMAgent.loadsText({ model, ...temperatureConfig, loader: [asyncLoader, syncLoader], prompt: 'mixed.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await generator();
-			expect(result.object).to.have.property('name', 'AsyncMixed');
-			expect(result.object).to.deep.equal({ name: 'AsyncMixed', value: 75 });
+			expect(result.output).to.have.property('name', 'AsyncMixed');
+			expect(result.output).to.deep.equal({ name: 'AsyncMixed', value: 75 });
 		});
 	});
 });

@@ -1,3 +1,4 @@
+import { runtimeRun } from './fixtures/runtime-call.js';
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
 import { create, z } from './cascada';
@@ -39,22 +40,20 @@ describe('LLM run overrides and repeated calls', () => {
 				const script = { ...config, prompt: 'return greeting ~ " " ~ name' };
 				const functionConfig = { ...config, prompt: ({ greeting, name }: { greeting: string; name: string }) => `${greeting} ${name}` };
 				const component = promptType === 'template'
-					? streaming ? create.TextStreamer.withTemplate(template) : create.TextGenerator.withTemplate(template)
+					? streaming ? create.LLMAgent.withTemplate.asStream(template) : create.LLMAgent.withTemplate(template)
 					: promptType === 'script'
-						? streaming ? create.TextStreamer.withScript(script) : create.TextGenerator.withScript(script)
-						: streaming ? create.TextStreamer.withFunction(functionConfig) : create.TextGenerator.withFunction(functionConfig);
+						? streaming ? create.LLMAgent.withScript.asStream(script) : create.LLMAgent.withScript(script)
+						: streaming ? create.LLMAgent.withFunction.asStream(functionConfig) : create.LLMAgent.withFunction(functionConfig);
 				const invoke: (context: { name: string }) => ReturnType<typeof component> = component;
-				const result = await component.run({ context: { name: 'Alice' } });
+				const result = await runtimeRun(component, { context: { name: 'Alice' } });
 				expect(await result.text).to.equal('OK');
 				const call = streaming ? model.doStreamCalls[0] : model.doGenerateCalls[0];
 				expect(call.prompt[0].content).to.deep.equal([{ type: 'text', text: 'Hello Alice' }]);
 				expect(validations).to.equal(1);
 				expect(await (await invoke({ name: 'Bob' })).text).to.equal('OK');
 				expect(validations).to.equal(2);
-				// @ts-expect-error Invalid schema input is also rejected at runtime.
-				await rejects(() => component.run({ context: { name: 123 } }), /Application input validation failed/);
-				// @ts-expect-error Required input is deliberately omitted to exercise runtime validation.
-				await rejects(() => component.run({ context: { name: undefined } }), /context object is required|Application input validation failed/);
+				await rejects(() => runtimeRun(component, { context: { name: 123 } }), /Application input validation failed/);
+				await rejects(() => runtimeRun(component, { context: { name: undefined } }), /context object is required|Application input validation failed/);
 				expect(component.config.context.name).to.equal('Configured');
 			});
 		}
@@ -63,7 +62,7 @@ describe('LLM run overrides and repeated calls', () => {
 	it('should validate raw input once when replacing a function prompt', async () => {
 		const model = mockModel('OK');
 		let validations = 0;
-		const generator = create.TextGenerator.withFunction({
+		const generator = create.LLMAgent.withFunction({
 			model, context: { greeting: 'Configured' },
 			inputSchema: z.object({ name: z.string() }).strict().refine(() => {
 				validations++;
@@ -81,9 +80,9 @@ describe('LLM run overrides and repeated calls', () => {
 
 	it('should accept run-time prompts and messages without a configured prompt', async () => {
 		const model = mockModel('OK');
-		const generator = create.TextGenerator({ model });
+		const generator = create.LLMAgent({ model });
 		expect((await generator.run({ prompt: 'Runtime prompt.' })).text).to.equal('OK');
-		expect((await generator.run({ messages: [{ role: 'user', content: 'Runtime message.' }] })).text).to.equal('OK');
+		expect((await generator.run({ prompt: [{ role: 'user', content: 'Runtime message.' }] })).text).to.equal('OK');
 		expect(model.doGenerateCalls[0].prompt[0].content).to.deep.equal([{ type: 'text', text: 'Runtime prompt.' }]);
 		expect(model.doGenerateCalls[1].prompt[0].content).to.deep.equal([{ type: 'text', text: 'Runtime message.' }]);
 	});
@@ -91,7 +90,7 @@ describe('LLM run overrides and repeated calls', () => {
 	it('should apply model and generation settings overrides for static text', async () => {
 		const original = mockModel('ORIGINAL');
 		const replacement = mockModel('REPLACEMENT');
-		const generator = create.TextGenerator({ model: original, prompt: 'Configured prompt.', maxOutputTokens: 10 });
+		const generator = create.LLMAgent({ model: original, prompt: 'Configured prompt.', maxOutputTokens: 10 });
 		const result = await generator.run({ model: replacement, maxOutputTokens: 25 });
 		expect(result.text).to.equal('REPLACEMENT');
 		expect(original.doGenerateCalls).to.have.length(0);
@@ -102,7 +101,7 @@ describe('LLM run overrides and repeated calls', () => {
 	it('should apply overrides after loading a text prompt', async () => {
 		const original = mockModel('ORIGINAL');
 		const replacement = mockModel('REPLACEMENT');
-		const generator = create.TextGenerator.loadsText({
+		const generator = create.LLMAgent.loadsText({
 			model: original, prompt: 'configured', loader: { load: (name: string) => `Loaded ${name}` },
 		});
 		expect((await generator.run({ model: replacement, prompt: 'override' })).text).to.equal('REPLACEMENT');
@@ -111,10 +110,10 @@ describe('LLM run overrides and repeated calls', () => {
 
 	it('should process messages after an earlier text-only call', async () => {
 		const model = mockModel('OK');
-		const generator = create.TextGenerator({ model, prompt: 'Configured prompt.' });
+		const generator = create.LLMAgent({ model, prompt: 'Configured prompt.' });
 		await generator();
 		const messages: ModelMessage[] = [{ role: 'assistant', content: 'Earlier reply.' }];
-		const result = await generator.run({ messages });
+		const result = await generator.run({ messageHistory: messages });
 		expect(model.doGenerateCalls[1].prompt.map(({ role, content }) => ({ role, content }))).to.deep.equal([
 			{ role: 'assistant', content: [{ type: 'text', text: 'Earlier reply.' }] },
 			{ role: 'user', content: [{ type: 'text', text: 'Configured prompt.' }] },
@@ -127,7 +126,7 @@ describe('LLM run overrides and repeated calls', () => {
 	it('should accept message-array prompts without wrapping them as user text', async () => {
 		const model = mockModel('OK');
 		const prompt: ModelMessage[] = [{ role: 'user', content: 'First.' }, { role: 'assistant', content: 'Second.' }];
-		const generator = create.TextGenerator({ model, prompt });
+		const generator = create.LLMAgent({ model, prompt });
 		await generator();
 		expect(model.doGenerateCalls[0].prompt.map(({ role, content }) => ({ role, content }))).to.deep.equal([
 			{ role: 'user', content: [{ type: 'text', text: 'First.' }] },
@@ -138,8 +137,8 @@ describe('LLM run overrides and repeated calls', () => {
 	it('should apply model and settings overrides for static text streams', async () => {
 		const original = mockModel('ORIGINAL');
 		const replacement = mockModel('REPLACEMENT');
-		const streamer = create.TextStreamer({ model: original, prompt: 'Configured prompt.', maxOutputTokens: 10 });
-		const result = streamer.run({ model: replacement, maxOutputTokens: 25 });
+		const streamer = create.LLMAgent.asStream({ model: original, prompt: 'Configured prompt.', maxOutputTokens: 10 });
+		const result = (await streamer.run({ model: replacement, maxOutputTokens: 25 }));
 		expect(await result.text).to.equal('REPLACEMENT');
 		expect(original.doStreamCalls).to.have.length(0);
 		expect(replacement.doStreamCalls[0].maxOutputTokens).to.equal(25);
@@ -148,9 +147,9 @@ describe('LLM run overrides and repeated calls', () => {
 	it('should process stream messages after an earlier text-only call', async () => {
 		const firstModel = mockModel('FIRST');
 		const model = mockModel('SECOND');
-		const streamer = create.TextStreamer({ model: firstModel, prompt: 'Configured prompt.' });
-		await streamer().consumeStream();
-		const result = streamer.run({ model, messages: [{ role: 'assistant', content: 'Earlier reply.' }] });
+		const streamer = create.LLMAgent.asStream({ model: firstModel, prompt: 'Configured prompt.' });
+		await (await streamer()).consumeStream();
+		const result = (await streamer.run({ model, messageHistory: [{ role: 'assistant', content: 'Earlier reply.' }] }));
 		await result.consumeStream();
 		expect(model.doStreamCalls[0].prompt.map(({ role, content }) => ({ role, content }))).to.deep.equal([
 			{ role: 'assistant', content: [{ type: 'text', text: 'Earlier reply.' }] },

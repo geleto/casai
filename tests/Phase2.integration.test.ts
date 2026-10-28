@@ -1,7 +1,8 @@
+import { Output } from 'ai';
 import assert from 'node:assert/strict';
 import { asSchema, generateText, isStepCount, jsonSchema, streamText, tool, ToolLoopAgent } from 'ai';
 import type { LanguageModel, Tool, ToolExecutionOptions } from 'ai';
-import { MockLanguageModelV3 } from 'ai/test';
+import { convertArrayToReadableStream, MockLanguageModelV3 } from 'ai/test';
 import { executeTool, validateTypes } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
 import { create, ValidationError, streamSchema, textStreamSchema, collectStream, collectTextStream } from './cascada.js';
@@ -19,12 +20,12 @@ describe('Phase 2 production execution', () => {
 		}
 		const generation = modelFor({}, 'secured');
 		// @ts-expect-error The selected runtime branch deliberately omits required tool context.
-		await assert.rejects(create.TextGenerator(settings(true, generation))());
+		await assert.rejects(create.LLMAgent(settings(true, generation))());
 		const streaming = modelFor({}, 'secured');
 		const errors: unknown[] = [];
 		// @ts-expect-error Streaming must reject the same incomplete configuration statically.
-		const result = create.TextStreamer({ ...settings(true, streaming), onError: ({ error }) => { errors.push(error); } })();
-		const failure = (await collectStream(result.fullStream)).find(part => part.type === 'error');
+		const result = (await create.LLMAgent.asStream({ ...settings(true, streaming), onError: ({ error }) => { errors.push(error); } })());
+		const failure = (await collectStream(result.stream)).find(part => part.type === 'error');
 		assert.ok(failure);
 		assert.deepEqual(errors, [failure.error]);
 		assert.equal(entries, 0);
@@ -32,8 +33,8 @@ describe('Phase 2 production execution', () => {
 		assert.equal(streaming.doStreamCalls.length, 1);
 		const absent = settings(false, modelFor(undefined));
 		assert(!('tools' in absent));
-		assert.equal((await create.TextGenerator(absent)()).value, 'done');
-		const configured = create.TextGenerator({ model: modelFor({}, 'secured'), prompt: 'ready', tools: { secured }, toolsContext: { secured: { tenant: 'trusted' } } });
+		assert.equal((await create.LLMAgent(absent)()).value, 'done');
+		const configured = create.LLMAgent({ model: modelFor({}, 'secured'), prompt: 'ready', tools: { secured }, toolsContext: { secured: { tenant: 'trusted' } } });
 		const completed = await configured();
 		assert.equal(completed.toolResults[0]?.output, 'trusted');
 		assert.equal(entries, 1);
@@ -86,22 +87,26 @@ describe('Phase 2 production execution', () => {
 		const model = new MockLanguageModelV3({ doGenerate: {
 			content: [{ type: 'text', text: '{"value":3}' }], finishReason: { unified: 'stop', raw: 'stop' }, warnings: [],
 			usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
-		} });
+		}, doStream: () => Promise.resolve({ stream: convertArrayToReadableStream([
+			{ type: 'stream-start', warnings: [] }, { type: 'text-start', id: 'text' },
+			{ type: 'text-delta', id: 'text', delta: '{"value":3}' }, { type: 'text-end', id: 'text' },
+			{ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } } },
+		]) }) });
 		let started = 0;
 		let finished = 0;
-		function settings(enabled: boolean): { model: LanguageModel; prompt: string; schema: typeof text; onFinish: (event: { object: { value: string } | undefined }) => void }
-			| { model: LanguageModel; prompt: string; schema: typeof text } {
-			return enabled ? { model, prompt: 'ready', schema: text, onFinish: event => { started++; event.object?.value.toUpperCase(); finished++; } }
-				: { model, prompt: 'ready', schema: text };
+		function settings(enabled: boolean): { model: LanguageModel; prompt: string; output: ReturnType<typeof Output.object<z.output<typeof text>>>; onEnd: (event: { output?: { value: string } | undefined }) => void }
+			| { model: LanguageModel; prompt: string; output: ReturnType<typeof Output.object<z.output<typeof text>>> } {
+			return enabled ? { model, prompt: 'ready', output: Output.object({ schema: text }), onEnd: event => { started++; event.output?.value.toUpperCase(); finished++; } }
+				: { model, prompt: 'ready', output: Output.object({ schema: text }) };
 		}
-		const parent = create.ObjectGenerator(settings(true));
+		const parent = create.LLMAgent.asStream(settings(true));
 		// @ts-expect-error A possible string callback cannot consume a numeric result.
-		const invalid = create.ObjectGenerator({ schema: numeric }, parent);
-		assert.deepEqual((await invalid()).value, { value: 3 });
+		const invalid = create.LLMAgent.asStream({ output: Output.object({ schema: numeric }) }, parent);
+		assert.deepEqual(await (await invalid()).value, { value: 3 });
 		assert.equal(started, 1);
 		assert.equal(finished, 0); // Native notify swallows the hook error; generation itself succeeds.
-		const valid = create.ObjectGenerator({ schema: numeric, onFinish: event => { assert.equal(event.object?.value, 3); finished++; } }, parent);
-		await valid();
+		const valid = create.LLMAgent.asStream({ onEnd: event => { assert.equal(event.output?.value, 3); finished++; }, output: Output.object({ schema: numeric }) }, parent);
+		await (await valid()).value;
 		assert.equal(finished, 1);
 	});
 
@@ -120,7 +125,7 @@ describe('Phase 2 production execution', () => {
 			return enabled ? { temperature: 0, contextSchema: undefined } : { temperature: 0 };
 		}
 		const model = modelFor(undefined);
-		const generator = create.TextGenerator({ model, prompt: 'ready' });
+		const generator = create.LLMAgent({ model, prompt: 'ready' });
 		// @ts-expect-error Named invocation settings reject the same forbidden branch.
 		await assert.rejects(generator.run(runSettings(true)), /toolContextSchema/);
 		assert.equal(model.doGenerateCalls.length, 0);
@@ -189,10 +194,10 @@ describe('Phase 2 production execution', () => {
 		const template = create.Template({ inputSchema, template: '{{ value }}' });
 		const script = create.Script({ inputSchema, script: 'return value' });
 		const model = modelFor(undefined);
-		const generator = create.TextGenerator.withTemplate({ inputSchema, model, prompt: '{{ value }}' });
-		const streamer = create.TextStreamer.withScript({ inputSchema, model, prompt: 'return "ready"' });
-		const object = create.ObjectGenerator.withTemplate({ inputSchema, model, prompt: '{{ value }}', schema: z.object({ answer: z.string() }) });
-		const objectStream = create.ObjectStreamer.withScript({ inputSchema, model, prompt: 'return "ready"', schema: z.object({ answer: z.string() }) });
+		const generator = create.LLMAgent.withTemplate({ inputSchema, model, prompt: '{{ value }}' });
+		const streamer = create.LLMAgent.withScript.asStream({ inputSchema, model, prompt: 'return "ready"' });
+		const object = create.LLMAgent.withTemplate({ inputSchema, model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+		const objectStream = create.LLMAgent.withScript.asStream({ inputSchema, model, prompt: 'return "ready"', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 		const invalid = { kind: 'closed', value: 2, extra: true };
 		assert.equal(inputSchema.safeParse(invalid).success, false);
 		for (const component of [operation, template, script, generator, streamer, object, objectStream]) {
@@ -238,7 +243,7 @@ describe('Phase 2 production execution', () => {
 	it('requires object tool context for Casai while retaining native scalar context support', async () => {
 		const model = modelFor(undefined);
 		// @ts-expect-error Casai execution merges parsed context fields into an object.
-		const component = create.TextGenerator.asTool({ model, prompt: 'ready', inputSchema: z.object({}), toolContextSchema: z.string() });
+		const component = create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}), toolContextSchema: z.string() });
 		const options = { toolCallId: 'context', messages: [], context: 'native context' };
 		await assert.rejects(async () => component.execute({}, options), /Expected an object context/);
 		assert.equal(model.doGenerateCalls.length, 0);
@@ -254,10 +259,10 @@ describe('Phase 2 production execution', () => {
 		const config = { inputSchema: z.looseObject({ value: z.number() }), context: { user: 'private' } };
 		const template = create.Template({ ...config, template: '{{ value }}' });
 		const script = create.Script({ ...config, script: 'return value' });
-		const generator = create.TextGenerator.withTemplate({ ...config, model, prompt: '{{ value }}' });
-		const streamer = create.TextStreamer.withScript({ ...config, model, prompt: 'return "ready"' });
-		const object = create.ObjectGenerator.withTemplate({ ...config, model, prompt: '{{ value }}', schema: z.object({ answer: z.string() }) });
-		const objectStream = create.ObjectStreamer.withTemplate({ ...config, model, prompt: '{{ value }}', schema: z.object({ answer: z.string() }) });
+		const generator = create.LLMAgent.withTemplate({ ...config, model, prompt: '{{ value }}' });
+		const streamer = create.LLMAgent.withScript.asStream({ ...config, model, prompt: 'return "ready"' });
+		const object = create.LLMAgent.withTemplate({ ...config, model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+		const objectStream = create.LLMAgent.withTemplate.asStream({ ...config, model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 		// This runtime matrix erases heterogeneous call signatures; compiler fixtures check concrete callers.
 		for (const component of [template, script, generator, streamer, object, objectStream]) {
 			await assert.rejects((component as (input: object) => Promise<unknown>)({ value: 1, user: 'admin' }), /Private input keys: user/);
@@ -295,17 +300,17 @@ describe('Phase 2 production execution', () => {
 		const schema = z.object({ answer: z.string() });
 		const unsupported = [
 			// @ts-expect-error Deliberately exercise runtime rejection of unsupported partitioning.
-			create.TextGenerator.withTemplate({ ...config, prompt: '{{ value }}' }),
+			create.LLMAgent.withTemplate({ ...config, prompt: '{{ value }}' }),
 			// @ts-expect-error Script prompts use the same application boundary.
-			create.TextGenerator.withScript({ ...config, prompt: 'return value' }),
+			create.LLMAgent.withScript({ ...config, prompt: 'return value' }),
 			// @ts-expect-error Function preparers use the same application boundary.
-			create.TextGenerator.withFunction({ ...config, prompt: ({ value }) => String(value) }),
+			create.LLMAgent.withFunction({ ...config, prompt: ({ value }) => String(value) }),
 			// @ts-expect-error Streamers also partition input before dispatch.
-			create.TextStreamer.withTemplate({ ...config, prompt: '{{ value }}' }),
+			create.LLMAgent.withTemplate.asStream({ ...config, prompt: '{{ value }}' }),
 			// @ts-expect-error Object generators also partition input before dispatch.
-			create.ObjectGenerator.withTemplate({ ...config, schema, prompt: '{{ value }}' }),
+			create.LLMAgent.withTemplate({ ...config, prompt: '{{ value }}', output: Output.object({ schema: schema }) }),
 			// @ts-expect-error Object streamers also partition input before dispatch.
-			create.ObjectStreamer.withTemplate({ ...config, schema, prompt: '{{ value }}' }),
+			create.LLMAgent.withTemplate.asStream({ ...config, prompt: '{{ value }}', output: Output.object({ schema: schema }) }),
 		];
 		for (const component of unsupported) await assert.rejects((component as (input: object) => Promise<unknown>)({ value: 1 }), /declared object branches/);
 		assert.equal(model.doGenerateCalls.length, 0);
@@ -317,9 +322,9 @@ describe('Phase 2 production execution', () => {
 				return parsed.success ? { success: true, value: parsed.data } : { success: false, error: parsed.error };
 			},
 		});
-		const sourceFree = create.TextGenerator.withTemplate({ model, inputSchema: opaque, prompt: '{{ value }}' });
-		const declared = create.TextGenerator.withTemplate({ ...config, inputSchema: z.object({ value: z.number() }), prompt: '{{ value }}' });
-		const metadata = create.TextGenerator.withTemplate({ ...config, inputSchema: described, prompt: '{{ value }}' });
+		const sourceFree = create.LLMAgent.withTemplate({ model, inputSchema: opaque, prompt: '{{ value }}' });
+		const declared = create.LLMAgent.withTemplate({ ...config, inputSchema: z.object({ value: z.number() }), prompt: '{{ value }}' });
+		const metadata = create.LLMAgent.withTemplate({ ...config, inputSchema: described, prompt: '{{ value }}' });
 		for (const call of [() => sourceFree({ value: 1 }), () => declared({ value: 1 }), () => metadata({ value: 1 })]) assert.equal((await call()).value, 'done');
 		assert.equal(model.doGenerateCalls.length, 3);
 	});
@@ -344,7 +349,7 @@ describe('Phase 2 production execution', () => {
 			assert.equal(await create.Function({ execute: ({ value }) => value }, parent)(), expected);
 			const unconfigured = create.Function({ inputSchema, execute: ({ value }) => value });
 			assert.equal(await unconfigured({ value: '7' }), enabled ? 7 : '7');
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model: modelFor(undefined), inputSchema, context: { value: '5' },
 				prompt: ({ value }) => {
 					assert.equal(value, expected);
@@ -398,7 +403,7 @@ describe('Phase 2 production execution', () => {
 			const script = create.Script({ context, inputSchema, script: 'return a + b' });
 			const template = create.Template({ context, inputSchema, template: '{{ a + b }}' });
 			const model = modelFor(undefined);
-			const generator = create.TextGenerator.withTemplate({ model, context, inputSchema, prompt: '{{ a + b }}' });
+			const generator = create.LLMAgent.withTemplate({ model, context, inputSchema, prompt: '{{ a + b }}' });
 			await assert.rejects(script(undefined as never), /Application input validation failed/);
 			await assert.rejects(template(undefined as never), /Application input validation failed/);
 			await assert.rejects(generator.run({} as never), /Application input validation failed/);

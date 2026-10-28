@@ -2,10 +2,6 @@
 export { Template } from './factories/Template.js';
 export { Script } from './factories/Script.js';
 export { Function } from './factories/Function.js';
-export { TextGenerator } from './factories/TextGenerator.js';
-export { TextStreamer } from './factories/TextStreamer.js';
-export { ObjectGenerator } from './factories/ObjectGenerator.js';
-export { ObjectStreamer } from './factories/ObjectStreamer.js';
 export { Config } from './factories/Config.js';
 
 // --- The 'create' Namespace  ---
@@ -28,20 +24,6 @@ export type {
 	ScriptToolConfig,
 	FunctionConfig,
 	FunctionToolConfig,
-	// LLM Component Configs
-	GenerateTextConfig,
-	StreamTextConfig,
-	GenerateObjectObjectConfig,
-	GenerateObjectArrayConfig,
-	GenerateObjectEnumConfig,
-	GenerateObjectNoSchemaConfig,
-	StreamObjectObjectConfig,
-	StreamObjectArrayConfig,
-	StreamObjectNoSchemaConfig,
-	// Prompt-specific Configs for LLM Components
-	TemplatePromptConfig,
-	ScriptPromptConfig,
-	FunctionPromptConfig,
 	// Other
 	ToolConfig,
 	ToolContextSchemaConfig,
@@ -52,11 +34,11 @@ export type {
 export type { Context } from './types/utils.js';
 export type { SchemaType } from './types/schema.js';
 export type { TemplatePromptType, ScriptPromptType, FunctionPromptType } from './types/prompt.js';
-export type { StreamObjectOnFinishEvent, StreamTextOnFinishEvent } from './types/sdk.js';
+export type { StreamTextOnFinishEvent } from './types/sdk.js';
 export { PromptStringOrMessagesSchema } from './prompt-schemas.js';
 
 // --- Result Types ---
-export type { ScriptResult, GenerateTextResultAugmented as GenerateTextResult, StreamTextResultAugmented as StreamTextResult, GenerateObjectResultAll, GenerateObjectObjectResult, GenerateObjectArrayResult, GenerateObjectEnumResult, GenerateObjectNoSchemaResult, StreamObjectResultAll, StreamObjectObjectResult, StreamObjectArrayResult, StreamObjectNoSchemaResult } from './types/result.js';
+export type { ScriptResult, GenerateTextResultAugmented as GenerateTextResult, StreamTextResultAugmented as StreamTextResult } from './types/result.js';
 export type { ComponentTool } from './types/tool-binding.js';
 
 // --- Error Types ---
@@ -68,3 +50,5 @@ export { race, type RaceGroup, type RaceLoader } from './loaders.js';
 export type { ComponentExecutionOptions } from './types/sdk.js';
 export { textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './streams.js';
 export type { StreamSchema } from './streams.js';
+export { LLMAgent } from './factories/LLMAgent.js';
+export type { LLMAgentConfig, LLMAgentComponent, PrepareCall, PrepareCallRequest, PrepareStep } from './types/agent.js';

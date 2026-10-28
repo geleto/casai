@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 // Consumer-only input and configured-context contracts. This module is never executed.
 import { create, z } from 'casai';
 import type { FunctionConfig, SchemaType } from 'casai';
@@ -143,28 +144,28 @@ create.Config({ inputSchema: transformedInput, execute: ({ value }) => {
 	return String(value);
 } });
 const rawPromptParent = create.Config({ model, inputSchema: transformedInput, context: { prefix: 'value=' } });
-const rawText = create.TextGenerator.withFunction({ prompt: ({ value, fallback: _fallback, prefix }) => {
+const rawText = create.LLMAgent.withFunction({ prompt: ({ value, fallback: _fallback, prefix }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof _fallback, string>();
 	expectEqual<typeof prefix, string>();
 	return `${prefix}${value}`;
 } }, rawPromptParent);
-const rawTextStream = create.TextStreamer.withFunction({ prompt: ({ value, fallback: _fallback, prefix }) => {
+const rawTextStream = create.LLMAgent.withFunction.asStream({ prompt: ({ value, fallback: _fallback, prefix }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof _fallback, string>();
 	expectEqual<typeof prefix, string>();
 	return `${prefix}${value}`;
 } }, rawPromptParent);
-const rawObject = create.ObjectGenerator.withFunction({ schema: z.object({ answer: z.number() }), prompt: ({ value, prefix }) => {
+const rawObject = create.LLMAgent.withFunction({ prompt: ({ value, prefix }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof prefix, string>();
 	return `${prefix}${value}`;
-} }, rawPromptParent);
-const rawObjectStream = create.ObjectStreamer.withFunction({ schema: z.object({ answer: z.number() }), prompt: ({ value, prefix }) => {
+}, output: Output.object({ schema: z.object({ answer: z.number() }) }) }, rawPromptParent);
+const rawObjectStream = create.LLMAgent.withFunction.asStream({ prompt: ({ value, prefix }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof prefix, string>();
 	return `${prefix}${value}`;
-} }, rawPromptParent);
+}, output: Output.object({ schema: z.object({ answer: z.number() }) }) }, rawPromptParent);
 void rawText({ value: '1' });
 void rawTextStream({ value: '1' });
 void rawObject({ value: '1' });
@@ -198,43 +199,43 @@ const spreadConfigured = create.Function({ inputSchema, ...conditionalContext, e
 	return value + (offset ?? 0);
 } });
 void spreadConfigured({ value: 1 });
-const spreadText = create.TextGenerator.withFunction({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
+const spreadText = create.LLMAgent.withFunction({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof offset, number | undefined>();
 	// @ts-expect-error Conditionally configured context must be guarded before using it as required.
 	expectType<number>(offset);
 	return String(value + (offset ?? 0));
 } });
-const spreadTextStream = create.TextStreamer.withFunction({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
+const spreadTextStream = create.LLMAgent.withFunction.asStream({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
 	expectEqual<typeof offset, number | undefined>();
 	// @ts-expect-error Streamed prompt callbacks also account for absent configured context.
 	expectType<number>(offset);
 	return String(value + (offset ?? 0));
 } });
-const spreadObject = create.ObjectGenerator.withFunction({ model, inputSchema, schema: z.object({ answer: z.number() }), ...conditionalContext, prompt: ({ value, offset }) => {
+const spreadObject = create.LLMAgent.withFunction({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
 	expectEqual<typeof offset, number | undefined>();
 	// @ts-expect-error Object prompt callbacks also account for absent configured context.
 	expectType<number>(offset);
 	return String(value + (offset ?? 0));
-} });
-const spreadObjectStream = create.ObjectStreamer.withFunction({ model, inputSchema, schema: z.object({ answer: z.number() }), ...conditionalContext, prompt: ({ value, offset }) => {
+}, output: Output.object({ schema: z.object({ answer: z.number() }) }) });
+const spreadObjectStream = create.LLMAgent.withFunction.asStream({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
 	expectEqual<typeof offset, number | undefined>();
 	// @ts-expect-error Object stream prompt callbacks also account for absent configured context.
 	expectType<number>(offset);
 	return String(value + (offset ?? 0));
-} });
-const spreadTextTool = create.TextGenerator.withFunction.asTool({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
+}, output: Output.object({ schema: z.object({ answer: z.number() }) }) });
+const spreadTextTool = create.LLMAgent.withFunction.asTool({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
 	expectEqual<typeof offset, number | undefined>();
 	// @ts-expect-error Hybrid tool prompt callbacks cannot assume conditional context is present.
 	expectType<number>(offset);
 	return String(value + (offset ?? 0));
 } });
-const spreadObjectTool = create.ObjectGenerator.withFunction.asTool({ model, inputSchema, schema: z.object({ answer: z.number() }), ...conditionalContext, prompt: ({ value, offset }) => {
+const spreadObjectTool = create.LLMAgent.withFunction.asTool({ model, inputSchema, ...conditionalContext, prompt: ({ value, offset }) => {
 	expectEqual<typeof offset, number | undefined>();
 	// @ts-expect-error Object tool prompts must guard conditional context too.
 	expectType<number>(offset);
 	return String(value + (offset ?? 0));
-} });
+}, output: Output.object({ schema: z.object({ answer: z.number() }) }) });
 void spreadText({ value: 1 });
 void spreadTextStream({ value: 1 });
 void spreadObject({ value: 1 });
@@ -357,12 +358,12 @@ void templateDefaults({ name: 123 });
 void scriptDefaults({ count: 'wrong' });
 // @ts-expect-error Boolean renderer defaults reject text overrides.
 void templateDefaults({ enabled: 'wrong' });
-const llmDefaults = create.TextStreamer.withTemplate({ model, prompt: '{{ name }}', inputSchema: z.object({ name: z.string(), count: z.number() }), context: { name: 'Original', count: 1 } });
+const llmDefaults = create.LLMAgent.withTemplate.asStream({ model, prompt: '{{ name }}', inputSchema: z.object({ name: z.string(), count: z.number() }), context: { name: 'Original', count: 1 } });
 void llmDefaults({ name: 'Changed', count: 2 });
 void llmDefaults.run({ context: { name: 'Changed', count: 2 } });
 // @ts-expect-error LLM text renderers retain configured primitive types too.
 void llmDefaults({ count: 'wrong' });
-const configuredPrompt = create.TextGenerator.withFunction({ model, inputSchema: z.object({ prefix: z.string() }).passthrough(), context: { prefix: 'value=' }, prompt: ({ prefix }) => {
+const configuredPrompt = create.LLMAgent.withFunction({ model, inputSchema: z.object({ prefix: z.string() }).passthrough(), context: { prefix: 'value=' }, prompt: ({ prefix }) => {
 	expectEqual<typeof prefix, string>();
 	return prefix.toUpperCase();
 } });
@@ -373,38 +374,38 @@ void configuredPrompt.run({ context: { prefix: 'override=' } });
 void configuredPrompt({ prefix: 123 });
 // @ts-expect-error Run context overrides cannot invalidate configured prompt fields either.
 void configuredPrompt.run({ context: { prefix: 123 } });
-const configuredChild = create.TextGenerator.withFunction({}, configuredPrompt);
+const configuredChild = create.LLMAgent.withFunction({}, configuredPrompt);
 void configuredChild({ prefix: 'child=' });
 // @ts-expect-error Inheritance retains configured prompt input override types.
 void configuredChild({ prefix: 123 });
-const optionalConfiguredPrompt = create.TextGenerator.withFunction({ model, inputSchema: z.object({ offset: z.number().optional() }), context: maybeContext, prompt: ({ offset }) => String(offset ?? 0) });
+const optionalConfiguredPrompt = create.LLMAgent.withFunction({ model, inputSchema: z.object({ offset: z.number().optional() }), context: maybeContext, prompt: ({ offset }) => String(offset ?? 0) });
 void optionalConfiguredPrompt();
 void optionalConfiguredPrompt({ offset: 3 });
 // @ts-expect-error A maybe-absent configured context still has typed present fields.
 void optionalConfiguredPrompt({ offset: 'wrong' });
 const fixedContext: { prefix: 'fixed' } = { prefix: 'fixed' };
-const fixedPrompt = create.TextGenerator.withFunction({ model, inputSchema: z.object({ prefix: z.literal('fixed') }), context: fixedContext, prompt: ({ prefix }) => {
+const fixedPrompt = create.LLMAgent.withFunction({ model, inputSchema: z.object({ prefix: z.literal('fixed') }), context: fixedContext, prompt: ({ prefix }) => {
 	expectEqual<typeof prefix, 'fixed'>();
 	return prefix;
 } });
 void fixedPrompt({ prefix: 'fixed' });
 // @ts-expect-error Explicitly narrow configured context annotations keep their declared allowed values.
 void fixedPrompt({ prefix: 'different' });
-const enumPrompt = create.ObjectGenerator.withFunction({ model, output: 'enum', enum: ['YES', 'NO'], inputSchema: z.object({ prefix: z.string() }), context: { prefix: 'value=' }, prompt: ({ prefix }) => {
+const enumPrompt = create.LLMAgent.withFunction({ model, inputSchema: z.object({ prefix: z.string() }), context: { prefix: 'value=' }, prompt: ({ prefix }) => {
 	expectEqual<typeof prefix, string>();
 	return prefix;
-}, onFinish: _event => {
-	expectEqual<typeof _event.object, 'YES' | 'NO' | undefined>();
-} });
-expectEqual<Awaited<ReturnType<typeof enumPrompt>>['object'], 'YES' | 'NO'>();
+}, onEnd: _event => {
+	expectEqual<typeof _event.output, 'YES' | 'NO' | undefined>();
+}, output: Output.choice({ options: ['YES', 'NO'] }) });
+expectEqual<Awaited<ReturnType<typeof enumPrompt>>['output'], 'YES' | 'NO'>();
 void enumPrompt({ prefix: 'override=' });
 // @ts-expect-error Preserving enum literals does not permit invalid configured context overrides.
 void enumPrompt({ prefix: 123 });
-const textTemplate = create.TextGenerator.withTemplate({ prompt: '{{ value }}' }, parent);
-const textScript = create.TextStreamer.withScript({ prompt: 'return String(value)' }, parent);
-const textFunction = create.TextGenerator.withFunction({ prompt: ({ value, prefix }) => `${prefix}${value}` }, parent);
+const textTemplate = create.LLMAgent.withTemplate({ prompt: '{{ value }}' }, parent);
+const textScript = create.LLMAgent.withScript.asStream({ prompt: 'return String(value)' }, parent);
+const textFunction = create.LLMAgent.withFunction({ prompt: ({ value, prefix }) => `${prefix}${value}` }, parent);
 void textTemplate({ value: 1 });
-void textTemplate('{{ value }}', messages, { value: 1 });
+void textTemplate('{{ value }}', { value: 1 }, messages);
 void textScript({ value: 1 });
 void textFunction({ value: 1 });
 // @ts-expect-error Configured fields not declared in inputSchema stay private.
@@ -446,10 +447,10 @@ void textTemplate.run({ inputSchema: replacementInput });
 // @ts-expect-error Function-prompt callers accept input objects, not one-off strings.
 void textFunction('wrong');
 // @ts-expect-error Inherited prompt implementations must accept replacement input schemas.
-create.TextGenerator.withFunction({ inputSchema: replacementInput }, textFunction);
+create.LLMAgent.withFunction({ inputSchema: replacementInput }, textFunction);
 // @ts-expect-error Inherited prompt implementations must accept replaced configured context types.
-create.TextGenerator.withFunction({ context: { prefix: 123 } }, textFunction);
-const replacementPrompt = create.TextGenerator.withFunction({ inputSchema: replacementInput, context: { prefix: 123 }, prompt: ({ name, prefix }) => {
+create.LLMAgent.withFunction({ context: { prefix: 123 } }, textFunction);
+const replacementPrompt = create.LLMAgent.withFunction({ inputSchema: replacementInput, context: { prefix: 123 }, prompt: ({ name, prefix }) => {
 	expectEqual<typeof name, string>();
 	expectEqual<typeof prefix, number>();
 	return `${prefix}${name}`;
@@ -476,7 +477,7 @@ const variantFunction = create.Function({ inputSchema: variants, context: varian
 void variantFunction({ kind: 'text', text: 'input' });
 // @ts-expect-error The shallow merge retains a configured field outside the selected closed union branch.
 void variantFunction({ kind: 'count', count: 1 });
-const variantPrompt = create.TextGenerator.withFunction({ model, inputSchema: variants, context: variantDefaults, prompt: input => {
+const variantPrompt = create.LLMAgent.withFunction({ model, inputSchema: variants, context: variantDefaults, prompt: input => {
 	if (input.kind === 'text') expectEqual<typeof input.text, string>();
 	else expectEqual<typeof input.count, number>();
 	return String(input.shared);

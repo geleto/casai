@@ -14,8 +14,6 @@ export type StrictUnionSubtype<T, U> = U extends any
 	: never
 	: never;
 
-export type ConditionalPromise<T, IsAsync extends boolean> = IsAsync extends true ? Promise<T> : T;
-
 // Finite declared names, excluding broad string/number/symbol index signatures.
 export type NamedKeys<TValue> = TValue extends unknown ? keyof {
 	[TKeys in keyof TValue as string extends TKeys ? never : number extends TKeys ? never : symbol extends TKeys ? never : TKeys]: TValue[TKeys];
@@ -24,10 +22,13 @@ export type NamedKeys<TValue> = TValue extends unknown ? keyof {
 // Homomorphic removal preserves explicit properties beside an open index signature.
 export type DistributiveOmit<TValue, TKeys extends PropertyKey> = TValue extends unknown ? { [P in keyof TValue as P extends TKeys ? never : P]: TValue[P] } : never;
 
-export type NonArrayObject<TValue> = TValue extends readonly unknown[] ? never : TValue extends object ? TValue : never;
+export type NonArrayObject<TValue> = TValue extends readonly unknown[] | ((...args: never[]) => unknown) ? never : TValue extends object ? TValue : never;
 
 // eslint-disable-next-line @typescript-eslint/no-generated-empty-object-type -- An absent map has no keys.
 export type EmptyMap = Record<never, never>;
 
 // Flexible application context; Fields is used where values must remain unknown.
 export type Context = Record<string, any>;
+
+/** Optional configuration settings may explicitly clear an inherited value. */
+export type OptionalUndefined<T> = { [K in keyof T]: EmptyMap extends Pick<T, K> ? T[K] | undefined : T[K] };

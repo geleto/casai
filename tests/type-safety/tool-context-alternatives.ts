@@ -40,8 +40,8 @@ const owner = create.Function({ tools: { selected }, toolsContext: { selected: {
 void owner.run({ toolsContext: { selected: { factor: 2 } } });
 void owner.run({ toolsContext: { selected: { factor: 3, tenant: 'both' } } });
 // @ts-expect-error Model registries preserve possibly required context.
-create.TextGenerator({ model, prompt: 'go', tools: { conditional } });
-const generated = create.TextGenerator({ model, prompt: 'go', tools: { selected }, toolsContext: { selected: { factor: 2, tenant: 'both' } } });
+create.LLMAgent({ model, prompt: 'go', tools: { conditional } });
+const generated = create.LLMAgent({ model, prompt: 'go', tools: { selected }, toolsContext: { selected: { factor: 2, tenant: 'both' } } });
 // @ts-expect-error Model run overrides have the same selected-context requirement.
 void generated.run({ toolsContext: { selected: { tenant: 'one branch' } } });
 
@@ -52,7 +52,7 @@ create.Function({}, { config: { tools: { factorTool }, execute: () => 1 } });
 declare const correlated: { tools: { operation: typeof factorTool }; toolsContext: { operation: { factor: number } } }
 	| { tools: { operation: typeof _tenantTool }; toolsContext: { operation: { tenant: string } } };
 create.Function({ execute: () => 1 }, { config: correlated });
-create.TextGenerator({ model, prompt: 'go' }, { config: correlated });
+create.LLMAgent({ model, prompt: 'go' }, { config: correlated });
 
 // One union parser accepts either branch, unlike selecting one parser instance.
 const union = create.Function.asTool({ inputSchema, toolContextSchema: z.union([factor, tenant]), execute: () => 1 });
@@ -139,7 +139,7 @@ create.Function.asTool({ context: { factor: undefined } }, configured);
 const inheritedGuard = create.Function.asTool({}, guarded);
 void inheritedGuard();
 void inheritedGuard.run();
-create.TextGenerator.withFunction.asTool({ model, inputSchema, toolContextSchema: factor, prompt: ({ factor }) => {
+create.LLMAgent.withFunction.asTool({ model, inputSchema, toolContextSchema: factor, prompt: ({ factor }) => {
 	expectEqual<typeof factor, number | undefined>();
 	// @ts-expect-error Tool function preparers also run without tool context on ordinary calls.
 	return factor.toFixed();

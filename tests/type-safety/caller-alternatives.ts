@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import { create, z } from 'casai';
 import type { LanguageModel } from 'ai';
 import { expectEqual } from './assert.js';
@@ -12,10 +13,10 @@ const context = { value: 1 };
 const operation = create.Function({ inputSchema, context, execute: ({ value }) => value });
 const script = create.Script({ inputSchema, context, script: 'return value' });
 const template = create.Template({ inputSchema, context, template: '{{ value }}' });
-const text = create.TextGenerator.withTemplate({ inputSchema, context, model, prompt: '{{ value }}' });
-const stream = create.TextStreamer.withScript({ inputSchema, context, model, prompt: 'return value' });
-const object = create.ObjectGenerator.withFunction({ inputSchema, context, model, schema: z.object({ answer: z.number() }), prompt: ({ value }) => String(value) });
-const objectStream = create.ObjectStreamer.withTemplate({ inputSchema, context, model, schema: z.object({ answer: z.number() }), prompt: '{{ value }}' });
+const text = create.LLMAgent.withTemplate({ inputSchema, context, model, prompt: '{{ value }}' });
+const stream = create.LLMAgent.withScript.asStream({ inputSchema, context, model, prompt: 'return value' });
+const object = create.LLMAgent.withFunction({ inputSchema, context, model, prompt: ({ value }) => String(value), output: Output.object({ schema: z.object({ answer: z.number() }) }) });
+const objectStream = create.LLMAgent.withTemplate.asStream({ inputSchema, context, model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.number() }) }) });
 
 // Every concrete caller retains all alternatives before complete-input validation.
 void operation(valid);
@@ -46,9 +47,9 @@ void template(ownUndefined);
 void template('{{ value }}', valid);
 // @ts-expect-error Explicit source does not weaken context validation.
 void template('{{ value }}', invalid);
-void text([], valid);
+void text(valid, []);
 // @ts-expect-error A history argument does not weaken context validation.
-void text([], invalid);
+void text(invalid, []);
 
 void operation.run({ context: valid });
 void script.run({ context: valid });
@@ -66,7 +67,7 @@ void stream(undefined);
 void object(undefined);
 void objectStream(undefined);
 void template('{{ value }}', undefined);
-void text([], undefined);
+void text(undefined, []);
 void operation.run();
 void operation.run(undefined);
 
@@ -100,6 +101,8 @@ void rendererCallbacks({ map: value => value });
 void rendererCallbacks.run({ context: { map: value => value } });
 // @ts-expect-error A contextually typed callback cannot hide own undefined.
 void rendererCallbacks({ factor: undefined, map: value => value });
+// @ts-expect-error Named calls also retain an explicitly undefined configured public field.
+void rendererCallbacks.run({ context: { factor: undefined, map: value => value } });
 // @ts-expect-error Supplied private names remain protected during callback inference.
 void rendererCallbacks({ db: false, map: value => value });
 
@@ -151,10 +154,10 @@ const selectedDefaults = choose ? { inputSchema, context } : { inputSchema };
 const selectedFunction = create.Function({ execute: ({ value }) => value }, { config: selectedDefaults });
 const selectedScript = create.Script({ script: 'return value' }, { config: selectedDefaults });
 const selectedTemplate = create.Template({ template: '{{ value }}' }, { config: selectedDefaults });
-const selectedText = create.TextGenerator.withTemplate({ model, prompt: '{{ value }}' }, { config: selectedDefaults });
-const selectedStream = create.TextStreamer.withScript({ model, prompt: 'return value' }, { config: selectedDefaults });
-const selectedObject = create.ObjectGenerator.withTemplate({ model, prompt: '{{ value }}', schema: z.object({ answer: z.number() }) }, { config: selectedDefaults });
-const selectedObjectStream = create.ObjectStreamer.withTemplate({ model, prompt: '{{ value }}', schema: z.object({ answer: z.number() }) }, { config: selectedDefaults });
+const selectedText = create.LLMAgent.withTemplate({ model, prompt: '{{ value }}' }, { config: selectedDefaults });
+const selectedStream = create.LLMAgent.withScript.asStream({ model, prompt: 'return value' }, { config: selectedDefaults });
+const selectedObject = create.LLMAgent.withTemplate({ model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.number() }) }) }, { config: selectedDefaults });
+const selectedObjectStream = create.LLMAgent.withTemplate.asStream({ model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.number() }) }) }, { config: selectedDefaults });
 void selectedFunction({ value: 2 });
 void selectedScript({ value: 2 });
 void selectedTemplate({ value: 2 });
@@ -182,4 +185,4 @@ void selectedTemplate('{{ value }}');
 void selectedTemplate.run({});
 const completeDefaults = choose ? { inputSchema, context } : { inputSchema, context: { value: 2, db: 'private' } };
 void create.Template({ template: '{{ value }}' }, { config: completeDefaults })();
-void create.TextGenerator.withTemplate({ model, prompt: '{{ value }}' }, { config: completeDefaults })();
+void create.LLMAgent.withTemplate({ model, prompt: '{{ value }}' }, { config: completeDefaults })();

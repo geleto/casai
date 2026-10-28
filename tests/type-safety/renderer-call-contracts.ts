@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 // Compile-only renderer boundaries: defaults may change, call arguments follow runtime dispatch.
 import { create, z } from 'casai';
 import type { LanguageModel, ModelMessage } from 'ai';
@@ -42,10 +43,10 @@ void namedScript();
 // Const inference must not lock renderer defaults to array lengths or nested literal values.
 const template = create.Template({ template: '{{ list }} {{ settings.label }}', inputSchema: z.object({ list: z.array(z.number()), settings: z.object({ label: z.string(), flags: z.array(z.boolean()) }) }), context: { list: [1, 2], settings: { label: 'first', flags: [true] } } });
 const script = create.Script({ script: 'return settings.label', inputSchema: z.object({ list: z.array(z.number()), settings: z.object({ label: z.string(), flags: z.array(z.boolean()) }) }), context: { list: [1, 2], settings: { label: 'first', flags: [true] } } });
-const renderedText = create.TextGenerator.withTemplate({ model, prompt: '{{ list }}', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
-const renderedStream = create.TextStreamer.withScript({ model, prompt: 'return nested.value', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
-const renderedObject = create.ObjectGenerator.withScript({ model, schema, prompt: 'return nested.value', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
-const renderedObjectStream = create.ObjectStreamer.withTemplate({ model, schema, prompt: '{{ list }}', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
+const renderedText = create.LLMAgent.withTemplate({ model, prompt: '{{ list }}', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
+const renderedStream = create.LLMAgent.withScript.asStream({ model, prompt: 'return nested.value', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } } });
+const renderedObject = create.LLMAgent.withScript({ model, prompt: 'return nested.value', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } }, output: Output.object({ schema: schema }) });
+const renderedObjectStream = create.LLMAgent.withTemplate.asStream({ model, prompt: '{{ list }}', inputSchema: z.object({ list: z.array(z.number()), nested: z.object({ value: z.number() }) }), context: { list: [1, 2], nested: { value: 1 } }, output: Output.object({ schema: schema }) });
 void template({ list: [3], settings: { label: 'next', flags: [false, true] } });
 void script({ list: [], settings: { label: 'next', flags: [] } });
 void renderedText({ list: [3], nested: { value: 2 } });
@@ -67,14 +68,14 @@ void callbackContext({ calculate: (value: number) => value * 2, date: new Date()
 void callbackContext({ calculate: (value: string) => value.length });
 
 // Rendered LLM calls distinguish valid message history from context arrays.
-const optionalPrompt = create.TextGenerator.withTemplate({ model });
-const optionalObjectPrompt = create.ObjectStreamer.withScript({ model, schema });
-void optionalPrompt('{{ topic }}', messages, { topic: 'math' });
-void optionalObjectPrompt('return topic', messages, { topic: 'math' });
-void renderedText(messages, { list: [3] });
-void renderedStream(messages, { nested: { value: 2 } });
-void renderedObject(messages);
-void renderedObjectStream(undefined, messages, { list: [3] });
+const optionalPrompt = create.LLMAgent.withTemplate({ model });
+const optionalObjectPrompt = create.LLMAgent.withScript.asStream({ model, output: Output.object({ schema: schema }) });
+void optionalPrompt('{{ topic }}', { topic: 'math' }, messages);
+void optionalObjectPrompt('return topic', { topic: 'math' }, messages);
+void renderedText({ list: [3] }, messages);
+void renderedStream({ nested: { value: 2 } }, messages);
+void renderedObject({}, messages);
+void renderedObjectStream(undefined, { list: [3] }, messages);
 // @ts-expect-error An unconfigured renderer still requires a prompt before history/context.
 void optionalPrompt(messages, { topic: 'math' });
 // @ts-expect-error Numeric arrays are invalid message history and cannot be context.
@@ -91,10 +92,10 @@ void renderedText(() => 'context');
 // Exposed configs contain normalized loaders for standalone and inherited components.
 const configuredTemplate = create.Template({ template: 'Hello', loader });
 const _configuredScript = create.Script({ script: 'return 1', loader });
-const _loadedText = create.TextGenerator.loadsText({ model, loader, prompt: 'answer' });
-const _loadedStream = create.TextStreamer.loadsScript({ model, loader, prompt: 'answer' });
-const _loadedObject = create.ObjectGenerator.loadsTemplate({ model, schema, loader, prompt: 'answer' });
-const _loadedObjectStream = create.ObjectStreamer.loadsText({ model, schema, loader, prompt: 'answer' });
+const _loadedText = create.LLMAgent.loadsText({ model, loader, prompt: 'answer' });
+const _loadedStream = create.LLMAgent.loadsScript.asStream({ model, loader, prompt: 'answer' });
+const _loadedObject = create.LLMAgent.loadsTemplate({ model, loader, prompt: 'answer', output: Output.object({ schema: schema }) });
+const _loadedObjectStream = create.LLMAgent.loadsText.asStream({ model, loader, prompt: 'answer', output: Output.object({ schema: schema }) });
 expectEqual<typeof configuredTemplate.config.loader, ILoaderAny[]>();
 expectEqual<typeof _configuredScript.config.loader, ILoaderAny[]>();
 expectEqual<typeof _loadedText.config.loader, ILoaderAny[]>();
@@ -119,24 +120,24 @@ declare const rendererInput: RendererInput;
 void mixedRenderer();
 void (chooseTemplate ? templateRenderer(rendererInput) : scriptRenderer(rendererInput));
 void (chooseTemplate ? templateRenderer('Ready', rendererInput) : scriptRenderer('Ready', rendererInput));
-const textRenderer = create.TextGenerator.withTemplate({ model, prompt: '{{ topic }}' });
-const objectRenderer = create.ObjectStreamer.withScript({ model, schema, prompt: 'return topic' });
+const textRenderer = create.LLMAgent.withTemplate({ model, prompt: '{{ topic }}' });
+const objectRenderer = create.LLMAgent.withScript.asStream({ model, prompt: 'return topic', output: Output.object({ schema: schema }) });
 const mixedLLM = chooseTemplate ? textRenderer : objectRenderer;
 void mixedLLM();
 void (chooseTemplate ? textRenderer(rendererInput) : objectRenderer(rendererInput));
-void (chooseTemplate ? textRenderer(messages, rendererInput) : objectRenderer(messages, rendererInput));
-void (chooseTemplate ? textRenderer('{{ topic }}', messages, rendererInput) : objectRenderer('{{ topic }}', messages, rendererInput));
-void mixedLLM.run({ context: rendererInput });
+void (chooseTemplate ? textRenderer(rendererInput, messages) : objectRenderer(rendererInput, messages));
+void (chooseTemplate ? textRenderer('{{ topic }}', rendererInput, messages) : objectRenderer('{{ topic }}', rendererInput, messages));
+void (chooseTemplate ? textRenderer.run({ context: rendererInput }) : objectRenderer.run({ context: rendererInput }));
 const mixedScriptFunction = chooseTemplate ? create.Script({ script: 'return 1', schema: z.number() }) : create.Function({ execute: () => 1 });
 expectType<Promise<number>>(mixedScriptFunction());
 
 // Open context shapes still reject values dispatched as messages or callbacks.
 const openTemplate = create.Template({ template: 'Ready' });
 const openScript = create.Script({ script: 'return "Ready"' });
-const openText = create.TextGenerator.withTemplate({ model, prompt: 'Ready' });
-const openTextStream = create.TextStreamer.withScript({ model, prompt: 'return "Ready"' });
-const openObject = create.ObjectGenerator.withTemplate({ model, schema, prompt: 'Ready' });
-const openObjectStream = create.ObjectStreamer.withScript({ model, schema, prompt: 'return "Ready"' });
+const openText = create.LLMAgent.withTemplate({ model, prompt: 'Ready' });
+const openTextStream = create.LLMAgent.withScript.asStream({ model, prompt: 'return "Ready"' });
+const openObject = create.LLMAgent.withTemplate({ model, prompt: 'Ready', output: Output.object({ schema: schema }) });
+const openObjectStream = create.LLMAgent.withScript.asStream({ model, prompt: 'return "Ready"', output: Output.object({ schema: schema }) });
 // @ts-expect-error Numeric arrays cannot be standalone template context.
 void openTemplate([1, 2]);
 // @ts-expect-error Callbacks cannot be standalone template context.

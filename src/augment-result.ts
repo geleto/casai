@@ -1,4 +1,4 @@
-import type { DefaultTextOutput, GenerateRequest, StreamRequest, ConversationRequest } from './types/sdk.js';
+import type { GenerateRequest, StreamRequest, ResolvedOutput } from './types/sdk.js';
 import type { InferGenerateOutput, ModelMessage, OutputInterface, StepResult, ToolSet } from 'ai';
 import type { GenerateTextResultAugmented, StreamTextResultAugmented } from './types/result.js';
 import { generateText, streamText, NoOutputGeneratedError } from 'ai';
@@ -7,23 +7,8 @@ type Context = Record<string, unknown>;
 
 const errorFinishMessage = 'The model finished with an error but reported no cause.';
 
-// Object APIs retain their native completion and stream-consumption contracts.
-export function augmentObjectResult<R extends { readonly object: unknown }>(result: R): R & { readonly value: R['object'] } {
-	Object.defineProperty(result, 'value', { get: () => result.object });
-	return result as R & { readonly value: R['object'] };
-}
-
-function snapshotRequest<R extends ConversationRequest>(request: R): R {
-	const snapshot = { ...request };
-	if (snapshot.messages) snapshot.messages = [...snapshot.messages];
-	if (Array.isArray(snapshot.prompt)) snapshot.prompt = [...snapshot.prompt];
-	return snapshot;
-}
-
-function historyPrefix(request: ConversationRequest): ModelMessage[] {
-	return request.messages ?? (Array.isArray(request.prompt) ? request.prompt
-		: typeof request.prompt === 'string' ? [{ role: 'user', content: request.prompt }] : []);
-}
+// The caller owns normalized settings and conversation snapshots for this invocation.
+type ResultRequest<R, O> = Omit<R, 'output' | 'prompt' | 'messages'> & { output?: O; messages: ModelMessage[] };
 
 /** Output eligibility concerns protocol completion, never the wording of the answer. */
 function requireOutput<T extends ToolSet, C extends Context>(steps: StepResult<T, C>[], tools: T | undefined, messages: ModelMessage[]) {
@@ -69,21 +54,17 @@ function requireOutput<T extends ToolSet, C extends Context>(steps: StepResult<T
 	if (pending.size) throw new NoOutputGeneratedError({ message: 'Final output is unavailable while tool results or approvals are pending.' });
 }
 
-export async function generateTextWithResult<T extends ToolSet, C extends Context = Context, O extends OutputInterface = DefaultTextOutput>(
-	request: GenerateRequest<T, C, O>,
-	// Components supply the dynamic conversation separately from configured static messages.
-	conversation: ModelMessage[] = historyPrefix(request),
+export async function generateTextWithResult<T extends ToolSet, C extends Context = Context, O extends OutputInterface | undefined = undefined>(
+	request: ResultRequest<GenerateRequest<T, C, ResolvedOutput<O>>, O>,
+	prefix: ModelMessage[],
 ) {
-	request = snapshotRequest(request);
-	const prefix = [...conversation];
-	const incoming = [...historyPrefix(request)];
-	const result = await generateText<T, C, O>(request);
+	const result = await generateText<T, C, ResolvedOutput<O>>(request as GenerateRequest<T, C, ResolvedOutput<O>>);
 	const failure = result.finishReason === 'error' ? new NoOutputGeneratedError({ message: errorFinishMessage }) : undefined;
 	let history: ModelMessage[] | undefined;
 	Object.defineProperties(result, {
 		value: { get() {
 			if (failure) throw failure;
-			requireOutput(result.steps, request.tools, [...incoming, ...result.responseMessages]);
+			requireOutput(result.steps, request.tools, [...prefix, ...result.responseMessages]);
 			return result.output;
 		} },
 		messageHistory: { get() {
@@ -93,38 +74,35 @@ export async function generateTextWithResult<T extends ToolSet, C extends Contex
 	return result as GenerateTextResultAugmented<T, O, C>;
 }
 
-export function streamTextWithResult<T extends ToolSet, C extends Context = Context, O extends OutputInterface = DefaultTextOutput>(
-	request: StreamRequest<T, C, O>,
-	conversation: ModelMessage[] = historyPrefix(request),
+export function streamTextWithResult<T extends ToolSet, C extends Context = Context, O extends OutputInterface | undefined = undefined>(
+	settings: ResultRequest<StreamRequest<T, C, ResolvedOutput<O>>, O>,
+	prefix: ModelMessage[],
 ) {
-	const settings = snapshotRequest(request);
-	const prefix = [...conversation];
-	const incoming = [...historyPrefix(settings)];
 	let lastError: { error: unknown } | undefined;
 	const terminalSteps = new Set<number>();
 	const incremental = settings.output === undefined && settings.streamRetries === undefined
 		&& settings.experimental_toolCallers === undefined;
-	const onStepStart = settings.onStepStart ?? settings.experimental_onStepStart;
-	const onLanguageModelCallStart = settings.onLanguageModelCallStart ?? settings.experimental_onLanguageModelCallStart;
+	const onStepStart = settings.onStepStart;
+	const onLanguageModelCallStart = settings.onLanguageModelCallStart;
 	const onChunk = settings.onChunk;
-	settings.onStepStart = async event => {
+	const observeStep = async (event: Parameters<NonNullable<StreamRequest<T, C, ResolvedOutput<O>>['onStepStart']>>[0]) => {
 		if (incremental && (event.toolChoice === 'none' || event.activeTools?.length === 0 || !event.tools || Object.keys(event.tools).length === 0)
 			&& !Object.values(event.tools ?? {}).some(tool => tool.type === 'provider' && tool.supportsDeferredResults)) {
 			terminalSteps.add(event.stepNumber);
 		}
 		await onStepStart?.(event);
 	};
-	settings.onLanguageModelCallStart = async event => {
+	const observeCall: NonNullable<StreamRequest['onLanguageModelCallStart']> = async event => {
 		// Unlike onStepStart, this runs for every retry attempt too.
 		lastError = undefined;
 		await onLanguageModelCallStart?.(event);
 	};
-	settings.onChunk = async event => {
+	const observeChunk = async (event: Parameters<NonNullable<StreamRequest<T>['onChunk']>>[0]) => {
 		const part = event.chunk;
 		if (part.type === 'error') lastError = { error: part.error };
 		await onChunk?.(event);
 	};
-	const result = streamText<T, C, O>(settings);
+	const result = streamText<T, C, ResolvedOutput<O>>({ ...settings, onStepStart: observeStep, onLanguageModelCallStart: observeCall, onChunk: observeChunk } as StreamRequest<T, C, ResolvedOutput<O>>);
 	let completion: Promise<StepResult<T, C>[]> | undefined;
 	function completed() {
 		return completion ??= (async () => {
@@ -141,9 +119,12 @@ export function streamTextWithResult<T extends ToolSet, C extends Context = Cont
 			return steps;
 		})();
 	}
-	async function finalOutput() {
-		requireOutput(await completed(), settings.tools, [...incoming, ...await result.responseMessages]);
-		return await result.output;
+	let output: Promise<InferGenerateOutput<ResolvedOutput<O>>> | undefined;
+	function finalOutput() {
+		return output ??= (async () => {
+			requireOutput(await completed(), settings.tools, [...prefix, ...await result.responseMessages]);
+			return await result.output;
+		})();
 	}
 	async function* values(): AsyncGenerator {
 		let emitted = 0;
@@ -174,28 +155,16 @@ export function streamTextWithResult<T extends ToolSet, C extends Context = Cont
 			// Interleaved blocks can change arrival order, but the emitted prefix remains stable.
 			const rest = (output as string).slice(emitted);
 			if (rest) yield rest;
-		} else if (settings.output?.name === 'array') {
-			const iterable = output as Iterable<unknown> & Partial<AsyncIterable<unknown>>;
-			// Async delegation preserves promise-valued elements; sync delegation unwraps them.
-			yield* { [Symbol.asyncIterator]() {
-				const iterator = iterable[Symbol.asyncIterator]?.() ?? iterable[Symbol.iterator]();
-				return {
-					next: async () => iterator.next(),
-					return: async () => iterator.return?.() ?? { done: true, value: undefined },
-				};
-			} };
 		} else yield output;
 	}
 	let history: Promise<ModelMessage[]> | undefined;
-	let output: Promise<InferGenerateOutput<O>> | undefined;
 	Object.defineProperties(result, {
 		value: { get() {
-			const kind = settings.output?.name ?? 'text';
-			return kind === 'text' || kind === 'array' ? values() : output ??= finalOutput();
+			return settings.output === undefined ? values() : finalOutput();
 		} },
 		messageHistory: { get() {
 			return history ??= (async () => [...prefix, ...await result.responseMessages])();
 		} },
 	});
-	return result as StreamTextResultAugmented<T, O, C>;
+	return { result: result as StreamTextResultAugmented<T, O, C>, finalOutput };
 }

@@ -28,16 +28,16 @@ function isComponent(tool: Tool): tool is BindableComponentTool {
 }
 
 /** Cascada names arguments explicitly. Schema field order never supplies positional meaning. */
-export function namedArguments(args: readonly unknown[]): unknown[] {
+export function namedArguments(args: readonly unknown[]): { values: unknown[]; keywords: boolean } {
 	const last = args.at(-1);
-	if (last === null || typeof last !== 'object' || !Object.hasOwn(last, '__hasKeywordArgs') || Reflect.get(last, '__hasKeywordArgs') !== true) return [...args];
+	if (last === null || typeof last !== 'object' || !Object.hasOwn(last, '__hasKeywordArgs') || Reflect.get(last, '__hasKeywordArgs') !== true) return { values: [...args], keywords: false };
 	const { __hasKeywordArgs: _marker, ...keywords } = last as Fields;
 	if (args.slice(0, -1).some(isPlainObject)) throw new ValidationError('Use either a context object or named arguments, not both.');
-	return [...args.slice(0, -1), keywords];
+	return { values: [...args.slice(0, -1), keywords], keywords: true };
 }
 
 export function runSettings(args: readonly unknown[], allowed: readonly string[]): Fields {
-	const normalized = namedArguments(args);
+	const { values: normalized } = namedArguments(args);
 	if (normalized.length > 1) throw new ValidationError('A component run accepts one settings object.');
 	const settings = { ...requireContextObject(normalized[0] === undefined ? {} : normalized[0]) };
 	const unknown = Object.keys(settings).filter(key => !allowed.includes(key));
@@ -71,8 +71,9 @@ export function prepareRegistry(config: ExecutionConfig, overrides?: Fields): Pr
 	const entries = Object.entries(config.tools ?? {}).filter((entry): entry is [string, Tool] => entry[1] != null);
 	const bindings = new Map<string, ComponentToolBinding>();
 	const tools: ToolSet = Object.fromEntries<Tool>(entries.map(([key, tool]) => {
+		const raw = Object.hasOwn(selected, key) ? selected[key] : undefined;
 		if (!isComponent(tool)) return [key, tool] as const;
-		const binding = tool._bindToolContext(Object.hasOwn(selected, key) ? selected[key] : undefined, key);
+		const binding = tool._bindToolContext(raw, key);
 		bindings.set(key, binding);
 		return [key, binding.tool] as const;
 	}));
@@ -89,7 +90,7 @@ export function prepareRegistry(config: ExecutionConfig, overrides?: Fields): Pr
 		helpers(options) {
 			return Object.fromEntries(entries.filter((entry): entry is [string, ExecutableTool<Tool<unknown, unknown, unknown>>] => isExecutableTool(entry[1])).map(([key, tool]) => [key,
 				async (...args: unknown[]) => {
-					const normalized = namedArguments(args);
+					const { values: normalized } = namedArguments(args);
 					if (normalized.length > 1) throw new ValidationError('A registered tool accepts one input value.');
 					options.abortSignal?.throwIfAborted();
 					const metadata = { ...options, toolCallId: generateId(), messages: [] };
@@ -115,7 +116,8 @@ export function prepareRegistry(config: ExecutionConfig, overrides?: Fields): Pr
  * One application parse, followed by one private-context assembly. SDK executors
  * enter after parsing; ordinary and injected calls enter before it.
  */
-function preparation(config: ExecutionConfig, tool: boolean, binding?: { context: unknown; name?: string | undefined }) {
+function preparation(config: ExecutionConfig, binding?: { context: unknown; name?: string | undefined }) {
+	const tool = config.asTool === true;
 	const context = snapshot(binding?.context);
 	const toolName = binding?.name;
 	const configured = { ...config.context };
@@ -180,10 +182,10 @@ function preparation(config: ExecutionConfig, tool: boolean, binding?: { context
 	};
 }
 
-export async function prepareExecution(config: ExecutionConfig, input: unknown, options: ComponentExecutionOptions = {}, toolsContext?: Fields, tool = false) {
+export async function prepareExecution(config: ExecutionConfig, input: unknown, options: ComponentExecutionOptions = {}, toolsContext?: Fields) {
 	options.abortSignal?.throwIfAborted();
 	const registry = prepareRegistry(config, toolsContext);
-	const prepared = preparation(config, tool);
+	const prepared = preparation(config);
 	const { value } = await prepared.parse(input);
 	const { context } = await prepared.assemble(value, {}, options, registry);
 	return { context, registry };
@@ -200,7 +202,7 @@ export function defineTool<T extends { config: ExecutionConfig }>(
 ): T & Tool<Fields, unknown, unknown> & { bindToolContext(context: unknown): { tool: Tool<Fields, unknown, unknown>; context: unknown } } {
 	const config = component.config;
 	function bind(raw: unknown, bound: boolean, toolName?: string): ComponentToolBinding {
-		const prepared = preparation(config, true, bound ? { context: raw, name: toolName } : undefined);
+		const prepared = preparation(config, bound ? { context: raw, name: toolName } : undefined);
 		const properties = Object.fromEntries(descriptorKeys.filter(key => Object.hasOwn(descriptorConfig, key)).map(key => [key, (descriptorConfig as Fields)[key]]));
 		async function finish(input: Fields, incoming: Fields, options: ComponentExecutionOptions) {
 			options.abortSignal?.throwIfAborted();
@@ -221,7 +223,7 @@ export function defineTool<T extends { config: ExecutionConfig }>(
 				return finish(requireContextObject(input), inputObject(context), metadata);
 			},
 		};
-		return {
+		const binding: ComponentToolBinding = {
 			tool, context: prepared.context,
 			async invoke(input, options) {
 				const { value } = await prepared.parse(input);
@@ -229,6 +231,11 @@ export function defineTool<T extends { config: ExecutionConfig }>(
 				return finish(value, incoming, options);
 			},
 		};
+		if (bound) Object.defineProperty(tool, '_bindToolContext', { value: (context: unknown, key: string) => {
+			if (!sameContext(binding.context, context)) throw new ConfigError(`Bound tool context '${key}' must match its binding.`);
+			return binding;
+		} });
+		return binding;
 	}
 	Object.defineProperty(component, '_bindToolContext', { value: (context: unknown, name: string) => bind(context, true, name) });
 	return Object.assign(component, bind(undefined, false).tool, {

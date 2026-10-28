@@ -9,7 +9,7 @@ const base = path.resolve(__dirname, '../..');
 
 const source = `
 import { create, z, textStreamSchema } from 'casai';
-import { tool } from 'ai';
+import { tool, Output } from 'ai';
 import type { LanguageModel } from 'ai';
 const presenceInput = z.object({ value: z.string().transform(Number), count: z.number().default(1) });
 declare const optionalSchema: { inputSchema?: typeof presenceInput };
@@ -32,8 +32,8 @@ create.Config({ ...spreadSchema, execute: input => {
 create.Config({ inputSchema: presenceInput, execute: input => input.value/*configDefiniteSchemaValue*/ });
 const optionalConfigParent = create.Config(optionalSchema);
 create.Config({ execute: input => input.value/*parentConfigSchemaValue*/ }, optionalConfigParent);
-const enumConfig = create.Config({ output: 'enum', enum: ['YES', 'NO'] });
-const mutableEnumValue = enumConfig.config.enum[0];
+const enumConfig = create.Config({ output: Output.choice({ options: ['YES', 'NO'] }) });
+declare const mutableEnumValue: Awaited<ReturnType<typeof enumConfig.config.output.parseCompleteOutput>>;
 mutableEnumValue/*mutableConfigEnum*/;
 const operation = create.Function({
   inputSchema: z.looseObject({ value: z.number(), factor: z.string().transform(Number), map: z.function({ input: [z.number()], output: z.number() }).optional() }),
@@ -120,38 +120,65 @@ declare const unionInput: { value: number } | { value: number; user: string };
 const render = create.Template({ inputSchema: z.looseObject({ value: z.number() }), context: { user: 'private' }, template: '{{ value }}' });
 render(unionInput); // expected: user
 declare const model: LanguageModel;
+const reviewLookup = tool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query });
+const approvalAgent = create.LLMAgent({ model, tools: { reviewLookup }, toolApproval: { reviewLookup: 'user-approval' } });
+approvalAgent.config.toolApproval.reviewLookup/*approvalLiteral*/;
+const hookView = create.LLMAgent({ model, prompt: 'Answer.',
+  inputSchema: z.looseObject({ detail: z.enum(['brief', 'deep']), amount: z.string().transform(Number) }),
+  context: { detail: 'brief' as const, amount: '1', db: { ready: true } },
+  prepareCall(request, config, context) {
+    if (config.context) {
+      config.context./*hookConfigKeys*/detail;
+      config.context.detail/*hookConfigDetail*/;
+      config.context.amount/*hookConfigAmount*/;
+      config.context.db.ready/*hookConfigPrivate*/;
+    }
+    context.amount/*hookParsedAmount*/;
+    return request;
+  } });
+hookView.run({ context: { detail: 'deep', amount: '2' } });
+hookView.generate({ prompt: 'Answer.', /*nativeMethodKeys*/ });
+hookView.generate({ prompt: 'Answer.', temperature: 'hot' }); // expected: temperature
+hookView.stream({ prompt: 'Answer.', prepareCall: () => ({ model, messages: [] }) }); // expected: prepareCall
+create.LLMAgent({ model, tools: { reviewLookup }, toolApproval: { reviewLookup: (input, options) => {
+  input./*approvalInput*/query;
+  options.toolCallId/*approvalCallId*/;
+  return 'approved';
+} } });
 const pairedPromptParent = { config: schemaEnabled
   ? { model, inputSchema: presenceInput, prompt: ({ value }: { value: number }) => value.toFixed() }
   : { model, inputSchema: z.object({ value: z.string() }), prompt: ({ value }: { value: string }) => value.toUpperCase() } };
-create.TextGenerator.withFunction({}, pairedPromptParent)({ value: '4' });
-create.TextGenerator.withFunction({ prompt: input => String(input.value/*pairedPromptValue*/) }, pairedPromptParent);
-const enumParent = create.Config({ model, output: 'enum', enum: ['YES'] });
-create.ObjectGenerator({ output: 'object', enum: undefined, schema: z.number(),
-  onFinish: event => { event.object/*transitionOutput*/; } }, enumParent);
+create.LLMAgent.withFunction({}, pairedPromptParent)({ value: '4' });
+create.LLMAgent.withFunction({ prompt: input => String(input.value/*pairedPromptValue*/) }, pairedPromptParent);
+const functionSource = create.LLMAgent.withFunction({ model, inputSchema: presenceInput, prompt: ({ value }) => String(value) });
+create.LLMAgent({ prompt: input => String(input.value/*inheritedFunctionValue*/) }, create.Config({}, functionSource));
+const enumParent = create.Config({ model, output: Output.choice({ options: ['YES'] }) });
+create.LLMAgent({ output: Output.object({ schema: z.number() }),
+  onEnd: event => { event.output/*transitionOutput*/; } }, enumParent);
 create.Script({ schema: undefined }, create.Config({ script: 'return "raw"', schema: z.number() }));
-create.ObjectGenerator.withFunction({ model, schema: z.number(), ...spreadSchema, prompt: input => {
+create.LLMAgent.withFunction({ model, output: Output.object({ schema: z.number() }), ...spreadSchema, prompt: input => {
   input./*objectPromptMembers*/value;
   input.value/*objectPromptValue*/;
   return String(input.value);
 } });
-create.ObjectGenerator.withFunction.asTool({ model, schema: z.number(), inputSchema: presenceInput, context: { offset: 2 },
+create.LLMAgent.withFunction.asTool({ model, output: Output.object({ schema: z.number() }), inputSchema: presenceInput, context: { offset: 2 },
   prompt: input => String(input.value/*objectToolValue*/ + input.offset) });
-create.ObjectGenerator({ model, schema: z.object({ answer: z.number() }), onFinish: event => {
-  event.object?./*objectResultMembers*/answer;
+create.LLMAgent({ model, output: Output.object({ schema: z.object({ answer: z.number() }) }), onEnd: event => {
+  event.output?./*objectResultMembers*/answer;
 } });
-create.ObjectGenerator.withFunction({}, create.Config({ model, schema: z.number() })); // expected: prompt
-create.ObjectGenerator.withFunction({ prompt: () => 'Answer' }, create.Config({ model, schema: z.number() }));
-create.TextGenerator.withFunction({ model, ...spreadSchema, prompt: input => String(input.value/*textPromptValue*/) });
-create.TextStreamer.withFunction({ model, ...spreadSchema, prompt: input => String(input.value/*textStreamPromptValue*/) });
-create.ObjectStreamer.withFunction({ model, schema: z.number(), ...spreadSchema, prompt: input => String(input.value/*objectStreamPromptValue*/) });
-create.TextGenerator.withFunction({}, create.Config({ model })); // expected: prompt
-create.TextStreamer.withFunction({}, create.Config({ model })); // expected: prompt
-create.ObjectStreamer.withFunction({}, create.Config({ model, schema: z.number() })); // expected: prompt
+create.LLMAgent.withFunction({}, create.Config({ model, output: Output.object({ schema: z.number() }) }))(); // error
+create.LLMAgent.withFunction({ prompt: () => 'Answer' }, create.Config({ model, output: Output.object({ schema: z.number() }) }));
+create.LLMAgent.withFunction({ model, ...spreadSchema, prompt: input => String(input.value/*textPromptValue*/) });
+create.LLMAgent.withFunction.asStream({ model, ...spreadSchema, prompt: input => String(input.value/*textStreamPromptValue*/) });
+create.LLMAgent.withFunction.asStream({ model, output: Output.object({ schema: z.number() }), ...spreadSchema, prompt: input => String(input.value/*objectStreamPromptValue*/) });
+create.LLMAgent.withFunction({}, create.Config({ model }))(); // error
+create.LLMAgent.withFunction.asStream({}, create.Config({ model }))(); // error
+create.LLMAgent.withFunction.asStream({}, create.Config({ model, output: Output.object({ schema: z.number() }) }))(); // error
 const rendererParent = create.Config({ inputSchema: presenceInput });
 create.Template.asTool({ template: '{{ value }}', onInputAvailable: ({ input }) => { input.value/*templateDescriptorValue*/.toFixed(); } }, rendererParent);
 create.Script.asTool({ script: 'return value', schema: z.number(),
   toModelOutput: ({ output }) => ({ type: 'text', value: String(output/*scriptDescriptorValue*/) }) }, rendererParent);
-const runAlternatives = create.TextGenerator.withTemplate({ model, prompt: '{{ value }}',
+const runAlternatives = create.LLMAgent.withTemplate({ model, prompt: '{{ value }}',
   inputSchema: z.looseObject({ value: z.number() }), context: { value: 1, user: 'private' } });
 declare const invalidRunAlternative: { maxOutputTokens: number } | { context: { value: number; user: string } };
 declare const validRunAlternative: { maxOutputTokens: number } | { context: { value: number; extra: string } };
@@ -162,7 +189,7 @@ const numericCaller = create.Function({ inputSchema: numericInput, context: { va
 const numericRenderer = create.Template({ inputSchema: numericInput, context: { value: 1 }, template: '{{ value }}' });
 const conditionalDefaults = enabled ? { inputSchema: numericInput, context: { value: 1 } } : { inputSchema: numericInput };
 const conditionalRenderer = create.Template({ template: '{{ value }}' }, { config: conditionalDefaults });
-const conditionalRenderedText = create.TextGenerator.withTemplate({ model, prompt: '{{ value }}' }, { config: conditionalDefaults });
+const conditionalRenderedText = create.LLMAgent.withTemplate({ model, prompt: '{{ value }}' }, { config: conditionalDefaults });
 conditionalRenderer({ value: 2 });
 conditionalRenderedText({ value: 2 });
 conditionalRenderer(); // error
@@ -175,7 +202,7 @@ numericRenderer(validCallerAlternative);
 numericCaller(invalidCallerAlternative); // error
 numericRenderer(invalidCallerAlternative); // error
 numericCaller({ /*numericCall*/ });
-create.TextGenerator.withTemplate({ model, context: { user: 'private' }, inputSchema: z.union([z.object({ value: z.number() }), z.union([z.object({ value: z.number() }), z.object({ value: z.number() })])]), prompt: 'ready' }); // expected: declarations
+create.LLMAgent.withTemplate({ model, context: { user: 'private' }, inputSchema: z.union([z.object({ value: z.number() }), z.union([z.object({ value: z.number() }), z.object({ value: z.number() })])]), prompt: 'ready' }); // expected: declarations
 const transformed = z.string().transform(text => text.length);
 declare const alternativeConfig: { schema: typeof transformed; execute: () => string } | { execute: () => string };
 const alternative = create.Function.asTool({ inputSchema: z.object({}), ...alternativeConfig });
@@ -191,24 +218,24 @@ mixedInput({ kind: 'closed', value: 2, extra: true }); // expected: extra
 mixedInput({ kind: 'open', value: 2, extra: true });
 const secured = tool({ inputSchema: z.object({}), contextSchema: z.object({ tenant: z.string() }), execute: (_input, { context }) => context.tenant });
 declare const conditionalRegistry: { model: LanguageModel; tools: { secured: typeof secured } } | { model: LanguageModel };
-create.TextGenerator(conditionalRegistry); // expected: secured
-create.TextStreamer({}, { config: conditionalRegistry }); // expected: secured
+create.LLMAgent(conditionalRegistry); // expected: secured
+create.LLMAgent.asStream({}, { config: conditionalRegistry }); // expected: secured
 declare const pairedRegistry: { tools: { secured: typeof secured }; toolsContext: { secured: { tenant: string } } } | { tools?: never };
-create.TextGenerator({ model }, { config: pairedRegistry });
+create.LLMAgent({ model }, { config: pairedRegistry });
 const textInput = z.object({ value: z.string() });
 const numberInput = z.object({ value: z.number() });
 declare const conditionalHook: { inputSchema: typeof textInput; execute: () => string; onInputAvailable: (event: { input: { value: string } }) => void }
   | { inputSchema: typeof textInput; execute: () => string };
 create.Function.asTool({ inputSchema: numberInput }, { config: conditionalHook }); // expected: onInputAvailable
 create.Function.asTool({ inputSchema: numberInput, onInputAvailable: event => { event.input.value/*replacedHook*/.toFixed(); } }, { config: conditionalHook });
-declare const conditionalLifecycle: { model: LanguageModel; schema: typeof textInput; onFinish: (event: { object: { value: string } | undefined }) => void }
-  | { model: LanguageModel; schema: typeof textInput };
-create.ObjectGenerator({ schema: numberInput }, { config: conditionalLifecycle }); // expected: onFinish
-create.ObjectGenerator({ schema: numberInput, onFinish: event => { event.object?.value.toFixed(); } }, { config: conditionalLifecycle });
+declare const conditionalLifecycle: { model: LanguageModel; output: ReturnType<typeof Output.object<{ value: string }>>; onEnd: (event: { output: { value: string } | undefined }) => void }
+  | { model: LanguageModel; output: ReturnType<typeof Output.object<{ value: string }>> };
+create.LLMAgent({ output: Output.object({ schema: numberInput }) }, { config: conditionalLifecycle }); // expected: onEnd
+create.LLMAgent({ output: Output.object({ schema: numberInput }), onEnd: event => { event.output?.value.toFixed(); } }, { config: conditionalLifecycle });
 declare const forbiddenSetting: { execute: () => number; contextSchema: undefined } | { execute: () => number };
 create.Function(forbiddenSetting); // expected: contextSchema
 declare const forbiddenRun: { temperature: number; contextSchema: undefined } | { temperature: number };
-create.TextGenerator({ model, prompt: 'ready' }).run(forbiddenRun); // expected: contextSchema
+create.LLMAgent({ model, prompt: 'ready' }).run(forbiddenRun); // expected: contextSchema
 create.Function.asTool({ inputSchema: z.object({}), toolContextSchema: z.null(), execute: () => 1 }); // error
 const preprocessed = create.Function({
   inputSchema: z.preprocess(value => value, z.object({ name: z.string() }).transform(({ name }) => ({ label: name.length }))),
@@ -232,13 +259,13 @@ selected.run({ context: { key: '5' } }); // expected: key
 const helperSettings = { toolContextSchema: z.object({ factor: z.number() }), context: { factor: 1 } };
 const stringHelper = create.Function.asTool({ inputSchema: z.object({ value: z.string().transform(Number) }), execute: input => input.value }, { config: helperSettings });
 const numberHelper = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), execute: input => input.value }, { config: helperSettings });
-const helperOwner = create.TextGenerator.withFunction({ model, tools: { operation: stringHelper }, toolsContext: { operation: { factor: 1 } },
+const helperOwner = create.LLMAgent.withFunction({ model, tools: { operation: stringHelper }, toolsContext: { operation: { factor: 1 } },
   prompt: async ({ operation }) => {
     await operation({ /*rawHelper*/ }); // expected: value
     return String(await operation({ value: '4' }));
   } });
 helperOwner.run({ tools: { operation: numberHelper } }); // expected: operation
-create.TextGenerator.withFunction({ tools: { operation: numberHelper } }, helperOwner); // expected: operation
+create.LLMAgent.withFunction({ tools: { operation: numberHelper } }, helperOwner); // expected: operation
 `;
 async function check(sourceMode, exactOptionalPropertyTypes) {
   const directory = fs.mkdtempSync(path.join(base, '.phase2-editor-'));
@@ -292,15 +319,29 @@ async function check(sourceMode, exactOptionalPropertyTypes) {
     assert.match(await hover(at('definiteSchemaValue') - 1), /value: number/);
     assert.match(await hover(at('configDefiniteSchemaValue') - 1), /value: number/);
     const enumHover = await hover(at('mutableConfigEnum') - 1);
+    assert.match(await hover(at('approvalLiteral') - 1), /"user-approval"/);
+    const hookDetail = await hover(at('hookConfigDetail') - 1);
+    assert.match(hookDetail, /"brief"/);
+    assert.match(hookDetail, /"deep"/);
+    assert.match(await hover(at('hookConfigAmount') - 1), /amount: string/);
+    assert.match(await hover(at('hookConfigPrivate') - 1), /ready: boolean/);
+    assert.match(await hover(at('hookParsedAmount') - 1), /amount: number/);
+    for (const name of ['detail', 'amount', 'db']) assert.ok((await completions(at('hookConfigKeys'))).has(name));
+    const nativeMethodKeys = await completions(at('nativeMethodKeys'));
+    for (const name of ['options', 'timeout', 'onEnd']) assert.ok(nativeMethodKeys.has(name), `Native method: missing ${name}`);
+    for (const name of ['tools', 'prepareCall', 'model']) assert.ok(!nativeMethodKeys.has(name), `Native method: unexpected ${name}`);
+    assert.ok((await completions(at('approvalInput'))).has('query'), 'Approval callbacks lost input completion');
+    assert.match(await hover(at('approvalCallId') - 1), /toolCallId: string/);
     assert.match(await hover(at('pairedPromptValue') - 1), /value: string \| number/);
-    assert.match(await hover(at('transitionOutput') - 1), /object: number \| undefined/);
+    assert.match(await hover(at('inheritedFunctionValue') - 1), /value: number/);
+    assert.match(await hover(at('transitionOutput') - 1), /output\?: number \| undefined/);
     assert.match(enumHover, /"YES"/);
     assert.match(enumHover, /"NO"/);
     const objectPromptNames = await completions(at('objectPromptMembers'));
-    for (const name of ['value', 'count', '_toolOptions']) assert.ok(objectPromptNames.has(name), `ObjectGenerator prompt: missing ${name}`);
+    for (const name of ['value', 'count', '_toolOptions']) assert.ok(objectPromptNames.has(name), `LLMAgent prompt: missing ${name}`);
     assert.match(await hover(at('objectPromptValue') - 1), /value: string \| number/);
     assert.match(await hover(at('objectToolValue') - 1), /value: number/);
-    assert.ok((await completions(at('objectResultMembers'))).has('answer'), 'ObjectGenerator completion callback lost its output schema');
+    assert.ok((await completions(at('objectResultMembers'))).has('answer'), 'LLMAgent completion callback lost its output schema');
     for (const marker of ['textPromptValue', 'textStreamPromptValue', 'objectStreamPromptValue']) assert.match(await hover(at(marker) - 1), /value: string \| number/);
     assert.match(await hover(at('templateDescriptorValue') - 1), /value: number/);
     assert.match(await hover(at('scriptDescriptorValue') - 1), /output: number/);

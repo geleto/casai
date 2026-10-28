@@ -32,13 +32,10 @@ type MapValue<T> = [NonNullable<T>] extends [never] ? EmptyMap : NonNullable<T> 
 type ProcessedValue<K, T> = K extends 'loader' ? ILoaderAny[] | (undefined extends T ? undefined : never) : T;
 export type ProcessedConfig<T> = { [K in keyof T]: ProcessedValue<K, T[K]> };
 
-type ArrayElement<T> = T extends readonly (infer ELEMENT)[] ? ELEMENT : never;
 type MergedValue<A, B, K extends PropertyKey> = K extends 'loader'
 	// mergeConfigs normalizes a supplied or inherited loader chain, including explicit undefined.
 	? ILoaderAny[]
-	: K extends 'messages'
-	? 'messages' extends keyof A ? 'messages' extends keyof B
-	? (ArrayElement<A['messages']> | ArrayElement<B['messages']>)[] : SpreadValue<A, B, K> : SpreadValue<A, B, K>
+	: K extends 'streaming' | 'asTool' ? A extends Record<K, true> ? true : B extends Record<K, true> ? true : SpreadValue<A, B, K>
 	: K extends keyof A & keyof B
 	? K extends ConfigMapKey ? MergedProperties<MapValue<A[K]>, MapValue<B[K]>>
 	: SpreadValue<A, B, K>

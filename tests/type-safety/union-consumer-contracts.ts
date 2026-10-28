@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import { create, z, textStreamSchema, streamSchema } from 'casai';
 import { jsonSchema } from 'ai';
 import type { LanguageModel } from 'ai';
@@ -30,7 +31,7 @@ create.Function({ tools: { mixed }, execute: async ({ mixed }) => {
 	}
 	return value;
 } });
-create.TextGenerator.withFunction({ model, tools: { mixed }, prompt: async ({ mixed }) => {
+create.LLMAgent.withFunction({ model, tools: { mixed }, prompt: async ({ mixed }) => {
 	const value = await mixed({});
 	expectEqual<typeof value, string | number>();
 	return String(value);
@@ -92,28 +93,28 @@ declare const undefinedExtras: { value: number } | { value: number; extra: undef
 void numericExtras(undefinedExtras);
 // @ts-expect-error A configured public default does not allow invalid overrides.
 void numericExtras({ value: 'wrong' });
-const textGenerator = create.TextGenerator.withTemplate({ ...config, model, prompt: '{{ value }}' });
+const textGenerator = create.LLMAgent.withTemplate({ ...config, model, prompt: '{{ value }}' });
 // @ts-expect-error A private key in any possible branch is still private.
 void textGenerator(input);
 // @ts-expect-error The run validator must also enumerate branch-only keys.
 void textGenerator.run({ context: input });
 void textGenerator(unrelated);
 void textGenerator.run({ context: unrelated });
-const textStreamer = create.TextStreamer.withTemplate({ ...config, model, prompt: '{{ value }}' });
+const textStreamer = create.LLMAgent.withTemplate.asStream({ ...config, model, prompt: '{{ value }}' });
 // @ts-expect-error A private key in any possible branch is still private.
 void textStreamer(input);
 // @ts-expect-error The run validator must also enumerate branch-only keys.
 void textStreamer.run({ context: input });
 void textStreamer(unrelated);
 void textStreamer.run({ context: unrelated });
-const objectGenerator = create.ObjectGenerator.withTemplate({ ...config, model, prompt: '{{ value }}', schema: z.object({ answer: z.string() }) });
+const objectGenerator = create.LLMAgent.withTemplate({ ...config, model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error A private key in any possible branch is still private.
 void objectGenerator(input);
 // @ts-expect-error The run validator must also enumerate branch-only keys.
 void objectGenerator.run({ context: input });
 void objectGenerator(unrelated);
 void objectGenerator.run({ context: unrelated });
-const objectStreamer = create.ObjectStreamer.withTemplate({ ...config, model, prompt: '{{ value }}', schema: z.object({ answer: z.string() }) });
+const objectStreamer = create.LLMAgent.withTemplate.asStream({ ...config, model, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error A private key in any possible branch is still private.
 void objectStreamer(input);
 // @ts-expect-error The run validator must also enumerate branch-only keys.
@@ -122,10 +123,10 @@ void objectStreamer(unrelated);
 void objectStreamer.run({ context: unrelated });
 
 // Whole settings alternatives keep branch-only application contexts visible.
-const defaultText = create.TextGenerator.withTemplate({ context: { value: 1 } }, textGenerator);
-const defaultStream = create.TextStreamer.withTemplate({ context: { value: 1 } }, textStreamer);
-const defaultObject = create.ObjectGenerator.withTemplate({ context: { value: 1 } }, objectGenerator);
-const defaultObjectStream = create.ObjectStreamer.withTemplate({ context: { value: 1 } }, objectStreamer);
+const defaultText = create.LLMAgent.withTemplate({ context: { value: 1 } }, textGenerator);
+const defaultStream = create.LLMAgent.withTemplate.asStream({ context: { value: 1 } }, textStreamer);
+const defaultObject = create.LLMAgent.withTemplate({ context: { value: 1 } }, objectGenerator);
+const defaultObjectStream = create.LLMAgent.withTemplate.asStream({ context: { value: 1 } }, objectStreamer);
 declare const privateSettings: { maxOutputTokens: number } | { context: { value: number; user: string } };
 declare const undefinedPrivateSettings: { maxOutputTokens: number } | { context: { user: undefined } };
 declare const validSettings: { maxOutputTokens: number } | { context: { value: number; extra: string } };
@@ -162,114 +163,114 @@ const described = jsonSchema<{ value: number }>({ type: 'object', properties: { 
 		return parsed.success ? { success: true, value: parsed.data } : { success: false, error: parsed.error };
 	},
 });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextGenerator.withTemplate.
-create.TextGenerator.withTemplate({ ...privateConfig, prompt: 'value' });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextGenerator.withScript.
-create.TextGenerator.withScript({ ...privateConfig, prompt: 'value' });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextGenerator.withFunction.
-create.TextGenerator.withFunction({ ...privateConfig, prompt: ({ value }) => String(value) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextGenerator.loadsTemplate.
-create.TextGenerator.loadsTemplate({ ...privateConfig, prompt: 'value', loader });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextGenerator.loadsScript.
-create.TextGenerator.loadsScript({ ...privateConfig, prompt: 'value', loader });
+// @ts-expect-error Partitioned opaque input needs declared metadata in LLMAgent.withTemplate.
+create.LLMAgent.withTemplate({ ...privateConfig, prompt: 'value' });
+// @ts-expect-error Partitioned opaque input needs declared metadata in LLMAgent.withScript.
+create.LLMAgent.withScript({ ...privateConfig, prompt: 'value' });
+// @ts-expect-error Partitioned opaque input needs declared metadata in LLMAgent.withFunction.
+create.LLMAgent.withFunction({ ...privateConfig, prompt: ({ value }) => String(value) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in LLMAgent.loadsTemplate.
+create.LLMAgent.loadsTemplate({ ...privateConfig, prompt: 'value', loader });
+// @ts-expect-error Partitioned opaque input needs declared metadata in LLMAgent.loadsScript.
+create.LLMAgent.loadsScript({ ...privateConfig, prompt: 'value', loader });
 // @ts-expect-error Final admission includes inherited configured sources.
-create.TextGenerator.withTemplate({ prompt: 'value' }, inherited);
-create.TextGenerator.withTemplate({ model, inputSchema: opaque, prompt: 'value' });
-create.TextGenerator.withTemplate({ ...privateConfig, inputSchema: described, prompt: 'value' });
-create.TextGenerator.withFunction({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
+create.LLMAgent.withTemplate({ prompt: 'value' }, inherited);
+create.LLMAgent.withTemplate({ model, inputSchema: opaque, prompt: 'value' });
+create.LLMAgent.withTemplate({ ...privateConfig, inputSchema: described, prompt: 'value' });
+create.LLMAgent.withFunction({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof user, string>();
 	return `${user}${value}`;
 } });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.TextGenerator.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready' });
+create.LLMAgent.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready' });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.TextGenerator.withTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready' });
+create.LLMAgent.withTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready' });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.TextGenerator.withScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready' });
+create.LLMAgent.withScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready' });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.TextGenerator.withFunction.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: () => 'ready' });
+create.LLMAgent.withFunction.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: () => 'ready' });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.TextGenerator.loadsTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader });
+create.LLMAgent.loadsTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.TextGenerator.loadsScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader });
+create.LLMAgent.loadsScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.TextGenerator.loadsText.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextStreamer.withTemplate.
-create.TextStreamer.withTemplate({ ...privateConfig, prompt: 'value' });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextStreamer.withScript.
-create.TextStreamer.withScript({ ...privateConfig, prompt: 'value' });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextStreamer.withFunction.
-create.TextStreamer.withFunction({ ...privateConfig, prompt: ({ value }) => String(value) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextStreamer.loadsTemplate.
-create.TextStreamer.loadsTemplate({ ...privateConfig, prompt: 'value', loader });
-// @ts-expect-error Partitioned opaque input needs declared metadata in TextStreamer.loadsScript.
-create.TextStreamer.loadsScript({ ...privateConfig, prompt: 'value', loader });
+create.LLMAgent.loadsText.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming LLMAgent.withTemplate.
+create.LLMAgent.withTemplate.asStream({ ...privateConfig, prompt: 'value' });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming LLMAgent.withScript.
+create.LLMAgent.withScript.asStream({ ...privateConfig, prompt: 'value' });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming LLMAgent.withFunction.
+create.LLMAgent.withFunction.asStream({ ...privateConfig, prompt: ({ value }) => String(value) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming LLMAgent.loadsTemplate.
+create.LLMAgent.loadsTemplate.asStream({ ...privateConfig, prompt: 'value', loader });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming LLMAgent.loadsScript.
+create.LLMAgent.loadsScript.asStream({ ...privateConfig, prompt: 'value', loader });
 // @ts-expect-error Final admission includes inherited configured sources.
-create.TextStreamer.withTemplate({ prompt: 'value' }, inherited);
-create.TextStreamer.withTemplate({ model, inputSchema: opaque, prompt: 'value' });
-create.TextStreamer.withTemplate({ ...privateConfig, inputSchema: described, prompt: 'value' });
-create.TextStreamer.withFunction({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
+create.LLMAgent.withTemplate.asStream({ prompt: 'value' }, inherited);
+create.LLMAgent.withTemplate.asStream({ model, inputSchema: opaque, prompt: 'value' });
+create.LLMAgent.withTemplate.asStream({ ...privateConfig, inputSchema: described, prompt: 'value' });
+create.LLMAgent.withFunction.asStream({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof user, string>();
 	return `${user}${value}`;
 } });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectGenerator.withTemplate.
-create.ObjectGenerator.withTemplate({ ...privateConfig, prompt: 'value', schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectGenerator.withScript.
-create.ObjectGenerator.withScript({ ...privateConfig, prompt: 'value', schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectGenerator.withFunction.
-create.ObjectGenerator.withFunction({ ...privateConfig, prompt: ({ value }) => String(value), schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectGenerator.loadsTemplate.
-create.ObjectGenerator.loadsTemplate({ ...privateConfig, prompt: 'value', loader, schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectGenerator.loadsScript.
-create.ObjectGenerator.loadsScript({ ...privateConfig, prompt: 'value', loader, schema: z.object({ answer: z.string() }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in structured LLMAgent.withTemplate.
+create.LLMAgent.withTemplate({ ...privateConfig, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in structured LLMAgent.withScript.
+create.LLMAgent.withScript({ ...privateConfig, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in structured LLMAgent.withFunction.
+create.LLMAgent.withFunction({ ...privateConfig, prompt: ({ value }) => String(value), output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in structured LLMAgent.loadsTemplate.
+create.LLMAgent.loadsTemplate({ ...privateConfig, prompt: 'value', loader, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in structured LLMAgent.loadsScript.
+create.LLMAgent.loadsScript({ ...privateConfig, prompt: 'value', loader, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Final admission includes inherited configured sources.
-create.ObjectGenerator.withTemplate({ prompt: 'value', schema: z.object({ answer: z.string() }) }, inherited);
-create.ObjectGenerator.withTemplate({ model, inputSchema: opaque, prompt: 'value', schema: z.object({ answer: z.string() }) });
-create.ObjectGenerator.withTemplate({ ...privateConfig, inputSchema: described, prompt: 'value', schema: z.object({ answer: z.string() }) });
-create.ObjectGenerator.withFunction({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
+create.LLMAgent.withTemplate({ prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) }, inherited);
+create.LLMAgent.withTemplate({ model, inputSchema: opaque, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+create.LLMAgent.withTemplate({ ...privateConfig, inputSchema: described, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+create.LLMAgent.withFunction({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof user, string>();
 	return `${user}${value}`;
-}, schema: z.object({ answer: z.string() }) });
+}, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.ObjectGenerator.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', schema: z.object({ answer: z.string() }) });
+create.LLMAgent.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.ObjectGenerator.withTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', schema: z.object({ answer: z.string() }) });
+create.LLMAgent.withTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.ObjectGenerator.withScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', schema: z.object({ answer: z.string() }) });
+create.LLMAgent.withScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.ObjectGenerator.withFunction.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: () => 'ready', schema: z.object({ answer: z.string() }) });
+create.LLMAgent.withFunction.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: () => 'ready', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.ObjectGenerator.loadsTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader, schema: z.object({ answer: z.string() }) });
+create.LLMAgent.loadsTemplate.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.ObjectGenerator.loadsScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader, schema: z.object({ answer: z.string() }) });
+create.LLMAgent.loadsScript.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Casai merges tool context into an object; native scalar contexts are separate.
-create.ObjectGenerator.loadsText.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader, schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectStreamer.withTemplate.
-create.ObjectStreamer.withTemplate({ ...privateConfig, prompt: 'value', schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectStreamer.withScript.
-create.ObjectStreamer.withScript({ ...privateConfig, prompt: 'value', schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectStreamer.withFunction.
-create.ObjectStreamer.withFunction({ ...privateConfig, prompt: ({ value }) => String(value), schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectStreamer.loadsTemplate.
-create.ObjectStreamer.loadsTemplate({ ...privateConfig, prompt: 'value', loader, schema: z.object({ answer: z.string() }) });
-// @ts-expect-error Partitioned opaque input needs declared metadata in ObjectStreamer.loadsScript.
-create.ObjectStreamer.loadsScript({ ...privateConfig, prompt: 'value', loader, schema: z.object({ answer: z.string() }) });
+create.LLMAgent.loadsText.asTool({ model, inputSchema: z.object({}), toolContextSchema: z.string(), prompt: 'ready', loader, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming structured LLMAgent.withTemplate.
+create.LLMAgent.withTemplate.asStream({ ...privateConfig, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming structured LLMAgent.withScript.
+create.LLMAgent.withScript.asStream({ ...privateConfig, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming structured LLMAgent.withFunction.
+create.LLMAgent.withFunction.asStream({ ...privateConfig, prompt: ({ value }) => String(value), output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming structured LLMAgent.loadsTemplate.
+create.LLMAgent.loadsTemplate.asStream({ ...privateConfig, prompt: 'value', loader, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+// @ts-expect-error Partitioned opaque input needs declared metadata in streaming structured LLMAgent.loadsScript.
+create.LLMAgent.loadsScript.asStream({ ...privateConfig, prompt: 'value', loader, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Final admission includes inherited configured sources.
-create.ObjectStreamer.withTemplate({ prompt: 'value', schema: z.object({ answer: z.string() }) }, inherited);
-create.ObjectStreamer.withTemplate({ model, inputSchema: opaque, prompt: 'value', schema: z.object({ answer: z.string() }) });
-create.ObjectStreamer.withTemplate({ ...privateConfig, inputSchema: described, prompt: 'value', schema: z.object({ answer: z.string() }) });
-create.ObjectStreamer.withFunction({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
+create.LLMAgent.withTemplate.asStream({ prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) }, inherited);
+create.LLMAgent.withTemplate.asStream({ model, inputSchema: opaque, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+create.LLMAgent.withTemplate.asStream({ ...privateConfig, inputSchema: described, prompt: 'value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+create.LLMAgent.withFunction.asStream({ ...privateConfig, inputSchema: z.object({ value: z.number() }), prompt: ({ value, user }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof user, string>();
 	return `${user}${value}`;
-}, schema: z.object({ answer: z.string() }) });
+}, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 const helper = create.Function.asTool({ inputSchema: z.object({}), execute: () => 1 });
 // @ts-expect-error Executable registry defaults also require input declarations.
-create.TextGenerator.withTemplate({ model, inputSchema: opaque, tools: { helper }, prompt: 'ready' });
+create.LLMAgent.withTemplate({ model, inputSchema: opaque, tools: { helper }, prompt: 'ready' });
 // @ts-expect-error Declared incoming private names require input declarations too.
-create.TextGenerator.asTool({ model, inputSchema: opaque, toolContextSchema: z.object({ user: z.string() }), prompt: 'ready' });
+create.LLMAgent.asTool({ model, inputSchema: opaque, toolContextSchema: z.object({ user: z.string() }), prompt: 'ready' });
 // No executable fallback is installed for a descriptor with no executor.
-create.TextGenerator.withTemplate({ model, inputSchema: opaque, tools: { helper: { inputSchema: z.object({}) } }, prompt: 'ready' });
+create.LLMAgent.withTemplate({ model, inputSchema: opaque, tools: { helper: { inputSchema: z.object({}) } }, prompt: 'ready' });

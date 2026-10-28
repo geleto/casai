@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import assert from 'node:assert/strict';
 import { asSchema, isStepCount, jsonSchema, ToolLoopAgent, tool } from 'ai';
 import type { FlexibleSchema, Tool } from 'ai';
@@ -109,11 +110,11 @@ describe('Closed Casai tool inputs', () => {
 			[create.Function.asTool, { execute: () => 'ok' }],
 			[create.Script.asTool, { script: 'return "ok"' }],
 			[create.Template.asTool, { template: 'ok' }],
-			[create.TextGenerator.withTemplate.asTool, { model, prompt: 'ok' }],
-			[create.TextGenerator.withScript.asTool, { model, prompt: 'return "ok"' }],
-			[create.TextGenerator.withFunction.asTool, { model, prompt: () => 'ok' }],
-			[create.ObjectGenerator.withTemplate.asTool, { model, prompt: 'ok', schema: z.object({}) }],
-			[create.ObjectGenerator.withScript.asTool, { model, prompt: 'return "ok"', schema: z.object({}) }],
+			[create.LLMAgent.withTemplate.asTool, { model, prompt: 'ok' }],
+			[create.LLMAgent.withScript.asTool, { model, prompt: 'return "ok"' }],
+			[create.LLMAgent.withFunction.asTool, { model, prompt: () => 'ok' }],
+			[create.LLMAgent.withTemplate.asTool, { model, prompt: 'ok', output: Output.object({ schema: z.object({}) }) }],
+			[create.LLMAgent.withScript.asTool, { model, prompt: 'return "ok"', output: Output.object({ schema: z.object({}) }) }],
 		];
 		for (const [factory, config] of cases) {
 			const component = make(factory, { ...config, inputSchema });

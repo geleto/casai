@@ -1,14 +1,24 @@
+import { runtimeRun } from './fixtures/runtime-call.js';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { inspect, promisify } from 'node:util';
 import { createAgentUIStream, generateText, isStepCount, NoObjectGeneratedError, NoOutputGeneratedError, Output, smoothStream, streamText, tool, ToolLoopAgent } from 'ai';
-import type { Agent, AgentCallParameters, AgentStreamParameters, ModelMessage, TextStreamPart, ToolExecutionOptions, ToolSet } from 'ai';
+import type { ModelMessage, OutputInterface, TextStreamPart, ToolExecutionOptions, ToolSet } from 'ai';
 import type { LanguageModelV3GenerateResult, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { z } from 'zod';
-import { generateTextWithResult, streamTextWithResult } from '../src/augment-result.js';
+import { generateTextWithResult as generatePrepared, streamTextWithResult as streamPrepared } from '../src/augment-result.js';
 import { create } from './cascada';
+
+// Protocol tests start at the normalized internal boundary. Public entry-point ownership is tested below.
+function conversation(content: string): ModelMessage[] { return [{ role: 'user', content }]; }
+function generateTextWithResult<T extends ToolSet, C extends Record<string, unknown> = Record<string, unknown>, O extends OutputInterface | undefined = undefined>(
+	request: Parameters<typeof generatePrepared<T, C, O>>[0], history: ModelMessage[] = request.messages,
+) { return generatePrepared(request, history); }
+function streamTextWithResult<T extends ToolSet, C extends Record<string, unknown> = Record<string, unknown>, O extends OutputInterface | undefined = undefined>(
+	request: Parameters<typeof streamPrepared<T, C, O>>[0], history: ModelMessage[] = request.messages,
+) { return streamPrepared(request, history).result; }
 
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -80,7 +90,7 @@ function controlledModel() {
 describe('SDK result augmentation', () => {
 	it('can copy, serialize and inspect a paused generation without reading final output', async () => {
 		const result = await generateTextWithResult({
-			model: mock({ content: [call()], reason: 'tool-calls' }), prompt: 'question',
+			model: mock({ content: [call()], reason: 'tool-calls' }), messages: conversation('question'),
 			tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) },
 		});
 		assert.throws(() => result.value, NoOutputGeneratedError);
@@ -107,7 +117,7 @@ describe('SDK result augmentation', () => {
 					{ type: 'stream-start', warnings: [] },
 					{ type: 'error', error: new Error('Provider failed') },
 				]) } });
-				const result = create.TextStreamer({
+				const result = await create.LLMAgent.asStream({
 					model, output: Output.object({ schema: z.object({ n: z.number() }) }), onError() {},
 				})('question');
 				void { ...result };
@@ -123,12 +133,8 @@ describe('SDK result augmentation', () => {
 	it('implements the SDK Agent interface and works with UI helpers on literal conversations', async () => {
 		const model = mock({ content: [text('one')] }, { content: [text('two')] });
 		const tools = {};
-		const agent = {
-			version: 'agent-v1' as const, id: 'fixture', tools,
-			generate: (options: AgentCallParameters<never>) => generateTextWithResult({ model, ...options }),
-			stream: async (options: AgentStreamParameters<never, typeof tools>) => streamTextWithResult({ model, ...options }),
-		} satisfies Agent<never, typeof tools, Record<string, unknown>, ReturnType<typeof Output.text>>;
-		const generated = await agent.generate({ prompt: 'literal {{ source }}' });
+		const agent = create.LLMAgent({ model, tools, id: 'fixture' });
+		const generated = await agent.generate({ messages: conversation('literal {{ source }}') });
 		assert.equal(generated.value, 'one');
 		assert.deepEqual(generated.messageHistory[0], { role: 'user', content: 'literal {{ source }}' });
 		const ui = await createAgentUIStream({ agent, uiMessages: [{ id: 'user', role: 'user', parts: [{ type: 'text', text: 'literal {{ next }}' }] }] });
@@ -138,18 +144,19 @@ describe('SDK result augmentation', () => {
 		assert.equal(model.doStreamCalls.length, 1);
 	});
 
-	for (const execution of [generateTextWithResult, streamTextWithResult]) {
+	for (const execution of ['generate', 'stream'] as const) {
 		for (const messagesField of ['messages', 'prompt'] as const) {
-			it(`${execution.name} snapshots a literal ${messagesField} conversation for execution and history`, async () => {
+			it(`${execution} snapshots a literal ${messagesField} conversation for execution and history`, async () => {
 				const model = mock({ content: [text('answer')] });
 				const messages: ModelMessage[] = [{ role: 'user', content: 'original' }];
-				const settings = messagesField === 'messages' ? { model, messages } : { model, prompt: messages };
-				const pending = execution(settings);
+				const settings = messagesField === 'messages' ? { messages } : { prompt: messages };
+				const agent = create.LLMAgent({ model });
+				const pending = execution === 'generate' ? agent.generate(settings) : agent.stream(settings);
 				assert.equal(settings[messagesField], messages);
 				messages.push({ role: 'user', content: 'late' });
 				const result = await pending;
 				await result.output;
-				const request = execution === generateTextWithResult ? model.doGenerateCalls[0] : model.doStreamCalls[0];
+				const request = execution === 'generate' ? model.doGenerateCalls[0] : model.doStreamCalls[0];
 				assert.deepEqual(request.prompt.map(message => message.content), [[{ type: 'text', text: 'original' }]]);
 				assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'original' }, ...await result.responseMessages]);
 			});
@@ -158,9 +165,10 @@ describe('SDK result augmentation', () => {
 
 	it('keeps streaming output delivery tied to the executed output setting', async () => {
 		const output = Output.object({ schema: z.object({ n: z.number() }) });
-		const request: Parameters<typeof streamTextWithResult>[0] = { model: mock({ content: [text('{"n":7}')] }), prompt: 'test', output };
-		const result = streamTextWithResult(request);
-		request.output = Output.text();
+		const config = { model: mock({ content: [text('{"n":7}')] }), output: output as OutputInterface };
+		const pending = create.LLMAgent.asStream(config)('test');
+		config.output = Output.text();
+		const result = await pending;
 		assert.equal(Symbol.asyncIterator in result.value, false);
 		assert.equal(result.value, result.value);
 		assert.deepEqual(await result.value, { n: 7 });
@@ -172,11 +180,10 @@ describe('SDK result augmentation', () => {
 			for (const augmented of [false, true]) {
 				const receivers: { step: unknown[], call: unknown[], chunk: unknown[] } = { step: [], call: [], chunk: [] };
 				const observer = (kind: keyof typeof receivers) => function (this: unknown) { receivers[kind].push(this); };
-				const settings = { model: mock({ content: [text('answer')] }), prompt: 'test', onChunk: observer('chunk'),
-					...(aliases ? { experimental_onStepStart: observer('step'), experimental_onLanguageModelCallStart: observer('call') }
-						: { onStepStart: observer('step'), onLanguageModelCallStart: observer('call') }),
-				};
-				const result = augmented ? streamTextWithResult(settings) : streamText(settings);
+				const settings = { model: mock({ content: [text('answer')] }), onChunk: observer('chunk'), onLanguageModelCallStart: observer('call') };
+				const call = { messages: conversation('test'),
+					...(aliases ? { experimental_onStepStart: observer('step') } : { onStepStart: observer('step') }) };
+				const result = augmented ? await create.LLMAgent(settings).stream(call) : streamText({ ...settings, ...call });
 				await result.consumeStream();
 				assert.equal(receivers.step.length, 1);
 				assert.equal(receivers.call.length, 1);
@@ -190,7 +197,7 @@ describe('SDK result augmentation', () => {
 		it(`reuses one SDK execution and lazy history with ${order} access`, async () => {
 			const model = mock({ content: [text('answer')] });
 			const messages: ModelMessage[] = [{ role: 'user', content: 'question' }];
-			const result = streamTextWithResult({ model, messages });
+			const result = await create.LLMAgent({ model }).stream({ messages });
 			messages.push({ role: 'user', content: 'later' });
 			if (order === 'output-first') assert.equal(await result.output, 'answer');
 			if (order === 'value-first') assert.deepEqual(await value(result.value), ['answer']);
@@ -211,7 +218,7 @@ describe('SDK result augmentation', () => {
 
 	it('returns a live result and emits terminal default text before the provider finishes', async () => {
 		const source = controlledModel();
-		const result = create.TextStreamer({ model: source.model, prompt: 'question' })();
+		const result = (await create.LLMAgent.asStream({ model: source.model, prompt: 'question' })());
 		assert.ok(Symbol.asyncIterator in result.value);
 		const iterator = result.value[Symbol.asyncIterator]();
 		source.start();
@@ -225,7 +232,7 @@ describe('SDK result augmentation', () => {
 	for (const transform of ['smooth', 'uppercase'] as const) {
 		it(`streams default text incrementally through a ${transform} transform`, async () => {
 			const source = controlledModel();
-			const result = streamTextWithResult({ model: source.model, prompt: 'test',
+			const result = streamTextWithResult({ model: source.model, messages: conversation('test'),
 				experimental_transform: transform === 'smooth' ? smoothStream({ delayInMs: null })
 					: () => new TransformStream<TextStreamPart<ToolSet>, TextStreamPart<ToolSet>>({ transform(part, controller) {
 						controller.enqueue(part.type === 'text-delta' ? { ...part, text: part.text.toUpperCase() } : part);
@@ -257,7 +264,7 @@ describe('SDK result augmentation', () => {
 			const source = controlledModel();
 			const tools = { lookup: deferred ? tool({ type: 'provider', id: 'fixture.lookup', args: {},
 				isProviderExecuted: true, supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }) }) : lookup };
-			const result = streamTextWithResult({ model: source.model, prompt: 'test', tools, toolChoice: 'none',
+			const result = streamTextWithResult({ model: source.model, messages: conversation('test'), tools, toolChoice: 'none',
 				...(!deferred && { experimental_toolCallers: { lookup: ['AI_SDK_DIRECT_TOOL_CALL'] } }),
 			});
 			const iterator = result.value[Symbol.asyncIterator]();
@@ -282,7 +289,7 @@ describe('SDK result augmentation', () => {
 
 	it('closing one value iterator preserves SDK views and later value readers', async () => {
 		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, prompt: 'question' });
+		const result = streamTextWithResult({ model: source.model, messages: conversation('question') });
 		assert.ok(Symbol.asyncIterator in result.value);
 		const iterator = result.value[Symbol.asyncIterator]();
 		source.start();
@@ -298,9 +305,9 @@ describe('SDK result augmentation', () => {
 		const source = controlledModel();
 		let resolveProcessed: () => void;
 		const processed = new Promise<void>(resolve => { resolveProcessed = resolve; });
-		const result = create.TextStreamer({ model: source.model, prompt: 'question', onChunk: ({ chunk }) => {
+		const result = (await create.LLMAgent.asStream({ model: source.model, prompt: 'question', onChunk: ({ chunk }) => {
 			if (chunk.type === 'text-end' && chunk.id === 'other') resolveProcessed();
-		} })();
+		} })());
 		const iterator = result.value[Symbol.asyncIterator]();
 		source.start();
 		assert.equal((await iterator.next()).value, 'first');
@@ -331,7 +338,7 @@ describe('SDK result augmentation', () => {
 				{ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage },
 			];
 			const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(parts) } });
-			const result = streamTextWithResult({ model, prompt: 'test' });
+			const result = streamTextWithResult({ model, messages: conversation('test') });
 			assert.deepEqual(await collect(result.value), overlap ? ['second'] : ['first', 'second']);
 			assert.equal((await collect(result.value)).join(''), await result.output);
 		});
@@ -340,7 +347,7 @@ describe('SDK result augmentation', () => {
 	it('preserves failures after a stable prefix and overlapping text', async () => {
 		const error = new Error('overlapping stream failed');
 		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, prompt: 'test', onError: () => { /* Expected failure. */ } });
+		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), onError: () => { /* Expected failure. */ } });
 		const iterator = result.value[Symbol.asyncIterator]();
 		source.start();
 		assert.equal((await iterator.next()).value, 'first');
@@ -356,7 +363,7 @@ describe('SDK result augmentation', () => {
 			for (const answer of ['', 'answer']) {
 				it(`${mode}: ${reason} with ${answer ? 'nonempty' : 'empty'} output`, async () => {
 					const model = mock({ content: answer ? [text(answer)] : [], reason });
-					const request = execution({ model, prompt: 'test' });
+					const request = execution({ model, messages: conversation('test') });
 					const available = reason === 'stop' || (answer !== '' && reason !== 'tool-calls' && reason !== 'error');
 					const result = await request;
 					if (available) {
@@ -375,7 +382,7 @@ describe('SDK result augmentation', () => {
 
 		it(`${mode}: selects final output after tools without exposing earlier-step commentary`, async () => {
 			const model = mock({ content: [text('checking'), call()], reason: 'tool-calls' }, { content: [text('answer')] });
-			const result = await execution({ model, prompt: 'test', tools: { lookup }, stopWhen: isStepCount(2) });
+			const result = await execution({ model, messages: conversation('test'), tools: { lookup }, stopWhen: isStepCount(2) });
 			const final = await value(result.value);
 			assert.equal(Array.isArray(final) ? final.join('') : final, 'answer');
 			assert.equal((await result.steps).length, 2);
@@ -386,7 +393,7 @@ describe('SDK result augmentation', () => {
 			it(`${mode}: retains history while waiting for ${needsApproval ? 'approval' : 'an external result'}`, async () => {
 				const model = mock({ content: [text('commentary'), call()] });
 				const pendingTool = tool({ inputSchema: z.object({ query: z.string() }), outputSchema: z.string(), needsApproval });
-				const result = await execution({ model, prompt: 'test', tools: { lookup: pendingTool } });
+				const result = await execution({ model, messages: conversation('test'), tools: { lookup: pendingTool } });
 				await assert.rejects(async () => value(result.value), error => NoOutputGeneratedError.isInstance(error)
 					&& error.message.includes('tool results or approvals are pending'));
 				assert.ok((await result.messageHistory).length >= 2);
@@ -395,7 +402,7 @@ describe('SDK result augmentation', () => {
 
 		it(`${mode}: accepts an answer alongside a resolved local tool`, async () => {
 			const model = mock({ content: [call(), text('answer')] });
-			const result = await execution({ model, prompt: 'test', tools: { lookup } });
+			const result = await execution({ model, messages: conversation('test'), tools: { lookup } });
 			const final = await value(result.value);
 			assert.equal(Array.isArray(final) ? final.join('') : final, 'answer');
 		});
@@ -406,7 +413,7 @@ describe('SDK result augmentation', () => {
 					const provider = tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
 						supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() });
 					const content = [call(true), ...(resolved ? [{ type: 'tool-result' as const, toolCallId: 'call', toolName: 'lookup', result: { answer: 3 } }] : []), text('answer')];
-					const result = await execution({ model: mock({ content }), prompt: 'test', tools: { lookup: provider } });
+					const result = await execution({ model: mock({ content }), messages: conversation('test'), tools: { lookup: provider } });
 					if (deferred && !resolved) await assert.rejects(async () => value(result.value), NoOutputGeneratedError);
 					else {
 						const final = await value(result.value);
@@ -419,7 +426,7 @@ describe('SDK result augmentation', () => {
 
 		it(`${mode}: retains denied tool calls for continuation without executing them`, async () => {
 			let calls = 0;
-			const result = await execution({ model: mock({ content: [call()], reason: 'tool-calls' }), prompt: 'test',
+			const result = await execution({ model: mock({ content: [call()], reason: 'tool-calls' }), messages: conversation('test'),
 				tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: () => { calls++; return 'result'; } }) },
 				toolApproval: { lookup: 'denied' },
 			});
@@ -433,7 +440,7 @@ describe('SDK result augmentation', () => {
 				const provider = tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
 					supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() });
 				const tools = { lookup: provider };
-				const first = await execution({ model: mock({ content: [call(true)], reason: 'tool-calls' }), prompt: 'test', tools });
+				const first = await execution({ model: mock({ content: [call(true)], reason: 'tool-calls' }), messages: conversation('test'), tools });
 				const messages = [...await first.messageHistory];
 				if (resolution === 'history') messages.push({ role: 'tool', content: [
 					{ type: 'tool-result', toolCallId: 'call', toolName: 'lookup', output: { type: 'text', value: 'done' } },
@@ -456,7 +463,7 @@ describe('SDK result augmentation', () => {
 				const tools = { lookup: tool({ inputSchema: z.object({ query: z.string() }), needsApproval: true,
 					execute: () => { executions++; return 'done'; },
 				}) };
-				const first = await execution({ model: mock({ content: [call()], reason: 'tool-calls' }), prompt: 'test', tools });
+				const first = await execution({ model: mock({ content: [call()], reason: 'tool-calls' }), messages: conversation('test'), tools });
 				const messages = [...await first.messageHistory];
 				const request = messages.flatMap(message => message.role === 'assistant' && typeof message.content !== 'string' ? message.content : [])
 					.find(part => part.type === 'tool-approval-request');
@@ -494,27 +501,28 @@ describe('SDK result augmentation', () => {
 				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) };
 			const first = await execution({ model: mock({ content: [call(true),
 				{ type: 'tool-approval-request', toolCallId: 'call', approvalId: 'approval' },
-			], reason: 'tool-calls' }), prompt: 'test', tools });
+			], reason: 'tool-calls' }), messages: conversation('test'), tools });
 			const second = await execution({ model: mock({ content: [text('answer')] }), messages: await first.messageHistory, tools });
 			await assert.rejects(async () => value(second.value), NoOutputGeneratedError);
 			assert.equal(await second.output, 'answer');
 			assert.ok((await second.messageHistory).length > 2);
 		});
 
-		it(`${mode}: checks SDK input history independently of dynamic history and request trimming`, async () => {
+		it(`${mode}: checks the original conversation even when the request is trimmed`, async () => {
 			const tools = { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
 				supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) };
-			const first = await execution({ model: mock({ content: [call(true)], reason: 'tool-calls' }), prompt: 'test', tools });
-			const second = await execution({ model: mock({ content: [text('answer')] }), prompt: await first.messageHistory, tools,
+			const first = await execution({ model: mock({ content: [call(true)], reason: 'tool-calls' }), messages: conversation('test'), tools });
+			const original = await first.messageHistory;
+			const second = await execution({ model: mock({ content: [text('answer')] }), messages: conversation('rewritten request'), tools,
 				prepareStep: () => ({ messages: [{ role: 'user', content: 'trimmed request' }] }),
-			}, []);
+			}, original);
 			await assert.rejects(async () => value(second.value), NoOutputGeneratedError);
-			assert.deepEqual(await second.messageHistory, await second.responseMessages);
+			assert.deepEqual(await second.messageHistory, [...original, ...await second.responseMessages]);
 		});
 
 		it(`${mode}: allows an answer after a recoverable tool error`, async () => {
 			const model = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('recovered')] });
-			const result = await execution({ model, prompt: 'test', stopWhen: isStepCount(2),
+			const result = await execution({ model, messages: conversation('test'), stopWhen: isStepCount(2),
 				tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: (): string => { throw new Error('tool failure'); } }) },
 			});
 			const final = await value(result.value);
@@ -527,7 +535,7 @@ describe('SDK result augmentation', () => {
 				execute: (_args, options) => { assert.equal(options.context.privateValue, privateValue); return 'public result'; },
 			}) };
 			const model = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] });
-			const result = await execution({ model, prompt: 'test', tools, toolsContext: { lookup: { privateValue } }, runtimeContext: { trace: 'trace' }, stopWhen: isStepCount(2) });
+			const result = await execution({ model, messages: conversation('test'), tools, toolsContext: { lookup: { privateValue } }, runtimeContext: { trace: 'trace' }, stopWhen: isStepCount(2) });
 			await value(result.value);
 			assert.equal((await result.finalStep).runtimeContext.trace, 'trace');
 			assert.equal(JSON.stringify(await result.messageHistory).includes(privateValue), false);
@@ -551,12 +559,12 @@ describe('SDK result augmentation', () => {
 					const action = kind === 'function' ? create.Function.asTool({ ...common, execute: (executionContext) => { const input = executionContext; const options = executionContext._toolOptions;return prompt({ ...input, _toolOptions: options }); } })
 						: kind === 'template' ? create.Template.asTool({ ...common, template: '{{ value }}:{{ _toolOptions.toolCallId }}' })
 							: kind === 'script' ? create.Script.asTool({ ...common, script: 'return value ~ ":" ~ _toolOptions.toolCallId' })
-								: kind === 'text' ? create.TextGenerator.withFunction.asTool({ ...common, model: innerModel, prompt })
-									: create.ObjectGenerator.withFunction.asTool({ ...common, model: innerModel, schema: z.object({ n: z.number() }), prompt });
+								: kind === 'text' ? create.LLMAgent.withFunction.asTool({ ...common, model: innerModel, prompt })
+									: create.LLMAgent.withFunction.asTool({ ...common, model: innerModel, prompt, output: Output.object({ schema: z.object({ n: z.number() }) }) });
 					const args = valid ? { value: 2 } : { value: 2, _toolOptions: { toolCallId: 'forged', context: { secret: 'forged' } } };
 					const model = mock({ content: [{ type: 'tool-call', toolCallId: 'actual', toolName: 'lookup', input: JSON.stringify(args) }], reason: 'tool-calls' },
 						{ content: [text('answer')] });
-					const result = await execution({ model, prompt: 'test', tools: { lookup: action }, toolsContext: { lookup: { secret } }, stopWhen: isStepCount(2) });
+					const result = await execution({ model, messages: conversation('test'), tools: { lookup: action }, toolsContext: { lookup: { secret } }, stopWhen: isStepCount(2) });
 					await value(result.value);
 					const first = (await result.steps)[0];
 					assert.equal(first.toolResults.length, valid ? 1 : 0);
@@ -572,7 +580,7 @@ describe('SDK result augmentation', () => {
 
 		it(`${mode}: retains conversation history when a request hook replaces sent messages`, async () => {
 			const model = mock({ content: [text('answer')] });
-			const result = await execution({ model, prompt: 'conversation',
+			const result = await execution({ model, messages: conversation('conversation'),
 				prepareStep: () => ({ messages: [{ role: 'user', content: 'request only' }] }),
 			});
 			assert.deepEqual((await result.messageHistory)[0], { role: 'user', content: 'conversation' });
@@ -584,7 +592,7 @@ describe('SDK result augmentation', () => {
 		it(`${mode}: preserves a parsed custom output without a second parse`, async () => {
 			let parses = 0;
 			const output = { ...Output.text(), parseCompleteOutput: async ({ text }: { text: string }) => { parses++; return text.toUpperCase(); } };
-			const result = await execution({ model: mock({ content: [text('answer')] }), prompt: 'test', output });
+			const result = await execution({ model: mock({ content: [text('answer')] }), messages: conversation('test'), output });
 			const final = await value(result.value);
 			assert.equal(Array.isArray(final) ? final.join('') : final, 'ANSWER');
 			assert.equal(await result.output, 'ANSWER');
@@ -598,7 +606,7 @@ describe('SDK result augmentation', () => {
 				{ output: Output.json(), raw: '{"n":3}', expected: { n: 3 } },
 			];
 			for (const item of cases) {
-				const result = await execution({ model: mock({ content: [text(item.raw)] }), prompt: 'test', output: item.output });
+				const result = await execution({ model: mock({ content: [text(item.raw)] }), messages: conversation('test'), output: item.output });
 				assert.equal(result.value, result.value);
 				assert.deepEqual(await result.value, item.expected);
 				assert.deepEqual(await result.output, item.expected);
@@ -612,7 +620,7 @@ describe('SDK result augmentation', () => {
 			{ content: [text('{"elements":["draft"]}'), call()], reason: 'tool-calls' },
 			{ content: [text('{"elements":["final","second"]}')] },
 		);
-		const result = streamTextWithResult({ model, prompt: 'test', output, tools: { lookup }, stopWhen: isStepCount(2) });
+		const result = streamTextWithResult({ model, messages: conversation('test'), output, tools: { lookup }, stopWhen: isStepCount(2) });
 		assert.deepEqual(await value(result.value), ['FINAL', 'SECOND']);
 		assert.deepEqual(await value(result.value), ['FINAL', 'SECOND']);
 		assert.deepEqual(await result.output, ['FINAL', 'SECOND']);
@@ -620,11 +628,11 @@ describe('SDK result augmentation', () => {
 	});
 
 	for (const name of ['array', 'custom'] as const) {
-		it(`uses the ${name} output name for delivery, preserving parsed arrays and native streams`, async () => {
+		it(`returns the complete parsed ${name} output, preserving native streams`, async () => {
 			const model = mock({ content: [text('{"elements":["1","2"]}')] });
 			const output = { ...Output.array({ element: z.string().transform(Number) }), name };
-			const result = create.TextStreamer({ model, prompt: 'test', output })();
-			assert.equal(Symbol.asyncIterator in result.value, name === 'array');
+			const result = (await create.LLMAgent.asStream({ model, prompt: 'test', output })());
+			assert.ok(result.value instanceof Promise);
 			assert.deepEqual(await value(result.value), [1, 2]);
 			assert.deepEqual(await result.output, [1, 2]);
 			assert.deepEqual(await collect(result.elementStream), [1, 2]);
@@ -639,32 +647,32 @@ describe('SDK result augmentation', () => {
 			parseCompleteOutput: async () => { parses++; return parsed; },
 		};
 		const model = mock({ content: [text('answer')] });
-		const result = create.TextStreamer({ model, output })('test');
-		assert.deepEqual(await collect(result.value), [1, 2]);
-		assert.deepEqual(await collect(result.value), []);
+		const result = (await create.LLMAgent.asStream({ model, output })('test'));
+		assert.deepEqual([...await result.value], [1, 2]);
+		assert.deepEqual([...await result.value], []);
 		assert.equal(await result.output, parsed);
 		assert.equal(parses, 1);
 		assert.equal(model.doStreamCalls.length, 1);
 	});
 
-	it('closes an ordinary array value view and preserves fresh readers', async () => {
+	it('reuses the completed array and preserves its native iterators', async () => {
 		const output = { ...Output.array({ element: z.number() }), name: 'array' as const };
 		const model = mock({ content: [text('{"elements":[1,2]}')] });
-		const result = create.TextStreamer({ model, output })('test');
-		const first = result.value[Symbol.asyncIterator]();
-		assert.deepEqual(await first.next(), { value: 1, done: false });
-		await first.return?.();
-		assert.deepEqual(await collect(result.value), [1, 2]);
+		const result = (await create.LLMAgent.asStream({ model, output })('test'));
+		const first = (await result.value)[Symbol.iterator]();
+		assert.deepEqual(first.next(), { value: 1, done: false });
+		assert.equal(await result.value, await result.output);
+		assert.deepEqual(await result.value, [1, 2]);
 		assert.deepEqual(await result.output, [1, 2]);
 		assert.equal(model.doStreamCalls.length, 1);
 	});
 
-	it('requires an iterable parsed result for custom array delivery', async () => {
+	it('does not reinterpret a custom parser based on its output name', async () => {
 		const parsed = { n: 1 };
 		const output = { ...Output.text(), name: 'array' as const, parseCompleteOutput: async () => parsed };
-		const result = create.TextStreamer({ model: mock({ content: [text('answer')] }), output })('test');
+		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('answer')] }), output })('test'));
 		assert.equal(await result.output, parsed);
-		await assert.rejects(async () => value(result.value), TypeError);
+		assert.equal(await result.value, parsed);
 	});
 
 	for (const asynchronous of [false, true]) {
@@ -683,15 +691,12 @@ describe('SDK result augmentation', () => {
 			const output = { ...Output.array({ element: z.number() }), name: 'array' as const,
 				parseCompleteOutput: async () => { parses++; return parsed; },
 			};
-			const result = create.TextStreamer({ model: mock({ content: [text('{"elements":[1]}')] }), output })('test');
-			const unused = result.value[Symbol.asyncIterator]();
-			await unused.return?.();
-			assert.equal(parses, 0);
-			assert.equal((await unused.next()).done, true);
-			for await (const actual of result.value) {
-				assert.equal(actual, element);
-				break;
-			}
+			const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('{"elements":[1]}')] }), output })('test'));
+			assert.equal(await result.value, parsed);
+			assert.equal(closed, 0);
+			const reader = Symbol.asyncIterator in parsed ? parsed[Symbol.asyncIterator]!() : parsed[Symbol.iterator]();
+			assert.equal((await reader.next()).value, element);
+			await reader.return();
 			assert.equal(closed, 1);
 			assert.equal(await result.output, parsed);
 			assert.equal(parses, 1);
@@ -701,8 +706,8 @@ describe('SDK result augmentation', () => {
 	it('retains structured values from a custom text parser without parsing again', async () => {
 		let parses = 0;
 		const output = { ...Output.text(), parseCompleteOutput: async ({ text }: { text: string }) => { parses++; return { answer: text }; } };
-		const result = create.TextStreamer({ model: mock({ content: [text('answer')] }), prompt: 'test', output })();
-		assert.deepEqual(await value(result.value), [{ answer: 'answer' }]);
+		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('answer')] }), prompt: 'test', output })());
+		assert.deepEqual(await value(result.value), { answer: 'answer' });
 		assert.deepEqual(await result.output, { answer: 'answer' });
 		assert.equal(parses, 1);
 	});
@@ -716,7 +721,7 @@ describe('SDK result augmentation', () => {
 			const model = new MockLanguageModelV3({ doStream: [
 				{ stream: convertArrayToReadableStream(first) }, { stream: convertArrayToReadableStream(second) },
 			] });
-			const result = streamTextWithResult({ model, prompt: 'test', tools: { lookup: provider }, stopWhen: isStepCount(2) });
+			const result = streamTextWithResult({ model, messages: conversation('test'), tools: { lookup: provider }, stopWhen: isStepCount(2) });
 			const steps = await result.steps;
 			assert.equal(steps.length, 2);
 			if (resolved) assert.deepEqual(await value(result.value), ['answer']);
@@ -726,7 +731,7 @@ describe('SDK result augmentation', () => {
 
 	it('keeps preliminary tool results out of the completed exchange', async () => {
 		const model = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] });
-		const result = streamTextWithResult({ model, prompt: 'test', stopWhen: isStepCount(2), tools: {
+		const result = streamTextWithResult({ model, messages: conversation('test'), stopWhen: isStepCount(2), tools: {
 			lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: async function* () { yield 'partial'; yield 'done'; } }),
 		} });
 		const events = await collect(result.stream);
@@ -737,10 +742,10 @@ describe('SDK result augmentation', () => {
 
 	it('keeps history when final output parsing fails after a completed exchange', async () => {
 		const output = Output.object({ schema: z.object({ n: z.number() }).refine(() => false) });
-		const result = streamTextWithResult({ model: mock({ content: [text('{"n":3}')] }), prompt: 'test', output });
+		const result = streamTextWithResult({ model: mock({ content: [text('{"n":3}')] }), messages: conversation('test'), output });
 		await assert.rejects(async () => value(result.value));
 		assert.equal((await result.messageHistory).length, 2);
-		await assert.rejects(generateTextWithResult({ model: mock({ content: [text('{"n":3}')] }), prompt: 'test', output }));
+		await assert.rejects(generateTextWithResult({ model: mock({ content: [text('{"n":3}')] }), messages: conversation('test'), output }));
 	});
 
 	for (const [kind, output] of [['object', Output.object({ schema: z.object({ n: z.number() }) })],
@@ -751,7 +756,7 @@ describe('SDK result augmentation', () => {
 					const settings = () => {
 						const state = { executions: 0, messages: [] as ModelMessage[] };
 						return { state, request: {
-							model: mock({ content: [text('Let me check.'), call()], reason }), prompt: 'test', output,
+							model: mock({ content: [text('Let me check.'), call()], reason }), messages: conversation('test'), output,
 							tools: { lookup: executable
 								? tool({ inputSchema: z.object({ query: z.string() }), execute: () => { state.executions++; return 'done'; } })
 								: tool({ inputSchema: z.object({ query: z.string() }) }),
@@ -761,7 +766,7 @@ describe('SDK result augmentation', () => {
 					};
 					for (const generate of [generateText, generateTextWithResult]) {
 						const { request, state } = settings();
-						await assert.rejects(generate(request), NoObjectGeneratedError);
+						await assert.rejects(generate === generateText ? generateText(request) : generateTextWithResult(request), NoObjectGeneratedError);
 						assert.equal(state.executions, executable && reason === 'stop' ? 1 : 0);
 						assert.equal(state.messages.length, executable && reason === 'stop' ? 2 : 1);
 						assert.equal(request.model.doGenerateCalls.length, 1);
@@ -780,7 +785,7 @@ describe('SDK result augmentation', () => {
 	}
 
 	it('rejects whole-array validation after otherwise valid elements', async () => {
-		const result = streamTextWithResult({ model: mock({ content: [text('{"elements":["one"]}')] }), prompt: 'test',
+		const result = streamTextWithResult({ model: mock({ content: [text('{"elements":["one"]}')] }), messages: conversation('test'),
 			output: Output.array({ element: z.string(), minItems: 2 }),
 		});
 		await assert.rejects(async () => value(result.value));
@@ -790,17 +795,17 @@ describe('SDK result augmentation', () => {
 	it('does not create a final-output parsing pass just to add properties or read history', async () => {
 		let parses = 0;
 		const output = { ...Output.text(), parseCompleteOutput: async ({ text }: { text: string }) => { parses++; return text; } };
-		const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), prompt: 'test', output });
+		const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), messages: conversation('test'), output });
 		assert.equal(parses, 0);
 		await result.messageHistory;
 		assert.equal(parses, 0);
-		assert.deepEqual(await value(result.value), ['answer']);
+		assert.equal(await result.value, 'answer');
 		assert.equal(parses, 1);
 	});
 
 	it('preserves a thrown SDK transform failure after native-only consumption', async () => {
 		const error = new Error('transform failed');
-		const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), prompt: 'test',
+		const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), messages: conversation('test'),
 			experimental_transform: () => new TransformStream({ transform() { throw error; } }),
 		});
 		await assert.rejects(async () => result.output, reason => reason === error);
@@ -811,7 +816,7 @@ describe('SDK result augmentation', () => {
 	for (const changed of ['finish', 'finish-step', 'both'] as const) {
 		for (const nativeFirst of [false, true]) for (const explicit of [false, true]) {
 			it(`rejects a transformed ${changed} error with ${nativeFirst ? 'native' : 'value'} first and ${explicit ? 'explicit' : 'default'} output`, async () => {
-				const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), prompt: 'test',
+				const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), messages: conversation('test'),
 					...(explicit && { output: Output.text() }),
 					experimental_transform: () => new TransformStream<TextStreamPart<ToolSet>, TextStreamPart<ToolSet>>({ transform(part, controller) {
 						if ((part.type === 'finish' || part.type === 'finish-step') && (changed === 'both' || part.type === changed)) {
@@ -831,7 +836,7 @@ describe('SDK result augmentation', () => {
 
 	it('preserves SDK normalization when a provider stream omits its finish event', async () => {
 		const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(chunks({ content: [text('unfinished')] }).slice(0, -1)) } });
-		const result = streamTextWithResult({ model, prompt: 'test', onError: () => { /* Expected failure. */ } });
+		const result = streamTextWithResult({ model, messages: conversation('test'), onError: () => { /* Expected failure. */ } });
 		assert.equal(await result.output, 'unfinished');
 		assert.equal(await result.finishReason, 'other');
 		assert.equal((await result.messageHistory).length, 2);
@@ -842,7 +847,7 @@ describe('SDK result augmentation', () => {
 		const parts = chunks({ content: [text('prefix')] }).slice(0, -1);
 		parts.push({ type: 'error', error });
 		const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(parts) } });
-		const result = streamTextWithResult({ model, prompt: 'test', onError: () => { /* Expected failure. */ } });
+		const result = streamTextWithResult({ model, messages: conversation('test'), onError: () => { /* Expected failure. */ } });
 		assert.ok(Symbol.asyncIterator in result.value);
 		const iterator = result.value[Symbol.asyncIterator]();
 		assert.equal((await iterator.next()).value, 'prefix');
@@ -854,12 +859,12 @@ describe('SDK result augmentation', () => {
 		const error = new Error('provider connection failed');
 		const model = new MockLanguageModelV3({ doGenerate: async () => { throw error; }, doStream: async () => { throw error; } });
 		const agent = new ToolLoopAgent({ model, maxRetries: 0 });
-		await assert.rejects(agent.generate({ prompt: 'test' }), reason => reason === error);
+		await assert.rejects(agent.generate({ messages: conversation('test') }), reason => reason === error);
 		const logged: unknown[] = [];
 		const original = console.error;
 		console.error = error => { logged.push(error); };
 		try {
-			const result = await agent.stream({ prompt: 'test' });
+			const result = await agent.stream({ messages: conversation('test') });
 			await assert.rejects(async () => result.output, reason => NoOutputGeneratedError.isInstance(reason) && reason.cause === undefined);
 			await assert.rejects(async () => result.responseMessages, reason => reason === error);
 		} finally { console.error = original; }
@@ -873,10 +878,10 @@ describe('SDK result augmentation', () => {
 			it(`preserves the provider connection error in ${kind} value with ${order} consumption`, async () => {
 				const error = new Error('provider connection failed');
 				const model = new MockLanguageModelV3({ doStream: async () => { throw error; } });
-				const result = create.TextStreamer({ model, prompt: 'test', maxRetries: 0, onError: () => undefined,
+				const result = (await create.LLMAgent.asStream({ model, prompt: 'test', maxRetries: 0, onError: () => undefined,
 					...(kind !== 'default' && { output: kind === 'array' ? Output.array({ element: z.number() })
 						: kind === 'object' ? Output.object({ schema: z.object({ n: z.number() }) }) : Output.text() }),
-				})();
+				})());
 				const nativeFailure = () => assert.rejects(async () => result.output, reason => NoOutputGeneratedError.isInstance(reason) && reason.cause === undefined);
 				if (order === 'native-first') await nativeFailure();
 				const historyError = result.messageHistory.catch((reason: unknown) => reason);
@@ -900,7 +905,7 @@ describe('SDK result augmentation', () => {
 			let observed!: () => void;
 			const received = new Promise<void>(resolve => { observed = resolve; });
 			const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream([{ type: 'error', error: reported }]) } });
-			const result = streamTextWithResult({ model, prompt: 'test', output: Output.object({ schema: z.object({ n: z.number() }) }),
+			const result = streamTextWithResult({ model, messages: conversation('test'), output: Output.object({ schema: z.object({ n: z.number() }) }),
 				onError: () => undefined,
 				onChunk: ({ chunk }) => { if (chunk.type === 'error' && chunk.error === reported) observed(); },
 				experimental_transform: () => new TransformStream({ transform(part, controller) { controller.enqueue(part); },
@@ -920,7 +925,7 @@ describe('SDK result augmentation', () => {
 			parts.push({ type: 'text-delta', id: invalid === 'unknown-id' ? 'unknown' : 'text', delta: 'phantom' },
 				{ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage });
 			const settings = () => ({ model: new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(parts) } }),
-				prompt: 'test', onError: () => undefined,
+				messages: conversation('test'), onError: () => undefined,
 			});
 			const native = streamText(settings());
 			const result = streamTextWithResult(settings());
@@ -937,7 +942,7 @@ describe('SDK result augmentation', () => {
 			{ stream: convertArrayToReadableStream(chunks({ content: [text('earlier'), call()], reason: 'tool-calls' })) },
 			{ stream: convertArrayToReadableStream([{ type: 'error', error }]) },
 		] });
-		const result = streamTextWithResult({ model, prompt: 'test', tools: { lookup }, stopWhen: isStepCount(2), onError: () => { /* Expected failure. */ } });
+		const result = streamTextWithResult({ model, messages: conversation('test'), tools: { lookup }, stopWhen: isStepCount(2), onError: () => { /* Expected failure. */ } });
 		await assert.rejects(async () => value(result.value), reason => reason === error);
 		assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
 	});
@@ -954,7 +959,7 @@ describe('SDK result augmentation', () => {
 							if (calls++ > 0) throw error;
 							return { stream: convertArrayToReadableStream(chunks({ content: [text('earlier'), call()], reason })) };
 						} }),
-						prompt: 'test', tools: { lookup }, stopWhen: isStepCount(2), maxRetries: 0,
+						messages: conversation('test'), tools: { lookup }, stopWhen: isStepCount(2), maxRetries: 0,
 						prepareStep: ({ stepNumber }: { stepNumber: number }) => {
 							if (phase === 'prepareStep' && stepNumber === 1) throw error;
 							return undefined;
@@ -982,7 +987,7 @@ describe('SDK result augmentation', () => {
 			if (calls++ > 0) throw error;
 			return { content: [text('earlier'), call()], finishReason: { unified: 'tool-calls', raw: 'tool-calls' }, usage, warnings: [] };
 		} });
-		await assert.rejects(generateTextWithResult({ model, prompt: 'test', tools: { lookup }, stopWhen: isStepCount(2), maxRetries: 0 }), reason => reason === error);
+		await assert.rejects(generateTextWithResult({ model, messages: conversation('test'), tools: { lookup }, stopWhen: isStepCount(2), maxRetries: 0 }), reason => reason === error);
 		assert.equal(calls, 2);
 	});
 
@@ -995,7 +1000,7 @@ describe('SDK result augmentation', () => {
 			request.abortSignal?.throwIfAborted();
 			return { content: [text('late')], finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [] };
 		} });
-		await assert.rejects(generateTextWithResult({ model, prompt: 'test', abortSignal: controller.signal }), reason => reason === error);
+		await assert.rejects(generateTextWithResult({ model, messages: conversation('test'), abortSignal: controller.signal }), reason => reason === error);
 		assert.equal(model.doGenerateCalls.length, 1);
 	});
 
@@ -1009,7 +1014,7 @@ describe('SDK result augmentation', () => {
 				const ready = new Promise<void>(resolve => { started = resolve; });
 				const wait = new Promise<void>(resolve => { release = resolve; });
 				const model = mock({ content: [call()], reason: 'tool-calls' });
-				const request = { model, prompt: 'test', abortSignal: controller.signal, tools: {
+				const request = { model, messages: conversation('test'), abortSignal: controller.signal, tools: {
 					lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: async (_input, options) => {
 						started();
 						await wait;
@@ -1018,7 +1023,7 @@ describe('SDK result augmentation', () => {
 					} }),
 				}, stopWhen: isStepCount(1) };
 				const pending = mode === 'sdk' ? generateText(request) : mode === 'agent'
-					? new ToolLoopAgent({ model, tools: request.tools, stopWhen: request.stopWhen }).generate({ prompt: 'test', abortSignal: controller.signal })
+					? new ToolLoopAgent({ model, tools: request.tools, stopWhen: request.stopWhen }).generate({ messages: conversation('test'), abortSignal: controller.signal })
 					: generateTextWithResult(request);
 				await ready;
 				controller.abort(reason);
@@ -1041,8 +1046,8 @@ describe('SDK result augmentation', () => {
 				const ready = new Promise<void>(resolve => { started = resolve; });
 				const wait = new Promise<void>(resolve => { release = resolve; });
 				const model = mock({ content: [call()], reason: 'tool-calls' });
-				const execute = augmented ? streamTextWithResult : streamText;
-				const result = execute({ model, prompt: 'test', abortSignal: controller.signal, tools: {
+				const execute: (request: Parameters<typeof streamTextWithResult>[0]) => ReturnType<typeof streamText> = augmented ? streamTextWithResult : streamText;
+				const result = execute({ model, messages: conversation('test'), abortSignal: controller.signal, tools: {
 					lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: async (_input, options) => {
 						started();
 						await wait;
@@ -1071,7 +1076,7 @@ describe('SDK result augmentation', () => {
 			{ stream: convertArrayToReadableStream(chunks({ content: [text('recovered')] })) },
 		] });
 		let errors = 0;
-		const result = streamTextWithResult({ model, prompt: 'test', streamRetries: 0, onError: event => {
+		const result = streamTextWithResult({ model, messages: conversation('test'), streamRetries: 0, onError: event => {
 			assert.equal(event.error, error);
 			errors++;
 			return { retry: true };
@@ -1093,18 +1098,15 @@ describe('SDK result augmentation', () => {
 						: chunks({ content: [text('final')], reason: 'error' })) },
 				] });
 				let starts = 0;
-				let legacyStarts = 0;
-				const result = streamTextWithResult({ model, prompt: 'test', streamRetries: retry === 'automatic' ? 1 : 0,
-					...(retry === 'automatic' ? { onLanguageModelCallStart: () => { starts++; } } : {}),
-					experimental_onLanguageModelCallStart: () => { legacyStarts++; },
+				const result = streamTextWithResult({ model, messages: conversation('test'), streamRetries: retry === 'automatic' ? 1 : 0,
+					onLanguageModelCallStart: () => { starts++; },
 					onError: ({ error }) => error === discarded && retry === 'callback' ? { retry: true } : undefined,
 				});
 				const expected = (error: unknown) => hasTerminalCause ? error === terminal : NoOutputGeneratedError.isInstance(error);
 				await assert.rejects(async () => value(result.value), expected);
 				assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
 				assert.equal(model.doStreamCalls.length, 2);
-				assert.equal(starts, retry === 'automatic' ? 2 : 0);
-				assert.equal(legacyStarts, retry === 'callback' ? 2 : 0);
+				assert.equal(starts, 2);
 			});
 		}
 	}
@@ -1113,7 +1115,7 @@ describe('SDK result augmentation', () => {
 		const source = controlledModel();
 		let preparations = 0;
 		let starts = 0;
-		const result = streamTextWithResult({ model: source.model, prompt: 'test', tools: { lookup },
+		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), tools: { lookup },
 			prepareStep: () => { preparations++; return { toolChoice: 'none' }; },
 			onStepStart: () => { starts++; },
 		});
@@ -1129,7 +1131,7 @@ describe('SDK result augmentation', () => {
 
 	it('buffers when prepareStep re-enables tools while native SDK events remain live', async () => {
 		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, prompt: 'test', tools: { lookup }, toolChoice: 'none',
+		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), tools: { lookup }, toolChoice: 'none',
 			prepareStep: () => ({ toolChoice: 'auto' }),
 		});
 		assert.ok(Symbol.asyncIterator in result.value);
@@ -1157,9 +1159,9 @@ describe('SDK result augmentation', () => {
 				const tools: ToolSet = controls === 'no-tools' ? {} : { lookup: tool({ inputSchema: z.object({ query: z.string() }),
 					execute: () => { executions++; return 'done'; },
 				}) };
-				const result = create.TextStreamer({ model, tools, stopWhen: isStepCount(2),
+				const result = (await create.LLMAgent.asStream({ model, tools, stopWhen: isStepCount(2),
 					...(controls === 'toolChoice-none' ? { toolChoice: 'none' as const } : { activeTools: [] }),
-				})('test');
+				})('test'));
 				if (nativeFirst) assert.equal(await result.output, 'final');
 				const iterator = result.value[Symbol.asyncIterator]();
 				assert.equal((await iterator.next()).value, 'intermediate');
@@ -1178,7 +1180,7 @@ describe('SDK result augmentation', () => {
 		const configured = Object.freeze({ totalMs: 500, stepMs: 300, toolMs: 200 });
 		for (const execute of [generateTextWithResult, streamTextWithResult]) {
 			let timeout: unknown;
-			const result = await execute({ model: mock({ content: [text('answer')] }), prompt: 'test', timeout: configured,
+			const result = await execute({ model: mock({ content: [text('answer')] }), messages: conversation('test'), timeout: configured,
 				onStart: event => { timeout = event.timeout; },
 			});
 			await result.output;
@@ -1189,7 +1191,7 @@ describe('SDK result augmentation', () => {
 
 	it('preserves SDK total timeout failure in value and native message availability', async () => {
 		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, prompt: 'test', timeout: 30 });
+		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), timeout: 30 });
 		assert.ok(Symbol.asyncIterator in result.value);
 		const iterator = result.value[Symbol.asyncIterator]();
 		source.start();
@@ -1201,7 +1203,7 @@ describe('SDK result augmentation', () => {
 
 	it('retains completed native results after a late abort or timeout', async () => {
 		const controller = new AbortController();
-		const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), prompt: 'test', abortSignal: controller.signal, timeout: 40 });
+		const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), messages: conversation('test'), abortSignal: controller.signal, timeout: 40 });
 		assert.equal(await result.output, 'answer');
 		await delay(55);
 		controller.abort(new Error('late'));
@@ -1213,7 +1215,7 @@ describe('SDK result augmentation', () => {
 		const source = controlledModel();
 		let reason: unknown;
 		let aborts = 0;
-		const result = streamTextWithResult({ model: source.model, prompt: 'test', timeout: { stepMs: 20 },
+		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), timeout: { stepMs: 20 },
 			onAbort: event => { reason = event.reason; aborts++; },
 		});
 		source.start();
@@ -1229,7 +1231,7 @@ describe('Public generator and streamer augmentation', () => {
 		for (const renderer of ['text', 'template', 'script', 'function', 'loaded-text', 'loaded-template', 'loaded-script']) {
 			it(`${streaming ? 'streamer' : 'generator'}: ${renderer} returns value and dynamic history from one execution`, async () => {
 				const model = mock({ content: [text('answer')] });
-				const config = { model, messages: [{ role: 'user', content: 'Static instruction.' } satisfies ModelMessage] };
+				const config = { model, instructions: 'Static instruction.' };
 				const input = { ...config, context: { input: 'question' } };
 				const textConfig = { ...config, prompt: 'question' };
 				const templateConfig = { ...input, prompt: '{{ input }}' };
@@ -1238,15 +1240,15 @@ describe('Public generator and streamer augmentation', () => {
 				const loadedText = { ...config, prompt: 'source', loader: { load: () => 'question' } };
 				const loadedTemplate = { ...input, prompt: 'source', loader: { load: () => '{{ input }}' } };
 				const loadedScript = { ...input, prompt: 'source', loader: { load: () => 'return input' } };
-				const component = renderer === 'text' ? streaming ? create.TextStreamer(textConfig) : create.TextGenerator(textConfig)
-					: renderer === 'template' ? streaming ? create.TextStreamer.withTemplate(templateConfig) : create.TextGenerator.withTemplate(templateConfig)
-						: renderer === 'script' ? streaming ? create.TextStreamer.withScript(scriptConfig) : create.TextGenerator.withScript(scriptConfig)
-							: renderer === 'function' ? streaming ? create.TextStreamer.withFunction(functionConfig) : create.TextGenerator.withFunction(functionConfig)
-								: renderer === 'loaded-text' ? streaming ? create.TextStreamer.loadsText(loadedText) : create.TextGenerator.loadsText(loadedText)
-									: renderer === 'loaded-template' ? streaming ? create.TextStreamer.loadsTemplate(loadedTemplate) : create.TextGenerator.loadsTemplate(loadedTemplate)
-										: streaming ? create.TextStreamer.loadsScript(loadedScript) : create.TextGenerator.loadsScript(loadedScript);
+				const component = renderer === 'text' ? streaming ? create.LLMAgent.asStream(textConfig) : create.LLMAgent(textConfig)
+					: renderer === 'template' ? streaming ? create.LLMAgent.withTemplate.asStream(templateConfig) : create.LLMAgent.withTemplate(templateConfig)
+						: renderer === 'script' ? streaming ? create.LLMAgent.withScript.asStream(scriptConfig) : create.LLMAgent.withScript(scriptConfig)
+							: renderer === 'function' ? streaming ? create.LLMAgent.withFunction.asStream(functionConfig) : create.LLMAgent.withFunction(functionConfig)
+								: renderer === 'loaded-text' ? streaming ? create.LLMAgent.loadsText.asStream(loadedText) : create.LLMAgent.loadsText(loadedText)
+									: renderer === 'loaded-template' ? streaming ? create.LLMAgent.loadsTemplate.asStream(loadedTemplate) : create.LLMAgent.loadsTemplate(loadedTemplate)
+										: streaming ? create.LLMAgent.loadsScript.asStream(loadedScript) : create.LLMAgent.loadsScript(loadedScript);
 				const history: ModelMessage[] = [{ role: 'assistant', content: 'Earlier answer.' }];
-				const result = await component.run({ messages: history });
+				const result = await runtimeRun(component, { messageHistory: history });
 				assert.deepEqual(await value(result.value), streaming ? ['answer'] : 'answer');
 				assert.deepEqual(await result.messageHistory, [...history, { role: 'user', content: 'question' }, ...await result.responseMessages]);
 				assert.deepEqual((await result.response).messages, (await result.finalStep).response.messages);
@@ -1260,7 +1262,7 @@ describe('Public generator and streamer augmentation', () => {
 			let parses = 0;
 			const output = Output.object({ schema: z.object({ n: z.string().transform(value => { parses++; return Number(value); }) }) });
 			const config = { model: mock({ content: [text('{"n":"3"}')] }), prompt: 'question', output };
-			const component = streaming ? create.TextStreamer(config) : create.TextGenerator(config);
+			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 			const result = await component();
 			assert.deepEqual(await result.value, { n: 3 });
 			assert.deepEqual(await result.output, { n: 3 });
@@ -1271,7 +1273,7 @@ describe('Public generator and streamer augmentation', () => {
 
 describe('Result augmentation in tools and templates', () => {
 	for (const [name, factory, object] of [
-		['TextGenerator', create.TextGenerator, false], ['ObjectGenerator', create.ObjectGenerator, true],
+		['generate', create.LLMAgent, false], ['generate-structured', create.LLMAgent, true],
 	] as const) {
 		for (const modifier of ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadsText', 'loadsTemplate', 'loadsScript'] as const) {
 			it(`${name}.${modifier}.asTool forwards cancellation without affecting later calls`, async () => {
@@ -1304,7 +1306,7 @@ describe('Result augmentation in tools and templates', () => {
 				};
 				const nested = build({ model, inputSchema: z.object({ query: z.string() }),
 					prompt: modifier === 'withFunction' ? ({ query }: typeof input) => query : modifier.startsWith('loads') ? 'source' : source,
-					...(object && { schema: z.object({ n: z.number() }) }),
+					...(object && { output: Output.object({ schema: z.object({ n: z.number() }) }) }),
 					...(modifier.startsWith('loads') && { loader: { load: () => source } }),
 				});
 				const aborted = new AbortController();
@@ -1327,13 +1329,13 @@ describe('Result augmentation in tools and templates', () => {
 		it(`reports an unavailable nested ${reason} value to the outer model as a tool error`, async () => {
 			const step: Step = { content: [text('Let me check.'), call()], reason };
 			const model = mock(step, step);
-			const nested = create.TextGenerator.withFunction.asTool({ model, inputSchema: z.object({ query: z.string() }),
+			const nested = create.LLMAgent.withFunction.asTool({ model, inputSchema: z.object({ query: z.string() }),
 				prompt: ({ query }) => query, tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) },
 			});
 			const direct = await nested({ query: 'test' });
 			assert.throws(() => direct.value, NoOutputGeneratedError);
 			const outerModel = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('Outer answer.')] });
-			const outer = await generateTextWithResult({ model: outerModel, prompt: 'test', tools: { lookup: nested }, stopWhen: isStepCount(2) });
+			const outer = await generateTextWithResult({ model: outerModel, messages: conversation('test'), tools: { lookup: nested }, stopWhen: isStepCount(2) });
 			const failure = outer.steps[0].content.find(part => part.type === 'tool-error');
 			assert.ok(failure?.type === 'tool-error');
 			assert.ok(NoOutputGeneratedError.isInstance(failure.error));
@@ -1349,14 +1351,14 @@ describe('Result augmentation in tools and templates', () => {
 	it('reports a nested approval pause as an outer tool error without forwarding inner history', async () => {
 		const innerMessages: ModelMessage[] = [];
 		let executions = 0;
-		const nested = create.TextGenerator.asTool({ model: mock({ content: [call()], reason: 'tool-calls' }),
+		const nested = create.LLMAgent.asTool({ model: mock({ content: [call()], reason: 'tool-calls' }),
 			prompt: 'test', inputSchema: z.object({ query: z.string() }),
 			tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), needsApproval: true,
 				execute: () => { executions++; return 'done'; } }) },
 			onEnd: event => { innerMessages.push(...event.responseMessages); },
 		});
 		const outer = await generateTextWithResult({ model: mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] }),
-			prompt: 'test', tools: { lookup: nested }, stopWhen: isStepCount(2),
+			messages: conversation('test'), tools: { lookup: nested }, stopWhen: isStepCount(2),
 		});
 		assert.ok(innerMessages.some(message => message.role === 'assistant' && typeof message.content !== 'string'
 			&& message.content.some(part => part.type === 'tool-approval-request')));
@@ -1370,7 +1372,7 @@ describe('Result augmentation in tools and templates', () => {
 		let parses = 0;
 		const raw = '{"n":"7"}';
 		const model = mock({ content: [text(raw)] }, { content: [text(raw)] }, { content: [text(raw)] });
-		const nested = create.TextGenerator.withFunction.asTool({ model, inputSchema: z.object({ query: z.string() }),
+		const nested = create.LLMAgent.withFunction.asTool({ model, inputSchema: z.object({ query: z.string() }),
 			prompt: ({ query }) => query,
 			output: Output.object({ schema: z.object({ n: z.string().transform(value => { parses++; return Number(value); }) }) }),
 		});
@@ -1378,7 +1380,7 @@ describe('Result augmentation in tools and templates', () => {
 		const result: { n: number } = await nested.execute({ query: 'test' }, { toolCallId: 'outer', messages: [], context: undefined });
 		assert.deepEqual(result, { n: 7 });
 		const outerModel = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] });
-		const outer = await generateTextWithResult({ model: outerModel, prompt: 'test', tools: { lookup: nested }, stopWhen: isStepCount(2) });
+		const outer = await generateTextWithResult({ model: outerModel, messages: conversation('test'), tools: { lookup: nested }, stopWhen: isStepCount(2) });
 		assert.deepEqual(outer.steps[0].toolResults[0].output, { n: 7 });
 		const sent = outerModel.doGenerateCalls[1].prompt.find(message => message.role === 'tool');
 		assert.ok(sent?.role === 'tool');
@@ -1390,7 +1392,7 @@ describe('Result augmentation in tools and templates', () => {
 
 	it('consumes a streaming value with a template loop using one execution', async () => {
 		const model = mock({ content: [text('answer')] });
-		const writer = create.TextStreamer({ model });
+		const writer = create.LLMAgent.asStream({ model });
 		const render = create.Template({ template: 'Before {% for chunk in writer("test").value %}{{ chunk }}{% endfor %} after', context: { writer } });
 		assert.equal(await render(), 'Before answer after');
 		assert.equal(model.doStreamCalls.length, 1);
@@ -1398,7 +1400,7 @@ describe('Result augmentation in tools and templates', () => {
 
 	it('propagates unavailable streaming value through a template loop', async () => {
 		const model = mock({ content: [text('Let me check.'), call()], reason: 'tool-calls' });
-		const writer = create.TextStreamer({ model, tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) } });
+		const writer = create.LLMAgent.asStream({ model, tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) } });
 		const render = create.Template({ template: '{% for chunk in writer("test").value %}{{ chunk }}{% endfor %}', context: { writer } });
 		await assert.rejects(render(), /ended with tool calls and no final application output/);
 		assert.equal(model.doStreamCalls.length, 1);
@@ -1411,72 +1413,65 @@ describe('Object result augmentation', () => {
 			let parses = 0;
 			const schema = z.object({ n: z.string().transform(value => { parses++; return Number(value); }) });
 			const model = mock({ content: [text('{"n":"3"}')] });
-			const config = { model, prompt: 'question', schema };
-			const component = streaming ? create.ObjectStreamer(config) : create.ObjectGenerator(config);
+			const config = { model, prompt: 'question', output: Output.object({ schema }) };
+			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 			const result = await component();
 			assert.equal('value' in { ...result }, false);
 			assert.equal('value' in Object.assign({}, result), false);
 			assert.doesNotThrow(() => JSON.stringify(result));
 			assert.equal(result.value, result.value);
-			assert.equal(result.value, result.object);
-			if ('partialObjectStream' in result) await collect(result.partialObjectStream);
+			assert.equal(await result.value, await result.output);
+			if ('partialOutputStream' in result) await collect(result.partialOutputStream);
 			assert.deepEqual(await result.value, { n: 3 });
-			assert.equal(await result.value, await result.object);
+			assert.equal(await result.value, await result.output);
 			assert.equal(parses, 1);
 			assert.equal(model.doGenerateCalls.length, streaming ? 0 : 1);
 			assert.equal(model.doStreamCalls.length, streaming ? 1 : 0);
-			assert.equal('messages' in await result.response, false);
-			assert.equal('messageHistory' in result, false);
+			assert.ok((await result.response).messages);
+			assert.equal((await result.messageHistory).length, 2);
 		});
 
 		it(`${streaming ? 'streamer' : 'generator'} retains array output and native result views`, async () => {
 			const model = mock({ content: [text('{"elements":[1,2]}')] });
-			const config = { model, prompt: 'question', output: 'array' as const, schema: z.number() };
-			const component = streaming ? create.ObjectStreamer(config) : create.ObjectGenerator(config);
+			const config = { model, prompt: 'question', output: Output.array({ element: z.number() }) };
+			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 			const result = await component();
 			assert.equal(result.value, result.value);
-			assert.equal(result.value, result.object);
+			assert.equal(await result.value, await result.output);
 			if ('elementStream' in result) assert.deepEqual(await collect(result.elementStream), [1, 2]);
 			assert.deepEqual(await result.value, [1, 2]);
-			assert.deepEqual(await result.object, [1, 2]);
+			assert.deepEqual(await result.output, [1, 2]);
 			assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 1);
 		});
 
 		it(`${streaming ? 'streamer' : 'generator'} keeps no-schema JSON complete even when it is an array`, async () => {
-			const config = { model: mock({ content: [text('[1,2]')] }), prompt: 'question', output: 'no-schema' as const };
-			const component = streaming ? create.ObjectStreamer(config) : create.ObjectGenerator(config);
+			const config = { model: mock({ content: [text('[1,2]')] }), prompt: 'question', output: Output.json() };
+			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 			const result = await component();
 			if ('textStream' in result) assert.deepEqual(await collect(result.textStream), ['[1,2]']);
 			assert.deepEqual(await result.value, [1, 2]);
-			assert.equal(await result.value, await result.object);
+			assert.equal(await result.value, await result.output);
 		});
 	}
 
-	it('retains enum values and native JSON responses', async () => {
-		const result = await create.ObjectGenerator({
-			model: mock({ content: [text('{"result":"yes"}')] }), prompt: 'question', output: 'enum', enum: ['yes', 'no'],
-		})();
+	it('retains choice values and native response metadata', async () => {
+		const result = await create.LLMAgent({ model: mock({ content: [text('{"result":"yes"}')] }), prompt: 'question', output: Output.choice({ options: ['yes', 'no'] }) })();
 		assert.equal(result.value, 'yes');
-		assert.equal(await result.toJsonResponse().json(), result.value);
+		assert.equal(result.response.messages.at(-1)?.role, 'assistant');
 	});
 
-	it('returns an object stream immediately and forwards native validation failures through value', async () => {
-		const result = create.ObjectStreamer({
-			model: mock({ content: [text('{"n":"invalid"}')] }), prompt: 'question', schema: z.object({ n: z.number() }),
-		})();
+	it('forwards native validation failures through the completed streaming value', async () => {
+		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('{"n":"invalid"}')] }), prompt: 'question', output: Output.object({ schema: z.object({ n: z.number() }) }) })());
 		assert.equal(result.value, result.value);
-		assert.equal(result.value, result.object);
-		await collect(result.fullStream);
-		const error = await result.object.catch((error: unknown) => error);
+		await collect(result.stream);
+		const error = await Promise.resolve(result.output).catch((error: unknown) => error);
 		await assert.rejects(result.value, caught => caught === error);
 	});
 
 	it('rejects array value when the completed array fails validation', async () => {
-		const result = create.ObjectStreamer({
-			model: mock({ content: [text('{"elements":[1,"invalid"]}')] }), prompt: 'question', output: 'array', schema: z.number(),
-		})();
-		await collect(result.fullStream);
+		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('{"elements":[1,"invalid"]}')] }), prompt: 'question', output: Output.array({ element: z.number() }) })());
+		await collect(result.stream);
 		await assert.rejects(result.value);
-		await assert.rejects(result.object);
+		await assert.rejects(async () => result.output);
 	});
 });

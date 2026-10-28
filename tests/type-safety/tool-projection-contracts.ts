@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 /* eslint-disable @typescript-eslint/no-floating-promises -- Compiler-only public consumers. */
 import { create } from 'casai';
 import { z } from 'zod/v4';
@@ -16,9 +17,9 @@ create.Template.asTool({ template: '{{ x }}', inputSchema, context: { x: 1 } });
 // @ts-expect-error Script tools use the same projection boundary.
 create.Script.asTool({ script: 'return x', inputSchema, context: { x: 1 } });
 // @ts-expect-error LLM tools use the same projection boundary.
-create.TextGenerator.withTemplate.asTool({ model, prompt: '{{ x }}', inputSchema, context: { x: 1 } });
+create.LLMAgent.withTemplate.asTool({ model, prompt: '{{ x }}', inputSchema, context: { x: 1 } });
 // @ts-expect-error Object tools use the same projection boundary.
-create.ObjectGenerator.withTemplate.asTool({ model, prompt: '{{ x }}', inputSchema, context: { x: 1 }, schema: z.object({ value: z.string() }) });
+create.LLMAgent.withTemplate.asTool({ model, prompt: '{{ x }}', inputSchema, context: { x: 1 }, output: Output.object({ schema: z.object({ value: z.string() }) }) });
 const parent = create.Config({ context: { x: 1 } });
 // @ts-expect-error Inherited public defaults also need projection.
 create.Function.asTool({ inputSchema, execute: input => input }, parent);
@@ -71,4 +72,4 @@ const copied = { ...original, description: 'Copied descriptor' };
 // @ts-expect-error A spread descriptor is not a callable Casai component.
 create.Function({ tools: { copied }, execute: () => 1 });
 // @ts-expect-error Supplying context does not restore component initialization.
-create.TextGenerator({ model, prompt: 'go', tools: { copied }, toolsContext: { copied: { x: 2 } } });
+create.LLMAgent({ model, prompt: 'go', tools: { copied }, toolsContext: { copied: { x: 2 } } });

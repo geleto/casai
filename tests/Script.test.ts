@@ -1,10 +1,11 @@
+import { Output } from 'ai';
 import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError } from './cascada';
 import { model, temperatureConfig, StringLoader, timeout } from './common';
 import { z } from 'zod';
-import { streamObject } from 'ai';
+import { streamText } from 'ai';
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
@@ -125,10 +126,9 @@ describe('create.Script', function () {
 				description: z.string().describe('A short description of the character.'),
 			});
 
-			const { elementStream } = streamObject({
+			const { elementStream } = streamText({
 				model, ...temperatureConfig,
-				output: 'array',
-				schema: characterSchema,
+				output: Output.array({ element: characterSchema }),
 				prompt: `Generate three short fantasy character descriptions.
 					The tree character names are: Gandalf, Aragorn and Legolas.
 					Each description must include the character name.
@@ -160,8 +160,8 @@ describe('create.Script', function () {
 	// --- STREAMING AND INTEROP ---
 
 	describe('Stream and Component Interoperability', () => {
-		it('reads a stream from TextStreamer and collects text using a text channel', async () => {
-			const textStreamer = create.TextStreamer({
+		it('reads a stream from streaming LLMAgent and collects text using a text channel', async () => {
+			const textStreamer = create.LLMAgent.asStream({
 				model, ...temperatureConfig,
 				prompt: "Write only the word 'Hello'.",
 			});
@@ -182,8 +182,8 @@ describe('create.Script', function () {
 			expect(result).to.deep.equal({ result: 'Hello' });
 		});
 
-		it('reads from TextStreamer with a dynamic prompt from context', async () => {
-			const textStreamer = create.TextStreamer({ model });
+		it('reads from streaming LLMAgent with a dynamic prompt from context', async () => {
+			const textStreamer = create.LLMAgent.asStream({ model });
 			const scriptRunner = create.Script({
 				context: { streamReader: textStreamer, word: 'World' },
 				script: `
@@ -201,7 +201,7 @@ describe('create.Script', function () {
 		});
 
 		it('reads two streams in parallel and saves both results', async () => {
-			const textStreamer = create.TextStreamer({ model });
+			const textStreamer = create.LLMAgent.asStream({ model });
 			const scriptRunner = create.Script({
 				context: { streamReader: textStreamer },
 				script: `
@@ -229,7 +229,7 @@ describe('create.Script', function () {
 		});
 
 		it('collects and processes numbers from a stream', async () => {
-			const textStreamer = create.TextStreamer({
+			const textStreamer = create.LLMAgent.asStream({
 				model, ...temperatureConfig,
 				prompt: "Write only the number 42.",
 			});
@@ -254,7 +254,7 @@ describe('create.Script', function () {
 
 		it('stream error disables result, error test is only that result is empty', async () => {
 			// Streamer configured to fail (simulate with bad model/config or empty result)
-			const badStreamer = create.TextStreamer({ model, ...temperatureConfig, prompt: "INVALID" });
+			const badStreamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: "INVALID" });
 			const scriptRunner = create.Script({
 				schema: z.object({ text: z.string() }),
 				context: { streamReader: badStreamer },
@@ -271,17 +271,13 @@ describe('create.Script', function () {
 			expect((result as any).text).to.be.a('string');
 		});
 
-		it('reads from an ObjectGenerator and uses the result', async () => {
-			const locationGen = create.ObjectGenerator.withTemplate({
-				model, ...temperatureConfig,
-				schema: z.object({ city: z.string(), country: z.string() }),
-				prompt: `Generate a JSON object for the capital of {{ countryName }}.`,
-			});
+		it('reads from an structured LLMAgent and uses the result', async () => {
+			const locationGen = create.LLMAgent.withTemplate({ model, ...temperatureConfig, prompt: `Generate a JSON object for the capital of {{ countryName }}.`, output: Output.object({ schema: z.object({ city: z.string(), country: z.string() }) }) });
 			const scriptRunner = create.Script({
 				schema: z.object({ result: z.string() }),
 				context: { getCapital: locationGen },
 				script: `
-          var loc = (getCapital({ countryName: "France" })).object
+          var loc = (getCapital({ countryName: "France" })).value
           return { result: loc.city }
         `,
 			});
@@ -290,17 +286,12 @@ describe('create.Script', function () {
 		});
 
 		it('reads from object array stream', async () => {
-			const characterStreamer = create.ObjectStreamer({
-				model, ...temperatureConfig,
-				schema: z.object({
-					name: z.string(),
-					description: z.string()
-				}),
-				output: 'array',
-				prompt: 'Generate 3 character descriptions with names Peter, Paul and Mary, in this order.'
-			});
+			const characterStreamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: 'Generate 3 character descriptions with names Peter, Paul and Mary, in this order.', output: Output.array({ element: z.object({
+				name: z.string(),
+				description: z.string()
+			}) }) });
 
-			const { elementStream } = characterStreamer();
+			const { elementStream } = await characterStreamer();
 			const characters: { name: string, description: string }[] = [];
 			for await (const character of elementStream) {
 				characters.push(character);
@@ -311,19 +302,14 @@ describe('create.Script', function () {
 			expect(characters[2].name).to.equal('Mary');
 		});
 
-		it('reads from an ObjectStreamer (array mode), no script', async () => {
-			const objectStreamer = create.ObjectStreamer({
-				model, ...temperatureConfig,
-				output: 'array',
-				schema: z.object({ id: z.number() }),
-				prompt: `Generate a JSON array following these strict requirements:
+		it('reads from an streaming structured LLMAgent (array mode), no script', async () => {
+			const objectStreamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: `Generate a JSON array following these strict requirements:
 					1. Array must contain exactly 2 objects
 					2. First object: {"id": 1}
 					3. Second object: {"id": 2}
 					4. No missing objects allowed
-					Expected output: [{"id": 1}, {"id": 2}]`,
-			});
-			const { elementStream } = objectStreamer();
+					Expected output: [{"id": 1}, {"id": 2}]`, output: Output.array({ element: z.object({ id: z.number() }) }) });
+			const { elementStream } = await objectStreamer();
 			const result: { id: number }[] = [];
 			for await (const object of elementStream) {
 				result.push(object);
@@ -331,18 +317,13 @@ describe('create.Script', function () {
 			expect(result).to.deep.equal([{ id: 1 }, { id: 2 }]);
 		});
 
-		it('reads from an ObjectStreamer (array mode), with script', async () => {
-			const objectStreamer = create.ObjectStreamer({
-				model, ...temperatureConfig,
-				output: 'array',
-				schema: z.object({ id: z.number() }),
-				prompt: `Generate a JSON array following these strict requirements:
+		it('reads from an streaming structured LLMAgent (array mode), with script', async () => {
+			const objectStreamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: `Generate a JSON array following these strict requirements:
 					1. Array must contain exactly 2 objects
 					2. First object: {"id": 1}
 					3. Second object: {"id": 2}
 					4. No missing objects allowed
-					Expected output: [{"id": 1}, {"id": 2}]`,
-			});
+					Expected output: [{"id": 1}, {"id": 2}]`, output: Output.array({ element: z.object({ id: z.number() }) }) });
 			const scriptRunner = create.Script({
 				context: { streamer: objectStreamer },
 				script: `
@@ -357,18 +338,13 @@ describe('create.Script', function () {
 			expect(result).to.eql([{ id: 1 }, { id: 2 }]);
 		});
 
-		it('reads from an ObjectStreamer (array mode) and collects element ids', async () => {
-			const objectStreamer = create.ObjectStreamer({
-				model, ...temperatureConfig,
-				output: 'array',
-				schema: z.object({ id: z.number() }),
-				prompt: `Generate a JSON array following these strict requirements:
+		it('reads from an streaming structured LLMAgent (array mode) and collects element ids', async () => {
+			const objectStreamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: `Generate a JSON array following these strict requirements:
 					1. Array must contain exactly 2 objects
 					2. First object: {"id": 1}
 					3. Second object: {"id": 2}
 					4. No missing objects allowed
-					Expected output: [{"id": 1}, {"id": 2}]`,
-			});
+					Expected output: [{"id": 1}, {"id": 2}]`, output: Output.array({ element: z.object({ id: z.number() }) }) });
 			const scriptRunner = create.Script({
 				context: { streamer: objectStreamer },
 				script:

@@ -36,9 +36,9 @@ describe('Independent Casai instances', () => {
 			assert.equal(await caller.run({}), 5);
 			assert.equal(await owner.create.Script({ tools, toolsContext, script: 'return operation({})' })(), 5);
 			assert.equal(await owner.create.Template({ tools, toolsContext, template: '{{ operation({}) }}' })(), '5');
-			for (const factory of ['TextGenerator', 'TextStreamer'] as const) {
+			for (const factory of ['generate', 'stream'] as const) {
 				const settings = { model: modelFor({}, 'operation'), prompt: 'go', tools, toolsContext, stopWhen: isStepCount(2) };
-				const component = factory === 'TextGenerator' ? owner.create.TextGenerator(settings) : owner.create.TextStreamer(settings);
+				const component = factory === 'generate' ? owner.create.LLMAgent(settings) : owner.create.LLMAgent.asStream(settings);
 				const result = await component();
 				const steps = await result.steps;
 				assert.equal(steps[0].toolResults[0].output, 5);
@@ -55,6 +55,24 @@ describe('Independent Casai instances', () => {
 			assert.equal('_bindToolContext' in spread, false);
 			const makeInvalid = owner.create.Function as unknown as (config: object) => () => Promise<unknown>;
 			await assert.rejects(makeInvalid({ tools: { spread }, execute: () => 1 })(), /Do not spread Casai components/);
+		}
+	});
+
+	it('preserves already-bound descriptors and their context across instances', async () => {
+		for (const [author, owner] of [[foreign, local], [local, foreign]]) {
+			const operation = author.create.Function.asTool({ inputSchema: author.z.object({ factor: author.z.number() }),
+				context: { factor: 3 }, execute: input => input.factor });
+			const binding = operation.bindToolContext({ factor: 5 });
+			const tools = { operation: binding.tool };
+			const caller = owner.create.Function({ tools, toolsContext: { operation: binding.context },
+				// Native descriptors erase configured-default typing; exercise the runtime binding contract.
+				execute: ({ operation }) => (operation as (input: object) => Promise<unknown>)({}) });
+			assert.equal(await caller(), 5);
+			assert.equal(await caller(), 5);
+			const changed = owner.create.Function({ tools, toolsContext: { operation: { factor: 7 } },
+				execute: () => { throw new Error('A mismatched binding must fail before execution.'); } });
+			await assert.rejects(changed(), /Bound tool context 'operation' must match its binding/);
+			assert.equal(await caller(), 5);
 		}
 	});
 

@@ -51,13 +51,11 @@ c${index}({ v${index}: 2, factor: 4 });
     assert.ok(results.production.instantiations <= 2 * results.baseline.instantiations, 'Production exceeded the 2x type-instantiation budget');
     console.log(`TS7 legacy aggregate (imports + 24 components, not marginal cost): ${JSON.stringify(results)}`);
   }
-  const check = `import { Function as component } from './src/factories/Function.js';
+  const check = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { Template } from './src/factories/Template.js';
 import { Script } from './src/factories/Script.js';
-import { TextGenerator } from './src/factories/TextGenerator.js';
-import { TextStreamer } from './src/factories/TextStreamer.js';
-import { ObjectGenerator } from './src/factories/ObjectGenerator.js';
-import { ObjectStreamer } from './src/factories/ObjectStreamer.js';
 import { textStreamSchema } from './src/streams.js';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod/v4';
@@ -141,13 +139,13 @@ declare const model: LanguageModel;
 const opaque = z.union([z.object({ value: z.number() }), z.union([z.object({ value: z.number() }), z.object({ value: z.number() })])]);
 const partitioned = { model, inputSchema: opaque, context: { user: 'private' }, prompt: '{{ value }}' };
 // @ts-expect-error Text generators apply shared schema admission.
-TextGenerator.withTemplate(partitioned);
+LLMAgent.withTemplate(partitioned);
 // @ts-expect-error Text streamers apply shared schema admission.
-TextStreamer.withTemplate(partitioned);
+LLMAgent.withTemplate.asStream(partitioned);
 // @ts-expect-error Object generators apply shared schema admission.
-ObjectGenerator.withTemplate({ ...partitioned, schema: z.object({ answer: z.string() }) });
+LLMAgent.withTemplate({ ...partitioned, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 // @ts-expect-error Object streamers apply shared schema admission.
-ObjectStreamer.withTemplate({ ...partitioned, schema: z.object({ answer: z.string() }) });
+LLMAgent.withTemplate.asStream({ ...partitioned, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 const transformed = z.string().transform(text => text.length);
 declare const alternativeConfig: { schema: typeof transformed; execute: () => string } | { execute: () => string };
 const alternative = component(alternativeConfig);
@@ -192,8 +190,10 @@ component({ ...presenceSpread, execute: input => {
 `;
   // The full public-factory matrix lives in configuration-alternative-guards.ts.
   // Mutate these shared owners directly to avoid repeating unrelated factory inference.
-  const alternatives = `import type { ValidateToolsContext, ValidateFinalConfig, ValidateConfigFragment, ValidateRunConfig } from './src/types/config-validation.js';
-import type { ValidateDescriptor, ValidateCallbacks, ValidateToolSelectionNames, ValidateToolCallbackNames } from './src/types/callbacks.js';
+  const alternatives = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import type { ValidateToolsContext, ValidateFinalConfig, ValidateConfigFragment, ValidateRunConfig } from './src/types/config-validation.js';
+import type { ValidateDescriptor, ValidateToolSelectionNames, ValidateToolCallbackNames } from './src/types/callbacks.js';
 import type { ComponentAdmission } from './src/types/config-validation.js';
 import type { EmptyMap } from './src/types/utils.js';
 import type { MergedConfig } from './src/types/merge.js';
@@ -209,8 +209,10 @@ declare const nestedRegistry: { secured: typeof secured } | { simple: typeof sim
 const stringInput = z.object({ value: z.string() });
 const numberInput = z.object({ value: z.number() });
 declare const hookConfig: { inputSchema: typeof stringInput; onInputAvailable: (event: { input: { value: string } }) => void } | { inputSchema: typeof stringInput };
-declare const lifecycleConfig: { model: LanguageModel; schema: typeof stringInput; onFinish: (event: { object: { value: string } | undefined }) => void }
-  | { model: LanguageModel; schema: typeof stringInput };
+const stringOutput = Output.object({ schema: stringInput });
+const numberOutput = Output.object({ schema: numberInput });
+declare const lifecycleConfig: { model: LanguageModel; output: typeof stringOutput; onEnd: (event: { output: { value: string } | undefined }) => void }
+  | { model: LanguageModel; output: typeof stringOutput };
 declare const forbiddenConfig: { execute: () => number; contextSchema: undefined } | { execute: () => number };
 declare const forbiddenRun: { temperature: number; contextSchema: undefined } | { temperature: number };
 type HookReplacement = { inputSchema: typeof numberInput; execute: () => string };
@@ -244,13 +246,13 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
     ['branch-only Function contracts', 'FunctionConfigErrors<Final, AsTool extends boolean> = Final extends unknown',
       'FunctionConfigErrors<Final, AsTool extends boolean> = unknown extends unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts',
       'const admitted: ValidateFinalConfig<HookReplacement, typeof hookConfig, FinalHook, true> = {};'],
-    ['branch-only lifecycle callbacks', "Streaming extends boolean> = Final extends unknown", "Streaming extends boolean> = unknown extends unknown",
-      /Unused '@ts-expect-error'/, 'src/types/callbacks.ts', "const admitted: ValidateCallbacks<ResultReplacement, MergedConfig<typeof lifecycleConfig, ResultReplacement>, 'object'> = {};"],
+    ['branch-only lifecycle callbacks', 'Callbacks = T extends unknown ? CallbackErrors', 'Callbacks = unknown extends unknown ? CallbackErrors',
+      /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts', 'LLMAgent({ output: numberOutput }, { config: lifecycleConfig });'],
     ['branch-only forbidden keys', 'UnionKeys<T> = T extends unknown ? keyof T : never', 'UnionKeys<T> = keyof T',
       /Unused '@ts-expect-error'/, 'src/types/utils.ts', 'const admitted: ValidateFinalConfig<typeof forbiddenConfig, EmptyMap, typeof forbiddenConfig> = {};'],
     ['every fragment alternative', '[InvalidUnionMembers<TConfig, CallbackConfigShape<TShape>> | InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]',
       'unknown extends unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateConfigFragment<typeof forbiddenConfig, typeof forbiddenConfig, { execute: () => number }> = forbiddenConfig;'],
-    ['branch-only run settings', 'Exclude<UnionKeys<TRunConfig>, keyof TShape> extends never', 'Exclude<keyof TRunConfig, keyof TShape> extends never',
+    ['branch-only run settings', 'Exclude<Keys, keyof TShape> extends never', 'Exclude<keyof TRunConfig, keyof TShape> extends never',
       /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateRunConfig<typeof forbiddenRun, { model: LanguageModel; prompt: string }, { temperature?: number }> = forbiddenRun;'],
     ['null context admission', "Exclude<ParsedSchemaOutput<TSchema>, undefined>", "NonNullable<ParsedSchemaOutput<TSchema>>", /Unused '@ts-expect-error'/, "src/types/schema-shape.ts",
       'const admitted: ComponentAdmission<{ inputSchema: typeof emptyInput; toolContextSchema: typeof nullContext; execute: () => number }> = {};'],
@@ -268,8 +270,8 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       /not assignable/, "src/types/result.ts"],
     ['branch-only renderer private keys', "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, SuppliedInputNames<TArguments, TKeys>,", "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, keyof TArguments,",
       /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
-    ['LLM application admission', ": ComponentAdmission<TFinalConfig>>;", ': unknown>;',
-      /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
+    ['LLM application admission', '& ComponentAdmission<T>', '& unknown',
+      /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
     ['private-key rejection', "InputKeyErrors<Extract<TKeys, TPrivateNames>, 'Private input key'>", "unknown", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
     ['run context validation', '& ValidateToolsContext<TRunConfig, MergedConfig<TConfig, TRunConfig>>',
       '', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
@@ -296,7 +298,9 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
     ['description context type', "description?: Tool<unknown, unknown, C>['description']", "description?: Tool<unknown, unknown, any>['description']",
       /Unused '@ts-expect-error'/, 'src/types/config.ts'],
   ];
-  const schemaVersions = `import { Function as component } from './src/factories/Function.js';
+  const schemaVersions = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { streamSchema } from './src/streams.js';
 import { z } from 'zod/v4';
 import * as mini from 'zod/mini';
@@ -312,7 +316,9 @@ streamSchema(legacy.number());
     ['Zod 3 type rejection', 'FlexibleSchema<T> & { readonly _def?: object & { readonly typeName?: never } }',
       'FlexibleSchema<T>', /Unused '@ts-expect-error'/, 'src/types/schema.ts'],
   ];
-  const preprocessors = `import { Function as component } from './src/factories/Function.js';
+  const preprocessors = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { z } from 'zod/v4';
 const inputSchema = z.preprocess(value => value, z.object({ name: z.string().transform(value => value.length) }));
 const operation = component({ inputSchema, context: { name: 'Ada', db: true }, execute: input => {
@@ -327,7 +333,9 @@ operation({ db: false });
     ['preprocessor declaration capability', "SchemaDeclarationKind<TInput extends z.core.$ZodTransform ? TOutput : TInput,", "SchemaDeclarationKind<TInput,", /error TS/, "src/types/schema-shape.ts"],
     ['preprocessor public names', "SchemaInputNames<TInput extends z.core.$ZodTransform ? TOutput : TInput,", "SchemaInputNames<TInput,", /error TS/, "src/types/schema-shape.ts"],
   ];
-  const projection = `import { Function as component } from './src/factories/Function.js';
+  const projection = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { z } from 'zod/v4';
 const inputSchema = z.union([z.object({ x: z.number() }), z.object({ y: z.string() })]);
 component({ inputSchema, context: { x: 1 }, execute: input => input })();
@@ -351,7 +359,9 @@ component({ tools: { copied }, execute: () => 1 });
     ['spread tool admission', "TTool extends (...args: any[]) => any ? never : 'copied component'",
       "never", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
   ];
-  const selectedSchemas = `import { Function as component } from './src/factories/Function.js';
+  const selectedSchemas = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { Template } from './src/factories/Template.js';
 import { z } from 'zod/v4';
 declare const enabled: boolean;
@@ -403,8 +413,9 @@ component({ inputSchema: enabled ? z.string().transform(value => ({ value })) : 
     ['selected tool projection', "InvalidToolProjection<TConfig, TDefaults, TAlternatives = InputConfigAlternatives<TConfig>>", "InvalidToolProjection<TConfig, TDefaults, TAlternatives = { config: TConfig; schema: InputSchemaFromConfig<TConfig> }>", /No overload matches|not assignable/, "src/types/config-validation.ts"],
     ['selected schema admission', "ComponentAdmissionChecks<TConfig, TAlternatives = InputConfigAlternatives<TConfig>>", "ComponentAdmissionChecks<TConfig, TAlternatives = { config: TConfig; schema: InputSchemaFromConfig<TConfig> }>", /Unused '@ts-expect-error'/, "src/types/config-validation.ts"],
   ];
-  const helperContracts = `import { Function as component } from './src/factories/Function.js';
-import { TextGenerator } from './src/factories/TextGenerator.js';
+  const helperContracts = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { tool } from 'ai';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod/v4';
@@ -412,17 +423,17 @@ declare const model: LanguageModel;
 const common = { toolContextSchema: z.object({ factor: z.number() }), context: { factor: 1 } };
 const strings = component.asTool({ inputSchema: z.object({ value: z.string().transform(Number) }), execute: input => input.value }, { config: common });
 const numbers = component.asTool({ inputSchema: z.object({ value: z.number() }), execute: input => input.value }, { config: common });
-const raw = TextGenerator.withFunction({ model, tools: { operation: strings }, toolsContext: { operation: { factor: 1 } }, prompt: async ({ operation }) => String(await operation({ value: '4' })) });
+const raw = LLMAgent.withFunction({ model, tools: { operation: strings }, toolsContext: { operation: { factor: 1 } }, prompt: async ({ operation }) => String(await operation({ value: '4' })) });
 // @ts-expect-error Parsed output agreement does not preserve raw input.
 raw.run({ tools: { operation: numbers } });
 const open = tool({ contextSchema: common.toolContextSchema, inputSchema: z.looseObject({ value: z.number() }), execute: input => input.value });
-const owner = TextGenerator.withFunction({ model, tools: { operation: open }, toolsContext: { operation: { factor: 1 } }, prompt: async ({ operation }) => String(await operation({ value: 4, extra: 'text' })) });
+const owner = LLMAgent.withFunction({ model, tools: { operation: open }, toolsContext: { operation: { factor: 1 } }, prompt: async ({ operation }) => String(await operation({ value: 4, extra: 'text' })) });
 const restricted = tool({ contextSchema: common.toolContextSchema, inputSchema: z.looseObject({ value: z.number(), extra: z.number().optional() }), execute: input => input.value });
 // @ts-expect-error Optional declarations can restrict former open arguments.
 owner.run({ tools: { operation: restricted } });
 const mixed = tool({ contextSchema: common.toolContextSchema, inputSchema: z.union([z.looseObject({ kind: z.literal('a') }), z.strictObject({ kind: z.literal('b') })]), execute: () => 1 });
 const moved = tool({ contextSchema: common.toolContextSchema, inputSchema: z.union([z.strictObject({ kind: z.literal('a') }), z.looseObject({ kind: z.literal('b') })]), execute: () => 1 });
-const mixedOwner = TextGenerator.withFunction({ model, tools: { mixed }, toolsContext: { mixed: { factor: 1 } }, prompt: async ({ mixed }) => String(await mixed({ kind: 'a', extra: true })) });
+const mixedOwner = LLMAgent.withFunction({ model, tools: { mixed }, toolsContext: { mixed: { factor: 1 } }, prompt: async ({ mixed }) => String(await mixed({ kind: 'a', extra: true })) });
 // @ts-expect-error The same branches must retain their openness.
 mixedOwner.run({ tools: { mixed: moved } });
 // Open-root Casai tools are no longer admitted; native open-helper substitution remains above.
@@ -459,11 +470,11 @@ component({ tools: { operation: partialDefaults } }, configuredOwner);
     ['helper optional default values', "[SelectedInputDefaults<TDefaults, TPublicNames>] extends [Pick<TInput, TPublicNames>] ? TPublicNames : never", "TPublicNames", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
     ['helper union omissions', "TKeys extends keyof TInput = Exclude<NamedKeys<TInput> & keyof TInput, TInput extends unknown ? RequiredInputNames<TInput> : never>", "TKeys extends keyof TInput = NamedKeys<TInput> & keyof TInput", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
   ];
-  const runContexts = `import { TextGenerator } from './src/factories/TextGenerator.js';
+  const runContexts = `import { LLMAgent } from './src/factories/LLMAgent.js';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod/v4';
 declare const model: LanguageModel;
-const component = TextGenerator.withTemplate({ model, prompt: '{{ value }}',
+const component = LLMAgent.withTemplate({ model, prompt: '{{ value }}',
   inputSchema: z.looseObject({ value: z.number() }), context: { value: 1, user: 'private' } });
 declare const invalid: { maxOutputTokens: number } | { context: { value: number; user: string } };
 declare const valid: { maxOutputTokens: number } | { context: { value: number; extra: string } };
@@ -472,10 +483,11 @@ component.run(valid);
 component.run(invalid);
 `;
   const runContextMutations = [
-    ['branch-only run context', '& ValidateRunContext<TRunConfig, TConfig>', '& unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
+    ['branch-only run context', '& ValidateRunContext<TRunConfig, TConfig, ContextKeys>', '& unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
   ];
-  const runDescriptorContexts = `import { Function as component } from './src/factories/Function.js';
-import { TextGenerator } from './src/factories/TextGenerator.js';
+  const runDescriptorContexts = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { tool, type LanguageModel } from 'ai';
 import { z } from 'zod/v4';
 declare const model: LanguageModel;
@@ -483,9 +495,9 @@ const inputSchema = z.object({ value: z.number() });
 const toolContextSchema = z.object({ factor: z.string().transform(Number) });
 const original = component.asTool({ inputSchema, toolContextSchema, context: { factor: 1 }, execute: input => input.value * input.factor });
 const replacement = component.asTool({ inputSchema, toolContextSchema: z.object({ factor: z.union([z.string(), z.number()]).transform(Number) }), context: { factor: 1 }, execute: input => input.value * input.factor + 1 });
-const owner = TextGenerator.withFunction({ model, tools: { operation: original }, toolsContext: { operation: { factor: '3' } }, prompt: async ({ operation }) => String(await operation({ value: 2 })) });
+const owner = LLMAgent.withFunction({ model, tools: { operation: original }, toolsContext: { operation: { factor: '3' } }, prompt: async ({ operation }) => String(await operation({ value: 2 })) });
 owner.run({ tools: { operation: replacement } });
-const modelOnly = TextGenerator({ model, prompt: 'ready', tools: { operation: original }, toolsContext: { operation: { factor: '3' } } });
+const modelOnly = LLMAgent({ model, prompt: 'ready', tools: { operation: original }, toolsContext: { operation: { factor: '3' } } });
 modelOnly.run({ tools: { operation: replacement } });
 // @ts-expect-error Incoming binding data retains the raw context schema type.
 owner.run({ toolsContext: { operation: { factor: 3 } } });
@@ -496,13 +508,15 @@ owner.run({ tools: { operation: stringContext } });
 modelOnly.run({ tools: { operation: stringContext } });
 const configured = component.asTool({ inputSchema: inputSchema.extend({ factor: z.number() }), context: { factor: 2 }, execute: input => input.value * input.factor });
 const defaulted = component.asTool({ inputSchema: inputSchema.extend({ factor: z.number().default(2) }), execute: input => input.value * input.factor });
-const defaultOwner = TextGenerator.withFunction({ model, tools: { operation: configured }, prompt: async ({ operation }) => String(await operation({ value: 2 })) });
+const defaultOwner = LLMAgent.withFunction({ model, tools: { operation: configured }, prompt: async ({ operation }) => String(await operation({ value: 2 })) });
 defaultOwner.run({ tools: { operation: defaulted } });
 `;
   const runDescriptorMutations = [
-    ['run descriptor context', 'InferToolContext<TOOLS[K]>', "K extends keyof NonNullable<ToolsContextConfig<TOOLS>['toolsContext']> ? NonNullable<ToolsContextConfig<TOOLS>['toolsContext']>[K] : undefined", /needsApproval/, 'src/types/config.ts'],
+    ['run descriptor context', "import('@ai-sdk/provider-utils').InferToolContext<T>", "import('./schema.js').InferInputSchema<ConfigValue<T, 'contextSchema'>>", /not assignable|No overload matches/, 'src/types/agent.ts'],
   ];
-  const callerAlternatives = `import { Function as component } from './src/factories/Function.js';
+  const callerAlternatives = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { Template } from './src/factories/Template.js';
 import { z } from 'zod/v4';
 const inputSchema = z.object({ value: z.number() }).catchall(z.number());
@@ -538,8 +552,8 @@ child(indexed);
     ['mapped argument fallback', "[TKeys] extends [never] ? TArguments : string extends TKeys ? TArguments", "string extends TKeys ? TArguments", /query/, "src/types/component-input.ts"],
     ['indexed private names', "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, SuppliedInputNames<TArguments, TKeys>,", "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, TKeys,", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
   ];
-  const configuredOmissions = `import { Template } from './src/factories/Template.js';
-import { TextGenerator } from './src/factories/TextGenerator.js';
+  const configuredOmissions = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Template } from './src/factories/Template.js';
 import { z } from 'zod/v4';
 import type { LanguageModel } from 'ai';
 declare const choose: boolean;
@@ -547,7 +561,7 @@ declare const model: LanguageModel;
 const inputSchema = z.object({ value: z.number() });
 const config = choose ? { inputSchema, context: { value: 1 } } : { inputSchema };
 const renderer = Template({ template: '{{ value }}' }, { config });
-const text = TextGenerator.withTemplate({ model, prompt: '{{ value }}' }, { config });
+const text = LLMAgent.withTemplate({ model, prompt: '{{ value }}' }, { config });
 renderer({ value: 2 });
 text({ value: 2 });
 // @ts-expect-error Every possible configuration must satisfy omitted input.
@@ -556,13 +570,15 @@ renderer();
 text();
 const complete = choose ? { inputSchema, context: { value: 1 } } : { inputSchema, context: { value: 2, db: 'private' } };
 Template({ template: '{{ value }}' }, { config: complete })();
-TextGenerator.withTemplate({ model, prompt: '{{ value }}' }, { config: complete })();
+LLMAgent.withTemplate({ model, prompt: '{{ value }}' }, { config: complete })();
 `;
   const omissionMutations = [
     ['conditional renderer omission', '[TConfig] extends [Record<Key, string>]', 'TConfig extends Record<Key, string>', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
-    ['conditional model omission', '[TConfig] extends [{ prompt: PROMPT }]', 'TConfig extends { prompt: PROMPT }', /Unused '@ts-expect-error'/, 'src/llm-component.ts'],
+    ['conditional model omission', '[T] extends [{ prompt: ConfiguredSource<P> }] ? ContextHistory<T>', 'T extends { prompt: ConfiguredSource<P> } ? ContextHistory<T>', /Unused '@ts-expect-error'/, 'src/types/agent.ts'],
   ];
-  const contextAlternatives = `import { Function as component } from './src/factories/Function.js';
+  const contextAlternatives = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { z } from 'zod/v4';
 declare const choose: boolean;
 const inputSchema = z.object({});
@@ -604,7 +620,7 @@ component.asTool({ inputSchema, context: { factor: 1 }, toolContextSchema: facto
     ['context inferred inheritance', '= ValidateResolved<TConfig, [Invalid] extends [never]', '= NoInfer<[Invalid] extends [never]', /No overload matches/, 'src/types/config-validation.ts'],
   ];
   const configFactoryContracts = `import { Config } from './src/factories/Config.js';
-import { tool } from 'ai';
+import { tool, Output } from 'ai';
 import { z } from 'zod/v4';
 const unknownSettings = { unknownSetting: true };
 // @ts-expect-error The family constraint must not hide extra supplied keys.
@@ -638,19 +654,19 @@ Config({ tools: { lookup }, onEnd: event => {
   // @ts-expect-error Callback results retain the configured tool's output type.
   const wrong: string = event.staticToolResults[0].output;
 } });
-Config({ output: 'enum', enum: ['YES', 'NO'] as const, onFinish: event => {
-  const answer: 'YES' | 'NO' | undefined = event.object;
+Config({ output: Output.choice({ options: ['YES', 'NO'] }), onEnd: event => {
+  const answer: 'YES' | 'NO' | undefined = event.output;
+  // @ts-expect-error Choice output is not a number, nor any.
+  const wrong: number = event.output;
 } });
-const mutableEnum = Config({ output: 'enum', enum: ['YES', 'NO'] });
-const mutableValues: ('YES' | 'NO')[] = mutableEnum.config.enum;
 `;
   const configFactoryMutations = [
-    ['Config object constraint', 'TConfig extends object & configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, ENUM>',
-      'TConfig extends configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, ENUM>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
-    ['Config parent validation', 'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>>',
+    ['Config object constraint', 'TConfig extends object & configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>',
+      'TConfig extends configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
+    ['Config parent validation', 'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>>',
       'TParentConfig extends object', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
-    ['Config absent parent default', 'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>> = never',
-      'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>> = EmptyMap', /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
+    ['Config absent parent default', 'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>> = never',
+      'TParentConfig extends object & NoInfer<configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>> = EmptyMap', /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
     ['Config parent presence', '...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig>]',
       '...parent: [] | [parent: configs.ConfigProvider<TParentConfig>]', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
     ['Config merged validation', 'ValidateConfigFragment<TConfig, [TParentConfig] extends [never] ? TConfig : MergedConfig<TParentConfig, TConfig>,',
@@ -659,246 +675,200 @@ const mutableValues: ('YES' | 'NO')[] = mutableEnum.config.enum;
       ': MergedConfig<TParentConfig, ResolvedConfig<TConfig>>', /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
     ['Config inherited result', ': MergedConfig<NoInfer<TParentConfig>, ResolvedConfig<TConfig>>',
       ': ProcessedConfig<ResolvedConfig<TConfig>>', /Property 'offset' does not exist/, 'src/factories/Config.ts'],
-    ['Config callback registry inference', 'TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum>',
-      'configs.ToolRegistry, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
-    ['Config callback enum inference', 'TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, TCallbackEnum>',
-      'TCallbackTools, TSchemaOutput, TCallbackRuntime, TCallbackOutput, readonly string[]>', /not assignable/, 'src/factories/Config.ts'],
-    ['Config mutable enum inference', 'AnyConfigInferShape<ToolSet, Record<string, any>, unknown, ENUM>',
-      'AnyConfigInferShape<ToolSet, Record<string, any>, unknown, string>', /not assignable/, 'src/factories/Config.ts'],
+    ['Config callback registry inference', 'TCallbackTools, TCallbackRuntime, TCallbackOutput>',
+      'configs.ToolRegistry, TCallbackRuntime, TCallbackOutput>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
+    ['Config callback output inference', 'TCallbackTools, TCallbackRuntime, TCallbackOutput>',
+      'TCallbackTools, TCallbackRuntime, AIOutput>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
   ];
-  // Keep unrelated workloads separate so each guard mutation remains a focused compiler check.
-  const objectGeneratorContracts = `import { ObjectGenerator } from './src/factories/ObjectGenerator.js';
+  // The unified agent replaces the four output-mode factories. Native Output owns
+  // enum/array schema admission; Casai owns source, context, delivery and hooks.
+  const agentContracts = `import { LLMAgent } from './src/factories/LLMAgent.js';
 import { Config } from './src/factories/Config.js';
+import { Output } from 'ai';
 import { z } from 'zod/v4';
 import { z as z3 } from 'zod/v3';
 declare const model: import('ai').LanguageModel;
 const schema = z.object({ answer: z.number() });
-const parent = Config({ model, schema });
-// @ts-expect-error Finished object components require a model.
-ObjectGenerator({ schema });
-// @ts-expect-error A parent cannot conceal unknown settings.
-ObjectGenerator({}, { config: { model, schema, unknownSetting: true } });
-// @ts-expect-error A raw parent cannot restore an unsupported schema.
-ObjectGenerator({}, { config: { model, schema: z3.object({ answer: z3.number() }) } });
-// @ts-expect-error A function prompt must exist in the effective configuration.
-ObjectGenerator.withFunction({}, parent);
-ObjectGenerator.withFunction({ prompt: () => 'Answer' }, parent);
-// @ts-expect-error Replacing a schema must recheck a retained prompt's parsed input.
-ObjectGenerator.withFunction({ inputSchema: z.object({ value: z.string() }) }, { config: {
-  model, schema, inputSchema: z.object({ value: z.number() }), prompt: ({ value }: { value: number }) => value.toFixed(),
+const output = Output.object({ schema });
+const parent = Config({ model, output });
+// @ts-expect-error A finished agent requires its model.
+LLMAgent({ output });
+// @ts-expect-error Parent keys must belong to the agent contract.
+LLMAgent({}, { config: { model, output, unknownSetting: true } });
+// @ts-expect-error Casai application schemas reject Zod 3.
+LLMAgent({}, { config: { model, inputSchema: z3.object({ answer: z3.number() }) } });
+// Native SDK outputs retain native schema support.
+LLMAgent({ model, output: Output.object({ schema: z3.object({ answer: z3.number() }) }) });
+// @ts-expect-error Without configured source, the shorthand call must supply it.
+LLMAgent.withFunction({}, parent)();
+LLMAgent.withFunction({ prompt: () => 'Answer' }, parent)();
+// @ts-expect-error Retained function prompts must accept the new parsed context.
+LLMAgent.withFunction({ inputSchema: z.object({ value: z.string() }) }, { config: {
+  model, output, inputSchema: z.object({ value: z.number() }), prompt: ({ value }: { value: number }) => value.toFixed(),
 } });
-const annotated: import('./src/types/config.js').ConfigProvider<{ schema: typeof schema }> = ObjectGenerator({ model, schema });
+const annotated: import('./src/types/config.js').ConfigProvider<{ output: typeof output }> = LLMAgent({ model, output });
 declare const optionalParent: [] | [typeof parent];
 // @ts-expect-error Narrow parent presence before calling.
-ObjectGenerator({ model, schema }, ...optionalParent);
-const enumeration = ObjectGenerator({ model, output: 'enum', enum: ['YES', 'NO'] });
-const enumValues: ('YES' | 'NO')[] = enumeration.config.enum;
-enumeration('Answer').then(result => { const value: 'YES' | 'NO' = result.object; });
-const generated = ObjectGenerator({ model, schema });
-generated('Answer').then(result => { const value: number = result.object.answer; });
-declare const ambiguousMode: 'object' | 'array';
-const ambiguous = ObjectGenerator({ model, schema, output: ambiguousMode });
-// @ts-expect-error Retain the requirement to narrow a mode field or use complete alternatives.
-ambiguous('Answer');
+LLMAgent({ model, output }, ...optionalParent);
+const enumeration = LLMAgent({ model, output: Output.choice({ options: ['YES', 'NO'] }) });
+enumeration('Answer').then(result => { const value: 'YES' | 'NO' = result.value; });
+LLMAgent({ model, output })('Answer').then(result => { const value: number = result.value.answer; });
+LLMAgent.asStream({ model, output })('Answer').then(result => { const value: Promise<{ answer: number }> = result.value; });
+LLMAgent.asStream({ model })('Answer').then(result => { const value: AsyncIterable<string> = result.value; });
 const inputSchema = z.object({ value: z.string().transform(Number) });
 const toolContextSchema = z.object({ tenant: z.string() });
-ObjectGenerator.withTemplate.asTool({ model, schema, inputSchema, toolContextSchema, prompt: '{{ value }}',
+LLMAgent.withTemplate.asTool({ model, output, inputSchema, toolContextSchema, prompt: '{{ value }}',
   onInputAvailable: options => { const value: number = options.input.value; },
   description: options => options.context.tenant,
   toModelOutput: ({ output }) => ({ type: 'text', value: String(output.answer) }) });
+const native = LLMAgent({ model, inputSchema });
+native.generate({ prompt: 'Answer', options: { value: '4' } });
+// @ts-expect-error Native literal methods retain the closed public input contract.
+native.generate({ prompt: 'Answer', options: { value: '4', extra: true } });
+// @ts-expect-error Native options obey the same required input boundary.
+native.generate({ prompt: 'Answer' });
+// @ts-expect-error SDK options are raw schema input, not parsed output.
+native.stream({ prompt: 'Answer', options: { value: 4 } });
+const functionSource = LLMAgent.withFunction({ model, inputSchema, prompt: ({ value }) => value.toFixed() });
+LLMAgent({ prompt: context => {
+  const value: number = context.value;
+  // @ts-expect-error Inherited function callbacks retain their parsed shape.
+  const missing = context.absent;
+  return String(value);
+} }, Config({}, functionSource))({ value: '4' });
+LLMAgent.asStream({ model, prompt: [{ role: 'user', content: 'Answer' }] })();
+const tool = LLMAgent.withTemplate.asStream.asTool({ model, inputSchema, prompt: '{{ value }}' });
+const inheritedTool = LLMAgent({}, Config({}, tool));
+const enabled: true = inheritedTool.config.streaming;
+const descriptor: import('ai').Tool = inheritedTool;
+// @ts-expect-error Inherited tools retain the separate tool interface.
+inheritedTool.generate({ prompt: 'Answer' });
 `;
-  const objectGeneratorMutations = [
-    ['ObjectGenerator required settings', '& ValidateObjectConfig<TConfig, FinalConfig<TParentConfig, TConfig>, FactoryExtras<TPromptType, AsTool>>',
-      '', /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
-    ['ObjectGenerator retained prompt compatibility', 'extends { prompt: PromptCallback<T, AsTool> }',
-      'extends { prompt: unknown }', /Unused '@ts-expect-error'/, 'src/types/function-prompt.ts'],
-    ['ObjectGenerator enum literal inference', 'FactoryConfig<TPromptType, AsTool, ENUM>',
-      'FactoryConfig<TPromptType, AsTool>', /not assignable/, 'src/factories/ObjectGenerator.ts'],
-    ['ObjectGenerator parent presence', '...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig',
-      '...parent: [] | [parent: configs.ConfigProvider<TParentConfig', /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
-    ['ObjectGenerator parent validation', '& ValidateObjectParentConfig<TParentConfig, FinalConfig<TParentConfig, TConfig>, FactoryExtras<TPromptType, AsTool>>',
-      '', /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
-    ['ObjectGenerator parsed descriptor input', 'DescriptorInput<ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>,',
-      'DescriptorInput<Record<never, never>,', /unknown|does not exist|implicitly has an 'any'/, 'src/factories/ObjectGenerator.ts'],
-    ['ObjectGenerator output inference', 'GenerateObjectResultAugmented<ObjectOutputFromConfig<TConfig>>',
-      'GenerateObjectResultAugmented<unknown>', /unknown/, 'src/factories/ObjectGenerator.ts'],
-    ['ObjectGenerator ambiguous output mode', "[ObjectOutputConfig<TConfig>] extends [never] ? 'Config Error: Narrow the output mode or use a union of complete configurations.'",
-      "false extends true ? never", /Unused '@ts-expect-error'/, 'src/factories/ObjectGenerator.ts'],
+  const agentMutations = [
+    ['LLMAgent required model', 'Required = Missing<T, AgentRequiredSettings<P, A>>', 'Required = never', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['LLMAgent retained prompt compatibility', 'CallbackErrors<T, A> | PromptError<T, P, A>', 'CallbackErrors<T, A>', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['LLMAgent parent presence', '...parent: [ParentConfig] extends [never] ? [] : [parent: ConfigProvider<ParentConfig', '...parent: [] | [parent: ConfigProvider<ParentConfig', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['LLMAgent parent properties', 'UnionKeys<C> | UnionKeys<Parent>', 'UnionKeys<C>', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['LLMAgent parsed descriptor input', 'DescriptorInput<ConfigSchemas<SchemaPresence, Input, never, ToolContext>,', 'DescriptorInput<Record<never, never>,', /unknown|does not exist|implicitly has an 'any'/, 'src/factories/LLMAgent.ts'],
+    ['LLMAgent completed value', 'export type CompletedOutput<O> = O extends OutputInterface ? InferGenerateOutput<O> : string;', 'export type CompletedOutput<O> = unknown;', /unknown/, 'src/types/result.ts'],
+    ['LLMAgent explicit output delivery', 'type StreamValue<O> = O extends OutputInterface ? Promise<InferGenerateOutput<O>>', 'type StreamValue<O> = O extends OutputInterface ? AsyncIterable<InferGenerateOutput<O>>', /not assignable|missing the following properties/, 'src/types/result.ts'],
+    ['LLMAgent native argument validation', 'args: Args & NativeValidation<Args, T, AgentCallParameters<unknown>>', 'args: Args', /Unused '@ts-expect-error'/, 'src/types/agent.ts'],
+    ['LLMAgent inherited source inference', "ConfigValue<Complete, 'promptType'> extends 'function'", "P extends 'function'", /implicitly has an 'any'|Unused '@ts-expect-error'|Property 'value' does not exist/, 'src/factories/LLMAgent.ts'],
   ];
-  const factoryContracts = `import { Function as component } from './src/factories/Function.js';
+  const reviewContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/phase3-review.ts'), 'utf8')
+    .replace("from 'casai'", "from './src/index.js'")
+    .replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const reviewMutations = [
+    ['Review native method settings', "([Unknown] extends [never] ? unknown : `Config Error: Unknown Agent call properties: '${Unknown & string}'.`)",
+      'unknown', /Unused '@ts-expect-error'/, 'src/types/agent.ts'],
+    ['Review hook context overrides', "context?: HookContext<T>", "context?: ContextFromConfig<T> & Partial<SchemaInputObject<ConfigValue<T, 'inputSchema'>>>",
+      /error TS(2344|2367)/, 'src/types/agent.ts'],
+    ['Review approval literal inference', "[0], ToolSelectionKeys | 'toolApproval'>", '[0], ToolSelectionKeys>', /error TS2345/, 'src/types/callbacks.ts'],
+    ['Review run registry selections', ' & ValidateToolSelectionNames<Final>', '', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
+    ['Review undefined run inheritance', 'Changes = RunChanges<TRunConfig>', 'Changes = TRunConfig', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
+    ['Review required hook context', ': { toolsContext: ToolContexts<ToolRegistryFromConfig<T>> }', ': { toolsContext?: ToolContexts<ToolRegistryFromConfig<T>> }', /Unused '@ts-expect-error'/, 'src/types/agent.ts'],
+    ['Review timeout tool names', "Exclude<TimeoutToolNames<ConfigValue<T, 'timeout'>>, `${keyof Tools & string}Ms`>", 'never', /Unused '@ts-expect-error'/, 'src/types/callbacks.ts'],
+  ];
+  const settingOwnershipContracts = fs.readFileSync(path.join(workspace, 'tests/LLMAgentSettings.types.ts'), 'utf8')
+    .replace("from './type-safety/assert.js'", "from '../../tests/type-safety/assert.js'")
+    .replaceAll("from '../src/", "from './src/");
+  const settingOwnershipMutations = [
+    ['Agent request setting ownership', "'asTool', 'debug', 'prepareCall'", "'asTool', 'prepareCall'", /error TS2554/, 'src/llm-agent.ts'],
+    ['Agent observer setting completeness', "'onEnd', 'onChunk', 'onAbort'", "'onEnd', 'onChunk'", /error TS2554/, 'src/agent-settings-policy.ts'],
+    ['Agent observer alias completeness', "onStart: 'experimental_onStart', ", '', /error TS2554/, 'src/agent-settings-policy.ts'],
+    ['Agent streaming setting completeness', "'experimental_transform', 'streamRetries'", "'experimental_transform'", /error TS2554/, 'src/agent-settings-policy.ts'],
+    ['Agent native setting names', "'telemetry', ...observers", "'telemetery', ...observers", /not assignable/, 'src/agent-settings-policy.ts'],
+    ['Agent fixed setting names', "'loader', 'id', 'streaming', 'asTool'", "'loader', 'identity', 'streaming', 'asTool'", /error TS2554/, 'src/agent-settings-policy.ts'],
+    ['Agent coded setting completeness', "'template', 'script', 'execute', 'schema'", "'template', 'script', 'execute'", /error TS2554/, 'src/agent-settings-policy.ts'],
+  ];
+  const factoryContracts = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Function as component } from './src/factories/Function.js';
 import { Template } from './src/factories/Template.js';
 import { Script } from './src/factories/Script.js';
-import { TextGenerator } from './src/factories/TextGenerator.js';
-import { TextStreamer } from './src/factories/TextStreamer.js';
-import { ObjectGenerator } from './src/factories/ObjectGenerator.js';
-import { ObjectStreamer } from './src/factories/ObjectStreamer.js';
 import { Config } from './src/factories/Config.js';
 import type { ConfigProvider } from './src/types/config.js';
-import { z } from 'zod/v4';
-import { z as z3 } from 'zod/v3';
 import { Output } from 'ai';
+import { z } from 'zod/v4';
 declare const model: import('ai').LanguageModel;
-const schema = z.object({ answer: z.number() });
-const parent = Config({ model });
-const objectParent = Config({ model, schema });
 // @ts-expect-error An implementation is required.
 component({});
-// @ts-expect-error Capturing known keys must still validate ordinary setting values.
+// @ts-expect-error Capture still validates ordinary setting values.
 component({ execute: () => 1, debug: 'yes' });
-// @ts-expect-error Native descriptor settings keep their SDK types.
+// @ts-expect-error Native descriptor properties retain their SDK types.
 component.asTool({ inputSchema: z.object({}), execute: () => 1, strict: 'yes' });
-// @ts-expect-error Removing object capture checks must not admit invalid SDK options.
-ObjectGenerator({ model: 123, schema, temperature: 'hot' });
-// @ts-expect-error Inline templates require their source.
+// @ts-expect-error Inline templates require source.
 Template({});
-// @ts-expect-error Inline scripts require their source.
+// @ts-expect-error Inline scripts require source.
 Script({});
-// @ts-expect-error A finished generator needs its model.
-TextGenerator({ prompt: 'Answer' });
-// @ts-expect-error A finished streamer needs its model.
-TextStreamer({ prompt: 'Answer' });
-// @ts-expect-error The parent cannot hide an unknown setting.
+// @ts-expect-error Parent fields cannot conceal unsupported settings.
 Template({}, { config: { template: 'Answer', unknownSetting: true } });
-// @ts-expect-error The parent cannot hide an unknown setting.
+// @ts-expect-error Parent fields cannot conceal unsupported settings.
 Script({}, { config: { script: 'return 1', unknownSetting: true } });
-// @ts-expect-error The parent cannot hide an unknown setting.
-TextGenerator({}, { config: { model, unknownSetting: true } });
-// @ts-expect-error The parent cannot hide an unknown setting.
-TextStreamer({}, { config: { model, unknownSetting: true } });
-// @ts-expect-error A function prompt is required after merging.
-TextGenerator.withFunction({}, parent);
-// @ts-expect-error A function prompt is required after merging.
-TextStreamer.withFunction({}, parent);
-// @ts-expect-error A function prompt is required after merging.
-ObjectStreamer.withFunction({}, objectParent);
-TextGenerator.withFunction({ prompt: () => 'Answer' }, parent);
-TextStreamer.withFunction({ prompt: () => 'Answer' }, parent);
-ObjectStreamer.withFunction({ prompt: () => 'Answer' }, objectParent);
 const annotated: ConfigProvider<{ execute: () => number }> = component({ execute: () => 1 });
+// @ts-expect-error An expected return type cannot replace inferred implementation output.
+const wrongReturn: ConfigProvider<{ execute: () => number }> = component({ execute: () => 'text' });
 const inputSchema = z.object({ value: z.string().transform(Number) });
 Template.asTool({ template: '{{ value }}', inputSchema,
   onInputAvailable: ({ input }) => { const parsed: number = input.value; } });
 Script.asTool({ script: 'return value', inputSchema, schema: z.number(),
   toModelOutput: ({ output }) => { const parsed: number = output; return { type: 'text', value: String(parsed) }; } });
-const result = Script({ schema: z.number() }, Config({ script: 'return 1', schema: z.string() }));
-result().then(value => { const parsed: number = value; });
-const output = Output.object({ schema });
-TextGenerator({ model, output, onStart: event => { const selected: typeof output | undefined = event.output; } });
-TextStreamer({ model, output, onStart: event => { const selected: typeof output | undefined = event.output; } });
-const plain = TextStreamer({ model });
-plain('Answer').textStream;
-TextStreamer.withFunction({ model, prompt: () => 'Answer' })().then(value => value.textStream);
-const objects = ObjectStreamer({ output: 'array' }, objectParent);
-objects('Answer').object.then(value => { const answers: { answer: number }[] = value; });
-objects('Answer').elementStream;
-ObjectStreamer.withFunction({ prompt: () => 'Answer' }, objectParent)().then(value => value.object);
-declare const mode: 'object' | 'array';
-const ambiguous = ObjectStreamer({ model, schema, output: mode });
-// @ts-expect-error An ambiguous output field must not promise scalar-only results.
-ambiguous('Answer');
-// @ts-expect-error A raw parent cannot restore unsupported output schemas.
-ObjectStreamer({}, { config: { model, schema: z3.object({ answer: z3.number() }) } });
-// @ts-expect-error Generation uses the same resolved-mode value validation.
-ObjectGenerator({}, { config: { model, schema: z3.object({ answer: z3.number() }) } });
-
+Script({ schema: z.number() }, Config({ script: 'return 1', schema: z.string() }))().then(value => { const parsed: number = value; });
+const output = Output.object({ schema: z.object({ answer: z.number() }) });
+LLMAgent({ model, output, onStart: event => { const selected: typeof output | undefined = event.output; } });
+LLMAgent.asStream({ model, output, onStart: event => { const selected: typeof output | undefined = event.output; } });
 declare const select: boolean;
 const pairedPrompt = { config: select
   ? { model, inputSchema, prompt: ({ value }: { value: number }) => value.toFixed() }
   : { model, inputSchema: z.object({ value: z.string() }), prompt: ({ value }: { value: string }) => value.toUpperCase() } };
-TextGenerator.withFunction({}, pairedPrompt)({ value: '4' });
-TextStreamer.withFunction({}, pairedPrompt)({ value: '4' });
-ObjectStreamer.withFunction({ schema }, pairedPrompt)({ value: '4' });
+LLMAgent.withFunction({}, pairedPrompt)({ value: '4' });
+LLMAgent.withFunction.asStream({ output }, pairedPrompt)({ value: '4' });
 const badPrompt = { config: select ? pairedPrompt.config : { model, inputSchema, prompt: ({ value }: { value: boolean }) => String(value) } };
-// @ts-expect-error One incompatible prompt must invalidate the whole selection.
-TextGenerator.withFunction({}, badPrompt);
-ObjectStreamer({ schema: undefined, output: 'no-schema' }, objectParent)('Answer');
-// @ts-expect-error The old schema must actually be cleared.
-ObjectStreamer({ output: 'no-schema' }, objectParent);
-declare const incompleteMode: { model: typeof model, output: 'no-schema' } | { model: typeof model, output: 'array' };
-// @ts-expect-error A schemaless branch cannot hide another branch's missing schema.
-ObjectStreamer(incompleteMode);
-declare const completeModes: { model: typeof model, output: 'no-schema' } | { model: typeof model, output: 'array', schema: typeof schema };
-ObjectStreamer(completeModes)('Answer');
+// @ts-expect-error One incompatible prompt invalidates the whole selection.
+LLMAgent.withFunction({}, badPrompt);
+const loadedTemplate = Template.loadsTemplate({ template: 'entry', loader: { load: () => '{{ value }}' }, inputSchema });
+const loadedScript = Script.loadsScript({ script: 'entry', loader: { load: () => 'return value' }, inputSchema });
+const templateMode: 'async-template-name' = Template({}, Config({}, loadedTemplate)).config.promptType;
+const scriptMode: 'async-script-name' = Script({}, Config({}, loadedScript)).config.promptType;
 `;
   const factoryMutations = [
-    ['Factory correlated prompt validation', '[InvalidPromptBranches<FinalConfig, AsTool>] extends [never]',
-      "Pick<FinalConfig, 'prompt' & keyof FinalConfig> extends { prompt: PromptCallback<FinalConfig, AsTool> }", /No overload matches/, 'src/types/function-prompt.ts'],
-    ['Factory prompt branch failure', '? never : T : never;',
-      '? never : never : never;', /Unused '@ts-expect-error'/, 'src/types/function-prompt.ts'],
-    ['Factory output mode fields', '| IncompatibleKeys<Pick<Final, Extract<UnionKeys<Selected>, ObjectOutputSettingKeys & keyof Final>>, ObjectConfigShape<Final>>',
-      '', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
-    ['Factory per-branch output requirements', 'type MissingObjectKeys<Final, Extras> = Final extends unknown',
-      'type MissingObjectKeys<Final, Extras> = [Final] extends [unknown]', /not assignable/, 'src/types/config-validation.ts'],
-    ['Factory clearing old output fields', '& Partial<Record<Exclude<ObjectOutputSettingKeys, keyof Request>, undefined>>',
-      '', /not assignable/, 'src/types/config.ts'],
-    ['Factory Function final validation', '& ValidateFinalConfig<TConfig, CallbackParent<TParentConfig>, FinalConfig<TParentConfig, TConfig>, AsTool>',
-      '', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
-    ['Factory Function return inference', ') => NoInfer<AsTool extends true ? ToolCallSignature<FinalConfig<TParentConfig, TConfig>> : FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>>;',
-      ') => AsTool extends true ? ToolCallSignature<FinalConfig<TParentConfig, TConfig>> : FunctionCallSignature<FinalConfig<TParentConfig, TConfig>>;', /Expected 2 arguments, but got 1/, 'src/factories/Function.ts'],
-    ...['Template', 'Script'].flatMap(name => [
-      [
-        `Factory ${name} required settings`, `& Validate${name}Config<TConfig, FinalConfig<TParentConfig, TConfig>, FactoryConfig<Named, AsTool>>`,
-        '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`,
-      ],
-      [
-        `Factory ${name} parent validation`, `& Validate${name}ParentConfig<TParentConfig, FactoryConfig<Named, AsTool>>`,
-        '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`,
-      ],
-    ]),
-    ...['TextGenerator', 'TextStreamer'].flatMap(name => {
-      const shape = name === 'TextGenerator' ? 'FactoryConfig<TPromptType, AsTool>' : 'FactoryConfig<TPromptType>';
-      const streaming = name === 'TextStreamer' ? ', true' : '';
-      return [
-        [`Factory ${name} required settings`, `& ValidateTextConfig<TConfig, FinalConfig<TParentConfig, TConfig>, ${shape}${streaming}>`,
-          '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`],
-        [`Factory ${name} parent validation`, `& ValidateTextParentConfig<TParentConfig, ${shape}${streaming}>`,
-          '', /Unused '@ts-expect-error'/, `src/factories/${name}.ts`],
-        [`Factory ${name} callback output`, `TCallbackRuntime, TCallbackOutput, ${name === 'TextStreamer'}>`,
-          `TCallbackRuntime, AIOutput, ${name === 'TextStreamer'}>`, /not assignable/, `src/factories/${name}.ts`],
-      ];
-    }),
-    ['Factory required function prompts', 'extends { prompt: PromptCallback<T, AsTool> }',
-      'extends { prompt?: PromptCallback<T, AsTool> }', /Unused '@ts-expect-error'/, 'src/types/function-prompt.ts'],
-    ['Factory inherited schema replacement', 'MergedConfig<Parent, ResolvedConfig<Config>>',
-      'MergedConfig<ResolvedConfig<Config>, Parent>', /not assignable/, 'src/types/factory-config.ts'],
-    ['Factory TextStreamer delivery', "TPromptType extends 'text' ? false : true", 'true', /textStream.*does not exist/, 'src/factories/TextStreamer.ts'],
-    ['Factory ObjectStreamer delivery', "TPromptType extends 'text' ? false : true", 'true', /object.*does not exist/, 'src/factories/ObjectStreamer.ts'],
-    ['Factory ObjectStreamer array result', "StreamObjectArrayResult<InferSchema<ConfigValue<Config, 'schema'>>>",
-      "StreamObjectObjectResult<InferSchema<ConfigValue<Config, 'schema'>>>", /missing the following properties|not assignable/, 'src/types/result.ts'],
-    ['Factory ObjectStreamer ambiguous mode', "[ObjectOutputConfig<TConfig, true>] extends [never] ? 'Config Error: Narrow the output mode or use a union of complete configurations.'",
-      'false extends true ? never', /Unused '@ts-expect-error'/, 'src/factories/ObjectStreamer.ts'],
+    ['Factory prompt branch failure', "? never : 'prompt'", '? never : never', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['Factory Function final validation', '& ValidateFinalConfig<TConfig, CallbackParent<TParentConfig>, Final, true extends EffectiveTool ? true : false>', '', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
+    ['Factory Function return inference', ') => NoInfer<EffectiveTool extends true ? ToolCallSignature<Final> : FunctionCallSignature<Final>>;', ') => EffectiveTool extends true ? ToolCallSignature<Final> : FunctionCallSignature<Final>;', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
+    ['Factory Template required settings', '& ValidateTemplateConfig<TConfig, Final, EffectiveShape>', '', /Unused '@ts-expect-error'/, 'src/factories/Template.ts'],
+    ['Factory Script required settings', '& ValidateScriptConfig<TConfig, Final, EffectiveShape>', '', /Unused '@ts-expect-error'/, 'src/factories/Script.ts'],
+    ['Factory Template parent validation', '& ValidateTemplateParentConfig<TParentConfig, FactoryConfig<false, true>>', '', /Unused '@ts-expect-error'/, 'src/factories/Template.ts'],
+    ['Factory Script parent validation', '& ValidateScriptParentConfig<TParentConfig, FactoryConfig<false, true>>', '', /Unused '@ts-expect-error'/, 'src/factories/Script.ts'],
+    ['Factory inherited schema replacement', 'MergedConfig<Parent, ResolvedConfig<Config>>', 'MergedConfig<ResolvedConfig<Config>, Parent>', /not assignable/, 'src/types/factory-config.ts'],
+    ['Factory inherited source selection', "? Exclude<ConfigValue<T, 'promptType'>, undefined> extends never ? Default : Exclude<ConfigValue<T, 'promptType'>, undefined> : Explicit", '? Default : Explicit', /not assignable/, 'src/types/factory-config.ts'],
   ];
-  // Exact-optional consumers use fresh emitted declarations, like the public type gate.
+  // Exact-optional contracts are checked against freshly emitted declarations.
   const optionalContracts = `import { create, z } from './dist/index.js';
+import { Output } from 'ai';
 import type { TemplateConfig, ScriptConfig } from './dist/index.js';
 declare const model: import('ai').LanguageModel;
 const schema = z.number();
-const parent = create.Config({ model, schema });
-// @ts-expect-error Explicit schema removal cannot disappear during inference.
-create.ObjectGenerator({ schema: undefined, output: 'array' }, parent);
-// @ts-expect-error The streaming factory must capture the same child settings.
-create.ObjectStreamer({ schema: undefined, output: 'array' }, parent);
+const parent = create.Config({ model, output: Output.object({ schema }) });
 const template: TemplateConfig<{ value: number }> = { template: '{{ value }}' };
 const script: ScriptConfig<{ value: number }, number> & { script: string } = { script: 'return value' };
-create.Template(template);
-create.Script(script);
+create.Template.withTemplate(template);
+create.Script.withScript(script);
 create.Template({ template: 'Answer', inputSchema: undefined });
 create.Script({ script: 'return 1', inputSchema: undefined });
 const scriptParent = create.Config({ script: 'return "raw"', schema });
 create.Script({ schema: undefined }, scriptParent);
 create.Script.asTool({ schema: undefined, inputSchema: z.object({}) }, scriptParent);
-create.ObjectGenerator({ schema: undefined, output: 'no-schema' }, parent);
-create.ObjectStreamer({ schema: undefined, output: 'no-schema' }, parent);
+const agent = create.LLMAgent({ output: undefined }, parent);
+agent('Answer').then(result => { const text: string = result.value; });
+create.LLMAgent.asStream({ output: undefined }, parent)('Answer').then(result => { const text: AsyncIterable<string> = result.value; });
+agent.run({ prompt: 'Answer', temperature: undefined });
+// @ts-expect-error A fixed output cannot be overridden through run.
+agent.run({ prompt: 'Answer', output: undefined });
 `;
   const optionalMutations = [
-    ['Factory optional Script output', 'schema?: SchemaType<OUTPUT> | undefined;',
-      'schema?: SchemaType<OUTPUT>;', /not assignable/, 'dist/types/config.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
-    ['Factory optional schema override', "K extends 'schema' ? EmptyMap extends Pick<T, K> ? T[K] | undefined : T[K] : T[K]",
-      'T[K]', /Unused '@ts-expect-error'/, 'dist/types/callbacks.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
-    ['Factory optional Template input', 'TemplateConfig<any> & ToolContextSchemaConfig<any>',
-      'TemplateConfig<any> & configs.ToolConfig<any, any, any>', /Invalid template settings/, 'dist/factories/Template.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
-    ['Factory optional Script input', 'ScriptConfig<any, any> & ToolContextSchemaConfig<any>',
-      'configs.ScriptToolConfig<any, any, any>', /Invalid script settings/, 'dist/factories/Script.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional Script output', 'schema?: SchemaType<OUTPUT> | undefined;', 'schema?: SchemaType<OUTPUT>;', /not assignable/, 'dist/types/config.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional agent output', 'output?: OUTPUT | undefined;', 'output?: OUTPUT;', /not assignable/, 'dist/types/agent.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional Template input', 'TemplateConfig<any> & ToolContextSchemaConfig<any>', 'TemplateConfig<any> & configs.ToolConfig<any, any, any>', /Invalid template settings/, 'dist/factories/Template.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional Script input', 'ScriptConfig<any, any> & ToolContextSchemaConfig<any>', 'configs.ScriptToolConfig<any, any, any>', /Invalid script settings/, 'dist/factories/Script.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
   ];
   if (optionalMutations.some(([name]) => filter.test(name))) {
     const declarations = run(process.execPath, [compiler, ...common.filter(flag => flag !== '--noEmit'), '--declaration', '--emitDeclarationOnly',
@@ -906,7 +876,7 @@ create.ObjectStreamer({ schema: undefined, output: 'no-schema' }, parent);
     assert.equal(declarations.status, 0, declarations.stdout + declarations.stderr);
   }
   const consumer = path.join(production, 'contracts.ts');
-  for (const [contracts, cases] of [[alternatives, alternativeMutations], [check, mutations], [schemaVersions, schemaMutations], [preprocessors, preprocessorMutations], [projection, projectionMutations], [selectedSchemas, selectedMutations], [helperContracts, helperMutations], [runContexts, runContextMutations], [runDescriptorContexts, runDescriptorMutations], [callerAlternatives, callerMutations], [configuredOmissions, omissionMutations], [contextAlternatives, contextMutations], [configFactoryContracts, configFactoryMutations], [objectGeneratorContracts, objectGeneratorMutations], [factoryContracts, factoryMutations], [optionalContracts, optionalMutations]]) {
+  for (const [contracts, cases] of [[alternatives, alternativeMutations], [check, mutations], [schemaVersions, schemaMutations], [preprocessors, preprocessorMutations], [projection, projectionMutations], [selectedSchemas, selectedMutations], [helperContracts, helperMutations], [runContexts, runContextMutations], [runDescriptorContexts, runDescriptorMutations], [callerAlternatives, callerMutations], [configuredOmissions, omissionMutations], [contextAlternatives, contextMutations], [configFactoryContracts, configFactoryMutations], [agentContracts, agentMutations], [reviewContracts, reviewMutations], [settingOwnershipContracts, settingOwnershipMutations], [factoryContracts, factoryMutations], [optionalContracts, optionalMutations]]) {
     let checkedContracts;
     for (const [name, before, after, expected, filename, assertion, rejected = true, flags = []] of cases) {
       if (!filter.test(name)) continue;
@@ -932,7 +902,9 @@ create.ObjectStreamer({ schema: undefined, output: 'no-schema' }, parent);
   }
   // The ordinary-call budget above does not exercise injected helper contracts.
   // Compare the same registry workload with and without the new type-only member.
-  const registryWorkload = `import { Function as component } from './src/factories/Function.js';
+  const registryWorkload = `import { LLMAgent } from './src/factories/LLMAgent.js';
+import { Output } from 'ai';
+import { Function as component } from './src/factories/Function.js';
 import { z } from 'zod/v4';\n` + Array.from({ length: 12 }, (_, index) => `
 const child${index} = component.asTool({ inputSchema: z.object({ v${index}: z.number(), factor: z.number() }), context: { factor: 3 }, execute: input => input.v${index} * input.factor });
 const owner${index} = component({ tools: { child: child${index} }, toolsContext: { child: { factor: 4 } }, execute: ({ child }) => child({ v${index}: 2 }) });

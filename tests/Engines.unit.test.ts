@@ -6,7 +6,7 @@ import { posix } from 'node:path';
 import { promisify } from 'node:util';
 import { create, ValidationError, ScriptError, TemplateError, z } from './cascada';
 import { createPromptRenderer } from '../src/prompt-renderers';
-import { Loader, Script as CascadaScript, type LoaderInterface, type LoaderSource } from 'cascada-engine';
+import { Loader, AsyncTemplate as CascadaTemplate, Script as CascadaScript, type LoaderInterface, type LoaderSource } from 'cascada-engine';
 import { jsonSchema } from 'ai';
 
 const execFileAsync = promisify(execFile);
@@ -25,6 +25,28 @@ class UpdatingLoader extends Loader {
 
 describe('Template and Script deterministic coverage', () => {
 	describe('Template rendering', () => {
+		it('lazily compiles configured templates once across concurrent calls and keeps overrides local', async () => {
+			// eslint-disable-next-line @typescript-eslint/unbound-method -- Called with the compiled template receiver below.
+			const originalCompile = CascadaTemplate.prototype.compileSource;
+			let compilations = 0;
+			CascadaTemplate.prototype.compileSource = function () {
+				compilations++;
+				return originalCompile.call(this);
+			};
+			try {
+				const render = create.Template({ template: '{{ awaitValue(value) }}', context: { awaitValue: async (value: number) => value } });
+				expect(compilations).to.equal(0);
+				expect(await render('{{ value + 10 }}', { value: 4 })).to.equal('14');
+				expect(compilations).to.equal(1);
+				expect(await Promise.all([render({ value: 1 }), render({ value: 2 }), render({ value: 3 })])).to.deep.equal(['1', '2', '3']);
+				expect(compilations).to.equal(2);
+				expect(await render({ value: 5 })).to.equal('5');
+				expect(compilations).to.equal(2);
+			} finally {
+				CascadaTemplate.prototype.compileSource = originalCompile;
+			}
+		});
+
 		it('renders an explicitly configured empty template', async () => {
 			expect(await create.Template({ template: '' })()).to.equal('');
 		});
@@ -177,7 +199,7 @@ describe('Template and Script deterministic coverage', () => {
 	});
 
 	describe('Script execution', () => {
-		it('compiles configured inline scripts once across concurrent calls and keeps overrides local', async () => {
+		it('lazily compiles configured scripts once across concurrent calls and keeps overrides local', async () => {
 			// eslint-disable-next-line @typescript-eslint/unbound-method -- Called with the compiled script receiver below.
 			const originalCompile = CascadaScript.prototype.compileSource;
 			let compilations = 0;
@@ -187,9 +209,10 @@ describe('Template and Script deterministic coverage', () => {
 			};
 			try {
 				const run = create.Script({ script: 'var result = awaitValue(value)\nreturn result', context: { awaitValue: async (value: number) => value } });
-				expect(await Promise.all([run({ value: 1 }), run({ value: 2 }), run({ value: 3 })])).to.deep.equal([1, 2, 3]);
-				expect(compilations).to.equal(1);
+				expect(compilations).to.equal(0);
 				expect(await run('return value + 10', { value: 4 })).to.equal(14);
+				expect(compilations).to.equal(1);
+				expect(await Promise.all([run({ value: 1 }), run({ value: 2 }), run({ value: 3 })])).to.deep.equal([1, 2, 3]);
 				expect(compilations).to.equal(2);
 				expect(await run({ value: 5 })).to.equal(5);
 				expect(compilations).to.equal(2);
@@ -510,11 +533,13 @@ describe('Template and Script deterministic coverage', () => {
 			expect(await render('Hello {{ name }}')).to.equal('Hello Ada');
 		});
 
-		it('reports syntax errors in a configured script when called and still runs overrides', async () => {
-			const run = create.Script({ script: 'return missing(', context: { name: 'Ada' } });
-			await rejects(() => run(), ScriptError);
-			expect(await run('return "Hello " ~ name')).to.equal('Hello Ada');
-		});
+		for (const source of ['return missing(', 'if true']) {
+			it(`reports syntax errors in a configured script when called and still runs overrides: ${source}`, async () => {
+				const run = create.Script({ script: source, context: { name: 'Ada' } });
+				await rejects(() => run(), error => error instanceof ScriptError && error.message.includes('Script render failed'));
+				expect(await run('return "Hello " ~ name')).to.equal('Hello Ada');
+			});
+		}
 	});
 
 	describe('Prepared prompt renderer contracts', () => {
@@ -537,9 +562,9 @@ describe('Template and Script deterministic coverage', () => {
 		it('accepts prepared message arrays and rejects invalid prompt outputs', async () => {
 			const render = createPromptRenderer({ promptType: 'async-script', prompt: 'return [{ role: "user", content: "Hello" }]' });
 			expect(await render(undefined, {})).to.deep.equal([{ role: 'user', content: 'Hello' }]);
-			await rejects(() => render('return 42', {}), /validation failed/);
+			await rejects(async () => await render('return 42', {}), /validation failed/);
 			const fn = createPromptRenderer({ promptType: 'function', prompt: () => 42 });
-			await rejects(() => fn(undefined, {}), /validation failed/);
+			await rejects(async () => await fn(undefined, {}), /validation failed/);
 		});
 	});
 });

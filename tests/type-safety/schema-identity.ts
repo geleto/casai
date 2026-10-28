@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 /* eslint-disable @typescript-eslint/no-floating-promises -- Compiler-only public consumers. */
 import { create, streamSchema } from 'casai';
 import { z } from 'zod/v4';
@@ -61,9 +62,9 @@ create.Template({ template: 'ok', inputSchema: legacy });
 // @ts-expect-error Scripts reject legacy output schemas.
 create.Script({ script: 'return { value: 1 }', schema: legacy });
 // @ts-expect-error LLM renderers reject legacy input schemas.
-create.TextGenerator.withTemplate({ model, prompt: 'ok', inputSchema: legacy });
-// @ts-expect-error Object output schemas use the same rule.
-create.ObjectGenerator({ model, prompt: 'ok', schema: legacy });
+create.LLMAgent.withTemplate({ model, prompt: 'ok', inputSchema: legacy });
+// SDK Output specifications retain native support for their own internal schemas.
+create.LLMAgent({ model, prompt: 'ok', output: Output.object({ schema: legacy }) });
 // @ts-expect-error Streaming elements require a supported schema.
 streamSchema(legacy);
 declare const native: import('@ai-sdk/provider-utils').ExecutableTool<import('ai').Tool<{ value: number }, number>>;

@@ -78,18 +78,19 @@ describe('Production schema identity and declaration boundaries', () => {
 
 	it('rejects Zod 3 component schemas across installations without limiting native tools', async () => {
 		const model = modelFor(undefined);
+		const configFactory: unknown = create.Config;
 		const constructors: [unknown, object, string[]][] = [
-			[create.Config, {}, ['inputSchema', 'toolContextSchema', 'schema']],
+			[configFactory, {}, ['inputSchema', 'toolContextSchema', 'schema']],
 			[create.Function, { execute: () => 1 }, ['inputSchema', 'schema']],
 			[create.Function.asTool, { inputSchema: z.object({}), execute: () => 1 }, ['inputSchema', 'schema', 'toolContextSchema']],
 			[create.Script, { script: 'return 1' }, ['inputSchema', 'schema']],
 			[create.Script.asTool, { script: 'return 1', inputSchema: z.object({}) }, ['inputSchema', 'schema', 'toolContextSchema']],
 			[create.Template.asTool, { template: 'ok', inputSchema: z.object({}) }, ['inputSchema', 'toolContextSchema']],
-			[create.TextGenerator.withTemplate, { model, prompt: 'ok' }, ['inputSchema']],
-			[create.TextGenerator.withFunction.asTool, { model, prompt: () => 'ok', inputSchema: z.object({}) }, ['inputSchema', 'toolContextSchema']],
-			[create.TextStreamer.withTemplate, { model, prompt: 'ok' }, ['inputSchema']],
-			[create.ObjectGenerator.withTemplate.asTool, { model, prompt: 'ok', schema: z.object({}), inputSchema: z.object({}) }, ['schema', 'inputSchema', 'toolContextSchema']],
-			[create.ObjectStreamer.withTemplate, { model, prompt: 'ok', schema: z.object({}) }, ['schema', 'inputSchema']],
+			[create.LLMAgent.withTemplate, { model, prompt: 'ok' }, ['inputSchema']],
+			[create.LLMAgent.withFunction.asTool, { model, prompt: () => 'ok', inputSchema: z.object({}) }, ['inputSchema', 'toolContextSchema']],
+			[create.LLMAgent.withTemplate.asStream, { model, prompt: 'ok' }, ['inputSchema']],
+			[create.LLMAgent.withTemplate.asTool, { model, prompt: 'ok', inputSchema: z.object({}) }, ['inputSchema', 'toolContextSchema']],
+			[create.LLMAgent.withTemplate.asStream, { model, prompt: 'ok' }, ['inputSchema']],
 		];
 		for (const api of [z3, copies.z3]) {
 			const schema = api.object({ userId: api.string().optional() });

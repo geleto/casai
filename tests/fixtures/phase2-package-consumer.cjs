@@ -34,6 +34,8 @@ try {
     }
   }
   const [packed] = JSON.parse(npm(['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], workspace));
+  assert.ok(!packed.files.some(({ path: file }) => /(?:TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt)\./.test(file)),
+    'Removed factories and adapters must not survive in the published package.');
   fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
   npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', path.join(temporary, packed.filename), ...engine ? [engine] : []]);
   const engineRoot = path.join(temporary, 'node_modules/cascada-engine');
@@ -63,6 +65,8 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { create, z, streamSchema, collectStream, makeSharedIterable } from 'casai';
+import { Output } from 'ai';
+import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { makeSharedIterable as nativeSharedIterable } from 'cascada-engine';
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 assert.notEqual(create.Function, foreignCreate.Function);
@@ -78,6 +82,22 @@ const engineEntry = import.meta.resolve('cascada-engine');
 assert.equal(realpathSync(fileURLToPath(engineEntry)), fileURLToPath(engineEntry));
 assert.ok(engineEntry.startsWith(new URL('./node_modules/cascada-engine/', import.meta.url).href));
 assert.equal(makeSharedIterable, nativeSharedIterable);
+const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
+const finishReason = { unified: 'stop', raw: 'stop' };
+const model = new MockLanguageModelV3({ doStream: async () => ({ stream: convertArrayToReadableStream([
+  { type: 'stream-start', warnings: [] }, { type: 'text-start', id: 'a' },
+  { type: 'text-delta', id: 'a', delta: 'answer' }, { type: 'text-end', id: 'a' },
+  { type: 'finish', finishReason, usage },
+]) }) });
+const writer = create.LLMAgent.withTemplate.asStream({ model, prompt: '{{ topic }}', inputSchema: z.object({ topic: z.string() }), output: Output.text() });
+const inheritedWriter = create.LLMAgent({}, create.Config({}, writer));
+assert.equal(inheritedWriter.version, 'agent-v1');
+assert.equal(inheritedWriter.config.streaming, true);
+const answer = await inheritedWriter({ topic: 'recycling' });
+assert.equal(await answer.value, 'answer');
+assert.deepEqual(await collectStream(answer.textStream), ['answer']);
+assert.equal(model.doStreamCalls.length, 1);
+assert.equal(model.doStreamCalls[0].prompt.at(-1).content[0].text, 'recycling');
 const component = create.Function({ inputSchema: z.object({ value: z.string().transform(Number) }),
   context: { value: '2', privateBinding: true }, execute: input => input.value + 1 });
 assert.equal(await component(), 3);
@@ -96,6 +116,8 @@ await shared.dispose();
 `);
   fs.writeFileSync(path.join(temporary, 'consumer.ts'), `
 import { create, z } from 'casai';
+import { Output } from 'ai';
+import type { Agent, LanguageModel } from 'ai';
 import type { ComponentExecutionOptions, ToolContextSchemaConfig, StreamSchema } from 'casai';
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 const foreignTool = foreignCreate.Function.asTool({ inputSchema: z.object({ factor: z.number() }), context: { factor: 3, db: () => 'private' }, execute: input => input.factor });
@@ -122,15 +144,27 @@ const component = create.Function({ inputSchema: z.object({ value: z.string().tr
     return value;
   } });
 const result: Promise<number> = component();
+declare const model: LanguageModel;
+const writer = create.LLMAgent.withFunction.asStream({ model, inputSchema: z.object({ topic: z.string() }),
+  output: Output.text(), prompt: context => context.topic,
+  prepareCall: (request, config, context) => ({ ...request, temperature: context.topic.length ? 0 : 1 }),
+});
+const inheritedWriter = create.LLMAgent({}, create.Config({}, writer));
+const nativeAgent: Agent<{ topic: string }> = inheritedWriter;
+const finalText: Promise<string> = inheritedWriter({ topic: 'recycling' }).then(result => result.value);
+// @ts-expect-error Inherited source still requires its declared input.
+inheritedWriter();
+// @ts-expect-error Native entry points retain the same required application context.
+inheritedWriter.generate({ prompt: 'literal' });
 // @ts-expect-error Calls accept schema input, not its parsed output.
 component({ value: 3 });
 const lookup = create.Function.asTool({ inputSchema: z.object({}), execute: () => 1 });
 type Registry = { tools: { lookup: typeof lookup } };
 declare const invalidSelection: Registry | (Registry & { toolChoice: { type: 'tool'; toolName: 'missing' } });
 // @ts-expect-error A selection present in one configuration branch still needs a configured tool.
-create.TextGenerator({ model: 'test', prompt: 'ready' }, { config: invalidSelection });
+create.LLMAgent({ model: 'test', prompt: 'ready' }, { config: invalidSelection });
 declare const validSelection: Registry | (Registry & { toolChoice: { type: 'tool'; toolName: 'lookup' } });
-create.TextGenerator({ model: 'test', prompt: 'ready' }, { config: validSelection });
+create.LLMAgent({ model: 'test', prompt: 'ready' }, { config: validSelection });
 `);
   // The consumer's compiler is a test dependency, not part of Casai's runtime.
   const manifest = JSON.parse(fs.readFileSync(path.join(workspace, 'package.json'), 'utf8'));

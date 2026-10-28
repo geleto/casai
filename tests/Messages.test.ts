@@ -1,13 +1,14 @@
+import { Output } from 'ai';
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { z } from 'zod';
-import { create, TemplateError } from './cascada';
+import { create, ValidationError } from './cascada';
 import { model, commonConfig, timeout } from './common';
 import { stepCountIs } from 'ai';
 import type { ModelMessage } from 'ai';
-import { streamToString } from './TextStreamer.test';
+import { collectTextStream as streamToString } from './cascada';
 
 // Configure chai-as-promised
 chai.use(chaiAsPromised);
@@ -24,10 +25,10 @@ describe('Messages, Conversation & Integration', function () {
 
 			// We test augmentation through the public API, as the internal `augment` functions are an implementation detail.
 			it('should augment generateText result with messageHistory', async () => {
-				const generator = create.TextGenerator({
+				const generator = create.LLMAgent({
 					model,
 					...commonConfig,
-					messages: [systemMessage],
+					instructions: [systemMessage],
 				});
 
 				const result = await generator('Reply with "OK".');
@@ -46,13 +47,13 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should augment streamText result with messageHistory', async () => {
-				const streamer = create.TextStreamer({
+				const streamer = create.LLMAgent.asStream({
 					model,
 					...commonConfig,
-					messages: [systemMessage],
+					instructions: [systemMessage],
 				});
 
-				const result = streamer('Reply with "OK".');
+				const result = (await streamer('Reply with "OK".'));
 				// consume stream to resolve the response promise
 				await result.consumeStream();
 
@@ -72,26 +73,26 @@ describe('Messages, Conversation & Integration', function () {
 	// --- Integration Tests (Factory-Level Behavior) ---
 	describe('Integration Tests (Factory-Level Behavior)', () => {
 		const simpleUserMessage: ModelMessage[] = [{ role: 'user', content: 'This is a test. Reply only with the word "Acknowledged", without any other text or punctuation, preserving the case.' }];
-		const simpleSystemMessage: ModelMessage[] = [{ role: 'system', content: 'You are a test bot.' }];
+		const simpleSystemMessage = [{ role: 'system', content: 'You are a test bot.' }] satisfies ModelMessage[];
 
 		describe('Call-Time Validation & Precedence', () => {
 			it('should succeed in text mode with only messages', async () => {
-				const generator = create.TextGenerator({ model, ...commonConfig });
+				const generator = create.LLMAgent({ model, ...commonConfig });
 				const promise = generator(simpleUserMessage);
 				await expect(promise).to.not.be.rejected;
 				expect((await promise).text).to.equal('Acknowledged');
 			});
 
 			it('should fail in template mode with only messages and no configured prompt', async () => {
-				const generator = create.TextGenerator.withTemplate({ model, ...commonConfig });
+				const generator = create.LLMAgent.withTemplate({ model, ...commonConfig });
 				// The call is invalid because a prompt string is required for rendering
 				// @ts-expect-error - we want to test the error
 				const promise = generator(simpleUserMessage);
-				await expect(promise).to.be.rejectedWith(TemplateError, /No template prompt provided/);
+				await expect(promise).to.be.rejectedWith(ValidationError, /source or context/);
 			});
 
 			it('should use a one-off template string over a configured prompt', async () => {
-				const generator = create.TextGenerator.withTemplate({
+				const generator = create.LLMAgent.withTemplate({
 					model,
 					...commonConfig,
 					prompt: 'Config: {{name}}',
@@ -102,7 +103,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should merge runtime context with configured context', async () => {
-				const generator = create.TextGenerator.withTemplate({
+				const generator = create.LLMAgent.withTemplate({
 					model,
 					...commonConfig,
 					prompt: 'Output only this, with spaces: {{a}} {{b}} {{c}}',
@@ -114,19 +115,19 @@ describe('Messages, Conversation & Integration', function () {
 		});
 
 		describe('Text Mode Components', () => {
-			it('should use call-time messages over configured messages', async () => {
-				const generator = create.TextGenerator({
+			it('should replace configured instructions for one call', async () => {
+				const generator = create.LLMAgent({
 					model,
 					...commonConfig,
-					messages: [{ role: 'system', content: 'Always answer in Spanish.' }],
+					instructions: [{ role: 'system', content: 'Always answer in Spanish.' }],
 				});
 				// This system message should override the configured one.
-				const result = await generator('Say "hello".', [{ role: 'system', content: 'Always answer in French.' }]);
+				const result = await generator.run({ prompt: 'Say "hello".', instructions: 'Always answer in French.' });
 				expect(result.text.toLowerCase()).to.contain('bonjour');
 			});
 
 			it('should append a non-empty prompt as a user message and augment the result', async () => {
-				const generator = create.TextGenerator({ model, ...commonConfig, messages: simpleSystemMessage });
+				const generator = create.LLMAgent({ model, ...commonConfig, instructions: simpleSystemMessage });
 				const result = await generator('Reply only with "OK".');
 
 				expect(result.text.trim()).to.match(/^ok\.?/i);
@@ -139,10 +140,10 @@ describe('Messages, Conversation & Integration', function () {
 
 		describe('Template & Script Mode Components', () => {
 			it('should append a rendered template string as a user message and augment the result', async () => {
-				const generator = create.TextGenerator.withTemplate({
+				const generator = create.LLMAgent.withTemplate({
 					model,
 					...commonConfig,
-					messages: simpleSystemMessage,
+					instructions: simpleSystemMessage,
 					prompt: 'The user instruction is: {{instruction}}. Reply only with "Confirmed", without any other text or punctuation, preserving the case.',
 				});
 				const result = await generator({ instruction: 'Execute' });
@@ -154,10 +155,10 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should append a rendered script string as a user message and augment the result', async () => {
-				const generator = create.TextGenerator.withScript({
+				const generator = create.LLMAgent.withScript({
 					model,
 					...commonConfig,
-					messages: simpleSystemMessage,
+					instructions: simpleSystemMessage,
 				});
 				const result = await generator(
 					`return "Output exactly " + token + " and nothing else."`,
@@ -171,10 +172,10 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should concatenate messages from a script with base messages and augment the result', async () => {
-				const generator = create.TextGenerator.withScript({
+				const generator = create.LLMAgent.withScript({
 					model,
 					...commonConfig,
-					messages: [{ role: 'system', content: 'The answer is always script-answer-raven.' }],
+					instructions: [{ role: 'system', content: 'The answer is always script-answer-raven.' }],
 				});
 				const result = await generator(
 					`return [{ role: "user", content: "What is the configured answer?" }]`
@@ -187,7 +188,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should use only the script-returned messages if no base messages exist and augment the result', async () => {
-				const generator = create.TextGenerator.withScript({
+				const generator = create.LLMAgent.withScript({
 					model,
 					...commonConfig,
 				});
@@ -200,16 +201,16 @@ describe('Messages, Conversation & Integration', function () {
 
 			// New tests for messages vs messageHistory composition
 			it('config messages + argument messages + script in argument that returns messages', async () => {
-				const generator = create.TextGenerator.withScript({
+				const generator = create.LLMAgent.withScript({
 					model,
 					...commonConfig,
-					messages: [{ role: 'system', content: 'Config system.' }],
+					instructions: [{ role: 'system', content: 'Config system.' }],
 				});
 				const argMessages: ModelMessage[] = [{ role: 'user', content: 'Previous turn.' }];
 				const script = `
 					return [{ role: "user", content: 'Say ONLY "PONG".' }]
 				`;
-				const result = await generator(script, argMessages);
+				const result = await generator(script, {}, argMessages);
 
 				const history = result.messageHistory;
 				expect(history.map((m: ModelMessage) => m.role)).to.deep.equal(['user', 'user', 'assistant']);
@@ -224,17 +225,17 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('config messages + argument messages; script in config returns messages; no prompt argument', async () => {
-				const generator = create.TextGenerator.withScript({
+				const generator = create.LLMAgent.withScript({
 					model,
 					...commonConfig,
-					messages: [{ role: 'system', content: 'Config system.' }],
+					instructions: [{ role: 'system', content: 'Config system.' }],
 					prompt: `
 						return [{ role: "user", content: "Return only 123" }]
 					`,
 				});
 				const argMessages: ModelMessage[] = [{ role: 'user', content: 'Prev user.' }];
 				// First arg undefined so the configured script runs; second arg passes messages
-				const result = await generator(argMessages);
+				const result = await generator({}, argMessages);
 
 				const history = result.messageHistory;
 				expect(history.map((m: ModelMessage) => m.role)).to.deep.equal(['user', 'user', 'assistant']);
@@ -249,13 +250,13 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('argument-only: messages + script in argument returns messages', async () => {
-				const generator = create.TextGenerator.withScript({
+				const generator = create.LLMAgent.withScript({
 					model,
 					...commonConfig,
 				});
 				const argMessages: ModelMessage[] = [{ role: 'user', content: 'Prior user.' }];
 				const script = `return [{ role: "user", content: "Output only the number 7" }]`;
-				const result = await generator(script, argMessages);
+				const result = await generator(script, {}, argMessages);
 
 				const history = result.messageHistory;
 				expect(history.map((m: ModelMessage) => m.role)).to.deep.equal(['user', 'user', 'assistant']);
@@ -269,7 +270,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should reject output validation if a script returns a malformed message object', async () => {
-				const generator = create.TextGenerator.withScript({
+				const generator = create.LLMAgent.withScript({
 					model,
 					...commonConfig,
 				});
@@ -283,10 +284,10 @@ describe('Messages, Conversation & Integration', function () {
 	// --- Advanced Scenarios & End-to-End Workflows ---
 	describe('Advanced Scenarios & End-to-End Workflows', () => {
 		describe('Multi-Turn Conversation Chaining', () => {
-			const agent = create.TextGenerator({
+			const agent = create.LLMAgent({
 				model,
 				...commonConfig,
-				messages: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
+				instructions: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
 			});
 
 			it('should initiate a conversation and return augmented history and then use it in new prompt', async () => {
@@ -315,33 +316,33 @@ describe('Messages, Conversation & Integration', function () {
 
 			it('should continue with only history and no new prompt', async () => {
 				// Build a conversation history up to two turns
-				const baseAgent = create.TextGenerator({
+				const baseAgent = create.LLMAgent({
 					model,
 					...commonConfig,
-					messages: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
+					instructions: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
 				});
 				const firstTurn = await baseAgent('count');
 				const secondTurn = await baseAgent('count', firstTurn.messageHistory);
 				const conversationHistory = secondTurn.messageHistory;
 
-				const agentWithMemory = create.TextGenerator({
+				const agentWithMemory = create.LLMAgent({
 					model,
 					...commonConfig,
 					prompt: 'Do not count further. Looking back at the conversation, what is the most recent number you already replied with? Output exactly that number and nothing else.',
 				});
-				const result = await agentWithMemory(conversationHistory);
+				const result = await agentWithMemory.run({ messageHistory: conversationHistory });
 				expect(result.text).to.include('2');
 				expect(result).to.have.property('messageHistory');
 			});
 
-			const streamAgent = create.TextStreamer({
+			const streamAgent = create.LLMAgent.asStream({
 				model,
 				...commonConfig,
-				messages: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
+				instructions: [{ role: 'system', content: 'You are a counter. When the user says "count", you reply with the next number, starting at 1. Only output the number.' }],
 			});
 
 			it('should initiate a streamed conversation and return augmented history', async () => {
-				const result = streamAgent('count');
+				const result = (await streamAgent('count'));
 				const streamedText = await streamToString(result.textStream);
 				expect(streamedText).to.equal('1');
 
@@ -352,13 +353,13 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should continue a streamedconversation using history and a new prompt', async () => {
-				const firstTurn = streamAgent('count');
+				const firstTurn = (await streamAgent('count'));
 				const firstText = await streamToString(firstTurn.textStream);
 				expect(firstText).to.equal('1');
 
 				const historyAfterFirst = (await firstTurn.messageHistory);
 
-				const secondTurn = streamAgent('count', historyAfterFirst);
+				const secondTurn = (await streamAgent('count', historyAfterFirst));
 				const secondText = await streamToString(secondTurn.textStream);
 				expect(secondText).to.equal('2');
 
@@ -390,7 +391,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			it('should allow manual continuation of a conversation after a tool call', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...commonConfig,
 					tools: { getWeather: getWeatherTool } as const,
@@ -435,7 +436,7 @@ describe('Messages, Conversation & Integration', function () {
 			});
 
 			/*it('should automatically handle the tool-use loop with stopWhen', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...commonConfig,
 					tools: { getWeather: getWeatherTool },
@@ -475,7 +476,7 @@ describe('Messages, Conversation & Integration', function () {
 			it('should handle a multi-turn conversation where one turn involves automated tool use', async function () {
 				this.timeout(timeout * 2);
 
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...commonConfig,
 					tools: { getWeather: getWeatherTool },
@@ -542,16 +543,9 @@ describe('Messages, Conversation & Integration', function () {
 				this.timeout(timeout * 2);
 
 				const weatherInputSchema = z.object({ city: z.string() });
-				const llmWeatherTool = create.ObjectGenerator.withTemplate.asTool({
-					model,
-					...commonConfig,
-					schema: weatherSchema,
-					description: 'Get the weather for a city',
-					inputSchema: weatherInputSchema,
-					prompt: 'Return exactly this weather object for {{ city }}: city "{{ city }}", tempF 75, conditions "Sunny".'
-				});
+				const llmWeatherTool = create.LLMAgent.withTemplate.asTool({ model, ...commonConfig, description: 'Get the weather for a city', inputSchema: weatherInputSchema, prompt: 'Return exactly this weather object for {{ city }}: city "{{ city }}", tempF 75, conditions "Sunny".', output: Output.object({ schema: weatherSchema }) });
 
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...commonConfig,
 					tools: { getWeather: llmWeatherTool } as const,
@@ -580,11 +574,11 @@ describe('Messages, Conversation & Integration', function () {
 		});
 
 		describe('Cross-Component Conversation Chaining', () => {
-			it('should pass conversation history from a TextGenerator to an ObjectGenerator', async () => {
-				const chatAgent = create.TextGenerator({
+			it('should pass conversation history from a LLMAgent to an structured LLMAgent', async () => {
+				const chatAgent = create.LLMAgent({
 					model,
 					...commonConfig,
-					messages: [{ role: 'system', content: 'Acknowledge messages. Reply only with "OK".' }],
+					instructions: [{ role: 'system', content: 'Acknowledge messages. Reply only with "OK".' }],
 				});
 
 				// Have a conversation (concise prompts + concise replies)
@@ -594,18 +588,14 @@ describe('Messages, Conversation & Integration', function () {
 				const finalHistory = res2.messageHistory;
 
 				// Extract from the conversation
-				const extractionAgent = create.ObjectGenerator.withTemplate({
-					model,
-					schema: z.object({
-						size: z.string(),
-						toppings: z.array(z.string()),
-					}),
-					prompt: 'From the above conversation, extract the final pizza order into a JSON object.',
-				});
+				const extractionAgent = create.LLMAgent.withTemplate({ model, prompt: 'From the above conversation, extract the final pizza order into a JSON object.', output: Output.object({ schema: z.object({
+					size: z.string(),
+					toppings: z.array(z.string()),
+				}) }) });
 
-				const result = await extractionAgent(finalHistory);
+				const result = await extractionAgent.run({ messageHistory: finalHistory });
 
-				expect(result.object).to.deep.equal({
+				expect(result.output).to.deep.equal({
 					size: 'large',
 					toppings: ['pepperoni', 'mushrooms'],
 				});

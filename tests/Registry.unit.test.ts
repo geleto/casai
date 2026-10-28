@@ -1,3 +1,4 @@
+import { runtimeRun } from './fixtures/runtime-call.js';
 import assert from 'node:assert/strict';
 import { tool, isStepCount, ToolLoopAgent } from 'ai';
 import { safeValidateTypes, validateTypes } from '@ai-sdk/provider-utils';
@@ -30,14 +31,14 @@ describe('Owned tool registries', () => {
 		const tools = { probe }, toolsContext = { probe: raw };
 		const injected = create.Function({ tools, toolsContext, execute: ({ probe }) => probe({}) });
 		assert.deepEqual(await injected(), { factor: 5, privateValue: 'raw' });
-		const owner = create.TextGenerator({ tools, toolsContext, model: modelFor({}), prompt: 'go', stopWhen: isStepCount(2) });
+		const owner = create.LLMAgent({ tools, toolsContext, model: modelFor({}), prompt: 'go', stopWhen: isStepCount(2) });
 		const result = await owner();
 		assert.deepEqual(result.steps[0].toolResults[0].output, { factor: 5, privateValue: 'resolved' });
 		// Resolve before binding to give both paths the same stable object.
 		const stable = await raw;
 		const stableContext = { probe: stable };
 		assert.deepEqual(await create.Function({ tools, toolsContext: stableContext, execute: ({ probe }) => probe({}) })(), stable);
-		const sdk = await create.TextGenerator({ tools, toolsContext: stableContext, model: modelFor({}), prompt: 'go', stopWhen: isStepCount(2) })();
+		const sdk = await create.LLMAgent({ tools, toolsContext: stableContext, model: modelFor({}), prompt: 'go', stopWhen: isStepCount(2) })();
 		assert.deepEqual(sdk.steps[0].toolResults[0].output, stable);
 	});
 
@@ -64,7 +65,7 @@ describe('Owned tool registries', () => {
 				const sdk = create.Function.asTool({ inputSchema: z.object({}), tools: { then }, execute: context => child.call({ then: context.then }) });
 				assert.equal(await sdk.execute({}, { toolCallId: 'forward', messages: [], context: undefined }), called);
 				assert.equal(await create.Function({ tools: { sdk }, execute: ({ sdk }) => sdk({}) })(), called);
-				const rendered = create.TextGenerator.withFunction({ model: modelFor(undefined), tools: { then },
+				const rendered = create.LLMAgent.withFunction({ model: modelFor(undefined), tools: { then },
 					prompt: async context => String(await child.call({ then: context.then })) });
 				assert.equal((await rendered()).text, 'done');
 				// Cascada owns argument resolution. Construct the object in host code so
@@ -135,7 +136,7 @@ describe('Owned tool registries', () => {
 		assert.equal(await create.Script({ tools, script: 'return then({})' })(), 11);
 		assert.equal(await create.Template({ tools, template: '{{ then({}) }}' })(), '11');
 		const model = modelFor(undefined);
-		const rendered = create.TextGenerator.withFunction({ model, tools, prompt: async ({ then }) => String(await then({})) });
+		const rendered = create.LLMAgent.withFunction({ model, tools, prompt: async ({ then }) => String(await then({})) });
 		assert.equal((await rendered()).text, 'done');
 		assert.equal(called, 3);
 		assert.deepEqual(model.doGenerateCalls[0].prompt[0].content, [{ type: 'text', text: '11' }]);
@@ -190,7 +191,7 @@ describe('Owned tool registries', () => {
 		const script = create.Script({ inputSchema, script: 'return value' });
 		const template = create.Template({ inputSchema, template: '{{ value }}' });
 		for (const component of [operation, script, template]) {
-			for (const value of [1, 'invalid']) await assert.rejects(component.run({ context: { value } as never, abortSignal }), error => error === reason);
+			for (const value of [1, 'invalid']) await assert.rejects(runtimeRun(component, { context: { value } as never, abortSignal }), error => error === reason);
 		}
 		const binding = operation.bindToolContext({});
 		await assert.rejects(binding.tool.execute!({ value: 1 }, { toolCallId: 'cancelled', messages: [], context: {}, abortSignal }) as Promise<unknown>, error => error === reason);
@@ -215,7 +216,7 @@ describe('Owned tool registries', () => {
 			execute: ({ selected }) => selected({}) });
 		await assert.rejects(owner.run({ toolsContext: { selected: invalid } }), /Tool 'selected' context validation failed/);
 		const model = modelFor({}, 'selected');
-		const generated = create.TextGenerator({ model, prompt: 'go', tools: { selected },
+		const generated = create.LLMAgent({ model, prompt: 'go', tools: { selected },
 			toolsContext: { selected: { factor: 2, tenant: 'both' } } });
 		await assert.rejects(generated.run({ toolsContext: { selected: invalid } }), /Tool 'selected' context validation failed/);
 		assert.equal(model.doGenerateCalls.length, 0);
@@ -326,8 +327,8 @@ describe('Owned tool registries', () => {
 				return input.value * input.factor + 1;
 			} });
 		const config = { model, tools: { action: original }, toolsContext: { action: { factor: '3' } } };
-		const generate = create.TextGenerator.withFunction({ ...config, prompt: async ({ action }) => String(await action({ value: 2 })) });
-		const stream = create.TextStreamer.withFunction({ ...config, prompt: async ({ action }) => String(await action({ value: 2 })) });
+		const generate = create.LLMAgent.withFunction({ ...config, prompt: async ({ action }) => String(await action({ value: 2 })) });
+		const stream = create.LLMAgent.withFunction.asStream({ ...config, prompt: async ({ action }) => String(await action({ value: 2 })) });
 		await generate.run({ tools: { action: replacement } });
 		await (await stream.run({ tools: { action: replacement } })).text;
 		assert.deepEqual(factors, [3, 3]);
@@ -349,17 +350,17 @@ describe('Owned tool registries', () => {
 			inputSchema: z.object({ value: z.union([z.string(), z.number()]).transform(Number) }),
 			toolContextSchema, context: { factor: 1 }, execute: ({ value }) => value,
 		});
-		const parent = create.TextGenerator.withFunction({
+		const parent = create.LLMAgent.withFunction({
 			model, tools: { operation: fromText }, toolsContext: { operation: { factor: 1 } },
 			prompt: async ({ operation }) => String(await operation({ value: '4' })),
 		});
 		await parent();
 		await parent.run({ tools: { operation: wider } });
-		const child = create.TextGenerator.withFunction({
+		const child = create.LLMAgent.withFunction({
 			tools: { operation: fromNumber }, prompt: async ({ operation }) => String(await operation({ value: 5 })),
 		}, parent);
 		await child();
-		const nativeOnly = create.TextGenerator({
+		const nativeOnly = create.LLMAgent({
 			model, prompt: 'ready', tools: { operation: fromText }, toolsContext: { operation: { factor: 1 } },
 		});
 		await nativeOnly.run({ tools: { operation: fromNumber } });
@@ -407,11 +408,11 @@ describe('Owned tool registries', () => {
 
 	it('keeps LLM input/output and renderer contracts fixed on untyped run calls too', async () => {
 		const model = modelFor(undefined);
-		const generator = create.TextGenerator({ model, prompt: 'ready' });
-		const streamer = create.TextStreamer({ model, prompt: 'ready' });
+		const generator = create.LLMAgent({ model, prompt: 'ready' });
+		const streamer = create.LLMAgent.asStream({ model, prompt: 'ready' });
 		for (const key of ['inputSchema', 'toolContextSchema', 'schema', 'output', 'enum', 'promptType', 'loader', 'filters', 'renderOptions']) {
-			await assert.rejects(generator.run({ [key]: undefined } as never), /fixed at component creation/);
-			assert.throws(() => streamer.run({ [key]: undefined } as never), /fixed at component creation/);
+			await assert.rejects(generator.run({ [key]: undefined } as never), /Unsupported (LLMAgent settings|configuration properties)/);
+			await assert.rejects(streamer.run({ [key]: undefined } as never), /Unsupported (LLMAgent settings|configuration properties)/);
 		}
 		assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 0);
 	});
@@ -508,7 +509,7 @@ describe('Owned tool registries', () => {
 					assert.equal((await result.steps)[0].toolResults[0].output, 6);
 				} else {
 					const settings = { ...config, prompt: 'go', tools: { action } };
-					const result = mode === 'generate' ? await create.TextGenerator(settings)() : create.TextStreamer(settings)();
+					const result = await (mode === 'generate' ? create.LLMAgent(settings)() : create.LLMAgent.asStream(settings)());
 					assert.equal((await result.steps)[0].toolResults[0].output, 6);
 				}
 			}
@@ -519,9 +520,9 @@ describe('Owned tool registries', () => {
 			const errors: unknown[] = [];
 			const config = { model, prompt: 'go', tools: { action }, toolsContext: { action: { factor: 3 } },
 				prepareStep: () => ({ toolsContext: { action: { factor: 5 } } }) };
-			if (mode === 'generate') await assert.rejects(create.TextGenerator(config)(), /cannot change within an invocation/);
+			if (mode === 'generate') await assert.rejects(create.LLMAgent(config)(), /cannot change within an invocation/);
 			else {
-				const result = create.TextStreamer({ ...config, onError: ({ error }) => { errors.push(error); } })();
+				const result = (await create.LLMAgent.asStream({ ...config, onError: ({ error }) => { errors.push(error); } })());
 				await assert.rejects(async () => await result.text, /No output generated/);
 				assert.match(String(errors[0]), /cannot change within an invocation/);
 			}
@@ -533,7 +534,7 @@ describe('Owned tool registries', () => {
 			const model = modelFor({ value: 2 }, 'native');
 			const config = { model, prompt: 'go', tools: { action, native }, toolsContext: { action: { factor: 3 }, native: { factor: 1 } },
 				prepareStep: () => ({ toolsContext: { action: { factor: 3 }, native: { factor: 5 } } }), stopWhen: isStepCount(2) };
-			const result = mode === 'generate' ? await create.TextGenerator(config)() : create.TextStreamer(config)();
+			const result = await (mode === 'generate' ? create.LLMAgent(config)() : create.LLMAgent.asStream(config)());
 			assert.equal((await result.steps)[0].toolResults[0].output, 10);
 		});
 	}

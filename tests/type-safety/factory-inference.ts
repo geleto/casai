@@ -10,7 +10,7 @@ declare const enabled: boolean;
 const schema = z.object({ answer: z.number() });
 const inputSchema = z.object({ value: z.string().transform(Number) });
 const modelParent = create.Config({ model });
-const objectParent = create.Config({ model, schema });
+const objectParent = create.Config({ model, output: Output.object({ schema }) });
 const _emptyConfig = create.Config({});
 expectEqual<keyof typeof _emptyConfig.config, never>();
 declare const opaqueConfig: object;
@@ -22,39 +22,33 @@ create.Function(optionalImplementation);
 // @ts-expect-error Shared settings must still fit at least one component family.
 create.Config({ schema, prompt: 'Answer', tools: {} });
 
-// A prepared prompt must exist after inheritance; the caller cannot supply it.
-// @ts-expect-error The inherited model does not supply a prompt function.
-create.TextGenerator.withFunction({}, modelParent);
-// @ts-expect-error Streaming has the same creation-time requirement.
-create.TextStreamer.withFunction({}, modelParent);
-// @ts-expect-error An output schema does not supply a prompt function.
-create.ObjectStreamer.withFunction({}, objectParent);
+// Function sources can come from the call; tools must configure their source.
+const suppliedSource = create.LLMAgent.withFunction({}, modelParent);
+// @ts-expect-error An ordinary function agent without a configured prompt requires a call-time source.
+void suppliedSource();
+void suppliedSource(() => 'Answer');
+create.LLMAgent.withFunction({}, modelParent);
+create.LLMAgent.withFunction.asStream({}, modelParent);
+create.LLMAgent.withFunction.asStream({}, objectParent);
 const promptParent = create.Config({ model, prompt: () => 'Answer' });
-// @ts-expect-error Explicit undefined clears the inherited prompt.
-create.TextGenerator.withFunction({ prompt: undefined }, promptParent);
-// @ts-expect-error Explicit undefined clears the inherited streaming prompt.
-create.TextStreamer.withFunction({ prompt: undefined }, promptParent);
-// @ts-expect-error Explicit undefined clears the inherited object prompt.
-create.ObjectStreamer.withFunction({ schema, prompt: undefined }, promptParent);
+create.LLMAgent.withFunction({ prompt: undefined }, promptParent);
+create.LLMAgent.withFunction.asStream({ prompt: undefined }, promptParent);
+create.LLMAgent.withFunction.asStream({ prompt: undefined, output: Output.object({ schema: schema }) }, promptParent);
 declare const optionalPrompt: { prompt?: () => string };
-// @ts-expect-error An optional callback cannot guarantee a prepared prompt.
-create.TextGenerator.withFunction({ model, ...optionalPrompt });
-// @ts-expect-error An optional callback cannot guarantee a prepared prompt.
-create.TextStreamer.withFunction({ model, ...optionalPrompt });
-// @ts-expect-error An optional callback cannot guarantee a prepared prompt.
-create.ObjectStreamer.withFunction({ model, schema, ...optionalPrompt });
-create.TextGenerator.withFunction({}, promptParent);
-create.TextStreamer.withFunction({}, promptParent);
-create.ObjectStreamer.withFunction({ schema }, promptParent);
-create.TextGenerator.withFunction({ prompt: () => 'Answer' }, modelParent);
-create.TextStreamer.withFunction({ prompt: () => 'Answer' }, modelParent);
-create.ObjectStreamer.withFunction({ prompt: () => 'Answer' }, objectParent);
+create.LLMAgent.withFunction({ model, ...optionalPrompt });
+create.LLMAgent.withFunction.asStream({ model, ...optionalPrompt });
+create.LLMAgent.withFunction.asStream({ model, ...optionalPrompt, output: Output.object({ schema: schema }) });
+create.LLMAgent.withFunction({}, promptParent);
+create.LLMAgent.withFunction.asStream({}, promptParent);
+create.LLMAgent.withFunction.asStream({ output: Output.object({ schema: schema }) }, promptParent);
+create.LLMAgent.withFunction({ prompt: () => 'Answer' }, modelParent);
+create.LLMAgent.withFunction.asStream({ prompt: () => 'Answer' }, modelParent);
+create.LLMAgent.withFunction.asStream({ prompt: () => 'Answer' }, objectParent);
 
 // Required fields must survive in every possible final configuration.
 const maybePrompt = enabled ? { model, prompt: () => 'Answer' } : { model };
-// @ts-expect-error One actual parent branch lacks a prompt callback.
-create.TextStreamer.withFunction({}, { config: maybePrompt });
-create.TextStreamer.withFunction({ prompt: () => 'Answer' }, { config: maybePrompt });
+create.LLMAgent.withFunction.asStream({}, { config: maybePrompt });
+create.LLMAgent.withFunction.asStream({ prompt: () => 'Answer' }, { config: maybePrompt });
 const operation = create.Config({ execute: () => 1 });
 // @ts-expect-error Omit the parent argument instead of explicitly passing undefined.
 create.Function({ execute: () => 1 }, undefined);
@@ -101,48 +95,48 @@ void script({ value: 3 });
 const output = Output.object({ schema });
 const textTools = { lookup: functionTool };
 const textParent = create.Config({ model, output, tools: textTools, runtimeContext: { requestId: 'request' } });
-const _generated = create.TextGenerator({ onStart: event => {
+const _generated = create.LLMAgent({ onStart: event => {
 	expectType<typeof output | undefined>(event.output);
-}, onFinish: _event => {
+}, onEnd: _event => {
 	expectEqual<typeof _event.runtimeContext.requestId, string>();
 } }, textParent);
 expectEqual<Awaited<ReturnType<typeof _generated>>['value'], { answer: number }>();
-const streaming = create.TextStreamer({}, textParent);
-expectType<StreamTextResult<typeof textTools, { requestId: string }, typeof output>>(streaming('Answer'));
-const prepared = create.TextStreamer.withFunction({ prompt: () => 'Answer' }, textParent);
+const streaming = create.LLMAgent.asStream({}, textParent);
+expectType<StreamTextResult<typeof textTools, { requestId: string }, typeof output>>(await streaming('Answer'));
+const prepared = create.LLMAgent.withFunction.asStream({ prompt: () => 'Answer' }, textParent);
 expectType<Promise<Awaited<ReturnType<typeof streaming>>>>(prepared());
 // Inline parent selectors are contextualized against the effective child registry.
-create.TextGenerator({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['lookup'] } });
-create.TextStreamer({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['lookup'] } });
+create.LLMAgent({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['lookup'] } });
+create.LLMAgent.asStream({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['lookup'] } });
 // @ts-expect-error Parent selectors cannot name a missing tool.
-create.TextGenerator({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['missing'] } });
+create.LLMAgent({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['missing'] } });
 // @ts-expect-error Parent selectors cannot name a missing tool.
-create.TextStreamer({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['missing'] } });
-const objectStream = create.ObjectStreamer({ output: 'array' }, objectParent);
+create.LLMAgent.asStream({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['missing'] } });
+const objectStream = create.LLMAgent.asStream({ output: Output.array({ element: schema }) }, objectParent);
 // @ts-expect-error Selecting array mode must not hide an explicit schema removal.
-create.ObjectStreamer({ schema: undefined, output: 'array' }, objectParent);
+create.LLMAgent.asStream({ output: Output.array({ element: undefined }) }, objectParent);
 // @ts-expect-error Generators must capture the same child override in exact-optional mode.
-create.ObjectGenerator({ schema: undefined, output: 'array' }, objectParent);
-expectEqual<Awaited<ReturnType<typeof objectStream>['object']>, { answer: number }[]>();
-expectType<AsyncIterable<{ answer: number }>>(objectStream('Answer').elementStream);
-const objectPrepared = create.ObjectStreamer.withFunction({ output: 'array', prompt: () => 'Answer' }, objectParent);
-expectType<Promise<ReturnType<typeof objectStream>>>(objectPrepared());
+create.LLMAgent({ output: Output.array({ element: undefined }) }, objectParent);
+expectEqual<Awaited<Awaited<ReturnType<typeof objectStream>>['value']>, { answer: number }[]>();
+expectType<AsyncIterable<{ answer: number }>>((await objectStream('Answer')).elementStream);
+const objectPrepared = create.LLMAgent.withFunction.asStream({ output: Output.array({ element: schema }), prompt: () => 'Answer' }, objectParent);
+expectType<ReturnType<typeof objectStream>>(objectPrepared());
 
 // A return annotation cannot invent a parent; ambiguous parent presence must narrow.
-const _annotated: ConfigProvider<{ model: LanguageModel }> = create.TextGenerator({ model });
-const _annotatedStream: ConfigProvider<{ model: LanguageModel }> = create.TextStreamer({ model });
+const _annotated: ConfigProvider<{ model: LanguageModel }> = create.LLMAgent({ model });
+const _annotatedStream: ConfigProvider<{ model: LanguageModel }> = create.LLMAgent.asStream({ model });
 const _annotatedFunction: ConfigProvider<{ execute: () => number }> = create.Function({ execute: () => 1 });
 const _annotatedFunctionTool: ConfigProvider<{ inputSchema: typeof inputSchema }> = create.Function.asTool({ inputSchema, execute: ({ value }) => value });
 const _annotatedTemplate: ConfigProvider<{ template: string }> = create.Template({ template: 'Answer' });
 const _annotatedScript: ConfigProvider<{ script: string }> = create.Script({ script: 'return 1' });
-const _annotatedObjectStream: ConfigProvider<{ schema: typeof schema }> = create.ObjectStreamer({ model, schema });
+const _annotatedObjectStream: ConfigProvider<{ output: typeof output }> = create.LLMAgent.asStream({ model, output: Output.object({ schema: schema }) });
 const _annotatedCall: () => Promise<number> = create.Function({ execute: () => 1 });
 const _annotatedNativeTool: Tool<{ value: number }, number> = create.Function.asTool({ inputSchema, execute: ({ value }) => value });
 declare const optionalParent: [] | [typeof modelParent];
 // @ts-expect-error A possibly absent parent cannot satisfy model requirements.
-create.TextGenerator({}, ...optionalParent);
+create.LLMAgent({}, ...optionalParent);
 // @ts-expect-error A possibly absent parent cannot satisfy model requirements.
-create.TextStreamer({}, ...optionalParent);
+create.LLMAgent.asStream({}, ...optionalParent);
 declare const optionalInputParent: [] | [typeof inheritedInput];
 // @ts-expect-error A possibly absent parent cannot satisfy required tool inputs.
 create.Template.asTool({ template: '{{ value }}' }, ...optionalInputParent);
@@ -154,45 +148,41 @@ create.Function({}, ...optionalOperation);
 
 // Whole parent alternatives keep each schema paired with its retained prompt callback.
 const stringInput = z.object({ value: z.string() });
-const numericPrompt = create.TextGenerator.withFunction({ model, inputSchema, prompt: ({ value }) => value.toFixed(1) });
-const stringPrompt = create.TextGenerator.withFunction({ model, inputSchema: stringInput, prompt: ({ value }) => value.toUpperCase() });
+const numericPrompt = create.LLMAgent.withFunction({ model, inputSchema, prompt: ({ value }) => value.toFixed(1) });
+const stringPrompt = create.LLMAgent.withFunction({ model, inputSchema: stringInput, prompt: ({ value }) => value.toUpperCase() });
 const prompts = { config: enabled ? numericPrompt.config : stringPrompt.config };
 const promptAlternatives = prompts.config;
-const inheritedTextPrompt = create.TextGenerator.withFunction({}, prompts);
-const inheritedTextStreamPrompt = create.TextStreamer.withFunction({}, prompts);
-const inheritedObjectPrompt = create.ObjectGenerator.withFunction({ schema }, prompts);
-const inheritedObjectStreamPrompt = create.ObjectStreamer.withFunction({ schema }, prompts);
-const inheritedTextPromptTool = create.TextGenerator.withFunction.asTool({}, prompts);
-const inheritedObjectPromptTool = create.ObjectGenerator.withFunction.asTool({ schema }, prompts);
+const inheritedTextPrompt = create.LLMAgent.withFunction({}, prompts);
+const inheritedTextStreamPrompt = create.LLMAgent.withFunction.asStream({}, prompts);
+const inheritedObjectPrompt = create.LLMAgent.withFunction({ output: Output.object({ schema: schema }) }, prompts);
+const inheritedObjectStreamPrompt = create.LLMAgent.withFunction.asStream({ output: Output.object({ schema: schema }) }, prompts);
+const inheritedTextPromptTool = create.LLMAgent.withFunction.asTool({}, prompts);
+const inheritedObjectPromptTool = create.LLMAgent.withFunction.asTool({ output: Output.object({ schema: schema }) }, prompts);
 void inheritedTextPrompt({ value: '4' });
 void inheritedTextStreamPrompt({ value: '4' });
 void inheritedObjectPrompt({ value: '4' });
 void inheritedObjectStreamPrompt({ value: '4' });
 void inheritedTextPromptTool({ value: '4' });
 void inheritedObjectPromptTool({ value: '4' });
-expectEqual<Awaited<ReturnType<typeof inheritedObjectPrompt>>['object'], { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof inheritedObjectPrompt>>['value'], { answer: number }>();
 // @ts-expect-error Each selected parser consumes raw string input.
 void inheritedTextPrompt({ value: 4 });
 // @ts-expect-error The output schema does not relax the preparer's raw input.
 void inheritedObjectPrompt({ value: 4 });
 
 const incompletePrompts = { config: enabled ? promptAlternatives : { model, inputSchema } };
-// @ts-expect-error A successful alternative must not hide a missing prompt.
-create.TextGenerator.withFunction({}, incompletePrompts);
-// @ts-expect-error Streaming must validate every retained prompt alternative.
-create.TextStreamer.withFunction({}, incompletePrompts);
-// @ts-expect-error An output schema cannot supply the missing prompt.
-create.ObjectGenerator.withFunction({ schema }, incompletePrompts);
-// @ts-expect-error An output schema cannot supply the missing streaming prompt.
-create.ObjectStreamer.withFunction({ schema }, incompletePrompts);
+create.LLMAgent.withFunction({}, incompletePrompts);
+create.LLMAgent.withFunction.asStream({}, incompletePrompts);
+create.LLMAgent.withFunction({ output: Output.object({ schema: schema }) }, incompletePrompts);
+create.LLMAgent.withFunction.asStream({ output: Output.object({ schema: schema }) }, incompletePrompts);
 const incompatiblePrompts = { config: enabled ? promptAlternatives
 	: { model, inputSchema, prompt: ({ value }: { value: boolean }) => String(value) } };
 // @ts-expect-error One incompatible callback invalidates the complete configuration.
-create.TextGenerator.withFunction({}, incompatiblePrompts);
+create.LLMAgent.withFunction({}, incompatiblePrompts);
 // @ts-expect-error Tool callbacks must also fit their own selected input schema.
-create.ObjectGenerator.withFunction.asTool({ schema }, incompatiblePrompts);
+create.LLMAgent.withFunction.asTool({ output: Output.object({ schema: schema }) }, incompatiblePrompts);
 // @ts-expect-error Replacing the input schema must recheck both retained callbacks.
-create.TextStreamer.withFunction({ inputSchema: z.object({ value: z.boolean() }) }, prompts);
+create.LLMAgent.withFunction.asStream({ inputSchema: z.object({ value: z.boolean() }) }, prompts);
 
 // Explicit undefined clears an optional Script output parser in both compiler modes.
 const scriptParent = create.Config({ script: 'return "raw"', schema: z.number() });
@@ -203,42 +193,29 @@ expectEqual<Awaited<ReturnType<typeof _rawScript>>, unknown>();
 expectEqual<typeof _rawScriptTool.config.schema, undefined>();
 expectEqual<Awaited<ReturnType<typeof _rawScriptTool.execute>>, unknown>();
 
-// A changed output mode can clear obsolete settings without weakening its new requirements.
-const objectWithMetadata = create.Config({ model, schema, schemaName: 'Answer', schemaDescription: 'An answer' });
-const clearedObject = { schema: undefined, schemaName: undefined, schemaDescription: undefined };
-const _json = create.ObjectGenerator({ ...clearedObject, output: 'no-schema' }, objectWithMetadata);
-const _jsonStream = create.ObjectStreamer({ ...clearedObject, output: 'no-schema' }, objectWithMetadata);
-expectEqual<Awaited<ReturnType<typeof _json>>['object'], import('ai').JSONValue>();
-expectEqual<Awaited<ReturnType<typeof _jsonStream>['object']>, import('ai').JSONValue>();
-const jsonFragment = create.Config({ ...clearedObject, output: 'no-schema' }, objectWithMetadata);
-create.ObjectGenerator({}, jsonFragment);
-create.ObjectStreamer({}, jsonFragment);
-const enumFromObject = create.ObjectGenerator({ ...clearedObject, output: 'enum', enum: ['YES', 'NO'], onFinish: _event => {
-	expectEqual<typeof _event.object, 'YES' | 'NO' | undefined>();
-} }, objectWithMetadata);
-expectEqual<Awaited<ReturnType<typeof enumFromObject>>['object'], 'YES' | 'NO'>();
-const _objectFromEnum = create.ObjectGenerator({ output: 'object', enum: undefined, schema, onFinish: _event => {
-	expectEqual<typeof _event.object, { answer: number } | undefined>();
-} }, enumFromObject);
-expectEqual<Awaited<ReturnType<typeof _objectFromEnum>>['object'], { answer: number }>();
-create.ObjectGenerator.withFunction({ ...clearedObject, output: 'no-schema', prompt: () => 'Answer' }, objectWithMetadata);
-create.ObjectStreamer.withFunction({ ...clearedObject, output: 'no-schema', prompt: () => 'Answer' }, objectWithMetadata);
-create.ObjectGenerator.asTool({ ...clearedObject, output: 'no-schema', prompt: 'Answer', inputSchema }, objectWithMetadata);
-// @ts-expect-error A retained schema is incompatible with no-schema output.
-create.ObjectGenerator({ output: 'no-schema' }, objectWithMetadata);
-// @ts-expect-error Clearing the schema does not clear its inherited metadata.
-create.ObjectStreamer({ output: 'no-schema', schema: undefined }, objectWithMetadata);
-// @ts-expect-error An enum from the old mode must be cleared too.
-create.ObjectGenerator({ output: 'object', schema }, enumFromObject);
-// @ts-expect-error New object mode still requires its schema.
-create.ObjectGenerator({ output: 'object', enum: undefined }, enumFromObject);
-// @ts-expect-error Arbitrary unknown settings remain invalid even when undefined.
-create.ObjectGenerator({ model, output: 'no-schema', unknownSetting: undefined });
-declare const optionalRemoval: { schema?: undefined };
-// @ts-expect-error An optional removal may leave the old schema present.
-create.ObjectGenerator({ ...optionalRemoval, output: 'no-schema' }, objectParent);
-declare const invalidModeAlternative: { model: LanguageModel, output: 'no-schema' } | { model: LanguageModel, output: 'array' };
-// @ts-expect-error Every complete configuration branch must satisfy its own required fields.
-create.ObjectGenerator(invalidModeAlternative);
-// @ts-expect-error Streamers have the same per-branch requirement.
-create.ObjectStreamer(invalidModeAlternative);
+// Replacing Output replaces its schema and metadata as one setting.
+const objectWithMetadata = create.Config({ model, output: Output.object({ schema, name: 'Answer', description: 'An answer' }) });
+const json = create.LLMAgent({ output: Output.json() }, objectWithMetadata);
+const jsonStream = create.LLMAgent.asStream({ output: Output.json() }, objectWithMetadata);
+expectEqual<Awaited<ReturnType<typeof json>>['value'], import('ai').JSONValue>();
+expectEqual<Awaited<Awaited<ReturnType<typeof jsonStream>>['value']>, import('ai').JSONValue>();
+const jsonFragment = create.Config({ output: Output.json() }, objectWithMetadata);
+create.LLMAgent({}, jsonFragment);
+create.LLMAgent.asStream({}, jsonFragment);
+const choiceFromObject = create.LLMAgent({ onEnd: _event => {
+	expectEqual<typeof _event.output, 'YES' | 'NO' | undefined>();
+}, output: Output.choice({ options: ['YES', 'NO'] }) }, objectWithMetadata);
+expectEqual<Awaited<ReturnType<typeof choiceFromObject>>['value'], 'YES' | 'NO'>();
+const objectFromChoice = create.LLMAgent({ onEnd: _event => {
+	expectEqual<typeof _event.output, { answer: number } | undefined>();
+}, output: Output.object({ schema }) }, choiceFromObject);
+expectEqual<Awaited<ReturnType<typeof objectFromChoice>>['value'], { answer: number }>();
+create.LLMAgent.withFunction({ prompt: () => 'Answer', output: Output.json() }, objectWithMetadata);
+create.LLMAgent.withFunction.asStream({ prompt: () => 'Answer', output: Output.json() }, objectWithMetadata);
+create.LLMAgent.asTool({ prompt: 'Answer', inputSchema: z.object({}), output: Output.json() }, objectWithMetadata);
+
+
+
+
+
+export { json, jsonStream, objectFromChoice };

@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 
 import 'dotenv/config';
 
@@ -45,7 +46,7 @@ describe('asTool', function () {
 		describe('Error: Missing inputSchema Schema', () => {
 			it('should throw ConfigError when inputSchema schema is missing', () => {
 				// Exercise runtime admission; missing-schema type checks live in type-safety.
-				expect(() => create.TextGenerator.withTemplate.asTool({
+				expect(() => create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'Hello world',
@@ -53,18 +54,18 @@ describe('asTool', function () {
 					// Missing inputSchema
 				} as never)).to.throw(
 					ConfigError,
-					'\'inputSchema\' is a required property when creating a TextGenerator as a tool'
+					'An LLMAgent tool requires inputSchema and a configured prompt.'
 				);
 			});
 		});
 
-		describe('Error: Streamer Parents Not Supported', () => {
+		describe('Agent and coded tool surfaces', () => {
 
 
 			it('should identify generator types correctly', () => {
 				// This test verifies our runtime validation works correctly
 				// These should not throw errors
-				expect(() => create.TextGenerator.withTemplate.asTool({
+				expect(() => create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'Hello {{ name }}',
@@ -74,38 +75,26 @@ describe('asTool', function () {
 					})
 				})).to.not.throw();
 
-				expect(() => create.ObjectGenerator.withTemplate.asTool({
-					model,
-					...temperatureConfig,
-					prompt: 'Generate a person for {{ user }}',
-					schema: z.object({
-						name: z.string(),
-						age: z.number()
-					}),
-					description: 'A test tool',
-					inputSchema: z.object({
-						user: z.string().describe('The user requesting the person')
-					})
-				})).to.not.throw();
+				expect(() => create.LLMAgent.withTemplate.asTool({ model, ...temperatureConfig, prompt: 'Generate a person for {{ user }}', description: 'A test tool', inputSchema: z.object({
+					user: z.string().describe('The user requesting the person')
+				}), output: Output.object({ schema: z.object({
+					name: z.string(),
+					age: z.number()
+				}) }) })).to.not.throw();
 			});
 
 			it('should verify parent types have correct type property', () => {
 				//@todo - this is not a tool test
-				const textGenerator = create.TextGenerator({
+				const textGenerator = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					prompt: 'Hello world'
 				});
 
-				const objectGenerator = create.ObjectGenerator({
-					model,
-					...temperatureConfig,
-					prompt: 'Generate a person',
-					schema: z.object({
-						name: z.string(),
-						age: z.number()
-					})
-				});
+				const objectGenerator = create.LLMAgent({ model, ...temperatureConfig, prompt: 'Generate a person', output: Output.object({ schema: z.object({
+					name: z.string(),
+					age: z.number()
+				}) }) });
 
 				const script = create.Script({
 					script: 'return "Hello"'
@@ -116,8 +105,8 @@ describe('asTool', function () {
 				});
 
 				// Check that each parent has the correct type property
-				expect(textGenerator.type).to.equal('GenerateText');
-				expect(objectGenerator.type).to.equal('GenerateObject');
+				expect(textGenerator.version).to.equal('agent-v1');
+				expect(objectGenerator.version).to.equal('agent-v1');
 				expect(script.type).to.equal('Script');
 				expect(template.type).to.equal('Template');
 			});
@@ -127,7 +116,7 @@ describe('asTool', function () {
 
 		describe('Structure: Vercel SDK Compatibility', () => {
 			it('should return a valid Vercel AI Tool', () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'Hello {{ name }}',
@@ -148,7 +137,7 @@ describe('asTool', function () {
 		// Note: inputSchema validation is handled at TypeScript level, not runtime
 		// describe('Error: Invalid inputSchema Schema', () => {
 		// 	it('should throw error if inputSchema is not a z.object as our context can only be a z.object', () => {
-		// 		expect(() => create.TextGenerator.withTemplate.asTool({
+		// 		expect(() => create.LLMAgent.withTemplate.asTool({
 		// 			model,
 		// 			...temperatureConfig,
 		// 			prompt: 'Hello world',
@@ -183,20 +172,13 @@ describe('asTool', function () {
 				expect(result).to.deep.equal({ result: 'Processed: hello' });
 			});
 
-			it('should correctly identify and execute ObjectGenerator', async () => {
-				const tool = create.ObjectGenerator.withTemplate.asTool({
-					model,
-					...temperatureConfig,
-					schema: z.object({
-						capital: z.string(),
-						population: z.number()
-					}),
-					prompt: 'What is the capital and population of {{ country }}? Return only the capital name and a reasonable population estimate.',
-					description: 'An object generator tool',
-					inputSchema: z.object({
-						country: z.string()
-					})
-				});
+			it('should correctly identify and execute structured LLMAgent', async () => {
+				const tool = create.LLMAgent.withTemplate.asTool({ model, ...temperatureConfig, prompt: 'What is the capital and population of {{ country }}? Return only the capital name and a reasonable population estimate.', description: 'An object generator tool', inputSchema: z.object({
+					country: z.string()
+				}), output: Output.object({ schema: z.object({
+					capital: z.string(),
+					population: z.number()
+				}) }) });
 
 				const result = await tool.execute({ country: 'France' }, toolCallOptions);
 				expect(result).to.have.property('capital');
@@ -206,8 +188,8 @@ describe('asTool', function () {
 				expect(result.population).to.be.greaterThan(0);
 			});
 
-			it('should correctly identify and execute TextGenerator', async () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+			it('should correctly identify and execute LLMAgent', async () => {
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
@@ -222,8 +204,8 @@ describe('asTool', function () {
 				expect(result.toLowerCase().trim()).to.equal('paris');
 			});
 
-			it('should correctly identify and execute TextGenerator with Template', async () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+			it('should correctly identify and execute LLMAgent with Template', async () => {
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
@@ -266,7 +248,7 @@ describe('asTool', function () {
 
 		describe('Sub-Suite 2.3: Parameter & Signature Handling', () => {
 			it('should correctly pass Zod schema inputSchema to', async () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
@@ -281,7 +263,7 @@ describe('asTool', function () {
 			});
 
 			it('should accept Vercel SDK native object schema format', async () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
@@ -296,7 +278,7 @@ describe('asTool', function () {
 			});
 
 			it('should accept ToolExecutionOptions signature', async () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'What is the capital of {{ country }}? Answer only with the name of the capital and nothing else.',
@@ -315,8 +297,8 @@ describe('asTool', function () {
 		});
 
 		describe('Sub-Suite 2.4: Complex Parent Scenarios', () => {
-			it('should work with TextGenerator.withTemplate', async () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+			it('should work with LLMAgent.withTemplate', async () => {
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'Translate "{{ text }}" to {{ language }}',
@@ -360,8 +342,8 @@ describe('asTool', function () {
 				expect(result).to.deep.equal({ result: 'DATA FOR USER123' });
 			});
 
-			it('should work with TextGenerator.withTemplate for dynamic content', async () => {
-				const tool = create.TextGenerator.withTemplate.asTool({
+			it('should work with LLMAgent.withTemplate for dynamic content', async () => {
+				const tool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'Generate a {{ type }} story about {{ character }} in {{ setting }}. Keep it 3 sentences max, under 20 words.',
@@ -403,22 +385,15 @@ describe('asTool', function () {
 				expect(result).to.have.property('hasNumbers', true);
 			});
 
-			it('should work with ObjectGenerator.withScript', async () => {
+			it('should work with structured LLMAgent.withScript', async () => {
 				// This parent component uses a script to process input before calling the LLM
-				const tool = create.ObjectGenerator.withScript.asTool({
-					model,
-					...temperatureConfig,
-					schema: z.object({ characterName: z.string(), summary: z.string() }),
-					prompt: `
+				const tool = create.LLMAgent.withScript.asTool({ model, ...temperatureConfig, prompt: `
 							// The script constructs the final prompt for the LLM
 							return "Create a brief character: " + role + " from " + genre + " genre. Keep it short."
-						`,
-					description: 'A character generator tool',
-					inputSchema: z.object({
-						role: z.string(),
-						genre: z.string()
-					})
-				});
+						`, description: 'A character generator tool', inputSchema: z.object({
+					role: z.string(),
+					genre: z.string()
+				}), output: Output.object({ schema: z.object({ characterName: z.string(), summary: z.string() }) }) });
 
 				const result = await tool.execute({ role: 'wizard', genre: 'fantasy' }, toolCallOptions);
 
@@ -434,7 +409,7 @@ describe('asTool', function () {
 		describe('Simple Tool Identification & Call', () => {
 			it('should allow LLM to identify and call weather tool', async () => {
 				// Create a simple weather tool
-				const weatherTool = create.TextGenerator.withTemplate.asTool({
+				const weatherTool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'The weather in {{ city }} is sunny and 22°C',
@@ -445,7 +420,7 @@ describe('asTool', function () {
 				});
 
 				// Create an agent with the tool
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { get_weather: weatherTool },
@@ -462,7 +437,7 @@ describe('asTool', function () {
 
 		describe('Complex Argument Extraction', () => {
 			it('should allow LLM to extract multiple arguments from natural language', async () => {
-				const createUserTool = create.TextGenerator.withTemplate.asTool({
+				const createUserTool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'Created user: {{ name }}, Age: {{ age }}, Email: {{ email }}',
@@ -474,7 +449,7 @@ describe('asTool', function () {
 					})
 				});
 
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { create_user: createUserTool },
@@ -495,7 +470,7 @@ describe('asTool', function () {
 
 		describe('Tool Rejection (Negative Test)', () => {
 			it('should not call tool when prompt does not require it', async () => {
-				const weatherTool = create.TextGenerator.withTemplate.asTool({
+				const weatherTool = create.LLMAgent.withTemplate.asTool({
 					model,
 					...temperatureConfig,
 					prompt: 'The weather in {{ city }} is sunny and 22°C',
@@ -505,7 +480,7 @@ describe('asTool', function () {
 					})
 				});
 
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { get_weather: weatherTool },
@@ -520,22 +495,15 @@ describe('asTool', function () {
 		});
 
 		describe('Tool with Complex LLM Parent', () => {
-			it('should work with ObjectGenerator that uses LLM for structured output', async () => {
-				const sentimentTool = create.ObjectGenerator.withTemplate.asTool({
-					model,
-					...temperatureConfig,
-					schema: z.object({
-						sentiment: z.enum(['positive', 'negative', 'neutral']),
-						confidence: z.number().min(0).max(1)
-					}),
-					prompt: 'Analyze the sentiment of this text: {{ text }}',
-					description: 'Analyze the sentiment of a text',
-					inputSchema: z.object({
-						text: z.string().describe('The text to analyze')
-					})
-				});
+			it('should work with structured LLMAgent that uses LLM for structured output', async () => {
+				const sentimentTool = create.LLMAgent.withTemplate.asTool({ model, ...temperatureConfig, prompt: 'Analyze the sentiment of this text: {{ text }}', description: 'Analyze the sentiment of a text', inputSchema: z.object({
+					text: z.string().describe('The text to analyze')
+				}), output: Output.object({ schema: z.object({
+					sentiment: z.enum(['positive', 'negative', 'neutral']),
+					confidence: z.number().min(0).max(1)
+				}) }) });
 
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { analyze_sentiment: sentimentTool },
@@ -554,22 +522,15 @@ describe('asTool', function () {
 	});
 
 	describe('Suite 4: End-to-End Tool Use Conversation Loop', () => {
-		const getWeatherTool = create.ObjectGenerator.withTemplate.asTool({
-			model,
-			...temperatureConfig,
-			schema: z.object({
-				city: z.string(),
-				tempF: z.number(),
-				conditions: z.string(),
-			}),
-			prompt: 'Return weather for {{ city }}. For San Francisco, return temp 75 and "Sunny".',
-			description: 'Get the weather for a city',
-			inputSchema: z.object({ city: z.string() }),
-		});
+		const getWeatherTool = create.LLMAgent.withTemplate.asTool({ model, ...temperatureConfig, prompt: 'Return weather for {{ city }}. For San Francisco, return temp 75 and "Sunny".', description: 'Get the weather for a city', inputSchema: z.object({ city: z.string() }), output: Output.object({ schema: z.object({
+			city: z.string(),
+			tempF: z.number(),
+			conditions: z.string(),
+		}) }) });
 
 		describe('Manual Tool Result Synthesis', () => {
 			it('should allow manually continuing the conversation after a tool call', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
@@ -610,7 +571,7 @@ describe('asTool', function () {
 
 		describe('Automated Tool Result Synthesis with stopWhen', () => {
 			it('should automate the full tool-use loop in a single call', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
@@ -636,7 +597,7 @@ describe('asTool', function () {
 
 		describe('Multi-Turn Conversation with Automated Tool Use', () => {
 			it('should maintain chat history across turns, including a tool-use turn', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
@@ -682,7 +643,7 @@ describe('asTool', function () {
 			}
 		});
 
-		const loggingTool = create.TextGenerator.withTemplate.asTool({
+		const loggingTool = create.LLMAgent.withTemplate.asTool({
 			model,
 			...temperatureConfig,
 			prompt: `Only return this log entry, nothing else: [{{ level }}] Tool call {{ _toolOptions.toolCallId }} processed {{ _toolOptions.messages.length }} messages. Status: {{ status }}`,
@@ -693,7 +654,7 @@ describe('asTool', function () {
 			}),
 		});
 
-		const weatherTool = create.TextGenerator.withTemplate.asTool({
+		const weatherTool = create.LLMAgent.withTemplate.asTool({
 			model,
 			...temperatureConfig,
 			prompt: 'Weather in {{ city }} is good.',
@@ -702,15 +663,15 @@ describe('asTool', function () {
 		});
 		// --- End Test Setup ---
 
-		describe('Tool Use with TextStreamer', () => {
-			it('should allow an LLM to call a tool from a TextStreamer', async () => {
-				const agent = create.TextStreamer({
+		describe('Tool Use with streaming LLMAgent', () => {
+			it('should allow an LLM to call a tool from a streaming LLMAgent', async () => {
+				const agent = create.LLMAgent.asStream({
 					model,
 					...temperatureConfig,
 					tools: { getWeather: weatherTool },
 				});
 
-				const result = agent('What is the weather in San Francisco?');
+				const result = (await agent('What is the weather in San Francisco?'));
 
 				// First consume the stream to ensure it completes
 				await streamToPromise(result.textStream);
@@ -726,7 +687,7 @@ describe('asTool', function () {
 
 		describe('Tool Choice Validation', () => {
 			it('should force a tool call when toolChoice is "required"', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { getWeather: weatherTool },
@@ -741,7 +702,7 @@ describe('asTool', function () {
 			});
 
 			it('should force a specific tool call when toolChoice specifies a tool name', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { getWeather: weatherTool, log: loggingTool },
@@ -761,7 +722,7 @@ describe('asTool', function () {
 
 		describe('Error Propagation in LLM Loops', () => {
 			it('should handle tool execution errors gracefully and continue the conversation', async () => {
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { errorTool: errorTool },
@@ -800,7 +761,7 @@ describe('asTool', function () {
 			it('should correctly inject _toolOptions into a tool called by an LLM', async function () {
 				this.timeout(timeout * 2); // Agent and LLM-backed tool make two serial model requests.
 
-				const agent = create.TextGenerator({
+				const agent = create.LLMAgent({
 					model,
 					...temperatureConfig,
 					tools: { loggingTool: loggingTool },
@@ -885,7 +846,7 @@ describe('asTool', function () {
 		});
 
 		it('should be callable by an LLM in an automated loop', async () => {
-			const agent = create.TextGenerator({
+			const agent = create.LLMAgent({
 				model,
 				...temperatureConfig,
 				tools: { calculate: calculatorTool },

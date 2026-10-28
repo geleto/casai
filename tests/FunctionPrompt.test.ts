@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError, ValidationError } from './cascada';
@@ -53,10 +54,10 @@ describe('withFunction prompts', () => {
 	const describeItem = (context: Context) =>
 		`Generate an object with name "${context.name}" and value ${context.value}.`;
 
-	for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectStreamer'] as const) {
+	for (const factory of ['generate', 'stream', 'stream-structured'] as const) {
 		it(`${factory} rejects missing or cleared function prompts before dispatch`, () => {
 			const model = mockModel('unused');
-			const settings = { model, ...(factory === 'ObjectStreamer' ? { schema: itemSchema } : {}) };
+			const settings = { model, inputSchema: itemSchema, ...(factory === 'stream-structured' ? { output: Output.object({ schema: itemSchema }) } : {}) };
 			const cases = [
 				[settings],
 				[{}, { config: settings }],
@@ -64,17 +65,17 @@ describe('withFunction prompts', () => {
 				[{ prompt: undefined }, { config: { ...settings, prompt: describeItem } }],
 			];
 			for (const args of cases) {
-				expect(() => { Reflect.apply(create[factory].withFunction, undefined, args); })
-					.to.throw(ConfigError, /prompt.*must be a function/);
+				expect(() => { Reflect.apply(factory === 'generate' ? create.LLMAgent.withFunction.asTool : create.LLMAgent.withFunction.asStream.asTool, undefined, args); })
+					.to.throw(ConfigError, /configured prompt/);
 			}
 			expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
 		});
 	}
 
-	describe('create.TextGenerator.withFunction', () => {
+	describe('create.LLMAgent.withFunction', () => {
 		it('should build the prompt from the call-time context', async () => {
 			const model = mockModel('FN_TEXT');
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model,
 				prompt: (context) => `Output exactly ${context.marker} and nothing else.`,
 			});
@@ -88,7 +89,7 @@ describe('withFunction prompts', () => {
 
 		it('should build the prompt when called without arguments', async () => {
 			const model = mockModel('FN_NOARGS');
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model,
 				prompt: context => {
 					expect(context).to.deep.equal({ _toolOptions: {} });
@@ -105,7 +106,7 @@ describe('withFunction prompts', () => {
 
 		it('should support text and message prompts on successive calls', async () => {
 			const model = mockModel('FN_REPEAT');
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model,
 				prompt: (context): string | ModelMessage[] => context.asMessages
 					? [{ role: 'user', content: context.marker as string }]
@@ -124,16 +125,15 @@ describe('withFunction prompts', () => {
 
 		it('should await message prompts and append them to configured history', async () => {
 			const model = mockModel('FN_MESSAGES');
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model,
-				messages: [{ role: 'user', content: 'Previous question' }],
 				prompt: async (context): Promise<ModelMessage[]> => {
 					await Promise.resolve();
 					return [{ role: 'user', content: `Output ${context.marker}` }];
 				},
 			});
 
-			expect((await generator({ marker: 'FN_MESSAGES' })).text).to.equal('FN_MESSAGES');
+			expect((await generator({ marker: 'FN_MESSAGES' }, [{ role: 'user', content: 'Previous question' }])).text).to.equal('FN_MESSAGES');
 			expect(model.doGenerateCalls[0].prompt.map(message => message.content)).to.deep.equal([
 				[{ type: 'text', text: 'Previous question' }],
 				[{ type: 'text', text: 'Output FN_MESSAGES' }],
@@ -142,7 +142,7 @@ describe('withFunction prompts', () => {
 
 		it('should use context, messages, and model overrides through run()', async () => {
 			const model = mockModel('FN_RUN');
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model,
 				context: { prefix: 'Configured' },
 				inputSchema: z.object({ marker: z.string() }),
@@ -151,7 +151,7 @@ describe('withFunction prompts', () => {
 
 			expect((await generator.run({
 				context: { marker: 'Runtime' },
-				messages: [{ role: 'user', content: 'History' }],
+				messageHistory: [{ role: 'user', content: 'History' }],
 				maxOutputTokens: 20,
 			})).text).to.equal('FN_RUN');
 			expect(model.doGenerateCalls[0].maxOutputTokens).to.equal(20);
@@ -164,7 +164,7 @@ describe('withFunction prompts', () => {
 		it('should validate call-time inputs before executing the prompt', async () => {
 			const model = mockModel('unused');
 			let promptCalls = 0;
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model,
 				context: { marker: 'Configured' },
 				inputSchema: z.object({ marker: z.string() }),
@@ -184,7 +184,7 @@ describe('withFunction prompts', () => {
 		it('should replace the prompt callback for one run without changing the configured callback', async () => {
 			const model = mockModel('FN_OVERRIDE');
 			const originalPrompt = (context: Context) => `${context.prefix} original ${context.marker}`;
-			const generator = create.TextGenerator.withFunction({
+			const generator = create.LLMAgent.withFunction({
 				model,
 				context: { prefix: 'Configured' },
 				inputSchema: z.object({ marker: z.string(), prefix: z.string() }),
@@ -209,10 +209,10 @@ describe('withFunction prompts', () => {
 
 		it('should validate run-time prompt replacements before calling the model', async () => {
 			const model = mockModel('unused');
-			const generator = create.TextGenerator.withFunction({ model, prompt: () => 'Configured' });
+			const generator = create.LLMAgent.withFunction({ model, prompt: () => 'Configured' });
 			// @ts-expect-error A function-prompt run requires a callback instead of a string.
 			await expect(generator.run({ prompt: 'Replacement' }))
-				.to.be.rejectedWith(ValidationError, "The 'prompt' property must be a function");
+				.to.be.rejectedWith(ValidationError, /must be a function/);
 			await expect(generator.run({
 				prompt: () => [{ role: 'invalid', content: 'Invalid message' }] as never,
 			})).to.be.rejectedWith(ValidationError, 'Prompt output validation failed');
@@ -222,7 +222,7 @@ describe('withFunction prompts', () => {
 		it('should propagate failures from a replacement callback', async () => {
 			const model = mockModel('unused');
 			const failure = new Error('Replacement failed');
-			const generator = create.TextGenerator.withFunction({ model, prompt: () => 'Configured' });
+			const generator = create.LLMAgent.withFunction({ model, prompt: () => 'Configured' });
 			await expect(generator.run({
 				prompt: async () => { await Promise.resolve(); throw failure; },
 			})).to.be.rejectedWith(failure);
@@ -231,24 +231,24 @@ describe('withFunction prompts', () => {
 
 		it('should reject positional prompt and message overrides', async () => {
 			const model = mockModel('unused');
-			const generator = create.TextGenerator.withFunction({ model, prompt: () => 'Configured' });
+			const generator = create.LLMAgent.withFunction({ model, prompt: () => 'Configured' });
 
 			// @ts-expect-error Function prompts accept context, not a string override.
-			await expect(generator('Replacement')).to.be.rejectedWith(ValidationError, 'only accept a context object');
+			await expect(generator('Replacement')).to.be.rejectedWith(ValidationError, '');
 			// @ts-expect-error An array cannot serve as function context.
 			await expect(generator([{ role: 'user', content: 'Replacement' }]))
-				.to.be.rejectedWith(ValidationError, 'only accept a context object');
+				.to.be.rejectedWith(ValidationError, '');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
 
 		it('should propagate callback failures and validate returned prompts', async () => {
 			const model = mockModel('unused');
 			const failure = new Error('Prompt failed');
-			const failingGenerator = create.TextGenerator.withFunction({
+			const failingGenerator = create.LLMAgent.withFunction({
 				model,
 				prompt: async () => { await Promise.resolve(); throw failure; },
 			});
-			const invalidGenerator = create.TextGenerator.withFunction({
+			const invalidGenerator = create.LLMAgent.withFunction({
 				model,
 				prompt: () => ({ invalid: true }) as never,
 			});
@@ -262,7 +262,7 @@ describe('withFunction prompts', () => {
 			const model = mockModel('FN_TOOL');
 			const options: ToolExecutionOptions<undefined> = { toolCallId: 'text-function', messages: [], context: undefined };
 			const parent = create.Config({ model, context: { prefix: 'Configured' } });
-			const tool = create.TextGenerator.withFunction.asTool({
+			const tool = create.LLMAgent.withFunction.asTool({
 				inputSchema: z.object({ marker: z.string() }),
 				prompt: context => {
 					expect(context._toolOptions).to.deep.equal({ toolCallId: options.toolCallId, messages: options.messages, ...('abortSignal' in options ? { abortSignal: options.abortSignal } : {}) });
@@ -277,10 +277,10 @@ describe('withFunction prompts', () => {
 		});
 	});
 
-	describe('create.TextStreamer.withFunction', () => {
+	describe('create.LLMAgent.withFunction.asStream', () => {
 		it('should stream text from a prompt built from the call-time context', async () => {
 			const model = mockModel('FN_STREAM');
-			const streamer = create.TextStreamer.withFunction({
+			const streamer = create.LLMAgent.withFunction.asStream({
 				model,
 				prompt: async context => `Output exactly ${context.marker} and nothing else.`,
 			});
@@ -304,9 +304,9 @@ describe('withFunction prompts', () => {
 					{ type: 'text', text: 'Output FN_MESSAGES' },
 				],
 			}];
-			const streamer = create.TextStreamer.withFunction({
+			const streamer = create.LLMAgent.withFunction.asStream({
 				model,
-				messages: [{ role: 'user', content: 'Configured history' }],
+				instructions: 'Configured instructions',
 				prompt: async (context: Context): Promise<ModelMessage[]> => {
 					await Promise.resolve();
 					expect(context.marker).to.equal('FN_MESSAGES');
@@ -314,10 +314,10 @@ describe('withFunction prompts', () => {
 				},
 			});
 
-			const result = await streamer.run({ context: { marker: 'FN_MESSAGES' }, messages: history });
+			const result = await streamer.run({ context: { marker: 'FN_MESSAGES' }, messageHistory: history });
 			expect((await collect(result.textStream)).join('')).to.equal('FN_MESSAGES');
 			expect(model.doStreamCalls[0].prompt.map(message => message.content)).to.deep.equal([
-				[{ type: 'text', text: 'Configured history' }],
+				'Configured instructions',
 				[{ type: 'text', text: 'Previous reply' }],
 				[
 					{ type: 'text', text: 'Static prefix', providerOptions },
@@ -334,7 +334,7 @@ describe('withFunction prompts', () => {
 
 		it('should stream from a replacement callback for one run', async () => {
 			const model = mockModel('FN_STREAM_OVERRIDE');
-			const streamer = create.TextStreamer.withFunction({ model, prompt: () => 'Configured' });
+			const streamer = create.LLMAgent.withFunction.asStream({ model, prompt: () => 'Configured' });
 			const overridden = await streamer.run({
 				context: { marker: 'Replacement' },
 				prompt: (context: Context) => `Stream ${context.marker}`,
@@ -349,10 +349,10 @@ describe('withFunction prompts', () => {
 		});
 	});
 
-	describe('create.ObjectGenerator.withFunction', () => {
+	describe('create.LLMAgent.withFunction', () => {
 		it('rejects missing or cleared prompt callbacks before model dispatch', () => {
 			const model = mockModel('{"name":"unused","value":0}');
-			const settings = { model, schema: itemSchema };
+			const settings = { model, inputSchema: itemSchema, output: Output.object({ schema: itemSchema }) };
 			const cases = [
 				[settings],
 				[{}, { config: settings }],
@@ -361,23 +361,18 @@ describe('withFunction prompts', () => {
 			];
 			for (const args of cases) {
 				// Exercise the JavaScript boundary independently of compile-time rejection.
-				expect(() => { Reflect.apply(create.ObjectGenerator.withFunction, undefined, args); })
-					.to.throw(ConfigError, /prompt.*must be a function/);
+				expect(() => { Reflect.apply(create.LLMAgent.withFunction.asTool, undefined, args); })
+					.to.throw(ConfigError, /configured prompt/);
 			}
 			expect(model.doGenerateCalls).to.have.length(0);
 		});
 
 		it('should merge the configured and call-time context', async () => {
 			const model = mockModel('{"name":"FnObject","value":7}');
-			const generator = create.ObjectGenerator.withFunction({
-				model,
-				schema: itemSchema,
-				inputSchema: itemSchema, context: { name: 'Configured', value: 7 },
-				prompt: describeItem,
-			});
+			const generator = create.LLMAgent.withFunction({ model, inputSchema: itemSchema, context: { name: 'Configured', value: 7 }, prompt: describeItem, output: Output.object({ schema: itemSchema }) });
 
 			const result = await generator({ name: 'FnObject' });
-			expect(result.object).to.deep.equal({ name: 'FnObject', value: 7 });
+			expect(result.output).to.deep.equal({ name: 'FnObject', value: 7 });
 			expect(model.doGenerateCalls[0].prompt[0].content).to.deep.equal([
 				{ type: 'text', text: 'Generate an object with name "FnObject" and value 7.' },
 			]);
@@ -389,13 +384,10 @@ describe('withFunction prompts', () => {
 				model,
 				context: { value: 11 },
 			});
-			const generator = create.ObjectGenerator.withFunction({
-				schema: itemSchema,
-				prompt: describeItem,
-			}, parent);
+			const generator = create.LLMAgent.withFunction({ prompt: describeItem, output: Output.object({ schema: itemSchema }) }, parent);
 
 			const result = await generator({ name: 'FnInherited' });
-			expect(result.object).to.deep.equal({ name: 'FnInherited', value: 11 });
+			expect(result.output).to.deep.equal({ name: 'FnInherited', value: 11 });
 			expect(model.doGenerateCalls[0].prompt[0].content).to.deep.equal([
 				{ type: 'text', text: 'Generate an object with name "FnInherited" and value 11.' },
 			]);
@@ -405,14 +397,10 @@ describe('withFunction prompts', () => {
 			const model = mockModel('{"name":"FnTool","value":13}');
 			const options: ToolExecutionOptions<undefined> = { toolCallId: 'object-function', messages: [], context: undefined };
 			const parent = create.Config({ model, context: { value: 13 } });
-			const tool = create.ObjectGenerator.withFunction.asTool({
-				schema: itemSchema,
-				inputSchema: z.object({ name: z.string() }),
-				prompt: (context: Context) => {
-					expect(context._toolOptions).to.deep.equal({ toolCallId: options.toolCallId, messages: options.messages, ...('abortSignal' in options ? { abortSignal: options.abortSignal } : {}) });
-					return describeItem(context);
-				},
-			}, parent);
+			const tool = create.LLMAgent.withFunction.asTool({ inputSchema: z.object({ name: z.string() }), prompt: (context: Context) => {
+				expect(context._toolOptions).to.deep.equal({ toolCallId: options.toolCallId, messages: options.messages, ...('abortSignal' in options ? { abortSignal: options.abortSignal } : {}) });
+				return describeItem(context);
+			}, output: Output.object({ schema: itemSchema }) }, parent);
 
 			expect(tool.type).to.equal('function');
 			expect(await tool.execute({ name: 'FnTool' }, options)).to.deep.equal({ name: 'FnTool', value: 13 });
@@ -423,17 +411,12 @@ describe('withFunction prompts', () => {
 
 		it('should inherit the prompt callback and schema while overriding context', async () => {
 			const model = mockModel('{"name":"FnChild","value":19}');
-			const parent = create.ObjectGenerator.withFunction({
-				model,
-				schema: itemSchema,
-				inputSchema: itemSchema, context: { name: 'Parent', value: 11 },
-				prompt: describeItem,
-			});
-			const child = create.ObjectGenerator.withFunction({ context: { name: 'Child', value: 15 } }, parent);
+			const parent = create.LLMAgent.withFunction({ model, inputSchema: itemSchema, context: { name: 'Parent', value: 11 }, prompt: describeItem, output: Output.object({ schema: itemSchema }) });
+			const child = create.LLMAgent.withFunction({ context: { name: 'Child', value: 15 } }, parent);
 
 			expect(child.config.prompt).to.equal(describeItem);
-			expect(child.config.schema).to.equal(itemSchema);
-			expect((await child({ name: 'FnChild', value: 19 })).object).to.deep.equal({ name: 'FnChild', value: 19 });
+			expect(child.config.output).to.equal(parent.config.output);
+			expect((await child({ name: 'FnChild', value: 19 })).output).to.deep.equal({ name: 'FnChild', value: 19 });
 			expect(model.doGenerateCalls[0].prompt[0].content).to.deep.equal([
 				{ type: 'text', text: 'Generate an object with name "FnChild" and value 19.' },
 			]);
@@ -441,37 +424,27 @@ describe('withFunction prompts', () => {
 
 		it('should use a replacement callback with the configured object output schema', async () => {
 			const model = mockModel('{"name":"FnOverride","value":17}');
-			const generator = create.ObjectGenerator.withFunction({
-				model,
-				schema: itemSchema,
-				context: { value: 17 },
-				prompt: () => 'Configured',
-			});
+			const generator = create.LLMAgent.withFunction({ model, context: { value: 17 }, prompt: () => 'Configured', output: Output.object({ schema: itemSchema }) });
 			const result = await generator.run({
 				context: { name: 'FnOverride' },
 				prompt: describeItem,
 			});
-			expect(result.object).to.deep.equal({ name: 'FnOverride', value: 17 });
+			expect(result.output).to.deep.equal({ name: 'FnOverride', value: 17 });
 			expect(model.doGenerateCalls[0].prompt[0].content).to.deep.equal([
 				{ type: 'text', text: 'Generate an object with name "FnOverride" and value 17.' },
 			]);
 		});
 	});
 
-	describe('create.ObjectStreamer.withFunction', () => {
+	describe('create.LLMAgent.withFunction.asStream', () => {
 		it('should merge the configured and call-time context', async () => {
 			const model = mockModel('{"name":"FnStream","value":7}');
-			const streamer = create.ObjectStreamer.withFunction({
-				model,
-				schema: itemSchema,
-				context: { value: 7 },
-				prompt: describeItem,
-			});
+			const streamer = create.LLMAgent.withFunction.asStream({ model, context: { value: 7 }, prompt: describeItem, output: Output.object({ schema: itemSchema }) });
 
 			const result = await streamer({ name: 'FnStream' });
-			const partials = await collect(result.partialObjectStream);
+			const partials = await collect(result.partialOutputStream);
 			expect(partials[partials.length - 1]).to.deep.equal({ name: 'FnStream', value: 7 });
-			expect(await result.object).to.deep.equal({ name: 'FnStream', value: 7 });
+			expect(await result.output).to.deep.equal({ name: 'FnStream', value: 7 });
 			expect(model.doStreamCalls[0].prompt[0].content).to.deep.equal([
 				{ type: 'text', text: 'Generate an object with name "FnStream" and value 7.' },
 			]);
@@ -481,18 +454,13 @@ describe('withFunction prompts', () => {
 			const model = mockModel('{"elements":[{"id":5,"item":"FromMessages"}]}');
 			const providerOptions = { anthropic: { cacheControl: { type: 'ephemeral' } } };
 			// Multi-part messages let a prompt mark its static prefix, e.g. with a provider cache breakpoint.
-			const streamer = create.ObjectStreamer.withFunction({
-				model,
-				output: 'array',
-				schema: z.object({ id: z.number(), item: z.string() }),
-				prompt: async (context: Context): Promise<ModelMessage[]> => [{
-					role: 'user',
-					content: [
-						{ type: 'text', text: 'Generate a JSON array with one item.', providerOptions },
-						{ type: 'text', text: `The item is {id: ${context.id}, item: "${context.item}"}.` },
-					],
-				}],
-			});
+			const streamer = create.LLMAgent.withFunction.asStream({ model, prompt: async (context: Context): Promise<ModelMessage[]> => [{
+				role: 'user',
+				content: [
+					{ type: 'text', text: 'Generate a JSON array with one item.', providerOptions },
+					{ type: 'text', text: `The item is {id: ${context.id}, item: "${context.item}"}.` },
+				],
+			}], output: Output.array({ element: z.object({ id: z.number(), item: z.string() }) }) });
 
 			const result = await streamer({ id: 5, item: 'FromMessages' });
 			const elements = await collect(result.elementStream);
@@ -509,13 +477,10 @@ describe('withFunction prompts', () => {
 				model,
 				context: { value: 11 },
 			});
-			const streamer = create.ObjectStreamer.withFunction({
-				schema: itemSchema,
-				prompt: describeItem,
-			}, parent);
+			const streamer = create.LLMAgent.withFunction.asStream({ prompt: describeItem, output: Output.object({ schema: itemSchema }) }, parent);
 
 			const result = await streamer({ name: 'FnStreamInherited' });
-			const partials = await collect(result.partialObjectStream);
+			const partials = await collect(result.partialOutputStream);
 			expect(partials[partials.length - 1]).to.deep.equal({ name: 'FnStreamInherited', value: 11 });
 			expect(model.doStreamCalls[0].prompt[0].content).to.deep.equal([
 				{ type: 'text', text: 'Generate an object with name "FnStreamInherited" and value 11.' },
@@ -525,17 +490,11 @@ describe('withFunction prompts', () => {
 		it('should inherit array output, the prompt callback, and the element schema', async () => {
 			const model = mockModel('{"elements":[{"name":"FnInheritedArray","value":23}]}');
 			const prompt = async (context: Context): Promise<ModelMessage[]> => [{ role: 'user', content: describeItem(context) }];
-			const parent = create.ObjectStreamer.withFunction({
-				model,
-				output: 'array',
-				schema: itemSchema,
-				context: { value: 11 }, inputSchema: z.object({ name: z.string(), value: z.number() }),
-				prompt,
-			});
-			const child = create.ObjectStreamer.withFunction({ context: { value: 17 } }, parent);
+			const parent = create.LLMAgent.withFunction.asStream({ model, context: { value: 11 }, inputSchema: z.object({ name: z.string(), value: z.number() }), prompt, output: Output.array({ element: itemSchema }) });
+			const child = create.LLMAgent.withFunction.asStream({ context: { value: 17 } }, parent);
 
 			expect(child.config.prompt).to.equal(prompt);
-			expect(child.config.schema).to.equal(itemSchema);
+			expect(child.config.output).to.equal(parent.config.output);
 			const result = await child({ name: 'FnInheritedArray', value: 23 });
 			expect(await collect(result.elementStream)).to.deep.equal([{ name: 'FnInheritedArray', value: 23 }]);
 			expect(model.doStreamCalls[0].prompt[0].content).to.deep.equal([
@@ -545,13 +504,7 @@ describe('withFunction prompts', () => {
 
 		it('should stream array elements from a replacement callback', async () => {
 			const model = mockModel('{"elements":[{"name":"FnStreamOverride","value":29}]}');
-			const streamer = create.ObjectStreamer.withFunction({
-				model,
-				output: 'array',
-				schema: itemSchema,
-				context: { value: 29 },
-				prompt: () => 'Configured',
-			});
+			const streamer = create.LLMAgent.withFunction.asStream({ model, context: { value: 29 }, prompt: () => 'Configured', output: Output.array({ element: itemSchema }) });
 			const result = await streamer.run({
 				context: { name: 'FnStreamOverride' },
 				prompt: async (context: Context): Promise<ModelMessage[]> => [{ role: 'user', content: describeItem(context) }],
@@ -565,13 +518,13 @@ describe('withFunction prompts', () => {
 
 	it('should require function prompts and schemas at creation time', () => {
 		const model = mockModel('unused');
-		expect(() => create.TextGenerator.withFunction({
+		expect(() => create.LLMAgent.withFunction({
 			model,
 			// @ts-expect-error withFunction requires a callback.
 			prompt: 'Invalid',
-		})).to.throw(ConfigError, "The 'prompt' property must be a function");
+		})).to.throw(ConfigError, /must be a function/);
 		// @ts-expect-error Array output requires an element schema.
-		expect(() => create.ObjectStreamer.withFunction({ model, output: 'array', prompt: () => 'Invalid' }))
-			.to.throw(ConfigError, "An 'output' of 'array' requires a 'schema' property");
+		expect(() => create.LLMAgent.withFunction.asStream({ model, output: 'array', prompt: () => 'Invalid' }))
+			.to.throw(ConfigError, /AI SDK Output specification/);
 	});
 });

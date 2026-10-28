@@ -106,8 +106,9 @@ describe('Provider HTTP result contracts', () => {
 		const mode = streaming ? 'stream' : 'generate';
 		it(`${mode}: OpenAI Responses preserves the SDK text from both message phases`, async () => {
 			const replay = openAIResponsesReplay();
-			const component = streaming ? create.TextStreamer({ model: replay.model }) : create.TextGenerator({ model: replay.model });
-			const result = await component('question');
+			const component = streaming ? create.LLMAgent.asStream({ model: replay.model }) : create.LLMAgent({ model: replay.model });
+			const call: (prompt: string) => ReturnType<typeof component> = component;
+			const result = await call('question');
 			assert.equal(await textValue(result.value), 'Checking.Complete.');
 			assert.equal(await result.output, 'Checking.Complete.');
 			assert.equal((await result.steps).length, 1);
@@ -117,8 +118,9 @@ describe('Provider HTTP result contracts', () => {
 			it(`${mode}: an Anthropic pause with ${pending ? 'pending' : 'resolved'} search results is unavailable`, async () => {
 				const replay = anthropicReplay('pause_turn', pending);
 				const config = { model: replay.model, tools: replay.tools };
-				const component = streaming ? create.TextStreamer(config) : create.TextGenerator(config);
-				const result = await component('question');
+				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
+				const call: (prompt: string) => ReturnType<typeof component> = component;
+				const result = await call('question');
 				assert.equal(await result.finishReason, 'stop');
 				assert.equal(await result.rawFinishReason, 'pause_turn');
 				assert.equal(await result.output, 'Let me search for that.Let me refine the search.');
@@ -128,7 +130,7 @@ describe('Provider HTTP result contracts', () => {
 				assert.ok(history.length > 1);
 				if (!pending) {
 					assert.ok(JSON.stringify(history).includes('encrypted-source'));
-					const resumed = await component.run({ messages: history });
+					const resumed = await component.run({ messageHistory: history });
 					assert.equal(await textValue(resumed.value), 'Complete.');
 					assert.ok(JSON.stringify(replay.requests[1].messages).includes('encrypted-source'));
 				}
@@ -139,8 +141,9 @@ describe('Provider HTTP result contracts', () => {
 		it(`${mode}: a completed Anthropic server-tool step preserves all SDK text without separators`, async () => {
 			const replay = anthropicReplay('end_turn');
 			const config = { model: replay.model, tools: replay.tools };
-			const component = streaming ? create.TextStreamer(config) : create.TextGenerator(config);
-			const result = await component('question');
+			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
+			const call: (prompt: string) => ReturnType<typeof component> = component;
+			const result = await call('question');
 			const nativeOutput = await result.output;
 			assert.equal(nativeOutput, 'Let me search for that.The answer is 42.');
 			assert.equal(await textValue(result.value), nativeOutput);
@@ -152,8 +155,9 @@ describe('Provider HTTP result contracts', () => {
 		for (const refusal of [false, true]) {
 			it(`${mode}: OpenAI chat ${refusal ? 'refusal' : 'intentional empty output'} is native empty stop text`, async () => {
 				const replay = openAIChatReplay(refusal);
-				const component = streaming ? create.TextStreamer({ model: replay.model }) : create.TextGenerator({ model: replay.model });
-				const result = await component('question');
+				const component = streaming ? create.LLMAgent.asStream({ model: replay.model }) : create.LLMAgent({ model: replay.model });
+				const call: (prompt: string) => ReturnType<typeof component> = component;
+				const result = await call('question');
 				assert.equal(await result.finishReason, 'stop');
 				assert.equal(await result.output, '');
 				assert.equal(await textValue(result.value), '');
@@ -164,8 +168,9 @@ describe('Provider HTTP result contracts', () => {
 			it(`${mode}: OpenAI chat ${refusal ? 'refusal' : 'empty output'} still fails structured parsing`, async () => {
 				const replay = openAIChatReplay(refusal);
 				const config = { model: replay.model, output: Output.object({ schema: z.object({ n: z.number() }) }) };
-				const component = streaming ? create.TextStreamer(config) : create.TextGenerator(config);
-				await assert.rejects(async () => { const result = await component('question'); await result.value; }, NoObjectGeneratedError);
+				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
+				await assert.rejects(async () => { const call: (prompt: string) => ReturnType<typeof component> = component;
+					const result = await call('question'); await result.value; }, NoObjectGeneratedError);
 				assert.equal(replay.requests.length, 1);
 			});
 		}

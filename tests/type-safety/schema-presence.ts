@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import { create, z } from 'casai';
 import type { FunctionConfig } from 'casai';
 import type { LanguageModel } from 'ai';
@@ -24,7 +25,7 @@ create.Config({ ...inputSpread, execute: ({ value, count: _count }) => {
 	expectEqual<typeof _count, number | undefined>();
 	return value;
 } });
-create.TextGenerator.withFunction({ model, ...inputSpread, prompt: ({ value }) => {
+create.LLMAgent.withFunction({ model, ...inputSpread, prompt: ({ value }) => {
 	expectEqual<typeof value, string | number>();
 	return String(value);
 } });
@@ -91,16 +92,16 @@ create.Config({ ...optionalInput, execute: ({ value, count: _count }) => {
 	expectEqual<typeof _count, number | undefined>();
 	return value;
 } });
-create.TextGenerator.withFunction({ model, ...optionalInput, prompt: ({ value, count: _count }) => {
+create.LLMAgent.withFunction({ model, ...optionalInput, prompt: ({ value, count: _count }) => {
 	expectEqual<typeof value, string | number>();
 	expectEqual<typeof _count, number | undefined>();
 	return String(value) + String(_count);
 } });
-create.ObjectStreamer.withFunction({ model, schema: z.object({ answer: z.string() }), ...optionalInput, prompt: ({ value, count: _count }) => {
+create.LLMAgent.withFunction.asStream({ model, ...optionalInput, prompt: ({ value, count: _count }) => {
 	expectEqual<typeof value, string | number>();
 	expectEqual<typeof _count, number | undefined>();
 	return String(value) + String(_count);
-} });
+}, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 
 // Optional schema declarations cannot publish configured private values as guaranteed public input.
 const privateValue = create.Function({ ...optionalInput, context: { value: '2' }, execute: ({ value }) => value });

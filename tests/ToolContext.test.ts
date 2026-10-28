@@ -1,3 +1,4 @@
+import { runtimeRun } from './fixtures/runtime-call.js';
 import assert from 'node:assert/strict';
 import { asSchema, tool } from 'ai';
 import { validateTypes } from '@ai-sdk/provider-utils';
@@ -77,22 +78,22 @@ describe('Production tool context boundaries', () => {
 				const model = modelFor({ value: 2 }, 'multiply');
 				const base = { model, tools: { multiply }, toolsContext: { multiply: { factor: 3 } } };
 				const generators = [
-					() => create.TextGenerator({ ...base, prompt: 'Multiply' }),
-					() => create.TextGenerator.loadsText({ ...base, loader: { load: () => 'Multiply' }, prompt: 'source' }),
-					() => create.TextGenerator.withTemplate({ ...base, prompt: 'Multiply' }),
-					() => create.TextGenerator.withScript({ ...base, prompt: 'return "Multiply"' }),
-					() => create.TextGenerator.withFunction({ ...base, prompt: () => 'Multiply' }),
+					() => create.LLMAgent({ ...base, prompt: 'Multiply' }),
+					() => create.LLMAgent.loadsText({ ...base, loader: { load: () => 'Multiply' }, prompt: 'source' }),
+					() => create.LLMAgent.withTemplate({ ...base, prompt: 'Multiply' }),
+					() => create.LLMAgent.withScript({ ...base, prompt: 'return "Multiply"' }),
+					() => create.LLMAgent.withFunction({ ...base, prompt: () => 'Multiply' }),
 				];
 				const streamers = [
-					() => create.TextStreamer({ ...base, prompt: 'Multiply' }),
-					() => create.TextStreamer.loadsText({ ...base, loader: { load: () => 'Multiply' }, prompt: 'source' }),
-					() => create.TextStreamer.withTemplate({ ...base, prompt: 'Multiply' }),
-					() => create.TextStreamer.withScript({ ...base, prompt: 'return "Multiply"' }),
-					() => create.TextStreamer.withFunction({ ...base, prompt: () => 'Multiply' }),
+					() => create.LLMAgent.asStream({ ...base, prompt: 'Multiply' }),
+					() => create.LLMAgent.loadsText.asStream({ ...base, loader: { load: () => 'Multiply' }, prompt: 'source' }),
+					() => create.LLMAgent.withTemplate.asStream({ ...base, prompt: 'Multiply' }),
+					() => create.LLMAgent.withScript.asStream({ ...base, prompt: 'return "Multiply"' }),
+					() => create.LLMAgent.withFunction.asStream({ ...base, prompt: () => 'Multiply' }),
 				];
 				const index = ['text', 'loaded', 'template', 'script', 'function'].indexOf(renderer);
 				const owner = (mode === 'generate' ? generators[index] : streamers[index])();
-				const result = await owner.run({ toolsContext: { multiply: { factor: 5 } } });
+				const result = await runtimeRun(owner, { toolsContext: { multiply: { factor: 5 } } });
 				assert.equal((await result.toolResults)[0].output, 10);
 				assert.equal(owner.config.toolsContext.multiply.factor, 3);
 				assert.equal(multiply.config.context.factor, 1);
@@ -102,8 +103,8 @@ describe('Production tool context boundaries', () => {
 			let entries = 0;
 			const errors: unknown[] = [];
 			const action = create.Function.asTool({ context: { factor: 1 }, inputSchema, toolContextSchema, execute: () => { entries++; return 1; } });
-			const owner = mode === 'generate' ? create.TextGenerator({ model: modelFor({ value: 2 }), tools: { probe: action }, toolsContext: { probe: { factor: 'bad' } as never }, prompt: 'go' })
-				: create.TextStreamer({ model: modelFor({ value: 2 }), tools: { probe: action }, toolsContext: { probe: { factor: 'bad' } as never }, prompt: 'go',
+			const owner = mode === 'generate' ? create.LLMAgent({ model: modelFor({ value: 2 }), tools: { probe: action }, toolsContext: { probe: { factor: 'bad' } as never }, prompt: 'go' })
+				: create.LLMAgent.asStream({ model: modelFor({ value: 2 }), tools: { probe: action }, toolsContext: { probe: { factor: 'bad' } as never }, prompt: 'go',
 					onError: ({ error }) => { errors.push(error); } });
 			await assert.rejects(async () => { const result = await owner(); await result.text; }, mode === 'generate' ? /Tool 'probe' context validation failed/ : /No output generated/);
 			assert.equal(entries, 0);

@@ -1,3 +1,5 @@
+import type { EmptyMap } from './assert.js';
+import { Output } from 'ai';
 import { create, z } from 'casai';
 import type { InferToolOutput, LanguageModel } from 'ai';
 import { expectEqual } from './assert.js';
@@ -32,8 +34,8 @@ create.Function({ tools: { tool }, execute: async ({ tool }) => {
 	return typeof result === 'string' ? result.toUpperCase() : result;
 } });
 
-// eslint-disable-next-line @typescript-eslint/no-generated-empty-object-type -- This configuration alternative has no properties.
-declare const parent: { context: { user: string } } | Record<never, never>;
+
+declare const parent: { context: { user: string } } | EmptyMap;
 const inheritedPrivate = create.Template({ inputSchema: z.looseObject({ value: z.number() }), template: '{{ value }}' }, { config: parent });
 void inheritedPrivate({ value: 2, extra: true });
 // @ts-expect-error A binding present in any configuration alternative remains private.
@@ -46,11 +48,11 @@ const inputSchema = z.union([
 const operation = create.Function({ inputSchema, execute: ({ value }) => value });
 const template = create.Template({ inputSchema, template: '{{ value }}' });
 const script = create.Script({ inputSchema, script: 'return value' });
-const generator = create.TextGenerator.withTemplate({ model, inputSchema, prompt: '{{ value }}' });
-const streamer = create.TextStreamer.withScript({ model, inputSchema, prompt: 'return value' });
-const object = create.ObjectGenerator.withTemplate({ model, inputSchema, prompt: '{{ value }}', schema: z.object({ answer: z.string() }) });
-const objectStream = create.ObjectStreamer.withScript({ model, inputSchema, prompt: 'return value', schema: z.object({ answer: z.string() }) });
-const preparer = create.TextGenerator.withFunction({ model, inputSchema, prompt: ({ value }) => String(value) });
+const generator = create.LLMAgent.withTemplate({ model, inputSchema, prompt: '{{ value }}' });
+const streamer = create.LLMAgent.withScript.asStream({ model, inputSchema, prompt: 'return value' });
+const object = create.LLMAgent.withTemplate({ model, inputSchema, prompt: '{{ value }}', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+const objectStream = create.LLMAgent.withScript.asStream({ model, inputSchema, prompt: 'return value', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+const preparer = create.LLMAgent.withFunction({ model, inputSchema, prompt: ({ value }) => String(value) });
 const closedExtra = { kind: 'closed' as const, value: 2, extra: true };
 const openExtra = { kind: 'open' as const, value: 2, extra: true };
 // @ts-expect-error The open alternative cannot authorize extras for the closed discriminator.

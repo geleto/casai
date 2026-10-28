@@ -7,6 +7,7 @@ import type { ComponentExecutionOptions } from './sdk.js';
 import type { FlexibleSchema, ToolSet } from 'ai';
 /** The configuration fields consumed by the shared execution pipeline. */
 export interface ExecutionConfig {
+	asTool?: true;
 	context?: Fields;
 	inputSchema?: FlexibleSchema<unknown>;
 	toolContextSchema?: FlexibleSchema<unknown>;

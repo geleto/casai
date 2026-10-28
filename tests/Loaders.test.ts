@@ -1,10 +1,11 @@
+import { Output } from 'ai';
 import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, race } from './cascada';
 //unit test imports
 import { model, temperatureConfig, timeout, AsyncStringLoader } from './common';
-import { streamToString } from './TextStreamer.test';
+import { collectTextStream as streamToString } from './cascada';
 import { z } from 'zod';
 
 // Configure chai-as-promised
@@ -93,7 +94,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 				loader: [race([slowLoader], 'templates')],
 			});
 
-			const generator = create.TextGenerator.loadsTemplate(
+			const generator = create.LLMAgent.loadsTemplate(
 				{
 					model,
 					...temperatureConfig,
@@ -113,7 +114,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 				loader: [slowLoader], // Parent loader
 			});
 
-			const generator = create.TextGenerator.loadsTemplate(
+			const generator = create.LLMAgent.loadsTemplate(
 				{
 					model,
 					...temperatureConfig,
@@ -131,7 +132,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 
 	describe('Concurrency and Failure Modes', () => {
 		it('[RACE] The fastest loader in a race group should win', async () => {
-			const streamer = create.TextStreamer.loadsTemplate({
+			const streamer = create.LLMAgent.loadsTemplate.asStream({
 				model,
 				...temperatureConfig,
 				loader: [race([slowLoader, fastLoader], 'templates')],
@@ -143,7 +144,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		});
 
 		it('[SEQUENTIAL] The first successful loader in a sequential chain should win', async () => {
-			const streamer = create.TextStreamer.loadsTemplate({
+			const streamer = create.LLMAgent.loadsTemplate.asStream({
 				model,
 				...temperatureConfig,
 				// No race wrapper, this is a standard sequential chain.
@@ -157,14 +158,8 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		});
 
 		it('A race group should succeed even if one loader fails', async () => {
-			const generator = create.ObjectGenerator.loadsTemplate({
-				model,
-				...temperatureConfig,
-				schema: z.object({ result: z.string() }),
-				loader: [race([failingLoader, mediumLoader], 'templates')],
-				prompt: 'prompt.txt',
-			});
-			const { object } = await generator();
+			const generator = create.LLMAgent.loadsTemplate({ model, ...temperatureConfig, loader: [race([failingLoader, mediumLoader], 'templates')], prompt: 'prompt.txt', output: Output.object({ schema: z.object({ result: z.string() }) }) });
+			const { output: object } = await generator();
 			expect(object.result).to.equal(llmExpectedMedium);
 		});
 
@@ -209,14 +204,14 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 
 	describe('Real-World Component Integration', () => {
 		it('Component-to-renderer inheritance should merge race groups correctly', async () => {
-			const baseGenerator = create.TextGenerator.loadsTemplate({
+			const baseGenerator = create.LLMAgent.loadsTemplate({
 				model,
 				...temperatureConfig,
 				loader: [race([slowLoader], 'prompts')],
 			});
 
 			// Inherit directly from the other generator
-			const childGenerator = create.TextGenerator.loadsTemplate(
+			const childGenerator = create.LLMAgent.loadsTemplate(
 				{
 					loader: [race([fastLoader], 'prompts')],
 					prompt: 'prompt.txt',
@@ -229,7 +224,7 @@ describe('Loader Integration Tests (Race & Merge)', function () {
 		});
 
 		it('A script should correctly use a generator with raced loaders from its context', async () => {
-			const summaryGenerator = create.TextGenerator.loadsTemplate({
+			const summaryGenerator = create.LLMAgent.loadsTemplate({
 				model,
 				...temperatureConfig,
 				loader: [race([slowLoader, fastLoader], 'prompts')],

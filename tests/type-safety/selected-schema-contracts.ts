@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import { create, z } from 'casai';
 import type { LanguageModel } from 'ai';
 import { expectEqual } from './assert.js';
@@ -76,16 +77,16 @@ void script.run({ context: { key: '5' } });
 void template({ key: '5' });
 // @ts-expect-error Template run checks each selected parser.
 void template.run({ context: { key: '5' } });
-const text = create.TextGenerator.withFunction({ ...config, model, prompt: ({ key }) => {
+const text = create.LLMAgent.withFunction({ ...config, model, prompt: ({ key }) => {
 	expectEqual<typeof key, string | number>();
 	return String(key);
 } });
-const stream = create.TextStreamer.withTemplate({ ...config, model, prompt: '{{ key }}' });
-const object = create.ObjectGenerator.withScript({ ...config, model, prompt: 'return key', schema: z.object({ answer: z.string() }) });
-const objectStream = create.ObjectStreamer.withFunction({ ...config, model, schema: z.object({ answer: z.string() }), prompt: ({ key }) => {
+const stream = create.LLMAgent.withTemplate.asStream({ ...config, model, prompt: '{{ key }}' });
+const object = create.LLMAgent.withScript({ ...config, model, prompt: 'return key', output: Output.object({ schema: z.object({ answer: z.string() }) }) });
+const objectStream = create.LLMAgent.withFunction.asStream({ ...config, model, prompt: ({ key }) => {
 	expectEqual<typeof key, string | number>();
 	return String(key);
-} });
+}, output: Output.object({ schema: z.object({ answer: z.string() }) }) });
 void text();
 void text.run({});
 void stream();

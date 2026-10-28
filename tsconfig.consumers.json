@@ -3,5 +3,8 @@
 	"compilerOptions": {
 		"noEmit": true
 	},
-	"include": ["tests/**/*"]
+	"include": [
+		"tests/**/*",
+		".cache/readme2/*.ts"
+	]
 }

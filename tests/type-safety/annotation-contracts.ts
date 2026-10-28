@@ -1,12 +1,12 @@
+import type { EmptyMap } from './assert.js';
 // Compile-only public annotations: inference must survive values declared through exported types.
 import { create, z } from 'casai';
 import type {
 	TemplateConfig, TemplateToolConfig, ScriptConfig, ScriptToolConfig,
-	TemplatePromptConfig, ScriptPromptConfig, FunctionPromptConfig,
-	GenerateTextConfig, StreamTextConfig,
-	GenerateObjectArrayConfig, GenerateObjectEnumConfig, GenerateObjectNoSchemaConfig, StreamObjectObjectConfig,
+	LLMAgentConfig,
 } from 'casai';
-import type { LanguageModel, ToolExecutionOptions, ToolSet, JSONValue } from 'ai';
+import type { LanguageModel, ToolExecutionOptions, JSONValue, OutputInterface, ModelMessage } from 'ai';
+import { Output } from 'ai';
 import { expectEqual, expectType } from './assert.js';
 
 declare const model: LanguageModel;
@@ -15,7 +15,7 @@ const schema = z.object({ length: z.number() });
 const contextSchema = z.object({ tenant: z.string() });
 
 const templateConfig: TemplateConfig<{ name: string }> = { template: '{{ name }}', inputSchema };
-const template = create.Template(templateConfig);
+const template = create.Template.withTemplate(templateConfig);
 expectType<Promise<string>>(template({ name: 'Ada' }));
 // @ts-expect-error Annotated template inputs keep the declared field type.
 void template({ name: 123 });
@@ -27,7 +27,7 @@ const _wrongTemplate: TemplateConfig<{ name: string }> = { template: '{{ name }}
 const templateToolConfig: TemplateToolConfig<{ name: string }, { tenant: string }> & { toolContextSchema: typeof contextSchema } = {
 	template: '{{ name }}', inputSchema, toolContextSchema: contextSchema,
 };
-const templateTool = create.Template.asTool(templateToolConfig);
+const templateTool = create.Template.withTemplate.asTool(templateToolConfig);
 declare const executionOptions: ToolExecutionOptions<{ tenant: string }>;
 expectType<PromiseLike<string>>(templateTool.execute({ name: 'Ada' }, executionOptions));
 // @ts-expect-error Annotated template tool input fields do not widen.
@@ -39,7 +39,7 @@ void templateTool.execute({ name: 'Ada' }, { toolCallId: 'call', messages: [], c
 const scriptConfig: ScriptConfig<{ name: string }, { length: number }> & { script: string, schema: typeof schema } = {
 	script: 'return { length: name.length }', inputSchema, schema,
 };
-const script = create.Script(scriptConfig);
+const script = create.Script.withScript(scriptConfig);
 expectEqual<Awaited<ReturnType<typeof script>>, z.infer<typeof scriptConfig.schema>>();
 expectType<Promise<{ length: number }>>(script('return { length: name.length }', { name: 'Ada' }));
 // @ts-expect-error Annotated scripts retain their input field contract.
@@ -52,7 +52,7 @@ const _wrongScript: ScriptConfig<{ name: string }, { length: number }> = { schem
 const scriptToolConfig: ScriptToolConfig<{ name: string }, { length: number }, { tenant: string }> & { script: string, schema: typeof schema, toolContextSchema: typeof contextSchema } = {
 	script: 'return { length: name.length }', inputSchema, schema, toolContextSchema: contextSchema,
 };
-const scriptTool = create.Script.asTool(scriptToolConfig);
+const scriptTool = create.Script.withScript.asTool(scriptToolConfig);
 expectType<PromiseLike<{ length: number }>>(scriptTool.execute({ name: 'Ada' }, executionOptions));
 // @ts-expect-error Annotated script tools retain required input fields.
 void scriptTool.execute({}, executionOptions);
@@ -62,74 +62,80 @@ declare const maybeScriptToolConfig: ScriptToolConfig<{ name: string }, { length
 // @ts-expect-error An annotated tool config with an optional script cannot guarantee an executable tool.
 create.Script.asTool(maybeScriptToolConfig);
 
-const templatePrompt: TemplatePromptConfig = { prompt: '{{ name }}' };
-const scriptPrompt: ScriptPromptConfig = { prompt: 'return name' };
-const functionPrompt: FunctionPromptConfig = { prompt: () => 'Answer.' };
-create.TextGenerator.withTemplate({ ...templatePrompt, model });
-create.TextGenerator.withScript({ ...scriptPrompt, model });
-create.TextGenerator.withFunction({ ...functionPrompt, model });
+const templatePrompt: { prompt: string } = { prompt: '{{ name }}' };
+const scriptPrompt: { prompt: string } = { prompt: 'return name' };
+const functionPrompt: { prompt: () => string | ModelMessage[] } = { prompt: () => 'Answer.' };
+create.LLMAgent.withTemplate({ ...templatePrompt, model });
+create.LLMAgent.withScript({ ...scriptPrompt, model });
+create.LLMAgent.withFunction({ ...functionPrompt, model });
 // @ts-expect-error Annotated template prompts cannot be functions.
-const _wrongTemplatePrompt: TemplatePromptConfig = { prompt: () => 'Answer.' };
+const _wrongTemplatePrompt: { prompt: string } = { prompt: () => 'Answer.' };
 // @ts-expect-error Annotated script prompts cannot be message arrays.
-const _wrongScriptPrompt: ScriptPromptConfig = { prompt: [{ role: 'user', content: 'Answer.' }] };
+const _wrongScriptPrompt: { prompt: string } = { prompt: [{ role: 'user', content: 'Answer.' }] };
 // @ts-expect-error Annotated function prompts cannot return arbitrary objects.
-const _wrongFunctionPrompt: FunctionPromptConfig = { prompt: () => ({ answer: 42 }) };
+const _wrongFunctionPrompt: { prompt: () => string | ModelMessage[] } = { prompt: () => ({ answer: 42 }) };
 
-const textConfig: GenerateTextConfig<Record<string, never>, never> = {
+const textConfig: LLMAgentConfig<EmptyMap, EmptyMap, string, ReturnType<typeof Output.text>> = {
 	model, prompt: 'Answer.', onEnd: event => { expectType<string>(event.text); },
 };
-const text = create.TextGenerator(textConfig);
+const text = create.LLMAgent(textConfig);
 expectType<Promise<string>>(text('Answer.').then(result => result.text));
 // @ts-expect-error Exported text configs validate SDK callback arguments.
-const _wrongTextConfig: GenerateTextConfig<Record<string, never>, never> = { model, onEnd: (_event: number) => undefined };
+const _wrongTextConfig: LLMAgentConfig<EmptyMap, EmptyMap, string, ReturnType<typeof Output.text>> = { model, onEnd: (_event: number) => undefined };
 
-const streamConfig: StreamTextConfig<Record<string, never>, never> = {
+const streamConfig: LLMAgentConfig<EmptyMap, EmptyMap, string, ReturnType<typeof Output.text>> = {
 	model, prompt: 'Answer.',
 	onEnd: event => { expectType<string>(event.text); expectType<string>(event.response.messages[0].role); },
 };
-const stream = create.TextStreamer(streamConfig);
-expectType<AsyncIterable<string>>(stream('Answer.').textStream);
+const stream = create.LLMAgent.asStream(streamConfig);
+expectType<AsyncIterable<string>>((await stream('Answer.')).textStream);
 // @ts-expect-error Exported streaming configs preserve native finish response types.
-const _wrongStreamConfig: StreamTextConfig<Record<string, never>, never> = { model, onEnd: event => { expectType<number>(event.response.messages); } };
+const _wrongStreamConfig: LLMAgentConfig<EmptyMap, EmptyMap, string, ReturnType<typeof Output.text>> = { model, onEnd: event => { expectType<number>(event.response.messages); } };
 
 // Keep supplied fields with satisfies, or retain actual tool names in an annotation.
-const textSettings = { model, prompt: 'Answer.' } satisfies GenerateTextConfig<ToolSet, never>;
-const streamSettings = { model, prompt: 'Answer.' } satisfies StreamTextConfig<ToolSet, never>;
-create.TextGenerator(textSettings);
-create.TextStreamer(streamSettings);
+const textSettings = { model, prompt: 'Answer.' } satisfies LLMAgentConfig;
+const streamSettings = { model, prompt: 'Answer.' } satisfies LLMAgentConfig;
+create.LLMAgent(textSettings);
+create.LLMAgent.asStream(streamSettings);
 create.Config(textSettings);
 create.Config(streamSettings);
 const tools = { lookup: create.Function.asTool({ inputSchema, execute: ({ name }) => name }) };
-const namedText: GenerateTextConfig<typeof tools, never> = { model, tools, activeTools: ['lookup'] };
-const namedStream: StreamTextConfig<typeof tools, never> = { model, tools, activeTools: ['lookup'] };
-create.TextGenerator(namedText);
-create.TextStreamer(namedStream);
+const namedText: LLMAgentConfig<typeof tools> = { model, tools, activeTools: ['lookup'] };
+const namedStream: LLMAgentConfig<typeof tools> = { model, tools, activeTools: ['lookup'] };
+create.LLMAgent(namedText);
+create.LLMAgent.asStream(namedStream);
 create.Config(namedText);
 create.Config(namedStream);
 
-const arrayConfig: GenerateObjectArrayConfig<never, { length: number }> = { model, schema, output: 'array' };
-const _array = create.ObjectGenerator(arrayConfig);
-expectEqual<Awaited<ReturnType<typeof _array>>['object'], { length: number }[]>();
-// @ts-expect-error Annotated array output schemas describe elements with the declared field types.
-const _wrongArrayConfig: GenerateObjectArrayConfig<never, { length: number }> = { model, output: 'array', schema: z.object({ length: z.string() }) };
+// Preserve presence in annotations when output is fixed, rather than optional.
+type OutputConfig<O extends OutputInterface> = LLMAgentConfig<EmptyMap, EmptyMap, string, O> & { output: O; streaming?: never };
+const arrayOutput = Output.array({ element: schema });
+const arrayConfig: OutputConfig<typeof arrayOutput> = { model, output: arrayOutput };
+const arrayAgent = create.LLMAgent(arrayConfig);
+expectEqual<Awaited<ReturnType<typeof arrayAgent>>['value'], { length: number }[]>();
+// @ts-expect-error An annotated array retains the element's field types.
+const wrongArray: OutputConfig<typeof arrayOutput> = { model, output: Output.array({ element: z.object({ length: z.string() }) }) };
 
-const enumConfig: GenerateObjectEnumConfig<never, 'short' | 'long'> = { model, output: 'enum', enum: ['short', 'long'] };
-const _enumGenerator = create.ObjectGenerator(enumConfig);
-expectEqual<Awaited<ReturnType<typeof _enumGenerator>>['object'], 'short' | 'long'>();
-// @ts-expect-error Annotated enum choices must remain in the declared output union.
-const _wrongEnumConfig: GenerateObjectEnumConfig<never, 'short' | 'long'> = { model, output: 'enum', enum: ['other'] };
+const choiceOutput = Output.choice({ options: ['short', 'long'] });
+const choiceConfig: OutputConfig<typeof choiceOutput> = { model, output: choiceOutput };
+const choiceAgent = create.LLMAgent(choiceConfig);
+expectEqual<Awaited<ReturnType<typeof choiceAgent>>['value'], 'short' | 'long'>();
+// @ts-expect-error An annotated choice retains its literal choices.
+const wrongChoice: OutputConfig<typeof choiceOutput> = { model, output: Output.choice({ options: ['other'] }) };
 
-const noSchemaConfig: GenerateObjectNoSchemaConfig<never> = { model, output: 'no-schema' };
-const _noSchema = create.ObjectGenerator(noSchemaConfig);
-expectEqual<Awaited<ReturnType<typeof _noSchema>>['object'], JSONValue>();
-// @ts-expect-error Annotated configurations do not expose the removed mode setting.
-const _wrongNoSchemaConfig: GenerateObjectNoSchemaConfig<never> = { model, output: 'no-schema', mode: 'tool' };
+const jsonOutput = Output.json();
+const jsonConfig: OutputConfig<typeof jsonOutput> = { model, output: jsonOutput };
+const jsonAgent = create.LLMAgent(jsonConfig);
+expectEqual<Awaited<ReturnType<typeof jsonAgent>>['value'], JSONValue>();
+// @ts-expect-error Legacy object-generation mode is not an LLMAgent setting.
+const wrongJson: OutputConfig<typeof jsonOutput> = { model, output: jsonOutput, mode: 'tool' };
 
-const objectStreamConfig: StreamObjectObjectConfig<never, { length: number }> = { model, schema };
-const _objectStream = create.ObjectStreamer(objectStreamConfig);
-expectEqual<Awaited<ReturnType<typeof _objectStream>['object']>, { length: number }>();
-// @ts-expect-error Annotated object streaming schemas retain their output field types.
-const _wrongObjectStreamConfig: StreamObjectObjectConfig<never, { length: number }> = { model, schema: z.object({ length: z.boolean() }) };
+const objectOutput = Output.object({ schema });
+const objectConfig: OutputConfig<typeof objectOutput> = { model, output: objectOutput };
+const objectStream = create.LLMAgent.asStream(objectConfig);
+expectEqual<Awaited<Awaited<ReturnType<typeof objectStream>>['value']>, { length: number }>();
+// @ts-expect-error An annotated structured stream retains its final output type.
+const wrongObject: OutputConfig<typeof objectOutput> = { model, output: Output.object({ schema: z.object({ length: z.boolean() }) }) };
 
 // The wrapper always passes an object, even when execute itself accepts undefined.
 const optionalExecute = create.Function({ execute: (input?: { value: number }) => input?.value ?? 0 });
@@ -155,3 +161,14 @@ void inheritedOptionalExecute({ value: 1 });
 void inheritedOptionalExecute();
 // @ts-expect-error Fragments preserve their callback annotation field types.
 void inheritedOptionalExecute({ value: 'wrong' });
+
+
+
+
+
+
+
+
+
+
+export { arrayAgent, wrongArray, choiceAgent, wrongChoice, jsonAgent, wrongJson, objectStream, wrongObject };

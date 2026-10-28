@@ -2,7 +2,18 @@
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
 		"noEmit": true,
-		"customConditions": ["casai-source"]
+		"customConditions": [
+			"casai-source"
+		]
 	},
-	"exclude": ["node_modules", "dist", "tests/type-safety/exact-optional.ts"]
+	"exclude": [
+		"node_modules",
+		"dist",
+		"tests/type-safety/exact-optional.ts"
+	],
+	"include": [
+		"src/**/*",
+		"tests/**/*",
+		".cache/readme2/*.ts"
+	]
 }

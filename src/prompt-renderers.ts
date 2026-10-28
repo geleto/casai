@@ -1,8 +1,9 @@
 import type { PromptValue, PromptType, PromptFunction } from './types/prompt.js';
 import type { Context } from './types/utils.js';
 import type { CascadaConfig } from './types/config.js';
-import { TemplateEngine } from './TemplateEngine.js';
-import { ScriptEngine } from './ScriptEngine.js';
+import type { ILoaderAny } from 'cascada-engine';
+import { AsyncEnvironment, NotFoundError } from 'cascada-engine';
+import { createCascadaRenderer } from './cascada-renderer.js';
 import { PromptStringOrMessagesSchema } from './prompt-schemas.js';
 import { ConfigError, ValidationError } from './errors.js';
 import { parseSchema } from './schema.js';
@@ -18,20 +19,30 @@ export function createPromptRenderer(config: CascadaConfig & { promptType?: Prom
 	const environment = { loader: config.loader, filters: config.filters, renderOptions: { ...config.renderOptions, autoescape: false } };
 	const promptType = config.promptType;
 	switch (promptType) {
-		case 'async-template':
-		case 'async-template-name': {
-			const engine = new TemplateEngine({ ...environment, template: config.prompt as string | undefined, promptType });
-			return (source: unknown, context: Context): Promise<PromptValue> => {
-				if (source !== undefined && typeof source !== 'string') throw new ValidationError('Template prompt source must be a string.');
-				return engine.render(source, context);
+		case 'text':
+			return (source: unknown) => (source === undefined ? config.prompt : source) as PromptValue;
+		case 'text-name': {
+			const loader = new AsyncEnvironment(config.loader as ILoaderAny[]);
+			return async (source: unknown): Promise<string> => {
+				const name = source === undefined ? config.prompt : source;
+				if (typeof name !== 'string') throw new ValidationError('A loaded prompt must be a resource name.');
+				try { return await loader.loadString(name); }
+				catch (error) {
+					if (error instanceof NotFoundError) throw new Error('Failed to load prompt: ' + error.message, { cause: error });
+					throw error;
+				}
 			};
 		}
+		case 'async-template':
+		case 'async-template-name':
 		case 'async-script':
 		case 'async-script-name': {
-			const engine = new ScriptEngine({ ...environment, script: config.prompt as string | undefined, promptType });
+			const kind = promptType.startsWith('async-script') ? 'Script' : 'Template';
+			const render = createCascadaRenderer(environment, promptType, config.prompt as string | undefined);
 			return async (source: unknown, context: Context): Promise<PromptValue> => {
-				if (source !== undefined && typeof source !== 'string') throw new ValidationError('Script prompt source must be a string.');
-				return validatePromptOutput(await engine.run(source, context));
+				if (source !== undefined && typeof source !== 'string') throw new ValidationError(`${kind} prompt source must be a string.`);
+				const output = await render(source, context);
+				return kind === 'Script' ? validatePromptOutput(output) : output as string;
 			};
 		}
 		case 'function':

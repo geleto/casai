@@ -1,3 +1,5 @@
+import { runtimeRun } from './fixtures/runtime-call.js';
+import { Output } from 'ai';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
@@ -26,19 +28,19 @@ function model(text = 'DONE'): MockLanguageModelV3 {
 }
 
 if (false) {
-	const parent = create.Config({ model: model(), schema: z.object({}) });
+	const parent = create.Config({ model: model(), output: Output.object({ schema: z.object({}) }) });
 	// @ts-expect-error Explicit undefined removes the required output schema.
-	create.ObjectGenerator({ schema: undefined }, parent);
+	create.LLMAgent({ output: Output.object({ schema: undefined }) }, parent);
 	// @ts-expect-error An array stream also requires a defined output schema.
-	create.ObjectStreamer({ schema: undefined, output: 'array' }, parent);
+	create.LLMAgent.asStream({ output: Output.array({ element: undefined }) }, parent);
 	// @ts-expect-error A tool must expose a defined input schema to the SDK.
 	create.Template.asTool({ template: 'Input.', inputSchema: undefined });
 	// @ts-expect-error A script tool must expose a defined input schema to the SDK.
 	create.Script.asTool({ script: 'return 1', inputSchema: undefined });
 	// @ts-expect-error A text tool must expose a defined input schema to the SDK.
-	create.TextGenerator.withTemplate.asTool({ model: model(), prompt: 'Input.', inputSchema: undefined });
+	create.LLMAgent.withTemplate.asTool({ model: model(), prompt: 'Input.', inputSchema: undefined });
 	// @ts-expect-error An object tool must expose a defined input schema to the SDK.
-	create.ObjectGenerator.withTemplate.asTool({ prompt: 'Input.', inputSchema: undefined }, parent);
+	create.LLMAgent.withTemplate.asTool({ prompt: 'Input.', inputSchema: undefined }, parent);
 }
 
 describe('Regressions across component boundaries', () => {
@@ -47,10 +49,10 @@ describe('Regressions across component boundaries', () => {
 			{ name: 'Function', build: (config: never, parent?: never): unknown => Reflect.apply(create.Function, undefined, [config, parent]) },
 			{ name: 'Template', build: (config: never, parent?: never): unknown => Reflect.apply(create.Template, undefined, [config, parent]) },
 			{ name: 'Script', build: (config: never, parent?: never): unknown => Reflect.apply(create.Script, undefined, [config, parent]) },
-			{ name: 'TextGenerator', build: (config: never, parent?: never): unknown => Reflect.apply(create.TextGenerator, undefined, [config, parent]) },
-			{ name: 'TextStreamer', build: (config: never, parent?: never): unknown => Reflect.apply(create.TextStreamer, undefined, [config, parent]) },
-			{ name: 'ObjectGenerator', build: (config: never, parent?: never): unknown => Reflect.apply(create.ObjectGenerator, undefined, [config, parent]) },
-			{ name: 'ObjectStreamer', build: (config: never, parent?: never): unknown => Reflect.apply(create.ObjectStreamer, undefined, [config, parent]) },
+			{ name: 'generate', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent, undefined, [config, parent]) },
+			{ name: 'stream', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [config, parent]) },
+			{ name: 'generate-structured', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent, undefined, [config, parent]) },
+			{ name: 'stream-structured', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [config, parent]) },
 		];
 		for (const { name, build } of factories) {
 			it(`rejects non-object ${name} configs before normalization or inheritance`, () => {
@@ -65,31 +67,31 @@ describe('Regressions across component boundaries', () => {
 		for (const streaming of [false, true]) {
 			it(`rejects malformed inherited ${streaming ? 'streamer' : 'generator'} messages before merging`, async () => {
 				const mock = model();
-				const config = { model: mock, prompt: 'Input.', messages: [{ role: 'user', content: 'Earlier.' } satisfies ModelMessage] };
-				const component = streaming ? create.TextStreamer(config) : create.TextGenerator(config);
+				const config = { model: mock, prompt: [{ role: 'user', content: 'Earlier.' } satisfies ModelMessage] };
+				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 				for (const messages of [null, {}, false, 42]) {
-					expect(() => streaming ? create.TextStreamer({ messages } as never, component) : create.TextGenerator({ messages } as never, component))
+					expect(() => streaming ? create.LLMAgent.asStream({ prompt: messages } as never, component) : create.LLMAgent({ prompt: messages } as never, component))
 						.to.throw(ConfigError, /invalid message objects/);
-					await rejects(async () => await component.run({ messages } as never), ValidationError);
+					await rejects(async () => await runtimeRun(component, { messageHistory: messages }), ValidationError);
 				}
 				expect(mock.doGenerateCalls).to.have.length(0);
 				expect(mock.doStreamCalls).to.have.length(0);
 			});
 		}
 
-		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+		for (const factory of ['generate', 'stream', 'generate-structured', 'stream-structured'] as const) {
 			it(`rejects non-object ${factory} run overrides before loading or rendering`, async () => {
 				const mock = model();
 				let loads = 0;
 				const config = { model: mock, prompt: 'Input.', loader: { load: () => { loads++; return 'Input.'; } } };
-				const objectConfig = { ...config, schema: z.object({}) };
-				const components = factory === 'TextGenerator' ? [create.TextGenerator({ model: mock, prompt: 'Input.' }), create.TextGenerator.withTemplate(config), create.TextGenerator.loadsText(config)]
-					: factory === 'TextStreamer' ? [create.TextStreamer({ model: mock, prompt: 'Input.' }), create.TextStreamer.withTemplate(config), create.TextStreamer.loadsText(config)]
-						: factory === 'ObjectGenerator' ? [create.ObjectGenerator({ model: mock, prompt: 'Input.', schema: objectConfig.schema }), create.ObjectGenerator.withTemplate(objectConfig), create.ObjectGenerator.loadsText(objectConfig)]
-							: [create.ObjectStreamer({ model: mock, prompt: 'Input.', schema: objectConfig.schema }), create.ObjectStreamer.withTemplate(objectConfig), create.ObjectStreamer.loadsText(objectConfig)];
+				const objectConfig = { ...config, output: Output.object({ schema: z.object({}) }) };
+				const components = factory === 'generate' ? [create.LLMAgent({ model: mock, prompt: 'Input.' }), create.LLMAgent.withTemplate(config), create.LLMAgent.loadsText(config)]
+					: factory === 'stream' ? [create.LLMAgent.asStream({ model: mock, prompt: 'Input.' }), create.LLMAgent.withTemplate.asStream(config), create.LLMAgent.loadsText.asStream(config)]
+						: factory === 'generate-structured' ? [create.LLMAgent({ model: mock, prompt: 'Input.', output: objectConfig.output }), create.LLMAgent.withTemplate(objectConfig), create.LLMAgent.loadsText(objectConfig)]
+							: [create.LLMAgent.asStream({ model: mock, prompt: 'Input.', output: objectConfig.output }), create.LLMAgent.withTemplate.asStream(objectConfig), create.LLMAgent.loadsText.asStream(objectConfig)];
 				for (const component of components) {
-					for (const invalid of [undefined, null, [], 'config', 42]) {
-						await rejects(async () => await component.run(invalid as never), ValidationError);
+					for (const invalid of [null, [], 'config', 42]) {
+						await rejects(async () => await runtimeRun(component, invalid as never), ValidationError);
 					}
 				}
 				expect(loads).to.equal(0);
@@ -100,13 +102,13 @@ describe('Regressions across component boundaries', () => {
 	});
 
 	describe('required schema values', () => {
-		for (const output of ['object', 'array'] as const) {
+		for (const output of [Output.object({ schema: z.object({ value: z.number() }) }), Output.array({ element: z.number() })]) {
 			for (const streaming of [false, true]) {
-				it(`rejects cleared schemas for ${output} ${streaming ? 'streams' : 'generators'} at creation`, () => {
-					const parent = create.Config({ model: model(), schema: z.object({ value: z.number() }) });
+				it(`rejects retired schema fields with native ${output.name} output, streaming=${streaming}`, () => {
+					const parent = create.Config({ model: model(), output });
 					for (const schema of [undefined, null]) {
-						expect(() => streaming ? create.ObjectStreamer({ schema, output } as never, parent) : create.ObjectGenerator({ schema, output } as never, parent))
-							.to.throw(ConfigError, /requires a 'schema'/);
+						expect(() => streaming ? create.LLMAgent.asStream({ schema } as never, parent) : create.LLMAgent({ schema } as never, parent))
+							.to.throw(ConfigError, /schema/);
 					}
 				});
 			}
@@ -119,8 +121,8 @@ describe('Regressions across component boundaries', () => {
 					() => create.Function.asTool({ inputSchema, execute: () => 'DONE' } as never, parent),
 					() => create.Template.asTool({ inputSchema, template: 'DONE' } as never, parent),
 					() => create.Script.asTool({ inputSchema, script: 'return "DONE"' } as never, parent),
-					() => create.TextGenerator.withTemplate.asTool({ inputSchema, model: model(), prompt: 'Input.' } as never, parent),
-					() => create.ObjectGenerator.withTemplate.asTool({ inputSchema, model: model(), schema: z.object({}), prompt: 'Input.' } as never, parent),
+					() => create.LLMAgent.withTemplate.asTool({ inputSchema, model: model(), prompt: 'Input.' } as never, parent),
+					() => create.LLMAgent.withTemplate.asTool({ inputSchema, model: model(), output: Output.object({ schema: z.object({}) }), prompt: 'Input.' } as never, parent),
 				];
 				for (const build of builds) expect(build).to.throw(ConfigError, /inputSchema/);
 			}
@@ -132,30 +134,30 @@ describe('Regressions across component boundaries', () => {
 				const builds = [
 					() => create.Template.asTool({ template: source, inputSchema } as never),
 					() => create.Script.asTool({ script: source, inputSchema } as never),
-					() => create.TextGenerator.withTemplate.asTool({ prompt: source, inputSchema, model: model() } as never),
-					() => create.ObjectGenerator.withTemplate.asTool({ prompt: source, inputSchema, model: model(), schema: z.object({}) } as never),
+					() => create.LLMAgent.withTemplate.asTool({ prompt: source, inputSchema, model: model() } as never),
+					() => create.LLMAgent.withTemplate.asTool({ prompt: source, inputSchema, model: model(), output: Output.object({ schema: z.object({}) }) } as never),
 				];
-				for (const build of builds) expect(build).to.throw(ConfigError, /required property/);
+				for (const build of builds) expect(build).to.throw(ConfigError, /required property|configured prompt|source must be a string/);
 			}
 		});
 	});
 
 	describe('empty call-time history', () => {
-		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+		for (const factory of ['generate', 'stream', 'generate-structured', 'stream-structured'] as const) {
 			for (const loaded of [false, true]) {
 				it(`retains configured messages in ${loaded ? 'loaded' : 'plain'} ${factory} calls with empty history`, async () => {
 					const mock = model('{}');
 					const messages: ModelMessage[] = [{ role: 'user', content: 'Configured input.' }];
-					const config = { model: mock, messages };
-					const loadedConfig = { ...config, loader: { load: () => 'Input.' } };
-					const component = factory === 'TextGenerator' ? loaded ? create.TextGenerator.loadsText(loadedConfig) : create.TextGenerator(config)
-						: factory === 'TextStreamer' ? loaded ? create.TextStreamer.loadsText(loadedConfig) : create.TextStreamer(config)
-							: factory === 'ObjectGenerator' ? loaded ? create.ObjectGenerator.loadsText({ ...loadedConfig, output: 'no-schema' }) : create.ObjectGenerator({ ...config, output: 'no-schema' })
-								: loaded ? create.ObjectStreamer.loadsText({ ...loadedConfig, output: 'no-schema' }) : create.ObjectStreamer({ ...config, output: 'no-schema' });
-					const result = await component([]);
+					const config = { model: mock, prompt: messages };
+					const loadedConfig = { ...config, prompt: 'source', loader: { load: () => 'Configured input.' } };
+					const component = factory === 'generate' ? loaded ? create.LLMAgent.loadsText(loadedConfig) : create.LLMAgent(config)
+						: factory === 'stream' ? loaded ? create.LLMAgent.loadsText.asStream(loadedConfig) : create.LLMAgent.asStream(config)
+							: factory === 'generate-structured' ? loaded ? create.LLMAgent.loadsText({ ...loadedConfig, output: Output.json() }) : create.LLMAgent({ ...config, output: Output.json() })
+								: loaded ? create.LLMAgent.loadsText.asStream({ ...loadedConfig, output: Output.json() }) : create.LLMAgent.asStream({ ...config, output: Output.json() });
+					const result = await runtimeRun(component, { messageHistory: [] });
 					if ('textStream' in result) for await (const _part of result.textStream) { /* drain */ }
-					if ('partialObjectStream' in result) for await (const _part of result.partialObjectStream) { /* drain */ }
-					const calls = factory.endsWith('Streamer') ? mock.doStreamCalls : mock.doGenerateCalls;
+					if ('partialOutputStream' in result) for await (const _part of result.partialOutputStream) { /* drain */ }
+					const calls = factory.startsWith('stream') ? mock.doStreamCalls : mock.doGenerateCalls;
 					expect(calls).to.have.length(1);
 					expect(calls[0].prompt.map(message => message.content)).to.deep.equal([[{ type: 'text', text: 'Configured input.' }]]);
 				});
@@ -166,8 +168,9 @@ describe('Regressions across component boundaries', () => {
 			it(`uses an empty replacement rather than the configured message prompt for ${streaming ? 'streams' : 'generators'}`, async () => {
 				const mock = model();
 				const prompt: ModelMessage[] = [{ role: 'user', content: 'Configured input.' }];
-				const component = streaming ? create.TextStreamer({ model: mock, prompt }) : create.TextGenerator({ model: mock, prompt });
-				const result = await component('');
+				const component = streaming ? create.LLMAgent.asStream({ model: mock, prompt }) : create.LLMAgent({ model: mock, prompt });
+				const call: (prompt: string) => ReturnType<typeof component> = component;
+				const result = await call('');
 				await result.messageHistory;
 				const calls = streaming ? mock.doStreamCalls : mock.doGenerateCalls;
 				expect(calls).to.have.length(1);
@@ -177,7 +180,7 @@ describe('Regressions across component boundaries', () => {
 	});
 
 	describe('sequential text loaders', () => {
-		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+		for (const factory of ['generate', 'stream', 'generate-structured', 'stream-structured'] as const) {
 			for (const run of [false, true]) {
 				for (const outcome of ['miss', 'throw', 'reject'] as const) {
 					it(`${factory}.loadsText ${run ? 'run' : 'call'} ${outcome === 'miss' ? 'falls back after a miss' : `propagates a loader ${outcome} without fallback`}`, async () => {
@@ -193,17 +196,17 @@ describe('Regressions across component boundaries', () => {
 							{ load: () => { loads.push('fallback'); return 'Input.'; } },
 						];
 						const config = { model: mock, loader, prompt: 'input.txt' };
-						const objectConfig = { ...config, schema: z.object({ n: z.number() }) };
-						const component = factory === 'TextGenerator' ? create.TextGenerator.loadsText(config)
-							: factory === 'TextStreamer' ? create.TextStreamer.loadsText(config)
-								: factory === 'ObjectGenerator' ? create.ObjectGenerator.loadsText(objectConfig)
-									: create.ObjectStreamer.loadsText(objectConfig);
-						const invoke = () => run ? component.run({ prompt: 'input.txt' }) : component();
+						const objectConfig = { ...config, output: Output.object({ schema: z.object({ n: z.number() }) }) };
+						const component = factory === 'generate' ? create.LLMAgent.loadsText(config)
+							: factory === 'stream' ? create.LLMAgent.loadsText.asStream(config)
+								: factory === 'generate-structured' ? create.LLMAgent.loadsText(objectConfig)
+									: create.LLMAgent.loadsText.asStream(objectConfig);
+						const invoke = () => run ? runtimeRun(component, { prompt: 'input.txt' }) : component();
 						if (outcome === 'miss') {
 							const result = await invoke();
-							if ('partialObjectStream' in result) for await (const _part of result.partialObjectStream) { /* Native object streams require consumption. */ }
-							expect(await ('object' in result ? result.value : result.output)).to.deep.equal(factory.startsWith('Object') ? { n: 1 } : '{"n":1}');
-							const calls = factory.endsWith('Streamer') ? mock.doStreamCalls : mock.doGenerateCalls;
+							if ('partialOutputStream' in result) for await (const _part of result.partialOutputStream) { /* Native object streams require consumption. */ }
+							expect(await ('object' in result ? result.value : result.output)).to.deep.equal(factory.endsWith('-structured') ? { n: 1 } : '{"n":1}');
+							const calls = factory.startsWith('stream') ? mock.doStreamCalls : mock.doGenerateCalls;
 							expect(calls).to.have.length(1);
 							expect(calls[0].prompt[0].content).to.deep.equal([{ type: 'text', text: 'Input.' }]);
 						} else {
@@ -227,7 +230,7 @@ describe('Regressions across component boundaries', () => {
 				const second = { load: () => { calls.push('second'); return null; } };
 				const parent = create.Config({ loader: race([first, second], named ? 'remote' : undefined) });
 				const child = create.Config({ loader: first }, parent);
-				const component = create.TextGenerator.loadsText({ model: model(), prompt: 'missing' }, child);
+				const component = create.LLMAgent.loadsText({ model: model(), prompt: 'missing' }, child);
 				await rejects(() => component(), /Failed to load prompt/);
 				expect(calls).to.deep.equal(['first', 'second']);
 			});
@@ -236,7 +239,7 @@ describe('Regressions across component boundaries', () => {
 				const source = Object.assign(new EventEmitter(), { load: () => 'Input.' });
 				const other = { load: () => null };
 				const parent = create.Config({ loader: race([source, other], named ? 'remote' : undefined) });
-				const component = create.TextGenerator.loadsText({ model: model(), prompt: 'input' }, parent);
+				const component = create.LLMAgent.loadsText({ model: model(), prompt: 'input' }, parent);
 				const subscriptions = source.listenerCount('update');
 				for (let call = 0; call < 3; call++) await component();
 				expect(source.listenerCount('update')).to.equal(subscriptions);
@@ -252,14 +255,14 @@ describe('Regressions across component boundaries', () => {
 			const parent = create.Config({ loader: race([first, second, third]) });
 			const child = create.Config({ loader: first }, parent);
 			const grandchild = create.Config({ loader: second }, child);
-			const component = create.TextGenerator.loadsText({ model: model(), prompt: 'missing' }, grandchild);
+			const component = create.LLMAgent.loadsText({ model: model(), prompt: 'missing' }, grandchild);
 			await rejects(() => component(), /Failed to load prompt/);
 			expect(calls).to.deep.equal(['second', 'first', 'third']);
 		});
 	});
 
 	describe('conversation snapshots', () => {
-		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+		for (const factory of ['generate', 'stream', 'generate-structured', 'stream-structured'] as const) {
 			for (const modifier of ['withTemplate', 'withScript', 'withFunction', 'loadsTemplate', 'loadsScript'] as const) {
 				it(`snapshots ${factory}.${modifier} run prompt before asynchronous validation`, async () => {
 					let release!: () => void;
@@ -269,36 +272,36 @@ describe('Regressions across component boundaries', () => {
 					});
 					const mock = model('{"answer":4}');
 					// This runtime matrix intentionally erases the different factory signatures.
-					const factoryValue: unknown = create[factory][modifier];
+					const factoryValue: unknown = factory.startsWith('stream') ? create.LLMAgent[modifier].asStream : create.LLMAgent[modifier];
 					const build = factoryValue as (config: object) => {
 						run(config: { prompt: string | (() => string), context: object }): Promise<{
 							messageHistory?: ModelMessage[] | Promise<ModelMessage[]>;
-							partialObjectStream?: AsyncIterable<unknown>;
+							partialOutputStream?: AsyncIterable<unknown>;
 							value: unknown;
 						}>;
 					};
 					const prompt = (word: string) => modifier === 'withFunction' ? () => word
 						: modifier === 'withScript' ? `return "${word}"` : word;
 					const component = build({ model: mock, inputSchema, prompt: prompt('configured'),
-						...(factory.startsWith('Object') && { schema: z.object({ answer: z.number() }) }),
+						...(factory.endsWith('-structured') && { output: Output.object({ schema: z.object({ answer: z.number() }) }) }),
 						...(modifier.startsWith('loads') && { loader: { load: (name: string) => modifier === 'loadsScript' ? `return "${name}"` : name } }),
 					});
 					const settings = { prompt: prompt('first'), context: {} };
-					const pending = component.run(settings);
+					const pending = runtimeRun(component, settings);
 					settings.prompt = prompt('second');
 					release();
 					const result = await pending;
-					const stream = result.partialObjectStream;
+					const stream = result.partialOutputStream;
 					if (stream) for await (const _part of stream) { /* drain */ }
 					if (result.messageHistory) await result.messageHistory;
 					await result.value;
-					const request = factory.endsWith('Streamer') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
+					const request = factory.startsWith('stream') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
 					expect(request.prompt.map(message => message.content)).to.deep.equal([[{ type: 'text', text: 'first' }]]);
 				});
 			}
 		}
 
-		for (const factory of ['TextGenerator', 'TextStreamer', 'ObjectGenerator', 'ObjectStreamer'] as const) {
+		for (const factory of ['generate', 'stream', 'generate-structured', 'stream-structured'] as const) {
 			it(`snapshots ${factory}.run() history before preparation without configured messages`, async () => {
 				const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
 				const original = [...history];
@@ -307,18 +310,18 @@ describe('Regressions across component boundaries', () => {
 				const mock = model('{"answer":4}');
 				const config = { model: mock, prompt: async () => { await gate; return 'Input.'; } };
 				const schema = z.object({ answer: z.number() });
-				const component = factory === 'TextGenerator' ? create.TextGenerator.withFunction(config)
-					: factory === 'TextStreamer' ? create.TextStreamer.withFunction(config)
-						: factory === 'ObjectGenerator' ? create.ObjectGenerator.withFunction({ ...config, schema })
-							: create.ObjectStreamer.withFunction({ ...config, schema });
-				const pending = component.run({ messages: history });
+				const component = factory === 'generate' ? create.LLMAgent.withFunction(config)
+					: factory === 'stream' ? create.LLMAgent.withFunction.asStream(config)
+						: factory === 'generate-structured' ? create.LLMAgent.withFunction({ ...config, output: Output.object({ schema: schema }) })
+							: create.LLMAgent.withFunction.asStream({ ...config, output: Output.object({ schema: schema }) });
+				const pending = runtimeRun(component, { messageHistory: history });
 				history.splice(0, history.length, { role: 'user', content: 'Changed after invocation.' });
 				release();
 				const result = await pending;
-				if ('partialObjectStream' in result) for await (const _part of result.partialObjectStream) { /* drain */ }
+				if ('partialOutputStream' in result) for await (const _part of result.partialOutputStream) { /* drain */ }
 				if ('messageHistory' in result) await result.messageHistory;
 				await result.value;
-				const request = factory.endsWith('Streamer') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
+				const request = factory.startsWith('stream') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
 				expect(request.prompt.map(message => message.content)).to.deep.equal([
 					[{ type: 'text', text: 'Earlier.' }], [{ type: 'text', text: 'Input.' }],
 				]);
@@ -336,25 +339,22 @@ describe('Regressions across component boundaries', () => {
 						const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
 						const original = [...history];
 						const mock = model();
-						const config = { model: mock, messages: [{ role: 'user', content: 'Configured.' } satisfies ModelMessage] };
+						const config = { model: mock, instructions: 'Configured.' };
 						const component = renderer === 'template'
-							? streaming ? create.TextStreamer.withTemplate({ ...config, prompt: 'Input.' }) : create.TextGenerator.withTemplate({ ...config, prompt: 'Input.' })
+							? streaming ? create.LLMAgent.withTemplate.asStream({ ...config, prompt: 'Input.' }) : create.LLMAgent.withTemplate({ ...config, prompt: 'Input.' })
 							: renderer === 'script'
-								? streaming ? create.TextStreamer.withScript({ ...config, prompt: 'return "Input."' }) : create.TextGenerator.withScript({ ...config, prompt: 'return "Input."' })
-								: streaming ? create.TextStreamer.loadsText({ ...config, prompt: 'source', loader: { load: async () => 'Input.' } }) : create.TextGenerator.loadsText({ ...config, prompt: 'source', loader: { load: async () => 'Input.' } });
-						const invoke: {
-							(history: ModelMessage[]): ReturnType<typeof component>;
-							(source: string, history: ModelMessage[]): ReturnType<typeof component>;
-						} = component;
+								? streaming ? create.LLMAgent.withScript.asStream({ ...config, prompt: 'return "Input."' }) : create.LLMAgent.withScript({ ...config, prompt: 'return "Input."' })
+								: streaming ? create.LLMAgent.loadsText.asStream({ ...config, prompt: 'source', loader: { load: async () => 'Input.' } }) : create.LLMAgent.loadsText({ ...config, prompt: 'source', loader: { load: async () => 'Input.' } });
+						const invoke: (sourceOrContext: object | string, history: ModelMessage[]) => ReturnType<typeof component> = component;
 						const source = renderer === 'script' ? 'return "Input."' : renderer === 'template' ? 'Input.' : 'source';
-						const pending = entry === 'call' ? invoke(history)
-							: entry === 'call-with-source' ? invoke(source, history) : component.run({ messages: history });
+						const pending = entry === 'call' ? invoke({}, history)
+							: entry === 'call-with-source' ? invoke(source, history) : runtimeRun(component, { messageHistory: history });
 						history.splice(0, history.length, { role: 'user', content: 'Changed after invocation.' });
 						const result = await pending;
 						await result.text;
 						const request = streaming ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
 						expect(request.prompt.map(message => message.content)).to.deep.equal([
-							[{ type: 'text', text: 'Configured.' }], [{ type: 'text', text: 'Earlier.' }], [{ type: 'text', text: 'Input.' }],
+							'Configured.', [{ type: 'text', text: 'Earlier.' }], [{ type: 'text', text: 'Input.' }],
 						]);
 						expect(await result.messageHistory).to.deep.equal([...original, { role: 'user', content: 'Input.' }, ...await result.responseMessages]);
 					});
@@ -365,8 +365,8 @@ describe('Regressions across component boundaries', () => {
 				it(`includes empty ${loaded ? 'loaded' : 'rendered'} prompts in ${streaming ? 'streamed' : 'generated'} history when submitted to the SDK`, async () => {
 					const mock = model();
 					const component = loaded
-						? streaming ? create.TextStreamer.loadsText({ model: mock, prompt: 'empty', loader: { load: () => '' } }) : create.TextGenerator.loadsText({ model: mock, prompt: 'empty', loader: { load: () => '' } })
-						: streaming ? create.TextStreamer.withFunction({ model: mock, prompt: () => '' }) : create.TextGenerator.withFunction({ model: mock, prompt: () => '' });
+						? streaming ? create.LLMAgent.loadsText.asStream({ model: mock, prompt: 'empty', loader: { load: () => '' } }) : create.LLMAgent.loadsText({ model: mock, prompt: 'empty', loader: { load: () => '' } })
+						: streaming ? create.LLMAgent.withFunction.asStream({ model: mock, prompt: () => '' }) : create.LLMAgent.withFunction({ model: mock, prompt: () => '' });
 					const call: () => ReturnType<typeof component> = component;
 					const result = await call();
 					await result.text;
@@ -378,8 +378,9 @@ describe('Regressions across component boundaries', () => {
 			it(`keeps ${streaming ? 'streamed' : 'generated'} history consistent with the submitted request`, async () => {
 				const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
 				const originalHistory = [...history];
-				const component = streaming ? create.TextStreamer({ model: model() }) : create.TextGenerator({ model: model() });
-				const result = await component('Input.', history);
+				const component = streaming ? create.LLMAgent.asStream({ model: model() }) : create.LLMAgent({ model: model() });
+				const call: (prompt: string, history: ModelMessage[]) => ReturnType<typeof component> = component;
+				const result = await call('Input.', history);
 				await result.text;
 				history.push({ role: 'assistant', content: 'Added after the request.' });
 				const response = await result.response;
@@ -390,7 +391,7 @@ describe('Regressions across component boundaries', () => {
 				const prompt: ModelMessage[] = [{ role: 'user', content: 'Input.' }];
 				const originalPrompt = [...prompt];
 				const config = { model: model(), prompt: () => prompt };
-				const component = streaming ? create.TextStreamer.withFunction(config) : create.TextGenerator.withFunction(config);
+				const component = streaming ? create.LLMAgent.withFunction.asStream(config) : create.LLMAgent.withFunction(config);
 				const result = await component();
 				await result.text;
 				prompt.push({ role: 'user', content: 'Added after the request.' });
@@ -401,7 +402,7 @@ describe('Regressions across component boundaries', () => {
 				const prompt: ModelMessage[] = [{ role: 'user', content: 'Input.' }];
 				const originalPrompt = [...prompt];
 				const config = { model: model(), prompt };
-				const component = streaming ? create.TextStreamer(config) : create.TextGenerator(config);
+				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 				const result = await component();
 				await result.text;
 				prompt.push({ role: 'user', content: 'Added after the request.' });
@@ -416,11 +417,11 @@ describe('Regressions across component boundaries', () => {
 				const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
 				const mock = model();
 				const config = {
-					model: mock, messages: [{ role: 'user', content: 'Configured.' } satisfies ModelMessage],
+					model: mock, instructions: 'Configured.',
 					prompt: async () => { entered(); await waiting; return 'Input.'; },
 				};
-				const component = streaming ? create.TextStreamer.withFunction(config) : create.TextGenerator.withFunction(config);
-				const pending = component.run({ messages: history });
+				const component = streaming ? create.LLMAgent.withFunction.asStream(config) : create.LLMAgent.withFunction(config);
+				const pending = runtimeRun(component, { messageHistory: history });
 				await started;
 				history.push({ role: 'assistant', content: 'Added while rendering.' });
 				release();
@@ -438,8 +439,8 @@ describe('Regressions across component boundaries', () => {
 			const history: ModelMessage[] = [{ role: 'user', content: 'Earlier.' }];
 			const originalHistory = [...history];
 			let callbackResponse: { messages: ModelMessage[] } | undefined;
-			const component = create.TextStreamer({ model: model(), onEnd: event => { callbackResponse = event.response; } });
-			const result = component('Input.', history);
+			const component = create.LLMAgent.asStream({ model: model(), onEnd: event => { callbackResponse = event.response; } });
+			const result = (await component('Input.', history));
 			await result.text;
 			history.length = 0;
 			const response = await result.response;

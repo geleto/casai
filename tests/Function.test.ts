@@ -1,3 +1,4 @@
+import { runtimeRun } from './fixtures/runtime-call.js';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import 'dotenv/config';
 import * as chai from 'chai';
@@ -24,7 +25,7 @@ describe('create.Function', function () {
 				settings.execute = () => 100;
 				expect(await component()).to.equal(1);
 				resource.value = 2;
-				expect(await component.run({})).to.equal(2);
+				expect(await runtimeRun(component, {})).to.equal(2);
 			}
 		});
 

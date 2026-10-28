@@ -2,8 +2,7 @@
 import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import { create, ConfigError, z } from './cascada';
-import type { StreamTextResult } from './cascada';
+import { create, ConfigError, z, collectTextStream as streamToString } from './cascada';
 import { model, temperature, temperatureConfig, modelName, StringLoader, AsyncStringLoader, createProvider, timeout } from './common';
 import { streamText } from 'ai';
 
@@ -12,16 +11,8 @@ chai.use(chaiAsPromised);
 
 const { expect } = chai;
 
-// Helper to consume a text stream and return the full string
-export async function streamToString(stream: StreamTextResult<any, any>['textStream']): Promise<string> {
-	let text = '';
-	for await (const delta of stream) {
-		text += delta;
-	}
-	return text;
-}
 
-describe('create.TextStreamer', function () {
+describe('create.LLMAgent.asStream', function () {
 	this.timeout(timeout); // Increase timeout for tests that call the real streaming API
 
 	// Simple prompts for easy and cheap verification
@@ -30,18 +21,18 @@ describe('create.TextStreamer', function () {
 
 	describe('Core Functionality', () => {
 		it('should stream text with a simple prompt and model', async () => {
-			const streamer = create.TextStreamer({
+			const streamer = create.LLMAgent.asStream({
 				model, ...temperatureConfig,
 				prompt: simplePrompt,
 			});
-			const result = streamer();
+			const result = (await streamer());
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal(simpleExpected);
 		});
 
 		it('should provide the full text via the stream', async () => {
-			const streamer = create.TextStreamer({ model, ...temperatureConfig, prompt: simplePrompt });
-			const result = streamer();
+			const streamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: simplePrompt });
+			const result = (await streamer());
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal(simpleExpected);
 		});
@@ -57,53 +48,53 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should stream text when the prompt is a runtime argument', async () => {
-			const streamer = create.TextStreamer({ model });
-			const result = streamer(simplePrompt);
+			const streamer = create.LLMAgent.asStream({ model });
+			const result = (await streamer(simplePrompt));
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal(simpleExpected);
 		});
 
 		it('should treat the prompt as plain text by default, not processing templates', async () => {
-			const streamer = create.TextStreamer({
+			const streamer = create.LLMAgent.asStream({
 				model, ...temperatureConfig,
 				prompt: 'Write this exactly: {{ test }}',
 			});
-			const result = streamer();
+			const result = (await streamer());
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.equal('{{ test }}');
 		});
 
 		it('should pass through Vercel AI SDK properties like temperature', async () => {
-			const streamer = create.TextStreamer({
+			const streamer = create.LLMAgent.asStream({
 				model, ...temperatureConfig,
 				prompt: 'Write a one-word color.',
 			});
 			// It's hard to test randomness, so we verify the property is set in the config
 			expect(streamer.config.temperature).to.equal(temperature ?? undefined);
-			const result = streamer();
+			const result = (await streamer());
 			const streamedText = await streamToString(result.textStream);
 			expect(streamedText).to.be.a('string').with.length.above(0);
 		});
 
-		it('should call onFinish callback with final data when stream completes', async () => {
+		it('should call onEnd callback with final data when stream completes', async () => {
 			let resolveFinish: (data: { text: string, finishReason: string }) => void;
 			const finishPromise = new Promise<{ text: string, finishReason: string }>((resolve) => {
 				resolveFinish = resolve;
 			});
 
-			const streamer = create.TextStreamer({
+			const streamer = create.LLMAgent.asStream({
 				model, ...temperatureConfig,
 				prompt: simplePrompt,
-				onFinish(data) {
+				onEnd(data) {
 					resolveFinish(data);
 				},
 			});
 
-			const result = streamer();
+			const result = (await streamer());
 			const streamedText = await streamToString(result.textStream);
 
 			expect(streamedText).to.equal(simpleExpected);
-			// Wait for the onFinish callback to be called
+			// Wait for the onEnd callback to be called
 			const finalData = await finishPromise;
 			expect(finalData).to.be.an('object');
 			expect(finalData.text).to.equal(simpleExpected);
@@ -118,7 +109,7 @@ describe('create.TextStreamer', function () {
 				resolveError = resolve;
 			});
 
-			const streamer = create.TextStreamer({
+			const streamer = create.LLMAgent.asStream({
 				model: badModel,
 				...temperatureConfig,
 				prompt: 'This will fail.',
@@ -127,7 +118,7 @@ describe('create.TextStreamer', function () {
 				},
 			});
 
-			const result = streamer();
+			const result = (await streamer());
 			// Consume the stream to trigger the flow
 			await streamToString(result.textStream).catch(() => {
 				// Expected to fail
@@ -153,7 +144,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should inherit properties from a parent create.Config object', async () => {
-			const streamer = create.TextStreamer.withTemplate(
+			const streamer = create.LLMAgent.withTemplate.asStream(
 				{
 					prompt: 'Output exactly this text and nothing else: {{ item | parens }}',
 				},
@@ -167,14 +158,14 @@ describe('create.TextStreamer', function () {
 			expect(streamedText).to.equal('(apples)');
 		});
 
-		it('should inherit from another TextStreamer instance', async () => {
-			const parentStreamer = create.TextStreamer.withTemplate({
+		it('should inherit from another streaming LLMAgent instance', async () => {
+			const parentStreamer = create.LLMAgent.withTemplate.asStream({
 				model, ...temperatureConfig,
 				context: { user: 'Alice' },
 				filters: { scream: (s: string) => s.toUpperCase() + '!!!' },
 			});
 
-			const childStreamer = create.TextStreamer.withTemplate({
+			const childStreamer = create.LLMAgent.withTemplate.asStream({
 				prompt: 'Write this and nothing else: {{ user | scream }}',
 			}, parentStreamer);
 
@@ -186,7 +177,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should override parent properties with child properties', async () => {
-			const streamer = create.TextStreamer.withTemplate(
+			const streamer = create.LLMAgent.withTemplate.asStream(
 				{
 					...(temperature !== null ? { temperature: 0.9 } : {}),
 					prompt: 'Write only this and nothing else: {{ item }}',
@@ -200,7 +191,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should merge "context" objects (child overrides parent keys)', async () => {
-			const streamer = create.TextStreamer.withTemplate(
+			const streamer = create.LLMAgent.withTemplate.asStream(
 				{
 					context: { item: 'oranges', source: 'child' },
 					prompt: 'Write this and nothing else: Item: {{ item }}, Source: {{ source }}',
@@ -213,7 +204,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should merge "filters" objects', async () => {
-			const streamer = create.TextStreamer.withTemplate(
+			const streamer = create.LLMAgent.withTemplate.asStream(
 				{
 					filters: { exclam: (s: string) => `${s}!` },
 					prompt: 'Reply verbatim, only with the following text: {{ item | parens | exclam }}',
@@ -231,7 +222,7 @@ describe('create.TextStreamer', function () {
 			const loader1 = new StringLoader();
 			const loader2 = new StringLoader();
 			const parent = create.Config({ loader: loader1 });
-			const streamer = create.TextStreamer.withTemplate(
+			const streamer = create.LLMAgent.withTemplate.asStream(
 				{ model, ...temperatureConfig, loader: [loader1, loader2] },
 				parent,
 			);
@@ -259,7 +250,7 @@ describe('create.TextStreamer', function () {
 				},
 			}, grandparent);
 
-			const childStreamer = create.TextStreamer.withTemplate({
+			const childStreamer = create.LLMAgent.withTemplate.asStream({
 				model, ...temperatureConfig,
 				context: {
 					source: 'Child'
@@ -286,7 +277,7 @@ describe('create.TextStreamer', function () {
 
 	describe('Template Engine Features', () => {
 		it('should render a template using a static context value from config', async () => {
-			const streamer = create.TextStreamer.withTemplate({
+			const streamer = create.LLMAgent.withTemplate.asStream({
 				model, ...temperatureConfig,
 				prompt: 'Output exactly this word and nothing else: {{ word }}',
 				context: { word: 'test' },
@@ -297,7 +288,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should resolve an asynchronous function in the context', async () => {
-			const streamer = create.TextStreamer.withTemplate({
+			const streamer = create.LLMAgent.withTemplate.asStream({
 				model, ...temperatureConfig,
 				prompt: 'Output exactly this value and nothing else: {{ value() }}',
 				context: { value: async () => Promise.resolve('async') },
@@ -308,7 +299,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should apply an asynchronous filter', async () => {
-			const streamer = create.TextStreamer.withTemplate({
+			const streamer = create.LLMAgent.withTemplate.asStream({
 				model, ...temperatureConfig,
 				prompt: 'Write the following text exactly as shown, preserving the original case of each letter: {{ word | asyncUpper }}',
 				context: { word: 'test' },
@@ -326,7 +317,7 @@ describe('create.TextStreamer', function () {
 		stringLoader.addString('filtered.njk', 'Write the following text exactly as shown, preserving all punctuation and the original case of each letter: {{ text | shout }}');
 
 		it('should load and render a template from a loader', async () => {
-			const streamer = create.TextStreamer.loadsTemplate({
+			const streamer = create.LLMAgent.loadsTemplate.asStream({
 				model, ...temperatureConfig,
 				loader: stringLoader,
 				prompt: 'simple.njk',
@@ -337,7 +328,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should use context and filters with a loaded template', async () => {
-			const streamer = create.TextStreamer.loadsTemplate({
+			const streamer = create.LLMAgent.loadsTemplate.asStream({
 				model, ...temperatureConfig,
 				loader: stringLoader,
 				prompt: 'filtered.njk',
@@ -350,7 +341,7 @@ describe('create.TextStreamer', function () {
 	});
 
 	describe('Callable Interface Overloads', () => {
-		const streamerWithPrompt = create.TextStreamer.withTemplate({
+		const streamerWithPrompt = create.LLMAgent.withTemplate.asStream({
 			model, ...temperatureConfig,
 			prompt: 'Output exactly this text and nothing else: stream-{{ val }}',
 			inputSchema: z.object({ val: z.string() }), context: { val: 'A' },
@@ -376,7 +367,7 @@ describe('create.TextStreamer', function () {
 
 	describe('Error Handling and Validation', () => {
 		it('should throw ConfigError if no model is provided', () => {
-			expect(() => create.TextStreamer({ prompt: 'test' } as never)).to.throw(
+			expect(() => create.LLMAgent.asStream({ prompt: 'test' } as never)).to.throw(
 				ConfigError,
 				'Text generator configs require a \'model\' property',
 			);
@@ -385,7 +376,7 @@ describe('create.TextStreamer', function () {
 		it('should throw ConfigError if .loadsTemplate is used but no loader is provided', () => {
 			expect(() =>
 				// @ts-expect-error - no loader provided
-				create.TextStreamer.loadsTemplate({
+				create.LLMAgent.loadsTemplate.asStream({
 					model, ...temperatureConfig,
 					prompt: 'file.njk',
 				}),
@@ -396,7 +387,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should throw at runtime if no prompt is provided in config or call', () => {
-			const streamer = create.TextStreamer({ model });
+			const streamer = create.LLMAgent.asStream({ model });
 			// A plain-text streamer returns its result directly, so it throws rather than rejects.
 			expect(() => streamer(undefined as unknown as string)).to.throw(
 				ConfigError,
@@ -412,7 +403,7 @@ describe('create.TextStreamer', function () {
 		stringLoader.addString('story.txt', 'Write a short story about a {{ character }}.');
 
 		it('should load and stream plain text from a loader', async () => {
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: stringLoader,
@@ -425,7 +416,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should load text at runtime with one-off prompt', async () => {
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: stringLoader
@@ -443,7 +434,7 @@ describe('create.TextStreamer', function () {
 			const loader2 = new StringLoader();
 			loader2.addString('test2.txt', 'Output only the number 2.');
 
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: [loader1, loader2],
@@ -458,7 +449,7 @@ describe('create.TextStreamer', function () {
 		it('should throw ConfigError if no loader is provided', () => {
 			expect(() =>
 				// @ts-expect-error - no loader provided
-				create.TextStreamer.loadsText({
+				create.LLMAgent.loadsText.asStream({
 					model,
 					...temperatureConfig,
 					prompt: 'file.txt'
@@ -471,7 +462,7 @@ describe('create.TextStreamer', function () {
 
 		it('should reject when a configured text prompt is missing', async () => {
 			// Named text loads when the component is called, as named templates and scripts do.
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: new StringLoader(),
@@ -481,7 +472,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should throw if loader fails to find text at runtime', async () => {
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: new StringLoader()
@@ -500,7 +491,7 @@ describe('create.TextStreamer', function () {
 				...(temperature !== null ? { temperature: 0.1 } : {})
 			});
 
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				prompt: 'parent.txt'
 			}, parent);
@@ -517,7 +508,7 @@ describe('create.TextStreamer', function () {
 		asyncStringLoader.addString('async-story.txt', 'Write a short story about a {{ character }}.');
 
 		it('should load and stream plain text from an async loader', async () => {
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: asyncStringLoader,
@@ -530,7 +521,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should load text at runtime with one-off prompt using async loader', async () => {
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: asyncStringLoader
@@ -548,7 +539,7 @@ describe('create.TextStreamer', function () {
 			const loader2 = new AsyncStringLoader();
 			loader2.addString('async-test2.txt', 'Output only the number 2.');
 
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: [loader1, loader2],
@@ -561,7 +552,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should throw if async loader fails to find text at creation time', async () => {
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: new AsyncStringLoader(),
@@ -573,7 +564,7 @@ describe('create.TextStreamer', function () {
 		});
 
 		it('should throw if async loader fails to find text at runtime', async () => {
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: new AsyncStringLoader()
@@ -591,7 +582,7 @@ describe('create.TextStreamer', function () {
 				return Promise.resolve(templates[name] || '');
 			};
 
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: functionalAsyncLoader,
@@ -611,7 +602,7 @@ describe('create.TextStreamer', function () {
 			asyncLoader.addString('mixed.txt', 'Output only the number 6.');
 
 			// The first loader to return a value will be used
-			const streamer = create.TextStreamer.loadsText({
+			const streamer = create.LLMAgent.loadsText.asStream({
 				model,
 				...temperatureConfig,
 				loader: [asyncLoader, syncLoader],

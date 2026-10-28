@@ -10,7 +10,7 @@ chai.use(chaiAsPromised);
 
 const { expect } = chai;
 
-describe('create.TextGenerator', function () {
+describe('create.LLMAgent', function () {
 	this.timeout(timeout); // Increase timeout for tests that call the real API
 
 	// Simple prompts for easy and cheap verification
@@ -19,7 +19,7 @@ describe('create.TextGenerator', function () {
 
 	describe('Core Functionality', () => {
 		it('should generate text with a simple prompt and model', async () => {
-			const generator = create.TextGenerator({
+			const generator = create.LLMAgent({
 				model,
 				...temperatureConfig,
 				prompt: simplePrompt,
@@ -29,19 +29,19 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should generate text when the prompt is a runtime argument', async () => {
-			const generator = create.TextGenerator({ model });
+			const generator = create.LLMAgent({ model });
 			const result = await generator(simplePrompt);
 			expect(result.text).to.equal(simpleExpected);
 		});
 
 		it('should use prompt from config if no runtime prompt is given', async () => {
-			const generator = create.TextGenerator({ model, ...temperatureConfig, prompt: simplePrompt });
+			const generator = create.LLMAgent({ model, ...temperatureConfig, prompt: simplePrompt });
 			const result = await generator();
 			expect(result.text).to.equal(simpleExpected);
 		});
 
 		it('should treat prompt as plain text by default and not process templates', async () => {
-			const generator = create.TextGenerator({
+			const generator = create.LLMAgent({
 				model,
 				...temperatureConfig,
 				prompt: 'Output this exactly: {{ test }}',
@@ -51,7 +51,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should pass through Vercel AI SDK properties like temperature', async () => {
-			const generator = create.TextGenerator({
+			const generator = create.LLMAgent({
 				model,
 				...temperatureConfig,
 				prompt: 'Tell me a one-word color.',
@@ -77,7 +77,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should inherit properties from a parent create.Config object', async () => {
-			const generator = create.TextGenerator.withTemplate(
+			const generator = create.LLMAgent.withTemplate(
 				{
 					prompt: 'Output exactly this text, including the parentheses, and nothing else: {{ item | parens }}',
 				},
@@ -89,9 +89,9 @@ describe('create.TextGenerator', function () {
 			expect(result.text).to.equal('(apples)');
 		});
 
-		// Test inheritance from another TextGenerator
-		it('should inherit from another TextGenerator instance', async () => {
-			const parentGenerator = create.TextGenerator.withTemplate({
+		// Test inheritance from another LLMAgent
+		it('should inherit from another LLMAgent instance', async () => {
+			const parentGenerator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				context: {
@@ -102,7 +102,7 @@ describe('create.TextGenerator', function () {
 				},
 			});
 
-			const childGenerator = create.TextGenerator.withTemplate(
+			const childGenerator = create.LLMAgent.withTemplate(
 				{
 					prompt: 'Write this and nothing else: {{ user | scream }}',
 				},
@@ -115,7 +115,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should override parent properties with child properties', async () => {
-			const generator = create.TextGenerator.withTemplate(
+			const generator = create.LLMAgent.withTemplate(
 				{
 					...(temperature !== null ? { temperature: 0.9 } : {}),
 					prompt: 'Only write this and nothing else: {{ item }}',
@@ -128,7 +128,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should merge "context" objects (child overrides parent keys)', async () => {
-			const generator = create.TextGenerator.withTemplate(
+			const generator = create.LLMAgent.withTemplate(
 				{
 					context: {
 						item: 'oranges',
@@ -143,7 +143,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should merge "filters" objects', async () => {
-			const generator = create.TextGenerator.withTemplate(
+			const generator = create.LLMAgent.withTemplate(
 				{
 					filters: { exclam: (s: string) => `${s}!` },
 					prompt: 'Reply verbatim, only with the following text: {{ item | parens | exclam }}',
@@ -158,7 +158,7 @@ describe('create.TextGenerator', function () {
 			const loader1 = new StringLoader();
 			const loader2 = new StringLoader();
 			const parent = create.Config({ loader: loader1 });
-			const generator = create.TextGenerator.withTemplate(
+			const generator = create.LLMAgent.withTemplate(
 				{ model, ...temperatureConfig, loader: [loader1, loader2], prompt: '' },
 				parent,
 			);
@@ -169,7 +169,7 @@ describe('create.TextGenerator', function () {
 
 	describe('Template Engine Features', () => {
 		it('should render a template using a static context value from config', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Only write the word and nothing else. The word is {{ word }}.',
@@ -180,7 +180,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should render a template using a context value from a runtime argument', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Only write the word and nothing else. Keep it lowercase. The word is {{ word }}.',
@@ -190,7 +190,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should merge config context and runtime context (runtime takes precedence)', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Only write the word and number separated by a space and nothing else. The word is {{ word }} and the number is {{ num }}.',
@@ -201,7 +201,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should resolve a synchronous function in the context', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Output exactly this single word and nothing else: {{ value() }}',
@@ -213,7 +213,7 @@ describe('create.TextGenerator', function () {
 
 		// Test context function with arguments
 		it('should resolve a context function with arguments', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Only write the value and nothing else. The value is {{ add(5, 3) }}.',
@@ -224,7 +224,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should resolve an asynchronous function in the context', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Only write the value and nothing else. The value is {{ value() }}.',
@@ -235,7 +235,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should apply a synchronous filter', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Write the following text exactly as shown, preserving and the original case of each letter: {{ word | upper }}',
@@ -248,7 +248,7 @@ describe('create.TextGenerator', function () {
 
 		// Test filter with arguments
 		it('should apply a filter with an argument', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Only write this and nothing else: {{ "hello" | repeat(3) }}',
@@ -259,7 +259,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should apply an asynchronous filter', async () => {
-			const generator = create.TextGenerator.withTemplate({
+			const generator = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				prompt: 'Write the following text exactly as shown, preserving the original case of each letter: {{ word | asyncUpper }}',
@@ -279,7 +279,7 @@ describe('create.TextGenerator', function () {
 		stringLoader.addString('filtered.njk', 'Write the following text exactly as shown, preserving all punctuation and the original case of each letter: {{ text | shout }}');
 
 		it('should load and render a template from a named prompt', async () => {
-			const generator = create.TextGenerator.loadsTemplate({
+			const generator = create.LLMAgent.loadsTemplate({
 				model,
 				...temperatureConfig,
 				loader: stringLoader,
@@ -293,7 +293,7 @@ describe('create.TextGenerator', function () {
 			const testLoader = new StringLoader();
 			testLoader.addString('my-prompt', 'Write this and nothing else, keep it exactly as shown: This is a test with {{ name }}.');
 
-			const generator = create.TextGenerator.loadsTemplate({
+			const generator = create.LLMAgent.loadsTemplate({
 				model,
 				...temperatureConfig,
 				loader: testLoader,
@@ -306,7 +306,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should use context and filters with a loaded template', async () => {
-			const generator = create.TextGenerator.loadsTemplate({
+			const generator = create.LLMAgent.loadsTemplate({
 				model,
 				...temperatureConfig,
 				loader: stringLoader,
@@ -319,7 +319,7 @@ describe('create.TextGenerator', function () {
 	});
 
 	describe('Callable Interface Overloads', () => {
-		const generatorWithPrompt = create.TextGenerator.withTemplate({
+		const generatorWithPrompt = create.LLMAgent.withTemplate({
 			model,
 			...temperatureConfig,
 			prompt: 'Output exactly this text and nothing else: default-{{ val }}',
@@ -351,7 +351,7 @@ describe('create.TextGenerator', function () {
 
 		// Test the call signature for a generator without a pre-configured prompt
 		describe('for generator without configured prompt', () => {
-			const generatorWithoutPrompt = create.TextGenerator.withTemplate({
+			const generatorWithoutPrompt = create.LLMAgent.withTemplate({
 				model,
 				...temperatureConfig,
 				inputSchema: z.object({ val: z.string() }), context: { val: 'A' },
@@ -372,7 +372,7 @@ describe('create.TextGenerator', function () {
 	describe('Error Handling and Validation', () => {
 		it('should throw ConfigError if no model is provided', () => {
 			// This now throws at creation time due to stricter config validation.
-			expect(() => create.TextGenerator({ prompt: 'test' } as never)).to.throw(
+			expect(() => create.LLMAgent({ prompt: 'test' } as never)).to.throw(
 				ConfigError,
 				'Text generator configs require a \'model\' property',
 			);
@@ -381,7 +381,7 @@ describe('create.TextGenerator', function () {
 		it('should not throw ConfigError if plain text generator uses template properties (validation handled at TypeScript level)', () => {
 			// This validation is now handled at the TypeScript level, not runtime
 			expect(() =>
-				create.TextGenerator({
+				create.LLMAgent({
 					model,
 					...temperatureConfig,
 					filters: { test: () => '' },
@@ -393,7 +393,7 @@ describe('create.TextGenerator', function () {
 			// This now throws at creation time.
 			expect(() =>
 				// @ts-expect-error - no loader provided
-				create.TextGenerator.loadsTemplate({
+				create.LLMAgent.loadsTemplate({
 					model,
 					...temperatureConfig,
 					prompt: 'file.njk',
@@ -406,7 +406,7 @@ describe('create.TextGenerator', function () {
 
 		// Refined test for missing prompt.
 		it('should reject at runtime if no prompt is provided in config or call', async () => {
-			const generator = create.TextGenerator({ model });
+			const generator = create.LLMAgent({ model });
 			// Calling with no arguments should fail.
 			await expect(generator(undefined as unknown as string)).to.be.rejectedWith(
 				ConfigError,
@@ -415,7 +415,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should throw if a loader fails to find a template specified at creation time', async () => {
-			const generator = create.TextGenerator.loadsTemplate({
+			const generator = create.LLMAgent.loadsTemplate({
 				model, ...temperatureConfig,
 				loader: new StringLoader(),
 				prompt: 'nonexistent.njk',
@@ -425,7 +425,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should throw if a loader fails to find a template specified at runtime', async () => {
-			const generator = create.TextGenerator.loadsTemplate({
+			const generator = create.LLMAgent.loadsTemplate({
 				model, ...temperatureConfig,
 				loader: new StringLoader()
 			});
@@ -434,7 +434,7 @@ describe('create.TextGenerator', function () {
 
 		it('should throw if a template is named, but no loader is provided', () => {
 			//@ts-expect-error - no loader is provided
-			expect(() => create.TextGenerator.loadsTemplate({
+			expect(() => create.LLMAgent.loadsTemplate({
 				model, ...temperatureConfig,
 			})).to.throw(
 				ConfigError,
@@ -450,7 +450,7 @@ describe('create.TextGenerator', function () {
 		stringLoader.addString('complex.txt', 'Output only this word and nothing else: robot');
 
 		it('should load and use plain text from a loader', async () => {
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: stringLoader,
@@ -462,7 +462,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should load text at runtime with one-off prompt', async () => {
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: stringLoader
@@ -479,7 +479,7 @@ describe('create.TextGenerator', function () {
 			const loader2 = new StringLoader();
 			loader2.addString('test2.txt', 'Output only the number 2.');
 
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: [loader1, loader2],
@@ -497,7 +497,7 @@ describe('create.TextGenerator', function () {
 			const loader2 = new StringLoader();
 			// loader2 has no templates
 
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: [loader2, loader1],
@@ -511,7 +511,7 @@ describe('create.TextGenerator', function () {
 		it('should throw ConfigError if no loader is provided', () => {
 			expect(() =>
 				// @ts-expect-error - no loader provided
-				create.TextGenerator.loadsText({
+				create.LLMAgent.loadsText({
 					model,
 					...temperatureConfig,
 					prompt: 'file.txt'
@@ -524,7 +524,7 @@ describe('create.TextGenerator', function () {
 
 		it('should reject when a configured text prompt is missing', async () => {
 			// Named text loads when the component is called, as named templates and scripts do.
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: new StringLoader(),
@@ -534,7 +534,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should throw if loader fails to find text at runtime', async () => {
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: new StringLoader()
@@ -552,7 +552,7 @@ describe('create.TextGenerator', function () {
 				...(temperature !== null ? { temperature: 0.1 } : {})
 			});
 
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				prompt: 'parent.txt'
 			}, parent);
@@ -569,7 +569,7 @@ describe('create.TextGenerator', function () {
 				return templates[name] || '';
 			};
 
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: functionalLoader,
@@ -592,7 +592,7 @@ describe('create.TextGenerator', function () {
 				return originalLoad(name);
 			};
 
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: countingLoader,
@@ -616,7 +616,7 @@ describe('create.TextGenerator', function () {
 		asyncStringLoader.addString('async-complex.txt', 'Output only this word and nothing else: robot');
 
 		it('should load and use plain text from an async loader', async () => {
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: asyncStringLoader,
@@ -628,7 +628,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should load text at runtime with one-off prompt using async loader', async () => {
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: asyncStringLoader
@@ -645,7 +645,7 @@ describe('create.TextGenerator', function () {
 			const loader2 = new AsyncStringLoader();
 			loader2.addString('async-test2.txt', 'Output only the number 2.');
 
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: [loader1, loader2],
@@ -657,7 +657,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should throw if async loader fails to find text at creation time', async () => {
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: new AsyncStringLoader(),
@@ -668,7 +668,7 @@ describe('create.TextGenerator', function () {
 		});
 
 		it('should throw if async loader fails to find text at runtime', async () => {
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: new AsyncStringLoader()
@@ -685,7 +685,7 @@ describe('create.TextGenerator', function () {
 				return Promise.resolve(templates[name] || '');
 			};
 
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: functionalAsyncLoader,
@@ -704,7 +704,7 @@ describe('create.TextGenerator', function () {
 			asyncLoader.addString('mixed.txt', 'Output only the number 6.');
 
 			// The first loader to return a value will be used
-			const generator = create.TextGenerator.loadsText({
+			const generator = create.LLMAgent.loadsText({
 				model,
 				...temperatureConfig,
 				loader: [asyncLoader, syncLoader],

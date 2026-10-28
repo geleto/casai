@@ -5,6 +5,6 @@
 		"noEmit": true,
 		"exactOptionalPropertyTypes": true
 	},
-	"include": ["./**/*.ts"],
+	"include": ["./**/*.ts", "../../.cache/readme2/*.ts"],
 	"exclude": []
 }

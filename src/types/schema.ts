@@ -1,6 +1,5 @@
 import type { FlexibleSchema, InferSchema as SDKInferSchema } from 'ai';
 import type { z } from 'zod';
-import type { Context } from './utils.js';
 
 // Zod 3's tagged definition is excluded even through its Standard Schema surface.
 // Native SDK tools keep the SDK's wider schema contract.
@@ -18,10 +17,5 @@ type SchemaInput<S, Fallback> = '~input' extends keyof S ? S['~input'] extends i
 // native output inference there, and precise raw types for retained schemas.
 export type InferInputSchema<S, Fallback = unknown> = [FlexibleSchema<InferSchema<S, Fallback>>] extends [S]
 	? InferSchema<S, Fallback> : SchemaInput<S, Fallback>;
-
-type ObjectContextInput<T> = T extends readonly unknown[] | ((...args: any[]) => any) ? never : T extends object ? T : never;
-
-export type ValidateContextInputSchema<TSchema, INPUT = InferInputSchema<TSchema, Context>> = unknown extends INPUT ? unknown
-	: [ObjectContextInput<INPUT>] extends [never] ? 'Config Error: inputSchema must accept an object context before parsing.' : unknown;
 
 export type ContextFromSchema<TSchema> = InferSchema<TSchema, undefined>;

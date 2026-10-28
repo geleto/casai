@@ -1,5 +1,7 @@
 {
-	"extension": ["ts"],
+	"extension": [
+		"ts"
+	],
 	"spec": [
 		"tests/CascadaIntegration.unit.test.ts",
 		"tests/ComponentContracts.unit.test.ts",
@@ -39,12 +41,16 @@
 		"tests/ToolContext.test.ts",
 		"tests/Workflow.unit.test.ts",
 		"tests/loaders-unit.test.ts",
-		"tests/messages-unit.test.ts"
+		"tests/messages-unit.test.ts",
+		"tests/LLMAgent.unit.test.ts",
+		"tests/ModifierInheritance.unit.test.ts"
 	],
 	"ignore": "tests/type-safety/**/*.ts",
 	"node-option": [
 		"import=tsx/esm",
 		"conditions=casai-source"
 	],
-	"require": ["dotenv/config"]
+	"require": [
+		"dotenv/config"
+	]
 }

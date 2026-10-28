@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 // Context wrappers accept objects before validation; SDK Function tools receive parsed input.
 import { create, z } from 'casai';
 import type { LanguageModel } from 'ai';
@@ -28,20 +29,20 @@ create.Function.asTool({}, scalarFragment);
 // @ts-expect-error Component tools retain the ordinary object-input caller.
 create.Function.asTool({}, arrayFragment);
 // @ts-expect-error Text function prompts dispatch an object context.
-create.TextGenerator.withFunction({ model, inputSchema: scalarInput, prompt: () => 'Input.' });
+create.LLMAgent.withFunction({ model, inputSchema: scalarInput, prompt: () => 'Input.' });
 // @ts-expect-error Text stream function prompts dispatch an object context.
-create.TextStreamer.withFunction({ model, inputSchema: arrayInput, prompt: () => 'Input.' });
+create.LLMAgent.withFunction.asStream({ model, inputSchema: arrayInput, prompt: () => 'Input.' });
 // @ts-expect-error Object function prompts dispatch an object context.
-create.ObjectGenerator.withFunction({ model, schema: z.object({ answer: z.number() }), inputSchema: scalarInput, prompt: () => 'Input.' });
+create.LLMAgent.withFunction({ model, inputSchema: scalarInput, prompt: () => 'Input.', output: Output.object({ schema: z.object({ answer: z.number() }) }) });
 // @ts-expect-error Object stream function prompts dispatch an object context.
-create.ObjectStreamer.withFunction({ model, schema: z.object({ answer: z.number() }), inputSchema: arrayInput, prompt: () => 'Input.' });
+create.LLMAgent.withFunction.asStream({ model, inputSchema: arrayInput, prompt: () => 'Input.', output: Output.object({ schema: z.object({ answer: z.number() }) }) });
 const scalarPromptFragment = create.Config({ model, inputSchema: scalarInput });
 // @ts-expect-error Inherited function-prompt input schemas must accept raw objects too.
-create.TextGenerator.withFunction({ prompt: () => 'Input.' }, scalarPromptFragment);
+create.LLMAgent.withFunction({ prompt: () => 'Input.' }, scalarPromptFragment);
 // @ts-expect-error Function-prompt tool wrappers also retain an ordinary context caller.
-create.TextGenerator.withFunction.asTool({ model, inputSchema: scalarInput, prompt: () => 'Input.' });
+create.LLMAgent.withFunction.asTool({ model, inputSchema: scalarInput, prompt: () => 'Input.' });
 // @ts-expect-error Object function-prompt tool wrappers retain an ordinary context caller.
-create.ObjectGenerator.withFunction.asTool({ model, schema: z.object({ answer: z.number() }), inputSchema: arrayInput, prompt: () => 'Input.' });
+create.LLMAgent.withFunction.asTool({ model, inputSchema: arrayInput, prompt: () => 'Input.', output: Output.object({ schema: z.object({ answer: z.number() }) }) });
 
 // A declared raw object before a transform keeps public ownership discoverable.
 const unknownInput = z.object({ value: z.string() }).transform(value => value);
@@ -57,7 +58,7 @@ void preprocessed('input');
 void preprocessed(['input']);
 // @ts-expect-error Numeric preprocess input is not a component object context.
 void preprocessed(123);
-const preprocessedPrompt = create.TextGenerator.withFunction({ model, inputSchema: unknownInput, context: { prefix: 'value=' }, prompt: ({ value, prefix }) => {
+const preprocessedPrompt = create.LLMAgent.withFunction({ model, inputSchema: unknownInput, context: { prefix: 'value=' }, prompt: ({ value, prefix }) => {
 	expectEqual<typeof value, string>();
 	expectEqual<typeof prefix, string>();
 	return prefix + value;

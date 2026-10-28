@@ -158,8 +158,8 @@ create.Script.asTool({ script: 'return 1' });
 create.Function.asTool({ execute: () => 1 });
 const templateConfig: TemplateToolConfig<{ value: number }, { factor: number }> & { toolContextSchema: typeof contextSchema } = { inputSchema, toolContextSchema: contextSchema, template: '{{ value }}' };
 const scriptConfig: ScriptToolConfig<{ value: number }, number, { factor: number }> & { script: string; schema: z.ZodNumber; toolContextSchema: typeof contextSchema } = { inputSchema, toolContextSchema: contextSchema, script: 'return value', schema: z.number() };
-const annotatedTemplate = create.Template.asTool(templateConfig);
-const annotatedScript = create.Script.asTool(scriptConfig);
+const annotatedTemplate = create.Template.withTemplate.asTool(templateConfig);
+const annotatedScript = create.Script.withScript.asTool(scriptConfig);
 void annotatedTemplate.execute({ value: 1 }, options);
 void annotatedScript.execute({ value: 1 }, options);
 // @ts-expect-error Annotated renderer configs preserve declared input types.
@@ -170,7 +170,7 @@ declare const maybeScript: ScriptToolConfig<{ value: number }, number, { factor:
 // @ts-expect-error An annotated config with a possibly absent script cannot complete a Script tool.
 create.Script.asTool(maybeScript);
 
-const textTool = create.TextGenerator.withFunction.asTool({ model, inputSchema, context: { factor: 1 }, toolContextSchema: contextSchema, prompt: ({ value, factor, _toolOptions }) => {
+const textTool = create.LLMAgent.withFunction.asTool({ model, inputSchema, context: { factor: 1 }, toolContextSchema: contextSchema, prompt: ({ value, factor, _toolOptions }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof _toolOptions, ComponentExecutionOptions>();
 	return String(value * factor);
@@ -182,7 +182,7 @@ void textTool.execute({ value: 'wrong' }, options);
 void textTool.execute({ value: 1 }, noContext);
 void textTool({ value: 1 });
 const promptToolParent = create.Config({ model, inputSchema, toolContextSchema: contextSchema, context: { prefix: 'value=', factor: 1 } });
-const inheritedPromptTool = create.TextGenerator.withFunction.asTool({ prompt: ({ value, prefix, factor, _toolOptions }) => {
+const inheritedPromptTool = create.LLMAgent.withFunction.asTool({ prompt: ({ value, prefix, factor, _toolOptions }) => {
 	expectEqual<typeof value, number>();
 	expectEqual<typeof prefix, string>();
 	expectEqual<typeof _toolOptions, ComponentExecutionOptions>();
@@ -194,8 +194,8 @@ void inheritedPromptTool.execute({ value: 1 }, options);
 // @ts-expect-error Inherited function-prompt tools retain the required execution context shape.
 void inheritedPromptTool.execute({ value: 1 }, noContext);
 // The configured factor continues to satisfy the inherited prompt.
-create.TextGenerator.withFunction.asTool({ toolContextSchema: z.object({ suffix: z.string() }) }, inheritedPromptTool);
-const transformedPromptTool = create.TextGenerator.withFunction.asTool({
+create.LLMAgent.withFunction.asTool({ toolContextSchema: z.object({ suffix: z.string() }) }, inheritedPromptTool);
+const transformedPromptTool = create.LLMAgent.withFunction.asTool({
 	model, inputSchema: z.object({ value: z.string().transform(Number) }),
 	prompt: ({ value }) => {
 		expectEqual<typeof value, number>();
@@ -212,19 +212,19 @@ void transformedPromptTool.execute({ value: 'raw' }, noContext);
 const toolsOnly = create.Config({ tools: { multiply } });
 const contextOnly = create.Config({ toolsContext: { multiply: { factor: 2 } } });
 const complete = create.Config({ tools: { multiply } }, contextOnly);
-const generator = create.TextGenerator({ model, prompt: 'Multiply', toolsContext: { multiply: { factor: 2 } } }, toolsOnly);
-const streamer = create.TextStreamer({ model, prompt: 'Multiply' }, complete);
+const generator = create.LLMAgent({ model, prompt: 'Multiply', toolsContext: { multiply: { factor: 2 } } }, toolsOnly);
+const streamer = create.LLMAgent.asStream({ model, prompt: 'Multiply' }, complete);
 void generator.run({});
 void streamer.run({});
 void generator.run({ toolsContext: { multiply: { factor: 3 } } });
 // @ts-expect-error Concrete components require context for tools whose schemas require it.
-create.TextGenerator({ model, prompt: 'Multiply' }, toolsOnly);
+create.LLMAgent({ model, prompt: 'Multiply' }, toolsOnly);
 // @ts-expect-error Streamers require context for tools whose schemas require it too.
-create.TextStreamer({ model, tools: { multiply }, toolsContext: {} });
+create.LLMAgent.asStream({ model, tools: { multiply }, toolsContext: {} });
 // @ts-expect-error Supplied partial Config tool contexts must already match known schemas.
 create.Config({ tools: { multiply }, toolsContext: { multiply: { factor: 'wrong' } } });
 // @ts-expect-error Direct generator configs validate required tool context values.
-create.TextGenerator({ model, tools: { multiply }, toolsContext: { multiply: { factor: 'wrong' } } });
+create.LLMAgent({ model, tools: { multiply }, toolsContext: { multiply: { factor: 'wrong' } } });
 // @ts-expect-error Run tool contexts retain their declared shapes.
 void generator.run({ toolsContext: { multiply: { factor: 'wrong' } } });
 // @ts-expect-error A required tool context cannot be cleared during a run.
@@ -233,16 +233,16 @@ const unknownName = { toolsContext: { multiply: { factor: 2 }, typo: { factor: 2
 // @ts-expect-error Extra tool context names cannot bypass checking through typed variables.
 void generator.run(unknownName);
 // @ts-expect-error Known tools reject unknown context names during creation too.
-create.TextGenerator({ model, tools: { multiply }, ...unknownName });
+create.LLMAgent({ model, tools: { multiply }, ...unknownName });
 // @ts-expect-error Config validates context names when its tools are known.
 create.Config({ tools: { multiply }, ...unknownName });
 
 const extra = create.Function.asTool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query.length });
-const merged = create.TextGenerator({ tools: { extra }, prompt: 'Use both' }, generator);
+const merged = create.LLMAgent({ tools: { extra }, prompt: 'Use both' }, generator);
 void merged.run({ toolsContext: { multiply: { factor: 4 } } });
 expectEqual<keyof typeof merged.config.tools, 'multiply' | 'extra'>();
 // @ts-expect-error An inherited required context cannot be replaced by a wrong value.
-create.TextStreamer({ model, tools: { extra }, toolsContext: { multiply: { factor: 'wrong' } } }, complete);
+create.LLMAgent.asStream({ model, tools: { extra }, toolsContext: { multiply: { factor: 'wrong' } } }, complete);
 const compatible = sdkTool({ inputSchema, contextSchema, execute: ({ value }, { context }) => value * context.factor });
 void generator.run({ tools: { multiply: compatible } });
 void streamer.run({ tools: { multiply: compatible }, toolsContext: { multiply: { factor: 5 } } });
@@ -261,12 +261,12 @@ const extraNames = { tools: { multiply: compatible, extra } };
 // @ts-expect-error Typed variables cannot introduce extra run tool names.
 void streamer.run(extraNames);
 const nested = create.Function.asTool({ inputSchema, context: { request: { id: 'initial', authenticated: false } }, toolContextSchema: z.object({ request: z.object({ id: z.string(), authenticated: z.boolean() }) }), execute: ({ value, request }) => request.authenticated ? value : 0 });
-const nestedGenerator = create.TextGenerator({ model, prompt: 'Use nested', tools: { nested }, toolsContext: { nested: { request: { id: 'original', authenticated: true } } } });
+const nestedGenerator = create.LLMAgent({ model, prompt: 'Use nested', tools: { nested }, toolsContext: { nested: { request: { id: 'original', authenticated: true } } } });
 void nestedGenerator.run({ toolsContext: { nested: { request: { id: 'replacement', authenticated: false } } } });
 // @ts-expect-error Each supplied tool context replaces its entire value without merging nested fields.
 void nestedGenerator.run({ toolsContext: { nested: { request: { id: 'replacement' } } } });
 // @ts-expect-error Child tool contexts replace their entire inherited value too.
-create.TextGenerator({ toolsContext: { nested: { request: { id: 'replacement' } } } }, nestedGenerator);
+create.LLMAgent({ toolsContext: { nested: { request: { id: 'replacement' } } } }, nestedGenerator);
 
 const unionToolInput = z.discriminatedUnion('kind', [z.object({ kind:z.literal('text'), text:z.string() }), z.object({ kind:z.literal('count'), count:z.number() })]);
 const unionTool = create.Function.asTool({ inputSchema:unionToolInput, context:{ db: true }, execute:input=>{
@@ -282,49 +282,49 @@ void unionTool.execute({ kind:'count', count:'wrong' }, noContext);
 
 // Tool outputs follow their final generation mode and schema, including inherited defaults.
 const answerSchema = z.object({ answer: z.number() });
-const objectTool = create.ObjectGenerator.asTool({ model, inputSchema, toolContextSchema: contextSchema, schema: answerSchema, prompt: 'Answer' });
-const arrayTool = create.ObjectGenerator.asTool({ model, inputSchema, schema: answerSchema, output: 'array', prompt: 'Answer' });
-const enumTool = create.ObjectGenerator.asTool({ model, inputSchema, output: 'enum', enum: ['yes', 'no'], prompt: 'Answer' });
-const jsonTool = create.ObjectGenerator.asTool({ model, inputSchema, output: 'no-schema', prompt: 'Answer' });
+const objectTool = create.LLMAgent.asTool({ model, inputSchema, toolContextSchema: contextSchema, prompt: 'Answer', output: Output.object({ schema: answerSchema }) });
+const arrayTool = create.LLMAgent.asTool({ model, inputSchema, prompt: 'Answer', output: Output.array({ element: answerSchema }) });
+const enumTool = create.LLMAgent.asTool({ model, inputSchema, prompt: 'Answer', output: Output.choice({ options: ['yes', 'no'] }) });
+const jsonTool = create.LLMAgent.asTool({ model, inputSchema, prompt: 'Answer', output: Output.json() });
 expectEqual<Awaited<ReturnType<typeof objectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof arrayTool.execute>>, { answer: number }[]>();
 expectEqual<Awaited<ReturnType<typeof enumTool.execute>>, 'yes' | 'no'>();
 expectEqual<Awaited<ReturnType<typeof jsonTool.execute>>, JSONValue>();
-const objectToolParent = create.Config({ model, inputSchema, toolContextSchema: contextSchema, schema: answerSchema, prompt: 'Answer' });
-const _inheritedObjectTool = create.ObjectGenerator.asTool({}, objectToolParent);
-const _inheritedArrayTool = create.ObjectGenerator.asTool({}, arrayTool);
-const _inheritedEnumTool = create.ObjectGenerator.asTool({}, enumTool);
-const _inheritedJsonTool = create.ObjectGenerator.asTool({}, jsonTool);
+const objectToolParent = create.Config({ model, inputSchema, toolContextSchema: contextSchema, output: Output.object({ schema: answerSchema }), prompt: 'Answer' });
+const _inheritedObjectTool = create.LLMAgent.asTool({}, objectToolParent);
+const _inheritedArrayTool = create.LLMAgent.asTool({}, arrayTool);
+const _inheritedEnumTool = create.LLMAgent.asTool({}, enumTool);
+const _inheritedJsonTool = create.LLMAgent.asTool({}, jsonTool);
 expectEqual<Awaited<ReturnType<typeof _inheritedObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof _inheritedArrayTool.execute>>, { answer: number }[]>();
 expectEqual<Awaited<ReturnType<typeof _inheritedEnumTool.execute>>, 'yes' | 'no'>();
 expectEqual<Awaited<ReturnType<typeof _inheritedJsonTool.execute>>, JSONValue>();
-const objectTemplateTool = create.ObjectGenerator.withTemplate.asTool({ model, inputSchema, toolContextSchema: contextSchema, schema: answerSchema, prompt: '{{ value }}' });
-const objectScriptTool = create.ObjectGenerator.withScript.asTool({ model, inputSchema, schema: answerSchema, prompt: 'return value' });
-const objectFunctionTool = create.ObjectGenerator.withFunction.asTool({ model, inputSchema, schema: answerSchema, prompt: ({ value }) => String(value) });
+const objectTemplateTool = create.LLMAgent.withTemplate.asTool({ model, inputSchema, toolContextSchema: contextSchema, prompt: '{{ value }}', output: Output.object({ schema: answerSchema }) });
+const objectScriptTool = create.LLMAgent.withScript.asTool({ model, inputSchema, prompt: 'return value', output: Output.object({ schema: answerSchema }) });
+const objectFunctionTool = create.LLMAgent.withFunction.asTool({ model, inputSchema, prompt: ({ value }) => String(value), output: Output.object({ schema: answerSchema }) });
 expectEqual<Awaited<ReturnType<typeof objectTemplateTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof objectScriptTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof objectFunctionTool.execute>>, { answer: number }>();
 declare const loader: LoaderInterface;
-const loadedTextObjectTool = create.ObjectGenerator.loadsText.asTool({ model, inputSchema, schema: answerSchema, prompt: 'answer.txt', loader });
-const loadedTemplateObjectTool = create.ObjectGenerator.loadsTemplate.asTool({ model, inputSchema, schema: answerSchema, prompt: 'answer.njk', loader });
-const loadedScriptObjectTool = create.ObjectGenerator.loadsScript.asTool({ model, inputSchema, schema: answerSchema, prompt: 'answer.casc', loader });
+const loadedTextObjectTool = create.LLMAgent.loadsText.asTool({ model, inputSchema, prompt: 'answer.txt', loader, output: Output.object({ schema: answerSchema }) });
+const loadedTemplateObjectTool = create.LLMAgent.loadsTemplate.asTool({ model, inputSchema, prompt: 'answer.njk', loader, output: Output.object({ schema: answerSchema }) });
+const loadedScriptObjectTool = create.LLMAgent.loadsScript.asTool({ model, inputSchema, prompt: 'answer.casc', loader, output: Output.object({ schema: answerSchema }) });
 expectEqual<Awaited<ReturnType<typeof loadedTextObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof loadedTemplateObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof loadedScriptObjectTool.execute>>, { answer: number }>();
-const _inheritedTemplateObjectTool = create.ObjectGenerator.withTemplate.asTool({}, objectTemplateTool);
-const _inheritedScriptObjectTool = create.ObjectGenerator.withScript.asTool({}, objectScriptTool);
-const _inheritedFunctionObjectTool = create.ObjectGenerator.withFunction.asTool({}, objectFunctionTool);
-const _inheritedLoadedTextObjectTool = create.ObjectGenerator.loadsText.asTool({}, loadedTextObjectTool);
-const _inheritedLoadedTemplateObjectTool = create.ObjectGenerator.loadsTemplate.asTool({}, loadedTemplateObjectTool);
-const _inheritedLoadedScriptObjectTool = create.ObjectGenerator.loadsScript.asTool({}, loadedScriptObjectTool);
+const _inheritedTemplateObjectTool = create.LLMAgent.withTemplate.asTool({}, objectTemplateTool);
+const _inheritedScriptObjectTool = create.LLMAgent.withScript.asTool({}, objectScriptTool);
+const _inheritedFunctionObjectTool = create.LLMAgent.withFunction.asTool({}, objectFunctionTool);
+const _inheritedLoadedTextObjectTool = create.LLMAgent.loadsText.asTool({}, loadedTextObjectTool);
+const _inheritedLoadedTemplateObjectTool = create.LLMAgent.loadsTemplate.asTool({}, loadedTemplateObjectTool);
+const _inheritedLoadedScriptObjectTool = create.LLMAgent.loadsScript.asTool({}, loadedScriptObjectTool);
 expectEqual<Awaited<ReturnType<typeof _inheritedTemplateObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof _inheritedScriptObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof _inheritedFunctionObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof _inheritedLoadedTextObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof _inheritedLoadedTemplateObjectTool.execute>>, { answer: number }>();
 expectEqual<Awaited<ReturnType<typeof _inheritedLoadedScriptObjectTool.execute>>, { answer: number }>();
-const _changedOutputObjectTool = create.ObjectGenerator.withTemplate.asTool({ schema: z.object({ answer: z.string() }) }, objectTemplateTool);
+const _changedOutputObjectTool = create.LLMAgent.withTemplate.asTool({ output: Output.object({ schema: z.object({ answer: z.string() }) }) }, objectTemplateTool);
 expectEqual<Awaited<ReturnType<typeof _changedOutputObjectTool.execute>>, { answer: string }>();
 const scriptJsonTool = create.Script.asTool({ inputSchema, script: 'return { answer: value }' });
 const _inheritedScriptJsonTool = create.Script.asTool({}, scriptJsonTool);
@@ -349,7 +349,7 @@ expectType<Tool<{ value: number }, { answer: number }, { factor: number }>>(obje
 // @ts-expect-error Typed object tool outputs cannot be widened to a different schema result.
 expectType<Tool<{ value: number }, { answer: string }, { factor: number }>>(objectTool);
 
-create.TextGenerator({ model, prompt: 'Use tools', tools: { template, script, textTool, objectTool }, toolsContext: {
+create.LLMAgent({ model, prompt: 'Use tools', tools: { template, script, textTool, objectTool }, toolsContext: {
 	template: { factor: 2 }, script: { factor: 2 }, textTool: { factor: 2 }, objectTool: { factor: 2 },
 }, onEnd: event => {
 	for (const result of event.staticToolResults) {
@@ -363,15 +363,15 @@ create.TextGenerator({ model, prompt: 'Use tools', tools: { template, script, te
 	}
 } });
 // @ts-expect-error Every tool family with a required contextSchema requires matching toolsContext.
-create.TextGenerator({ model, prompt: 'Use tools', tools: { template, script, textTool, objectTool }, toolsContext: { template: { factor: 2 }, script: { factor: 2 }, textTool: { factor: 2 } } });
+create.LLMAgent({ model, prompt: 'Use tools', tools: { template, script, textTool, objectTool }, toolsContext: { template: { factor: 2 }, script: { factor: 2 }, textTool: { factor: 2 } } });
 
 // Renderer tools without a JavaScript callback can replace execution context schemas freely.
 const suffixSchema = z.object({ suffix: z.string() });
 const suffixOptions: ToolExecutionOptions<{ suffix: string }> = { ...noContext, context: { suffix: '!' } };
 const replacedTemplateContext = create.Template.asTool({ toolContextSchema: suffixSchema }, template);
-const replacedObjectContext = create.ObjectGenerator.withTemplate.asTool({ toolContextSchema: suffixSchema }, objectTemplateTool);
-const textTemplateTool = create.TextGenerator.withTemplate.asTool({ model, inputSchema, toolContextSchema: contextSchema, prompt: '{{ value }}' });
-const replacedTextContext = create.TextGenerator.withTemplate.asTool({ toolContextSchema: suffixSchema }, textTemplateTool);
+const replacedObjectContext = create.LLMAgent.withTemplate.asTool({ toolContextSchema: suffixSchema }, objectTemplateTool);
+const textTemplateTool = create.LLMAgent.withTemplate.asTool({ model, inputSchema, toolContextSchema: contextSchema, prompt: '{{ value }}' });
+const replacedTextContext = create.LLMAgent.withTemplate.asTool({ toolContextSchema: suffixSchema }, textTemplateTool);
 void replacedTemplateContext.execute({ value: 1 }, suffixOptions);
 void replacedObjectContext.execute({ value: 1 }, suffixOptions);
 void replacedTextContext.execute({ value: 1 }, suffixOptions);
@@ -386,7 +386,7 @@ void replacedTextContext.execute({ value: 1 }, options);
 const rawRendererInput = z.object({ value: z.string().transform(Number), fallback: z.string().default('default') });
 const rawTemplateTool = create.Template.asTool({ inputSchema: rawRendererInput, template: '{{ value }}' });
 const rawScriptTool = create.Script.asTool({ inputSchema: rawRendererInput, script: 'return value', schema: z.union([z.string(), z.number()]) });
-const rawObjectTool = create.ObjectGenerator.withTemplate.asTool({ model, inputSchema: rawRendererInput, schema: answerSchema, prompt: '{{ value }}' });
+const rawObjectTool = create.LLMAgent.withTemplate.asTool({ model, inputSchema: rawRendererInput, prompt: '{{ value }}', output: Output.object({ schema: answerSchema }) });
 void rawTemplateTool({ value: '1' });
 void rawScriptTool({ value: '1' });
 void rawObjectTool({ value: '1' });
@@ -428,14 +428,14 @@ create.Function.asTool({}, rawConversionFunction);
 const parsedTextOutput = Output.object({ schema: z.object({ answer: z.string().transform(Number) }) });
 const parsedTextConfig = { model, inputSchema, output: parsedTextOutput, prompt: 'Answer' };
 const parsedTextTools = [
-	create.TextGenerator.asTool(parsedTextConfig),
-	create.TextGenerator.withText.asTool(parsedTextConfig),
-	create.TextGenerator.withTemplate.asTool(parsedTextConfig),
-	create.TextGenerator.withScript.asTool({ ...parsedTextConfig, prompt: 'return "Answer"' }),
-	create.TextGenerator.loadsText.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
-	create.TextGenerator.loadsTemplate.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
-	create.TextGenerator.loadsScript.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
-	create.TextGenerator.withFunction.asTool({ ...parsedTextConfig, prompt: () => 'Answer' }),
+	create.LLMAgent.asTool(parsedTextConfig),
+	create.LLMAgent.withText.asTool(parsedTextConfig),
+	create.LLMAgent.withTemplate.asTool(parsedTextConfig),
+	create.LLMAgent.withScript.asTool({ ...parsedTextConfig, prompt: 'return "Answer"' }),
+	create.LLMAgent.loadsText.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
+	create.LLMAgent.loadsTemplate.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
+	create.LLMAgent.loadsScript.asTool({ ...parsedTextConfig, loader: {} as LoaderInterface }),
+	create.LLMAgent.withFunction.asTool({ ...parsedTextConfig, prompt: () => 'Answer' }),
 ];
 for (const parsedTextTool of parsedTextTools) {
 	expectEqual<InferToolOutput<typeof parsedTextTool>, { answer: number }>();
@@ -445,22 +445,22 @@ for (const parsedTextTool of parsedTextTools) {
 }
 const parsedTextParent = create.Config(parsedTextConfig);
 const inheritedParsedTextTools = [
-	create.TextGenerator.asTool({}, parsedTextParent),
-	create.TextGenerator.withTemplate.asTool({}, parsedTextParent),
-	create.TextGenerator.withScript.asTool({}, parsedTextParent),
-	create.TextGenerator.loadsText.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
-	create.TextGenerator.loadsTemplate.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
-	create.TextGenerator.loadsScript.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
-	create.TextGenerator.withFunction.asTool({ prompt: () => 'Answer' }, parsedTextParent),
+	create.LLMAgent.asTool({}, parsedTextParent),
+	create.LLMAgent.withTemplate.asTool({}, parsedTextParent),
+	create.LLMAgent.withScript.asTool({}, parsedTextParent),
+	create.LLMAgent.loadsText.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
+	create.LLMAgent.loadsTemplate.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
+	create.LLMAgent.loadsScript.asTool({ loader: {} as LoaderInterface }, parsedTextParent),
+	create.LLMAgent.withFunction.asTool({ prompt: () => 'Answer' }, parsedTextParent),
 ];
 for (const inheritedTextTool of inheritedParsedTextTools) {
 	expectEqual<InferToolOutput<typeof inheritedTextTool>, { answer: number }>();
 	expectType<PromiseLike<{ answer: number }>>(inheritedTextTool.execute({ value: 1 }, noContext));
 }
-const overriddenTextTool = create.TextGenerator.asTool({ output: Output.array({ element: z.string().transform(Number) }) }, parsedTextParent);
+const overriddenTextTool = create.LLMAgent.asTool({ output: Output.array({ element: z.string().transform(Number) }) }, parsedTextParent);
 expectEqual<InferToolOutput<typeof overriddenTextTool>, number[]>();
 expectType<PromiseLike<number[]>>(overriddenTextTool.execute({ value: 1 }, noContext));
 declare const optionalTextOutput: { output?: typeof parsedTextOutput };
-const optionalTextTool = create.TextGenerator.asTool({ model, inputSchema, prompt: 'Answer', ...optionalTextOutput });
+const optionalTextTool = create.LLMAgent.asTool({ model, inputSchema, prompt: 'Answer', ...optionalTextOutput });
 expectEqual<InferToolOutput<typeof optionalTextTool>, string | { answer: number }>();
 expectType<PromiseLike<string | { answer: number }>>(optionalTextTool.execute({ value: 1 }, noContext));

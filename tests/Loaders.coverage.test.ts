@@ -380,7 +380,7 @@ describe('Loader execution coverage', () => {
 				expect(error).to.be.instanceOf(ScriptError);
 				return missing('missing.casc')(error);
 			});
-			await rejects(async () => await create.TextGenerator.loadsText({ model: textModel(), loader, prompt: 'missing.txt' })(), (error: unknown) => {
+			await rejects(async () => await create.LLMAgent.loadsText({ model: textModel(), loader, prompt: 'missing.txt' })(), (error: unknown) => {
 				expect((error as Error).message).to.match(/^Failed to load prompt/);
 				return missing('missing.txt')(error);
 			});
@@ -399,7 +399,7 @@ describe('Loader execution coverage', () => {
 			expect(await run({ name: 'Ada' })).to.equal('Hello Ada');
 			expect(await run('workflows/other.casc', { name: 'Ada' })).to.equal('Hello Ada!');
 			const model = textModel();
-			await create.TextGenerator.loadsScript({ model, loader, prompt: 'workflows/main.casc', context: { name: 'Ada' } })();
+			await create.LLMAgent.loadsScript({ model, loader, prompt: 'workflows/main.casc', context: { name: 'Ada' } })();
 			expect(userPrompt(model)).to.deep.equal([[{ type: 'text', text: 'Hello Ada' }]]);
 		});
 
@@ -453,8 +453,8 @@ describe('Loader execution coverage', () => {
 			expect(await create.Template.loadsTemplate({ loader, template: 'greeting.njk' })({ name: 'Ada' })).to.equal('Hello Ada!');
 			expect(await create.Script.loadsScript({ loader, script: 'greeting.casc' })({ name: 'Ada' })).to.equal('Hi Ada');
 			const model = textModel();
-			await create.TextGenerator.loadsTemplate({ model, loader, prompt: 'greeting.njk', context: { name: 'Ada' } })();
-			await create.TextGenerator.loadsScript({ model, loader, prompt: 'greeting.casc', context: { name: 'Ada' } })();
+			await create.LLMAgent.loadsTemplate({ model, loader, prompt: 'greeting.njk', context: { name: 'Ada' } })();
+			await create.LLMAgent.loadsScript({ model, loader, prompt: 'greeting.casc', context: { name: 'Ada' } })();
 			expect(userPrompt(model)).to.deep.equal([[{ type: 'text', text: 'Hello Ada!' }], [{ type: 'text', text: 'Hi Ada' }]]);
 		});
 	});

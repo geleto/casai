@@ -1,7 +1,5 @@
-import type { PromptType, TemplatePromptType, ScriptPromptType } from './types/prompt.js';
-import type { Context } from './types/utils.js';
+import type { PromptType } from './types/prompt.js';
 import type { SchemaType } from './types/schema.js';
-import type { ObjectOutputMode } from './types/sdk.js';
 import { z, ZodError } from 'zod';
 import { isRecord } from '@ai-sdk/provider-utils';
 import * as configs from './types/config.js';
@@ -9,11 +7,7 @@ import { modelMessageSchema as ModelMessageSchema } from 'ai';
 
 import { ConfigError, ValidationError } from './errors.js';
 import { parseSchema, validateSchemaVersion } from './schema.js';
-
-type AnyTextConfig = configs.ConfigShape<configs.GenerateTextConfig<any, any, any> | configs.StreamTextConfig<any, any, any>>;
-type AnyObjectConfig =
-	| configs.GenerateObjectObjectConfig<any, any, any> | configs.GenerateObjectArrayConfig<any, any, any> | configs.GenerateObjectEnumConfig<any, any, any> | configs.GenerateObjectNoSchemaConfig<any, any>
-	| configs.StreamObjectObjectConfig<any, any, any> | configs.StreamObjectArrayConfig<any, any, any> | configs.StreamObjectNoSchemaConfig<any, any>;
+import { retiredSettings, agentSourceConflicts } from './agent-settings-policy.js';
 
 // --- Helper Functions ---
 
@@ -45,32 +39,32 @@ export function validateConfigBasics(config?: unknown, ErrorClass: typeof Config
 	if ('contextSchema' in config) throw new ErrorClass("Use 'toolContextSchema' in Casai configuration; 'contextSchema' belongs to native SDK tools.");
 	if ('options' in config) throw new ErrorClass("Use 'renderOptions' for rendering settings; 'options' is not supported in Casai configuration.");
 	if ('mode' in config) throw new ErrorClass("'mode' is not supported. The AI SDK selects the object generation format.");
+	if (config.asTool !== undefined && config.asTool !== true) throw new ErrorClass('Tool mode is enabled with .asTool and cannot be disabled.');
 	for (const key of ['inputSchema', 'toolContextSchema', 'schema']) {
 		if (key in config) validateSchemaVersion(config[key]);
 	}
 	if ('template' in config && 'script' in config) {
 		throw new ErrorClass("Configuration cannot have both 'template' and 'script' properties.");
 	}
-	if ('messages' in config) {
-		validateMessagesArray(config.messages, ErrorClass);
-	}
+	if ('messages' in config) throw new ErrorClass("Use 'prompt' for configured messages and 'messageHistory' for invocation history.");
+	const invalid = retiredSettings.filter(key => Object.hasOwn(config, key));
+	if (invalid.length) throw new ErrorClass(`Unsupported configuration properties: ${invalid.join(', ')}.`);
 }
 
 // Compatibility checks apply to both reusable fragments and completed components.
 // Required properties are checked separately by the concrete component validators.
 const forbiddenConfigProperties = {
-	Function: ['model', 'template', 'script', 'prompt', 'output', 'enum', 'loader', 'filters', 'renderOptions', 'messages', 'promptType'],
-	Template: ['model', 'script', 'execute', 'output', 'enum', 'schema', 'prompt', 'messages'],
-	Script: ['model', 'template', 'execute', 'output', 'enum', 'prompt', 'messages'],
-	Text: ['template', 'script', 'execute', 'schema', 'enum'],
-	Object: ['template', 'script', 'execute', 'tools', 'toolsContext'],
+	Function: ['streaming', 'model', 'template', 'script', 'prompt', 'output', 'loader', 'filters', 'renderOptions', 'promptType'],
+	Template: ['streaming', 'model', 'script', 'execute', 'output', 'schema', 'prompt'],
+	Script: ['streaming', 'model', 'template', 'execute', 'output', 'prompt'],
+	LLMAgent: agentSourceConflicts,
 } as const;
 
 type ConfigKind = keyof typeof forbiddenConfigProperties;
 
 function validateConfigCompatibility(config: Record<string, unknown>, kind: ConfigKind): void {
-	if (kind === 'Text' && config.output !== undefined && (typeof config.output !== 'object' || config.output === null)) {
-		throw new ConfigError("Property 'output' is not applicable for a Text configuration unless it is an AI SDK output specification.");
+	if (kind === 'LLMAgent' && config.output !== undefined && (typeof config.output !== 'object' || config.output === null)) {
+		throw new ConfigError("Property 'output' must be an AI SDK Output specification for LLMAgent.");
 	}
 	for (const property of forbiddenConfigProperties[kind]) {
 		if (property in config) {
@@ -84,58 +78,43 @@ function identifyConfigKind(config: Record<string, unknown>): ConfigKind | undef
 	if ('execute' in config) return 'Function';
 	if ('template' in config) return 'Template';
 	if ('script' in config) return 'Script';
-	if (typeof config.output === 'object' && config.output !== null) return 'Text';
-	if ('output' in config || 'enum' in config) return 'Object';
-	if ('model' in config) return 'schema' in config ? 'Object' : 'Text';
+	if (['model', 'output', 'prompt', 'prepareCall', 'prepareStep', 'streaming', 'id'].some(key => key in config)) return 'LLMAgent';
 	return undefined;
 }
 
-function validatePromptProperties(config: Record<string, unknown>, promptType?: PromptType, requireFunctionPrompt = false): void {
-	if (config.prompt === undefined && !requireFunctionPrompt) return;
+function validatePromptProperties(config: Record<string, unknown>, promptType?: PromptType): void {
+	if (config.prompt === undefined) return;
+	if (typeof config.prompt !== 'string' && typeof config.prompt !== 'function' && !Array.isArray(config.prompt)) {
+		throw new ConfigError("The 'prompt' must be text, a message array, or a function.");
+	}
 	if (promptType?.includes('template') || promptType?.includes('script')) {
 		if (Array.isArray(config.prompt)) {
 			throw new ConfigError("A 'prompt' with a message array is not allowed for template or script-based components. The 'prompt' must be a string containing the template or script.");
 		}
 	} else if (promptType?.includes('function') && typeof config.prompt !== 'function') {
 		throw new ConfigError("The 'prompt' property must be a function when using withFunction().");
-	} else if (promptType === 'text-name') {
-		validateLoadedTextPrompt(config.prompt);
+	} else if (promptType === 'text-name' && typeof config.prompt !== 'string') {
+		throw new ConfigError("The 'prompt' of a loadsText component must be the name of the prompt to load.");
 	}
 	if (Array.isArray(config.prompt)) validateMessagesArray(config.prompt);
 }
 
-// A loaded text prompt is identified by name.
-export function validateLoadedTextPrompt(prompt: unknown, ErrorClass: typeof ConfigError | typeof ValidationError = ConfigError): asserts prompt is string | undefined {
-	if (prompt !== undefined && typeof prompt !== 'string') {
-		throw new ErrorClass("The 'prompt' of a loadsText component must be the name of the prompt to load.");
+export function validateAgentConfig(config: Record<string, unknown>): void {
+	validateConfigBasics(config);
+	validateConfiguredSignal(config);
+	validateConfigCompatibility(config, 'LLMAgent');
+	if (!hasConfiguredValue(config, 'model')) throw new ConfigError("LLMAgent requires a 'model'.");
+	if (config.streaming !== undefined && config.streaming !== true) throw new ConfigError('Streaming mode is enabled with .asStream and cannot be disabled.');
+	const mode = config.promptType as PromptType;
+	if (mode.endsWith('-name') && !hasConfiguredValue(config, 'loader')) throw new ConfigError('Loaded prompts require a loader.');
+	if (config.prompt !== undefined) {
+		if (mode === 'function' && typeof config.prompt !== 'function') throw new ConfigError('A function prompt must be a function.');
+		if (mode !== 'function' && mode !== 'text' && typeof config.prompt !== 'string') throw new ConfigError('A rendered or loaded prompt source must be a string.');
+		if (mode === 'text' && typeof config.prompt !== 'string') validateMessagesArray(config.prompt);
 	}
-}
-
-function validateObjectOutputProperties(config: Record<string, unknown>, isStreamer = false, defaultOutput: ObjectOutputMode = 'object'): ObjectOutputMode {
-	const configuredOutput = config.output === undefined ? defaultOutput : config.output;
-	if (isStreamer && configuredOutput === 'enum') {
-		throw new ConfigError('Object streamers do not support "enum" output.');
+	if (config.asTool === true && (!hasConfiguredValue(config, 'inputSchema') || !hasConfiguredValue(config, 'prompt'))) {
+		throw new ConfigError('An LLMAgent tool requires inputSchema and a configured prompt.');
 	}
-	if (config.enum !== undefined && (!Array.isArray(config.enum) || !config.enum.every(value => typeof value === 'string'))) {
-		throw new ConfigError("The 'enum' property must be a string array.");
-	}
-	let output: ObjectOutputMode;
-	switch (configuredOutput) {
-		case 'object': output = 'object'; break;
-		case 'array': output = 'array'; break;
-		case 'enum': output = 'enum'; break;
-		case 'no-schema': output = 'no-schema'; break;
-		default:
-			throw new ConfigError(`Invalid 'output' mode: '${typeof configuredOutput === 'string' ? configuredOutput : typeof configuredOutput}'. Must be 'object', 'array', ${isStreamer ? '' : 'enum, '}or 'no-schema'.`);
-	}
-	// Match the SDK's mode compatibility checks before running a prompt preparer.
-	// Required settings remain the responsibility of the completed factory.
-	const unsupported = output === 'enum' || output === 'no-schema' ? ['schema', 'schemaName', 'schemaDescription'] : [];
-	if (output !== 'enum') unsupported.push('enum');
-	for (const key of unsupported) {
-		if (hasConfiguredValue(config, key)) throw new ConfigError(`Property '${key}' is not supported for '${output}' output.`);
-	}
-	return output;
 }
 
 // --- Configuration Validators (for Creation Time) ---
@@ -147,161 +126,46 @@ function validateConfiguredSignal(config: Record<string, unknown>): void {
 }
 
 /** Validate reusable config fragments; component factories validate their complete contracts. */
-export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, any, any>>): void {
+export function validateAnyConfig(config?: Partial<configs.AnyConfig<any, any, any>>): void {
 	validateConfigBasics(config);
 	validateConfiguredSignal(config);
 	const kind = identifyConfigKind(config);
 	if (kind) {
 		validateConfigCompatibility(config, kind);
-	} else if (!Object.values(forbiddenConfigProperties).some(properties => properties.every(property => !(property in config)))) {
-		// Shared properties need not identify one kind, but must still fit at least one.
-		throw new ConfigError('These properties do not belong to any single component configuration.');
 	}
 	if ('execute' in config && config.execute !== undefined && typeof config.execute !== 'function') {
 		throw new ConfigError("The 'execute' property in a Function config must be a function.");
 	}
-	// An enum-only fragment can acquire its output mode from a child.
-	if (kind === 'Object') validateObjectOutputProperties(config, false, 'enum' in config && config.enum !== undefined ? 'enum' : 'object');
 	validatePromptProperties(config, 'promptType' in config ? config.promptType : undefined);
 }
 
-/**
- * Validates configurations for TextGenerator and TextStreamer.
- * @param config The configuration object.
- * @param promptType The explicit promptType from the factory.
- * @param isTool A flag indicating if the component is being created as a tool.
- */
-export function validateTextLLMConfig(config: Partial<AnyTextConfig>, promptType?: PromptType, isTool = false): void {
+/** Template and Script share source, loader and tool requirements. */
+export function validateRendererConfig(config: Record<string, unknown>, kind: 'Template' | 'Script'): void {
+	const source = kind === 'Template' ? 'template' : 'script';
+	const promptType = config.promptType as PromptType | undefined;
 	validateConfigBasics(config);
-	validateConfiguredSignal(config);
-	validateConfigCompatibility(config, 'Text');
-	validatePromptProperties(config, promptType, true);
-	if (config.model === undefined || config.model === null) throw new ConfigError("Text generator configs require a 'model' property.");
-
-	const isLoaded = promptType?.endsWith('-name') ?? false;
-	if (isLoaded && !hasConfiguredValue(config, 'loader')) {
-		throw new ConfigError("A 'loader' is required for this operation (e.g., for loads...() or *-name prompt types).");
-	}
-	if (isTool) {
-		if (!hasConfiguredValue(config, 'inputSchema')) {
-			throw new ConfigError("'inputSchema' is a required property when creating a TextGenerator as a tool.");
-		}
-		if (!hasConfiguredValue(config, 'prompt')) {
-			throw new ConfigError("'prompt' is a required property when creating a TextGenerator as a tool.");
-		}
-	}
-}
-
-/**
- * Validates configurations for ObjectGenerator and ObjectStreamer.
- * @param config The configuration object.
- * @param promptType The explicit promptType from the factory.
- * @param isTool A flag indicating if the component is being created as a tool.
- * @param isStreamer A flag indicating if the component is a streamer.
- */
-export function validateObjectLLMConfig(config: Partial<AnyObjectConfig>, promptType?: PromptType, isTool = false, isStreamer = false): void {
-	validateConfigBasics(config);
-	validateConfiguredSignal(config);
-	validateConfigCompatibility(config, 'Object');
-	validatePromptProperties(config, promptType, true);
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime callers can explicitly clear an inherited model with null.
-	if (config.model === undefined || config.model === null) throw new ConfigError("Object generator configs require a 'model' property.");
-	const output = validateObjectOutputProperties(config, isStreamer);
-
-	if (isTool) {
-		if (!hasConfiguredValue(config, 'inputSchema')) {
-			throw new ConfigError("'inputSchema' is a required property when creating a ObjectGenerator as a tool.");
-		}
-		if (!hasConfiguredValue(config, 'prompt')) {
-			throw new ConfigError("'prompt' is a required property when creating a ObjectGenerator as a tool.");
-		}
-	}
-
-	switch (output) {
-		case 'object':
-		case 'array':
-			if (!hasConfiguredValue(config, 'schema')) {
-				throw new ConfigError(`An 'output' of '${output}' requires a 'schema' property.`);
-			}
-			break;
-		case 'enum':
-			if (!('enum' in config) || config.enum === undefined) {
-				throw new ConfigError("An 'output' of 'enum' requires an 'enum' property with a string array.");
-			}
-			break;
-		case 'no-schema': break; // No extra properties needed
-	}
-
-	const isLoaded = promptType?.endsWith('-name') ?? false;
-	if (isLoaded && !hasConfiguredValue(config, 'loader')) {
-		throw new ConfigError("A 'loader' is required for this operation (e.g., for loads...() or *-name prompt types).");
-	}
-}
-
-/**
- * Validates configurations for `create.Template`.
- * @param config The configuration object.
- * @param promptType The explicit promptType from the factory.
- * @param isTool A flag indicating if the component is being created as a tool.
- */
-export function validateTemplateConfig(config: Partial<configs.TemplateConfig<any>>, promptType?: TemplatePromptType, isTool = false): void {
-	validateConfigBasics(config);
-	validateConfigCompatibility(config, 'Template');
+	validateConfigCompatibility(config, kind);
+	if (promptType !== undefined && promptType !== `async-${source}` && promptType !== `async-${source}-name`) throw new ConfigError(`${kind} requires a ${source} source modifier.`);
 	validateConfiguredSignal(config);
 
 	const isLoaded = promptType?.endsWith('-name') ?? false;
 
 	if (isLoaded) {
 		if (!hasConfiguredValue(config, 'loader')) {
-			throw new ConfigError("A 'loader' is required when loading a template by name ('async-template-name').");
+			throw new ConfigError(`A 'loader' is required when loading a ${source} by name ('async-${source}-name').`);
 		}
 	} else {
-		// If not loading by name, the template string must be in the config itself.
-		if (!('template' in config)) {
-			throw new ConfigError("A 'template' property is required for a Template configuration that is not loaded by name.");
+		if (!(source in config)) {
+			throw new ConfigError(`A '${source}' property is required for a ${kind} configuration that is not loaded by name.`);
 		}
 	}
 
-	if (isTool) {
+	if (config.asTool === true) {
 		if (!hasConfiguredValue(config, 'inputSchema')) {
-			throw new ConfigError("'inputSchema' is a required property when creating a Template as a tool.");
+			throw new ConfigError(`'inputSchema' is a required property when creating a ${kind} as a tool.`);
 		}
-		if (!hasConfiguredValue(config, 'template')) {
-			throw new ConfigError("'template' is a required property when creating a Template as a tool.");
-		}
-	}
-}
-
-/**
- * Validates configurations for `create.Script`.
- * @param config The configuration object.
- * @param promptType The explicit promptType from the factory.
- * @param isTool A flag indicating if the component is being created as a tool.
- */
-export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, any>>, promptType?: ScriptPromptType, isTool = false): void {
-	validateConfigBasics(config);
-	validateConfigCompatibility(config, 'Script');
-	validateConfiguredSignal(config);
-
-	const isLoaded = promptType?.endsWith('-name') ?? false;
-
-	if (isLoaded) {
-		if (!hasConfiguredValue(config, 'loader')) {
-			throw new ConfigError("A 'loader' is required when loading a script by name ('async-script-name').");
-		}
-	} else {
-		// If not loading by name, the script string must be in the config itself.
-		if (!('script' in config)) {
-			throw new ConfigError("A 'script' property is required for a Script configuration that is not loaded by name.");
-		}
-	}
-
-	if (isTool) {
-		if (!hasConfiguredValue(config, 'inputSchema')) {
-			throw new ConfigError("'inputSchema' is a required property when creating a Script as a tool.");
-		}
-		if (!hasConfiguredValue(config, 'script')) {
-			throw new ConfigError("'script' is a required property when creating a Script as a tool.");
+		if (!hasConfiguredValue(config, source)) {
+			throw new ConfigError(`'${source}' is a required property when creating a ${kind} as a tool.`);
 		}
 	}
 }
@@ -309,38 +173,20 @@ export function validateScriptConfig(config: Partial<configs.ScriptConfig<any, a
 /**
  * Validates configurations for `create.Function`.
  * @param config The configuration object.
- * @param isTool A flag indicating if the function is being created as a tool.
  */
-export function validateFunctionConfig(config: Record<string, unknown>, isTool = false): void {
+export function validateFunctionConfig(config: Record<string, unknown>): void {
 	validateConfigBasics(config);
 	validateConfigCompatibility(config, 'Function');
 	validateConfiguredSignal(config);
 	if (typeof config.execute !== 'function') {
 		throw new ConfigError("The 'execute' property in a Function config must be a function.");
 	}
-	if (isTool && !hasConfiguredValue(config, 'inputSchema')) {
+	if (config.asTool === true && !hasConfiguredValue(config, 'inputSchema')) {
 		throw new ConfigError("'inputSchema' is a required property when creating a Function as a tool.");
 	}
 }
 
 // Source/history validation is separate from the shared application-input boundary.
-export function validateLLMComponentCall(
-	config: Partial<configs.AnyConfig<any, any, any, any>>, promptType: PromptType,
-	context?: Context,
-): void {
-	if (!hasConfiguredValue(config, 'model')) throw new ConfigError("LLM calls require a 'model' property.");
-	if (promptType === 'function') return;
-	const prompt = (config as { prompt?: unknown }).prompt;
-	if (promptType.includes('template') || promptType.includes('script')) {
-		if (typeof prompt !== 'string') throw new ValidationError('Prompt source must be a string, supplied in configuration or at call time.');
-		return;
-	}
-	if (typeof prompt !== 'string' && !(Array.isArray(prompt) && prompt.length) && !(config as configs.TemplatePromptConfig).messages?.length) {
-		throw new ValidationError("Either 'prompt' (string or messages array) or 'messages' must be provided in the config or at call time.");
-	}
-	if (context !== undefined) throw new ValidationError("A 'context' object cannot be provided when using a 'text' or 'text-name' component.");
-}
-
 export function validateAndParseOutput<Output>(config: { schema: SchemaType<Output> }, result: unknown): Promise<Output>;
 export function validateAndParseOutput<Value>(config: { schema?: undefined }, result: Value): Value;
 export function validateAndParseOutput<Output, Value>(config: { schema?: SchemaType<Output> | undefined }, result: Value): Value | Promise<Output>;

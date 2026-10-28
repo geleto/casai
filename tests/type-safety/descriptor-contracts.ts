@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 import { create, z } from 'casai';
 import type { LanguageModel } from 'ai';
 import { expectEqual } from './assert.js';
@@ -22,12 +23,12 @@ create.Script.asTool({ toolContextSchema: replacement }, script);
 const template = create.Template.asTool({ inputSchema, template: 'ok', toolContextSchema, description: ({ context }) => context.tenant.toUpperCase() });
 // @ts-expect-error Retained description needs a string tenant.
 create.Template.asTool({ toolContextSchema: replacement }, template);
-const text = create.TextGenerator.asTool({ model, inputSchema, prompt: 'ok', toolContextSchema, description: ({ context }) => context.tenant.toUpperCase() });
+const text = create.LLMAgent.asTool({ model, inputSchema, prompt: 'ok', toolContextSchema, description: ({ context }) => context.tenant.toUpperCase() });
 // @ts-expect-error Retained description needs a string tenant.
-create.TextGenerator.asTool({ toolContextSchema: replacement }, text);
-const object = create.ObjectGenerator.asTool({ model, inputSchema, schema: z.object({ value: z.number() }), prompt: 'ok', toolContextSchema, description: ({ context }) => context.tenant.toUpperCase() });
+create.LLMAgent.asTool({ toolContextSchema: replacement }, text);
+const object = create.LLMAgent.asTool({ model, inputSchema, prompt: 'ok', toolContextSchema, description: ({ context }) => context.tenant.toUpperCase(), output: Output.object({ schema: z.object({ value: z.number() }) }) });
 // @ts-expect-error Retained description needs a string tenant.
-create.ObjectGenerator.asTool({ toolContextSchema: replacement }, object);
+create.LLMAgent.asTool({ toolContextSchema: replacement }, object);
 const fragment = create.Config({ toolContextSchema, description: ({ context }) => context.tenant.toUpperCase() });
 create.Function.asTool({ inputSchema, execute: () => 'ok' }, fragment);
 // @ts-expect-error Inherited fragment descriptions must match final context.
@@ -41,6 +42,6 @@ create.Function.asTool({ inputSchema, execute: () => 'ok', description: undefine
 // @ts-expect-error Descriptions must return text.
 create.Function.asTool({ inputSchema, execute: () => 'ok', description: () => 5 });
 // @ts-expect-error Ordinary descriptions retain their native property type.
-create.TextGenerator({ model, prompt: 'ok', description: 5 });
+create.LLMAgent({ model, prompt: 'ok', description: 5 });
 // @ts-expect-error Fragments also reject invalid description values.
 create.Config({ description: 5 });

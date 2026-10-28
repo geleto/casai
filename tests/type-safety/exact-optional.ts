@@ -1,3 +1,4 @@
+import { Output } from 'ai';
 // With exactOptionalPropertyTypes, an optional property is either absent or holds its declared type.
 // A child whose optional execute cannot hold undefined always keeps an implementation.
 import { create, z } from 'casai';
@@ -21,14 +22,12 @@ declare const maybe: { execute?: typeof double | undefined };
 // @ts-expect-error This optional property is declared to hold undefined.
 create.Function.asTool(maybe, parent);
 
-// SDK callbacks stay optional without admitting explicitly undefined callbacks.
+// LLMAgent run ignores explicit undefined settings, including callbacks and approval policy.
 declare const model: import('ai').LanguageModel;
-const objects = create.ObjectStreamer({ model, schema: z.object({ answer: z.number() }), prompt: 'Answer.' });
-// @ts-expect-error Optional SDK callbacks cannot be explicitly undefined.
-objects.run({ onFinish: undefined });
-const texts = create.TextStreamer({ model, prompt: 'Answer.' });
-// @ts-expect-error The outer approval setting is optional without explicitly admitting undefined.
-texts.run({ toolApproval: undefined });
+const objects = create.LLMAgent.asStream({ model, prompt: 'Answer.', output: Output.object({ schema: z.object({ answer: z.number() }) }) });
+void objects.run({ onEnd: undefined });
+const texts = create.LLMAgent.asStream({ model, prompt: 'Answer.' });
+void texts.run({ toolApproval: undefined });
 
 // Omission inherits a schema; a property that can hold undefined can remove it.
 const numberSchema = z.string().transform(Number);

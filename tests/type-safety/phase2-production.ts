@@ -166,11 +166,11 @@ void rendered.run({});
 void create.Template({}, rendered).run({});
 void create.Script({}, create.Script({ script: 'return 1' })).run({});
 declare const model: LanguageModel;
-create.TextGenerator.withFunction({
+create.LLMAgent.withFunction({
 	model, tools: { action }, toolsContext: { action: { factor: '2' } },
 	prompt: async ({ action }) => String(await action({ amount: '3' })),
 });
-create.TextStreamer.withFunction({
+create.LLMAgent.withFunction.asStream({
 	model, tools: { native }, prompt: async ({ native }) => String(await native(1)),
 });
 const values = z.object({ values: z.array(z.string()) });
@@ -208,20 +208,20 @@ expectType<PromiseLike<string>>(scriptStream.execute({}, { toolCallId: 'call', m
 const iterableOutput = z.object({}).transform(() => ({ async *[Symbol.asyncIterator]() { yield 1; } }));
 const nativeIterableOutput = Output.object({ schema: iterableOutput });
 // Ordinary native model outputs retain their declared result type.
-expectType<Promise<AsyncIterable<number>>>(create.TextGenerator({ model, prompt: 'ready', output: nativeIterableOutput })().then(result => result.value));
-expectType<Promise<AsyncIterable<number>>>(create.ObjectGenerator({ model, prompt: 'ready', schema: iterableOutput })().then(result => result.value));
+expectType<Promise<AsyncIterable<number>>>(create.LLMAgent({ model, prompt: 'ready', output: nativeIterableOutput })().then(result => result.value));
+expectType<Promise<AsyncIterable<number>>>(create.LLMAgent({ model, prompt: 'ready', output: Output.object({ schema: iterableOutput }) })().then(result => result.value));
 // @ts-expect-error Casai tools cannot expose an undeclared root iterable to the SDK.
-create.TextGenerator.asTool({ model, prompt: 'ready', inputSchema: z.object({}), output: nativeIterableOutput });
+create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}), output: nativeIterableOutput });
 // @ts-expect-error Object generator tools have the same completed-output requirement.
-create.ObjectGenerator.asTool({ model, prompt: 'ready', inputSchema: z.object({}), schema: iterableOutput });
+create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}), output: Output.object({ schema: iterableOutput }) });
 const iterableTextParent = create.Config({ model, prompt: 'ready', output: nativeIterableOutput });
 // @ts-expect-error Inherited output settings retain the same tool restriction.
-create.TextGenerator.asTool({ inputSchema: z.object({}) }, iterableTextParent);
-create.TextGenerator.asTool({ inputSchema: z.object({}), output: Output.text() }, iterableTextParent);
-const iterableObjectParent = create.Config({ model, prompt: 'ready', schema: iterableOutput });
+create.LLMAgent.asTool({ inputSchema: z.object({}) }, iterableTextParent);
+create.LLMAgent.asTool({ inputSchema: z.object({}), output: Output.text() }, iterableTextParent);
+const iterableObjectParent = create.Config({ model, prompt: 'ready', output: Output.object({ schema: iterableOutput }) });
 // @ts-expect-error Inherited schemas cannot evade the completed-output requirement.
-create.ObjectGenerator.asTool({ inputSchema: z.object({}) }, iterableObjectParent);
-create.ObjectGenerator.asTool({ inputSchema: z.object({}), schema: z.object({ answer: z.number() }) }, iterableObjectParent);
+create.LLMAgent.asTool({ inputSchema: z.object({}) }, iterableObjectParent);
+create.LLMAgent.asTool({ inputSchema: z.object({}), output: Output.object({ schema: z.object({ answer: z.number() }) }) }, iterableObjectParent);
 
 // Native contextSchema is forbidden even when undefined or inherited.
 // @ts-expect-error The native spelling is descriptor-only.
@@ -285,28 +285,22 @@ create.Script.asTool({
 		return { type: 'text', value: String(output) };
 	},
 });
-create.TextGenerator.asTool({
+create.LLMAgent.asTool({
 	model, prompt: 'ready', inputSchema,
 	onInputAvailable: ({ input: _input }) => { expectEqual<typeof _input.amount, number>(); },
 	toModelOutput: ({ output }) => { expectEqual<typeof output, string>(); return { type: 'text', value: output }; },
 });
-create.ObjectGenerator.asTool({
-	model, prompt: 'ready', inputSchema, schema: z.object({ result: z.number() }),
-	onInputAvailable: ({ input: _input }) => { expectEqual<typeof _input.amount, number>(); },
-	toModelOutput: ({ output }) => { expectEqual<typeof output, { result: number }>(); return { type: 'text', value: String(output.result) }; },
-});
+create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema, onInputAvailable: ({ input: _input }) => { expectEqual<typeof _input.amount, number>(); }, toModelOutput: ({ output }) => { expectEqual<typeof output, { result: number }>(); return { type: 'text', value: String(output.result) }; }, output: Output.object({ schema: z.object({ result: z.number() }) }) });
 
 // Every helper returns the descriptor's completed output, independently of its factory.
 const helperTools = {
 	template: create.Template.asTool({ template: 'ready', inputSchema: z.object({}) }),
 	script: create.Script.asTool({ script: 'return "2"', inputSchema: z.object({}), schema: z.string().transform(Number) }),
-	text: create.TextGenerator.asTool({ model, prompt: 'ready', inputSchema: z.object({}) }),
-	textObject: create.TextGenerator.asTool({ model, prompt: 'ready', inputSchema: z.object({}),
+	text: create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}) }),
+	textObject: create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}),
 		output: Output.object({ schema: z.object({ x: z.number() }) }) }),
-	objectArray: create.ObjectGenerator.asTool({ model, prompt: 'ready', inputSchema: z.object({}),
-		output: 'array', schema: z.object({ x: z.number() }) }),
-	objectEnum: create.ObjectGenerator.asTool({ model, prompt: 'ready', inputSchema: z.object({}),
-		output: 'enum', enum: ['yes', 'no'] as const }),
+	objectArray: create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}), output: Output.array({ element: z.object({ x: z.number() }) }) }),
+	objectEnum: create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}), output: Output.choice({ options: ['yes', 'no'] as const }) }),
 	streamed: create.Function.asTool({ inputSchema: z.object({}),
 		schema: streamSchema(z.string().transform(Number)), execute: async function* () { yield '2'; } }),
 };
@@ -337,7 +331,7 @@ create.Function({
 		return element.x;
 	},
 });
-create.TextGenerator.withFunction({
+create.LLMAgent.withFunction({
 	model, tools: helperTools, prompt: async helpers => {
 		expectType<number>(await helpers.script({}));
 		expectType<string>(await helpers.text({}));
@@ -348,3 +342,20 @@ create.TextGenerator.withFunction({
 		return (await helpers.template({})).toUpperCase();
 	},
 });
+
+const agentCallbackContext = create.LLMAgent.withFunction({ model,
+	tools: { callbackContextTool, action }, toolsContext: { callbackContextTool: { map: (value: number) => value }, action: { factor: '2' } },
+	prompt: async ({ callbackContextTool }) => String(await callbackContextTool({})),
+});
+void agentCallbackContext.run({ toolsContext: { callbackContextTool: { map: value => value * 2 } } });
+// @ts-expect-error A callback in one entry cannot conceal removal of another required entry.
+void agentCallbackContext.run({ toolsContext: { callbackContextTool: { map: value => value }, action: undefined } });
+
+const callbackDefaultTool = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), execute: ({ value }) => value });
+const callbackDefaultOwner = create.Function({ tools: { callbackDefaultTool, callbackContextTool },
+	toolsContext: { callbackDefaultTool: { value: 3 }, callbackContextTool: { map: (value: number) => value } },
+	execute: ({ callbackDefaultTool }) => callbackDefaultTool(),
+});
+void callbackDefaultOwner.run({ toolsContext: { callbackDefaultTool: { value: 4 }, callbackContextTool: { map: value => value * 2 } } });
+// @ts-expect-error A callback cannot hide removal of another helper's public default.
+void callbackDefaultOwner.run({ toolsContext: { callbackDefaultTool: {}, callbackContextTool: { map: value => value } } });

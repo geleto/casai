@@ -1,11 +1,11 @@
 import {
 	create, Config, Function as FunctionFactory, Template, Script,
-	TextGenerator, TextStreamer, ObjectGenerator, ObjectStreamer,
+	LLMAgent,
 	FileSystemLoader, PrecompiledLoader, WebLoader, NotFoundError, race,
 	ModelMessageSchema, PromptStringOrMessagesSchema, ConfigError, ValidationError, TemplateError, ScriptError, z,
 } from 'casai';
-import type { ConfigProvider, ModelMessage, ToolSet, RaceGroup, RaceLoader, SchemaType, Context, ScriptResult, TemplatePromptType, ScriptPromptType, FunctionPromptType, ToolContextSchemaConfig, ToolConfig, StreamObjectOnFinishEvent, StreamTextOnFinishEvent } from 'casai';
-import type { ModelMessage as SDKModelMessage, ToolSet as SDKToolSet, GenerateObjectEndEvent, StreamTextOnEndCallback } from 'ai';
+import type { ConfigProvider, ModelMessage, ToolSet, RaceGroup, RaceLoader, SchemaType, Context, ScriptResult, TemplatePromptType, ScriptPromptType, FunctionPromptType, ToolContextSchemaConfig, ToolConfig, StreamTextOnFinishEvent } from 'casai';
+import type { ModelMessage as SDKModelMessage, ToolSet as SDKToolSet, StreamTextOnEndCallback } from 'ai';
 import { jsonSchema } from 'ai';
 import type { ILoaderAny, LoaderInterface } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
@@ -24,33 +24,28 @@ if (caught instanceof ValidationError) {
 
 // Both public entry points expose the same overloads rather than widened wrappers.
 // New factories or modifiers require a corresponding coverage review.
-expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'TextGenerator' | 'TextStreamer' | 'ObjectGenerator' | 'ObjectStreamer'>();
+expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'LLMAgent'>();
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
 	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'
 	| 'race' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'ValidationError' | 'TemplateError' | 'ScriptError' | 'z'
 >();
 type PromptModifiers = 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript';
-expectEqual<keyof typeof TextGenerator, PromptModifiers | 'asTool'>();
-expectEqual<keyof typeof ObjectGenerator, PromptModifiers | 'asTool'>();
-expectEqual<keyof typeof TextStreamer, PromptModifiers>();
-expectEqual<keyof typeof ObjectStreamer, PromptModifiers>();
-expectEqual<keyof typeof Template, 'loadsTemplate' | 'asTool'>();
-expectEqual<keyof typeof Script, 'loadsScript' | 'asTool' | 'loadsScriptAsTool'>();
+expectEqual<keyof typeof LLMAgent, PromptModifiers | 'asTool' | 'asStream'>();
+expectEqual<keyof typeof LLMAgent.asStream, 'asTool'>();
+expectEqual<keyof typeof LLMAgent.asTool, never>();
+expectEqual<keyof typeof Template, 'withTemplate' | 'loadsTemplate' | 'asTool'>();
+expectEqual<keyof typeof Script, 'withScript' | 'loadsScript' | 'asTool' | 'loadsScriptAsTool'>();
 expectEqual<typeof Script.loadsScriptAsTool, typeof Script.loadsScript.asTool>();
 expectEqual<keyof typeof FunctionFactory, 'asTool'>();
 expectEqual<keyof typeof Config, never>();
 type GeneratorToolModifiers<T> = { [K in keyof T & PromptModifiers]: keyof T[K] }[keyof T & PromptModifiers];
-expectEqual<GeneratorToolModifiers<typeof TextGenerator>, 'asTool'>();
-expectEqual<GeneratorToolModifiers<typeof ObjectGenerator>, 'asTool'>();
+expectEqual<GeneratorToolModifiers<typeof LLMAgent>, 'asTool' | 'asStream'>();
 expectEqual<typeof create.Config, typeof Config>();
 expectEqual<typeof create.Function, typeof FunctionFactory>();
 expectEqual<typeof create.Template, typeof Template>();
 expectEqual<typeof create.Script, typeof Script>();
-expectEqual<typeof create.TextGenerator, typeof TextGenerator>();
-expectEqual<typeof create.TextStreamer, typeof TextStreamer>();
-expectEqual<typeof create.ObjectGenerator, typeof ObjectGenerator>();
-expectEqual<typeof create.ObjectStreamer, typeof ObjectStreamer>();
+expectEqual<typeof create.LLMAgent, typeof LLMAgent>();
 expectEqual<ModelMessage, SDKModelMessage>();
 expectEqual<ToolSet, SDKToolSet>();
 expectEqual<Context, Record<string, any>>();
@@ -66,8 +61,6 @@ const toolConfig: ToolConfig<{ value: number }, string, { factor: number }> = {
 expectType<SchemaType<{ value: number }>>(toolConfig.inputSchema);
 // @ts-expect-error Annotated renderer tools retain their input schema's field types.
 const _wrongToolConfig: ToolConfig<{ value: number }, string> = { inputSchema: z.object({ value: z.string() }) };
-const _eventSchema = z.object({ answer: z.number() });
-expectEqual<StreamObjectOnFinishEvent<typeof _eventSchema>, GenerateObjectEndEvent<{ answer: number }>>();
 type TextEnd = Parameters<StreamTextOnEndCallback<Record<string, never>, Record<string, unknown>, import('ai').OutputInterface<string, string, never>>>[0];
 expectEqual<StreamTextOnFinishEvent, TextEnd>();
 expectEqual<StreamTextOnFinishEvent['response']['messages'], TextEnd['response']['messages']>();

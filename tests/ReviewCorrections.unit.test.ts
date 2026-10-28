@@ -1,5 +1,6 @@
+import { runtimeRun } from './fixtures/runtime-call.js';
 import assert from 'node:assert/strict';
-import { asSchema, jsonSchema, isStepCount, tool } from 'ai';
+import { asSchema, Output, jsonSchema, isStepCount, tool } from 'ai';
 import { validateTypes } from '@ai-sdk/provider-utils';
 import { MockLanguageModelV3 } from 'ai/test';
 import type { ModelMessage, Tool } from 'ai';
@@ -19,8 +20,8 @@ describe('Review configuration and metadata corrections', () => {
 			const model = modelFor(undefined);
 			const template = create.Template({ template: '{{ value }}' }, { config });
 			const script = create.Script({ script: 'return value' }, { config });
-			const text = create.TextGenerator.withTemplate({ model, prompt: '{{ value }}' }, { config });
-			const stream = create.TextStreamer.withTemplate({ model, prompt: '{{ value }}' }, { config });
+			const text = create.LLMAgent.withTemplate({ model, prompt: '{{ value }}' }, { config });
+			const stream = create.LLMAgent.withTemplate.asStream({ model, prompt: '{{ value }}' }, { config });
 			// Runtime-only calls exercise the missing-input branch rejected by types.
 			const components: unknown[] = [template, script, text, stream];
 			for (const component of components) {
@@ -103,7 +104,7 @@ describe('Review configuration and metadata corrections', () => {
 			} });
 			const expected = inputSchema === publicKey ? 4 : '4';
 			assert.equal(await component(), expected);
-			assert.equal(await component.run(), expected);
+			assert.equal(await runtimeRun(component), expected);
 			const owner = create.Function({ tools: { component }, execute: ({ component }) => component() });
 			assert.equal(await owner(), expected);
 			const bound = component.bindToolContext({});
@@ -130,14 +131,13 @@ describe('Review configuration and metadata corrections', () => {
 		const copied = { ...multiply, description: 'Scale a value' };
 		const functionFactory: unknown = create.Function;
 		const build = functionFactory as (config: object) => () => Promise<unknown>;
-		const generatorFactory: unknown = create.TextGenerator;
+		const generatorFactory: unknown = create.LLMAgent;
 		const buildGenerator = generatorFactory as (config: object) => () => Promise<unknown>;
 		for (const toolsContext of [undefined, { copied: { factor: 5 } }]) {
 			const invalid = build({ tools: { copied }, toolsContext, execute: () => 'unused' });
 			await assert.rejects(invalid(), /Do not spread Casai components/);
 			const model = modelFor(undefined);
-			const generator = buildGenerator({ model, prompt: 'go', tools: { copied } });
-			await assert.rejects(generator(), /Do not spread Casai components/);
+			assert.throws(() => buildGenerator({ model, prompt: 'go', tools: { copied } }), /Do not spread Casai components/);
 			assert.equal(model.doGenerateCalls.length, 0);
 		}
 	});
@@ -158,7 +158,7 @@ describe('Review configuration and metadata corrections', () => {
 				assert.equal(input.db, db); assert.equal(input.when, when); return `${input.name}${input.callback()}`;
 			} });
 			assert.equal(await component({ when, callback }), 'Ada7');
-			assert.equal(await component.run({ context: { when, callback, name: 'Grace' } }), 'Grace7');
+			assert.equal(await runtimeRun(component, { context: { when, callback, name: 'Grace' } }), 'Grace7');
 			const helper = tool({ inputSchema: z.object({}), execute: () => 'helper' });
 			const withHelper = create.Function({ inputSchema, tools: { helper }, execute: input => input.helper({}) });
 			assert.equal(await withHelper({ name: 'Ada', when, callback }), 'helper');
@@ -180,7 +180,7 @@ describe('Review configuration and metadata corrections', () => {
 		const bind = bindContext as (context: object) => { tool: Tool };
 		await assert.rejects(Promise.resolve(asSchema(bind({ x: 2 }).tool.inputSchema).jsonSchema), /independent object schema/);
 		const model = modelFor(undefined);
-		const owner = create.TextGenerator({ model, prompt: 'go', tools: { invalid } });
+		const owner = create.LLMAgent({ model, prompt: 'go', tools: { invalid } });
 		await assert.rejects(owner(), /independent object schema/);
 		assert.equal(model.doGenerateCalls.length, 0);
 	});
@@ -194,7 +194,7 @@ describe('Review configuration and metadata corrections', () => {
 		const bound = operation.bindToolContext({ [key]: resource });
 		assert.equal(await bound.tool.execute!({}, { context: bound.context, messages: [], toolCallId: 'symbols' }), resource);
 		const model = modelFor(undefined);
-		const generator = create.TextGenerator({ model, prompt: 'go', tools: { operation }, toolsContext: { operation: { [key]: resource } },
+		const generator = create.LLMAgent({ model, prompt: 'go', tools: { operation }, toolsContext: { operation: { [key]: resource } },
 			// Intentionally replace fixed context through an untyped native hook.
 			prepareStep: () => ({ toolsContext: { operation: { [key]: { trusted: false } } } } as never) });
 		await assert.rejects(generator(), /cannot change/);
@@ -230,7 +230,7 @@ describe('Review configuration and metadata corrections', () => {
 				execute: input => { assert.equal(input.db, db); return input.name; } });
 			assert.deepEqual(await inputNames(inputSchema), ['name']);
 			assert.equal(await component(), 3);
-			assert.equal(await component.run({ context: { name: 'Grace' } }), 5);
+			assert.equal(await runtimeRun(component, { context: { name: 'Grace' } }), 5);
 			await assert.rejects(component({ db: {} } as never), /Undeclared tool input keys: db/);
 			await assert.rejects(component({ name: 4 }), /Application input validation failed/);
 			const bare = await validateTypes({ schema: component.inputSchema, value: {} });
@@ -257,25 +257,25 @@ describe('Review configuration and metadata corrections', () => {
 	it('snapshots configured message arrays while retaining nested message identity', async () => {
 		const message: ModelMessage = { role: 'user', content: 'original' };
 		for (const path of ['root', 'child', 'parent', 'both'] as const) {
-			const messages: ModelMessage[] = [message];
+			const prompt: ModelMessage[] = [message];
 			const model = modelFor(undefined);
-			const settings = { model, messages };
-			const component = path === 'root' ? create.TextGenerator(settings)
-				: path === 'child' ? create.TextGenerator(settings, create.Config({}))
-					: path === 'parent' ? create.TextGenerator({ model }, create.Config({ messages }))
-						: create.TextGenerator(settings, create.Config({ messages: [{ role: 'user', content: 'parent' }] }));
-			messages.push({ role: 'user', content: 'later' });
-			messages[0] = { role: 'user', content: 'replaced' };
-			assert.equal(component.config.messages.at(-1), message);
+			const settings = { model, prompt };
+			const component = path === 'root' ? create.LLMAgent(settings)
+				: path === 'child' ? create.LLMAgent(settings, create.Config({}))
+					: path === 'parent' ? create.LLMAgent({ model }, create.Config({ prompt }))
+						: create.LLMAgent(settings, create.Config({ prompt: [{ role: 'user', content: 'parent' }] }));
+			prompt.push({ role: 'user', content: 'later' });
+			prompt[0] = { role: 'user', content: 'replaced' };
+			assert.equal(component.config.prompt.at(-1), message);
 			await component();
 			assert.ok(!JSON.stringify(model.doGenerateCalls).includes('later'));
 			assert.ok(!JSON.stringify(model.doGenerateCalls).includes('replaced'));
 			assert.ok(JSON.stringify(model.doGenerateCalls).includes('original'));
 		}
-		assert.deepEqual(processConfig({ messages: undefined }), { messages: undefined });
-		assert.deepEqual(mergeConfigs({}, { messages: undefined }), { messages: undefined });
-		assert.deepEqual(mergeConfigs({ messages: undefined }, {}), { messages: undefined });
-		assert.deepEqual(mergeConfigs({ messages: undefined }, { messages: undefined }), { messages: [] });
+		assert.deepEqual(processConfig({ prompt: undefined }), { prompt: undefined });
+		assert.deepEqual(mergeConfigs({}, { prompt: undefined }), { prompt: undefined });
+		assert.deepEqual(mergeConfigs({ prompt: undefined }, {}), { prompt: undefined });
+		assert.deepEqual(mergeConfigs({ prompt: undefined }, { prompt: undefined }), { prompt: undefined });
 	});
 
 	it('captures context getters at creation and calls configured functions per invocation', async () => {
@@ -307,15 +307,14 @@ describe('Review configuration and metadata corrections', () => {
 		for (const value of metadata) { assert.ok(value.toolCallId); assert.deepEqual(value.messages, []); }
 	});
 
-	for (const factory of [create.TextGenerator, create.TextStreamer, create.ObjectGenerator, create.ObjectStreamer]) {
-		it(`labels Script and Function prompt failures before ${factory.name || 'LLM'} dispatch`, async () => {
+	for (const streaming of [false, true]) for (const structured of [false, true]) {
+		it(`labels Script and Function prompt failures before ${streaming ? 'streaming' : 'generation'} ${structured ? 'structured' : 'text'} dispatch`, async () => {
 			const model = modelFor(undefined);
 			// Runtime family matrix; precise callback consumers are checked by test:types.
-			const modifiers: unknown = factory;
-			const make = modifiers as Record<string, (config: object) => () => unknown>;
 			for (const [mode, prompt] of [['withScript', 'return [{ content: "invalid" }]'], ['loadsScript', 'invalid.script'], ['withFunction', () => [{ content: 'invalid' }]]] as const) {
-				const component = make[mode]({ model, prompt, loader: { load: () => 'return [{ content: "invalid" }]' },
-					...(factory === create.ObjectGenerator || factory === create.ObjectStreamer ? { schema: z.object({}) } : {}) });
+				const make = (streaming ? create.LLMAgent[mode].asStream : create.LLMAgent[mode]) as unknown as (config: object) => () => unknown;
+				const component = make({ model, prompt, loader: { load: () => 'return [{ content: "invalid" }]' },
+					...(structured ? { output: Output.object({ schema: z.object({}) }) } : {}) });
 				await assert.rejects(async () => component(), (error: unknown) => {
 					assert.ok(error instanceof ValidationError); assert.equal(error.message, 'Prompt output validation failed.'); return true;
 				});
@@ -350,7 +349,7 @@ describe('Review configuration and metadata corrections', () => {
 				return true;
 			};
 			await assert.rejects(component({ value: 2 }), expected);
-			await assert.rejects(component.run({ context: { value: 2 } }), expected);
+			await assert.rejects(runtimeRun(component, { context: { value: 2 } }), expected);
 			await assert.rejects(validateTypes({ schema: component.bindToolContext({}).tool.inputSchema, value: { value: 2 } }),
 				(error: unknown) => { assert.match(String(error), /partitioning.*explicit input metadata/); return true; });
 		}
@@ -381,14 +380,15 @@ describe('Review configuration and metadata corrections', () => {
 
 	it('rejects obsolete rendering options through configurations and inheritance', async () => {
 		const model = new MockLanguageModelV3();
+		const configFactory: unknown = create.Config;
 		const factories: [unknown, object][] = [
-			[create.Config, {}], [create.Function, { execute: () => 1 }],
+			[configFactory, {}], [create.Function, { execute: () => 1 }],
 			[create.Template, { template: '{{ value }}' }], [create.Script, { script: 'return value' }],
-			[create.TextGenerator, { model, prompt: 'ready' }],
-			[create.TextGenerator.withTemplate, { model, prompt: '{{ value }}' }],
-			[create.TextStreamer.withScript, { model, prompt: 'return value' }],
-			[create.ObjectGenerator.withTemplate, { model, prompt: '{{ value }}', schema: z.object({}) }],
-			[create.ObjectStreamer.withScript, { model, prompt: 'return value', schema: z.object({}) }],
+			[create.LLMAgent, { model, prompt: 'ready' }],
+			[create.LLMAgent.withTemplate, { model, prompt: '{{ value }}' }],
+			[create.LLMAgent.withScript.asStream, { model, prompt: 'return value' }],
+			[create.LLMAgent.withTemplate, { model, prompt: '{{ value }}', output: Output.object({ schema: z.object({}) }) }],
+			[create.LLMAgent.withScript.asStream, { model, prompt: 'return value', output: Output.object({ schema: z.object({}) }) }],
 		];
 		for (const [factory, config] of factories) {
 			const make = factory as (config: object, parent?: object) => unknown;
@@ -401,7 +401,7 @@ describe('Review configuration and metadata corrections', () => {
 		assert.equal(await escaped({ value: '<b>' }), '&lt;b&gt;');
 		const data = create.Function({ context: { options: { value: 3 } }, execute: input => input.options.value });
 		assert.equal(await data(), 3);
-		await assert.rejects(create.TextGenerator({ model, prompt: 'ready' }).run({ options: {} } as never), /Use 'renderOptions'/);
+		await assert.rejects(create.LLMAgent({ model, prompt: 'ready' }).run({ options: {} } as never), /options/);
 		assert.equal(model.doGenerateCalls.length, 0);
 	});
 
@@ -431,7 +431,7 @@ describe('Review configuration and metadata corrections', () => {
 		assert.equal(await component(), 1);
 		assert.equal(await component.execute(await validateTypes({ schema: component.inputSchema, value: {} }), options), 1);
 		resource.value = 2;
-		assert.equal(await component.run({}), 2);
+		assert.equal(await runtimeRun(component, {}), 2);
 		assert.equal(await component.execute(await validateTypes({ schema: component.inputSchema, value: {} }), options), 2);
 	});
 
@@ -454,7 +454,7 @@ describe('Review configuration and metadata corrections', () => {
 		const scale = create.Function.asTool({ inputSchema: z.object({ factor: z.number() }), context: { factor: 1 },
 			execute: input => { seen.push(input.factor); return input.factor; } });
 		const model = modelFor({}, 'scale');
-		const component = create.TextGenerator({ model, prompt: 'ready', stopWhen: isStepCount(2) });
+		const component = create.LLMAgent({ model, prompt: 'ready', stopWhen: isStepCount(2) });
 		const owner = create.Script({ context: { component, registry: { scale }, contexts: { scale: { factor: 5 } } },
 			script: 'var result = component.run(tools=registry, toolsContext=contexts)\nreturn result.value' });
 		assert.equal(await owner(), 'done');
@@ -469,10 +469,10 @@ describe('Review configuration and metadata corrections', () => {
 			const model = modelFor({ value: 2 }, 'scale');
 			const config = { model, prompt: 'ready', stopWhen: isStepCount(2) };
 			const component = streaming
-				? rendered ? create.TextStreamer.withTemplate(config) : create.TextStreamer(config)
-				: rendered ? create.TextGenerator.withTemplate(config) : create.TextGenerator(config);
+				? rendered ? create.LLMAgent.withTemplate.asStream(config) : create.LLMAgent.asStream(config)
+				: rendered ? create.LLMAgent.withTemplate(config) : create.LLMAgent(config);
 			// This deliberately exercises JavaScript callers: typed run overrides retain configured tool names.
-			const result = await component.run({ tools: { scale }, toolsContext: { scale: { factor: 5 } } } as never);
+			const result = await runtimeRun(component, { tools: { scale }, toolsContext: { scale: { factor: 5 } } });
 			const value = result.value;
 			assert.equal(typeof value === 'string' ? value : await collectTextStream(value), 'done');
 			assert.deepEqual(seen, [5]);
@@ -485,10 +485,10 @@ describe('Review configuration and metadata corrections', () => {
 		const model = modelFor({}, 'scale');
 		const config = { model, prompt: 'ready' };
 		const errors: unknown[] = [];
-		const component = streaming ? create.TextStreamer({ ...config, onError: ({ error }) => { errors.push(error); } }) : create.TextGenerator(config);
+		const component = streaming ? create.LLMAgent.asStream({ ...config, onError: ({ error }) => { errors.push(error); } }) : create.LLMAgent(config);
 		await assert.rejects(async () => {
-			const result = await component.run({ tools: { scale }, toolsContext: { scale: { factor: 5 } },
-				prepareStep: () => ({ toolsContext: { scale: { factor: 9 } } }) } as never);
+			const result = await runtimeRun(component, { tools: { scale }, toolsContext: { scale: { factor: 5 } },
+				prepareStep: () => ({ toolsContext: { scale: { factor: 9 } } }) });
 			const value = result.value;
 			if (typeof value !== 'string') await collectTextStream(value);
 		}, /cannot change within an invocation/);

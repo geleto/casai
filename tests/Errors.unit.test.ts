@@ -36,9 +36,9 @@ describe('Casai error boundaries', () => {
 
 	it('classifies invalid configured values separately from invocation overrides', async () => {
 		const messages = [{ role: 'user', content: 42 }] as never;
-		assert.throws(() => create.Config({ messages }), ConfigError);
-		const generator = create.TextGenerator({ model: modelFor(undefined), prompt: 'ready' });
-		await assert.rejects(generator.run({ messages }), ValidationError);
+		assert.throws(() => create.Config({ prompt: messages }), ConfigError);
+		const generator = create.LLMAgent({ model: modelFor(undefined), prompt: 'ready' });
+		await assert.rejects(generator.run({ messageHistory: messages }), ValidationError);
 		assert.throws(() => create.Function({ toolsContext: { missing: {} }, execute: () => 1 } as never), ConfigError);
 		const operation = create.Function({ execute: () => 1 });
 		await assert.rejects(operation.run({ toolsContext: { missing: {} } } as never), ValidationError);
@@ -49,6 +49,18 @@ describe('Casai error boundaries', () => {
 	it('retains configuration errors for schema capabilities discovered during invocation', async () => {
 		const operation = create.Function.asTool({ inputSchema: z.record(z.string(), z.number()), execute: () => 1 } as never);
 		await assert.rejects(operation({} as never), ConfigError);
+	});
+
+	it('reports missing and malformed sources before application work', async () => {
+		let calls = 0;
+		const context = { effect: () => { calls++; } };
+		const script = create.Script({ script: undefined, context } as never);
+		await assert.rejects(async () => { await Reflect.apply(script, undefined, []); }, ValidationError);
+		const template = create.Template({ template: undefined, context } as never);
+		await assert.rejects(template(), ValidationError);
+		await assert.rejects(create.Script({ script: 'return (', context })(), error => error instanceof ScriptError && error.cause instanceof Error);
+		await assert.rejects(create.Template({ template: '{{ (', context })(), error => error instanceof TemplateError && error.cause instanceof Error);
+		assert.equal(calls, 0);
 	});
 
 	it('keeps callback failures unchanged and schema failures separate from rendering failures', async () => {

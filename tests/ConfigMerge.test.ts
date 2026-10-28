@@ -51,22 +51,22 @@ describe('Config merging', () => {
 		expect(() => create.Function({} as never, inherited)).to.throw(/'execute'.*must be a function/);
 	});
 
-	it('should validate malformed messages in both standalone and inherited fragments', () => {
-		const invalid = { messages: [{ role: 'user' as const, content: 42 as unknown as string }] };
+	it('should validate malformed prompt in both standalone and inherited fragments', () => {
+		const invalid = { prompt: [{ role: 'user' as const, content: 42 as unknown as string }] };
 		expect(() => create.Config(invalid)).to.throw(/invalid message objects/);
 		expect(() => create.Config(invalid, create.Config({ context: { offset: 4 } }))).to.throw(/invalid message objects/);
 	});
 
-	it('should merge maps by key, replace map values and concatenate messages', () => {
+	it('should merge maps by key, replace map values and replace prompts', () => {
 		const parent = {
 			context: { offset: 4 }, filters: { upper: (text: string) => text.toUpperCase() },
 			tools: { first: 'FIRST' }, toolsContext: { first: { factor: 3, extra: true } },
-			messages: [{ role: 'user' as const, content: 'First' }],
+			prompt: [{ role: 'user' as const, content: 'First' }],
 		};
 		const child = {
 			context: { name: 'Alice' }, filters: { lower: (text: string) => text.toLowerCase() },
 			tools: { second: 'SECOND' }, toolsContext: { first: { factor: 5 }, second: { label: 'child' } },
-			messages: [{ role: 'assistant' as const, content: 'Second' }],
+			prompt: [{ role: 'assistant' as const, content: 'Second' }],
 		};
 		const merged = mergeConfigs(parent, child);
 		const offset: number = merged.context.offset;
@@ -76,7 +76,7 @@ describe('Config merging', () => {
 		expect(merged.filters.lower('Hi')).to.equal('hi');
 		expect(merged.tools).to.deep.equal({ first: 'FIRST', second: 'SECOND' });
 		expect(merged.toolsContext).to.deep.equal({ first: { factor: 5 }, second: { label: 'child' } });
-		expect(merged.messages.map(({ role }) => role)).to.deep.equal(['user', 'assistant']);
+		expect(merged.prompt.map(({ role }) => role)).to.deep.equal(['assistant']);
 		expect(parent.toolsContext.first.extra).to.equal(true);
 		if (false) {
 			// @ts-expect-error Context entries are replaced; their fields are not deep-merged.
@@ -181,14 +181,14 @@ describe('Config merging', () => {
 				// @ts-expect-error The child replaces the schema its inherited execute needs.
 				create.Config({ inputSchema: z.object({ value: z.string() }) }, create.Config({ inputSchema, execute: ({ value }) => value.toFixed() }));
 				// @ts-expect-error Text generators run their own prompt.
-				create.TextGenerator({ model, prompt: 'x' }, create.Config({ execute: () => 'x' }));
+				create.LLMAgent({ model, prompt: 'x' }, create.Config({ execute: () => 'x' }));
 				// @ts-expect-error Generator tools supply their own execute.
-				create.TextGenerator.asTool({ model, inputSchema, prompt: 'x', execute: async () => 'x' });
+				create.LLMAgent.asTool({ model, inputSchema, prompt: 'x', execute: async () => 'x' });
 				// @ts-expect-error Renderer tools supply their own type.
 				create.Template.asTool({ inputSchema, template: 'x', type: 'function' });
 			}
 			// The runtime agrees: a Function fragment cannot configure a text generator.
-			expect(() => { Reflect.apply(create.TextGenerator, undefined, [{ model, prompt: 'x' }, create.Config({ execute: () => 'x' })]); }).to.throw(/execute/);
+			expect(() => { Reflect.apply(create.LLMAgent, undefined, [{ model, prompt: 'x' }, create.Config({ execute: () => 'x' })]); }).to.throw(/execute/);
 		});
 	});
 });

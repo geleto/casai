@@ -1,3 +1,4 @@
+import { Output, InvalidPromptError, generateText } from 'ai';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
@@ -6,7 +7,6 @@ import { jsonSchema, modelMessageSchema } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { create, ConfigError, ValidationError, ModelMessageSchema, PromptStringOrMessagesSchema, z } from './cascada';
 import type { ConfigProvider } from './cascada';
-import { extractCallArguments } from '../src/call-arguments.js';
 
 function textModel(text: string): MockLanguageModelV3 {
 	const finishReason = { unified: 'stop', raw: 'stop' } as const;
@@ -33,36 +33,6 @@ function textModel(text: string): MockLanguageModelV3 {
 }
 
 describe('Component boundary contracts', () => {
-	describe('optional invocation arguments', () => {
-		const messages: ModelMessage[] = [{ role: 'user', content: 'Earlier question' }];
-		const context = { topic: 'contracts' };
-
-		it('accepts omitted arguments and explicit undefined placeholders', () => {
-			expect(extractCallArguments()).to.deep.equal({ prompt: undefined, messages: undefined, context: undefined });
-			expect(extractCallArguments(undefined, messages, context)).to.deep.equal({ prompt: undefined, messages, context });
-			expect(extractCallArguments(undefined, context)).to.deep.equal({ prompt: undefined, messages: undefined, context });
-		});
-
-		it('preserves empty prompt, message and context arguments without coercion', () => {
-			const emptyMessages: ModelMessage[] = [];
-			const emptyContext = {};
-			const result = extractCallArguments('', emptyMessages, emptyContext);
-			expect(result.prompt).to.equal('');
-			expect(result.messages).to.equal(emptyMessages);
-			expect(result.context).to.equal(emptyContext);
-		});
-
-		it('accepts context before messages without copying either argument', () => {
-			const result = extractCallArguments(context, messages);
-			expect(result.messages).to.equal(messages);
-			expect(result.context).to.equal(context);
-		});
-
-		it('rejects a third context when the first argument already supplied context', () => {
-			expect(() => extractCallArguments(context, messages, context)).to.throw('Context provided multiple times');
-		});
-	});
-
 	describe('documented config inheritance rules', () => {
 		it('replaces options and providerOptions objects rather than merging their fields', () => {
 			const parentOptions = { autoescape: true, trimBlocks: true };
@@ -99,18 +69,17 @@ describe('Component boundary contracts', () => {
 			expect(parent.config.context.language).to.equal('en');
 		});
 
-		for (const childMessages of [undefined, []]) {
-			it(`retains inherited messages for ${childMessages === undefined ? 'undefined' : 'empty'} child messages`, () => {
-				const messages: ModelMessage[] = [{ role: 'user', content: 'Keep this message' }];
-				const parent = create.Config({ messages });
-				const child = create.Config({ messages: childMessages }, parent);
-				expect(child.config.messages).to.deep.equal(messages);
-				expect(child.config.messages).not.to.equal(messages);
-				expect(parent.config.messages).to.deep.equal(messages);
-				expect(parent.config.messages).not.to.equal(messages);
-				expect(parent.config.messages[0]).to.equal(messages[0]);
-			});
-		}
+		it('replaces configured prompt arrays and clears them with explicit undefined', () => {
+			const prompt: ModelMessage[] = [{ role: 'user', content: 'configured' }];
+			const parent = create.Config({ prompt });
+			const child = create.Config({ prompt: [] }, parent);
+			const cleared = create.Config({ prompt: undefined }, parent);
+			expect(child.config.prompt).to.deep.equal([]);
+			expect(cleared.config.prompt).to.equal(undefined);
+			expect(parent.config.prompt).to.deep.equal(prompt);
+			expect(parent.config.prompt).not.to.equal(prompt);
+			expect(parent.config.prompt[0]).to.equal(prompt[0]);
+		});
 
 		for (const childLoader of [undefined, []]) {
 			it(`retains an inherited loader chain for ${childLoader === undefined ? 'undefined' : 'empty'} child loaders`, async () => {
@@ -129,17 +98,17 @@ describe('Component boundary contracts', () => {
 			name: string;
 			build: (config: Record<string, unknown>, parent?: ConfigProvider<{ model: MockLanguageModelV3 }>) => unknown;
 		}[] = [
-			{ name: 'TextGenerator', build: (config, parent): unknown => Reflect.apply(create.TextGenerator, undefined, [config, parent]) },
-			{ name: 'TextStreamer', build: (config, parent): unknown => Reflect.apply(create.TextStreamer, undefined, [config, parent]) },
-			{ name: 'ObjectGenerator', build: (config, parent): unknown => Reflect.apply(create.ObjectGenerator, undefined, [{ output: 'no-schema', ...config }, parent]) },
-			{ name: 'ObjectStreamer', build: (config, parent): unknown => Reflect.apply(create.ObjectStreamer, undefined, [{ output: 'no-schema', ...config }, parent]) },
+			{ name: 'generate', build: (config, parent): unknown => Reflect.apply(create.LLMAgent, undefined, [config, parent]) },
+			{ name: 'stream', build: (config, parent): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [config, parent]) },
+			{ name: 'generate-structured', build: (config, parent): unknown => Reflect.apply(create.LLMAgent, undefined, [{ output: Output.json(), ...config }, parent]) },
+			{ name: 'stream-structured', build: (config, parent): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [{ output: Output.json(), ...config }, parent]) },
 		];
 		for (const { name, build } of factories) {
 			for (const model of [undefined, null]) {
 				it(`rejects ${String(model)} models in ${name} configs and inherited overrides`, () => {
 					const parent = create.Config({ model: new MockLanguageModelV3() });
-					expect(() => build({ model, prompt: 'Question' })).to.throw(ConfigError, /require a 'model' property/);
-					expect(() => build({ model, prompt: 'Question' }, parent)).to.throw(ConfigError, /require a 'model' property/);
+					expect(() => build({ model, prompt: 'Question' })).to.throw(ConfigError, /requires a 'model'/);
+					expect(() => build({ model, prompt: 'Question' }, parent)).to.throw(ConfigError, /requires a 'model'/);
 				});
 			}
 		}
@@ -182,7 +151,7 @@ describe('Component boundary contracts', () => {
 			it(`accepts ${name} with native parsing and unchanged reusable config`, () => {
 				expect(ModelMessageSchema.parse(message)).to.deep.equal(modelMessageSchema.parse(message));
 				expect(PromptStringOrMessagesSchema.parse([message])).to.deep.equal([modelMessageSchema.parse(message)]);
-				expect(create.Config({ messages: [message] }).config.messages).to.deep.equal([message]);
+				expect(create.Config({ prompt: [message] }).config.prompt).to.deep.equal([message]);
 				expect(create.Config({ prompt: [message] }).config.prompt).to.deep.equal([message]);
 			});
 		}
@@ -210,7 +179,7 @@ describe('Component boundary contracts', () => {
 			it(`rejects ${name} in schemas, configured messages and prompts`, () => {
 				expect(ModelMessageSchema.safeParse(message).success).to.equal(false);
 				expect(PromptStringOrMessagesSchema.safeParse([message]).success).to.equal(false);
-				expect(() => create.Config({ messages: [message] } as never)).to.throw(ConfigError, /invalid message objects/);
+				expect(() => create.Config({ prompt: [message] } as never)).to.throw(ConfigError, /invalid message objects/);
 				expect(() => create.Config({ prompt: [message] } as never)).to.throw(ConfigError, /invalid message objects/);
 			});
 		}
@@ -221,26 +190,28 @@ describe('Component boundary contracts', () => {
 			expect(ModelMessageSchema.parse(message)).to.deep.equal({ role: 'user', content: [{ type: 'text', text: 'Hello' }] });
 			expect(PromptStringOrMessagesSchema.parse([message])).to.deep.equal([modelMessageSchema.parse(message)]);
 			// Configuration validates messages without replacing them, as native prompt validation does.
-			expect(create.Config({ messages: [message] } as never).config).to.have.property('messages').that.deep.equals([message]);
+			expect(create.Config({ prompt: [message] } as never).config).to.have.property('prompt').that.deep.equals([message]);
 			expect(message.extension).to.deep.equal({ id: 'message' });
 		});
 
 		it('follows native custom-kind validation without an additional dotted-name rule', () => {
 			const message = { role: 'assistant', content: [{ type: 'custom', kind: 'state' }] };
 			expect(ModelMessageSchema.parse(message)).to.deep.equal(modelMessageSchema.parse(message));
-			expect(create.Config({ messages: [message] } as never).config).to.have.property('messages').that.deep.equals([message]);
+			expect(create.Config({ prompt: [message] } as never).config).to.have.property('prompt').that.deep.equals([message]);
 		});
 
 		it('applies native message validation to calls, overrides and prepared prompts before dispatch', async () => {
 			const model = textModel('unused');
 			// Deliberately malformed JavaScript input at the public boundary.
 			const messages: ModelMessage[] = [{ role: 'user', content: 'Hello', providerOptions: 42 }] as never;
-			const direct = create.TextGenerator({ model, prompt: 'Hello' });
+			await rejects(() => generateText({ model, messages }), InvalidPromptError);
+			const direct = create.LLMAgent({ model, prompt: 'Hello' });
+			// Casai validates the retained conversation before hooks can replace the SDK request.
 			await rejects(async () => direct(messages), ValidationError);
-			await rejects(async () => direct.run({ messages }), ValidationError);
-			const prepared = create.TextGenerator.withFunction({ model, prompt: () => messages });
+			await rejects(async () => direct.run({ prompt: messages }), ValidationError);
+			const prepared = create.LLMAgent.withFunction({ model, prompt: () => messages });
 			await rejects(async () => prepared({}), ValidationError);
-			const scripted = create.TextGenerator.withScript({ model, prompt: 'return messages', context: { messages } });
+			const scripted = create.LLMAgent.withScript({ model, prompt: 'return messages', context: { messages } });
 			await rejects(async () => scripted(), ValidationError);
 			expect(model.doGenerateCalls).to.have.length(0);
 		});
@@ -268,11 +239,12 @@ describe('Component boundary contracts', () => {
 					warnings: [],
 				},
 			});
-			const generator = create.TextGenerator({ model }, parent);
+			const generator = create.LLMAgent({ model }, parent);
 			expect((await generator()).text).to.equal('Answer');
 			expect(model.doGenerateCalls[0].prompt).to.have.length(1);
 			expect(model.doGenerateCalls[0].prompt[0]).to.deep.include({ role: 'user', content: [{ type: 'text', text: 'Question' }] });
-			expect(inferredMessages).to.equal(messages);
+			expect(inferredMessages).to.deep.equal(messages);
+			expect(inferredMessages).not.to.equal(messages);
 			if (false) {
 				// @ts-expect-error Template prompts must be strings rather than message arrays.
 				create.Config({ promptType: 'async-template', prompt: messages });
@@ -532,8 +504,8 @@ describe('Component boundary contracts', () => {
 			expect(await create.Script({ inputSchema: optional, script: 'return "Ready"' })()).to.equal('Ready');
 			const fn = create.Function({ inputSchema: optional, execute: ({ name }) => name ?? 'there' });
 			expect(await fn()).to.equal('there');
-			expect((await create.TextGenerator.withTemplate({ model, inputSchema: optional, prompt: 'Hello {{ name or "there" }}' })()).text).to.equal('Answer');
-			expect((await create.TextGenerator.withFunction({ model, inputSchema: optional, prompt: context => `Hello ${context.name ?? 'there'}` })()).text).to.equal('Answer');
+			expect((await create.LLMAgent.withTemplate({ model, inputSchema: optional, prompt: 'Hello {{ name or "there" }}' })()).text).to.equal('Answer');
+			expect((await create.LLMAgent.withFunction({ model, inputSchema: optional, prompt: context => `Hello ${context.name ?? 'there'}` })()).text).to.equal('Answer');
 			expect(model.doGenerateCalls.map(call => call.prompt[0].content)).to.deep.equal([
 				[{ type: 'text', text: 'Hello there' }],
 				[{ type: 'text', text: 'Hello there' }],
@@ -548,8 +520,8 @@ describe('Component boundary contracts', () => {
 				create.Template({ inputSchema: required, context: { render }, template: '{{ render() }}' }),
 				create.Script({ inputSchema: required, context: { render }, script: 'return render()' }),
 				create.Function({ inputSchema: required, execute: render }),
-				create.TextGenerator.withTemplate({ model, inputSchema: required, context: { render }, prompt: '{{ render() }}' }),
-				create.TextGenerator.withFunction({ model, inputSchema: required, prompt: () => String(render()) }),
+				create.LLMAgent.withTemplate({ model, inputSchema: required, context: { render }, prompt: '{{ render() }}' }),
+				create.LLMAgent.withFunction({ model, inputSchema: required, prompt: () => String(render()) }),
 			];
 			for (const component of components) {
 				await rejects(async () => {
@@ -570,21 +542,18 @@ describe('Component boundary contracts', () => {
 		it('rejects documented invalid configurations and immutable run overrides', () => {
 			const model = new MockLanguageModelV3();
 			const schema = z.object({ answer: z.number() });
-			const generator = create.TextGenerator.withTemplate({ model, prompt: 'Hello' });
-			const objects = create.ObjectGenerator.withTemplate({ model, schema, prompt: 'Hello' });
+			const generator = create.LLMAgent.withTemplate({ model, prompt: 'Hello' });
+			const objects = create.LLMAgent.withTemplate({ model, prompt: 'Hello', output: Output.object({ schema: schema }) });
 			expect(generator.config.prompt).to.equal('Hello');
-			expect(objects.config.schema).to.equal(schema);
+			expect(objects.config.output.name).to.equal('object');
 			if (false) {
 				// @ts-expect-error A model is required in the component or a parent Config.
-				create.TextGenerator({ prompt: 'Hello' });
-				// @ts-expect-error Filters require a Cascada prompt modifier.
-				create.TextGenerator({ model, prompt: 'Hello', filters: {} });
+				create.LLMAgent({ prompt: 'Hello' });
+				create.LLMAgent({ model, prompt: 'Hello', filters: {} });
 				// @ts-expect-error Engine options require a Cascada prompt modifier.
-				create.TextGenerator({ model, prompt: 'Hello', options: {} });
-				// @ts-expect-error A plain-text prompt does not render context.
-				create.TextGenerator({ model, prompt: 'Hello', context: {} });
-				// @ts-expect-error A plain-text prompt is loaded only with loadsText.
-				create.TextGenerator({ model, prompt: 'Hello', loader: { load: () => null } });
+				create.LLMAgent({ model, prompt: 'Hello', options: {} });
+				create.LLMAgent({ model, prompt: 'Hello', context: {} });
+				create.LLMAgent({ model, prompt: 'Hello', loader: { load: () => null } });
 				// @ts-expect-error The output schema is fixed at creation.
 				void generator.run({ schema });
 				// @ts-expect-error The output mode is fixed at creation.
@@ -604,7 +573,7 @@ describe('Component boundary contracts', () => {
 				// @ts-expect-error An object generator keeps its output schema.
 				void objects.run({ schema });
 				// @ts-expect-error An object generator keeps its output mode.
-				void objects.run({ output: 'no-schema' });
+				void objects.run({ output: Output.json() });
 			}
 		});
 	});
@@ -621,22 +590,22 @@ describe('Component boundary contracts', () => {
 				expect(await create.Template({ template: 'Template' }, parent)()).to.equal('Template');
 				expect(await create.Script({ script: 'return "Script"' }, parent)()).to.equal('Script');
 				expect(await create.Function({ execute: () => 'Function' }, parent)({})).to.equal('Function');
-				expect((await create.TextGenerator.withTemplate({ model: textModel('Rendered'), prompt: 'Text' }, parent)()).text).to.equal('Rendered');
-				expect((await create.TextGenerator({ model: textModel('Plain'), prompt: 'Text', debug: true })()).text).to.equal('Plain');
-				const streamedText = await create.TextStreamer.withTemplate({ model: textModel('Stream'), prompt: 'Text' }, parent)();
+				expect((await create.LLMAgent.withTemplate({ model: textModel('Rendered'), prompt: 'Text' }, parent)()).text).to.equal('Rendered');
+				expect((await create.LLMAgent({ model: textModel('Plain'), prompt: 'Text', debug: true })()).text).to.equal('Plain');
+				const streamedText = await create.LLMAgent.withTemplate.asStream({ model: textModel('Stream'), prompt: 'Text' }, parent)();
 				expect(await streamedText.text).to.equal('Stream');
 				const schema = z.object({ value: z.number() });
-				expect((await create.ObjectGenerator.withTemplate({ model: textModel('{"value":3}'), schema, prompt: 'Object' }, parent)()).object).to.deep.equal({ value: 3 });
-				const streamed = await create.ObjectStreamer.withTemplate({ model: textModel('{"value":4}'), schema, prompt: 'Object' }, parent)();
+				expect((await create.LLMAgent.withTemplate({ model: textModel('{"value":3}'), prompt: 'Object', output: Output.object({ schema: schema }) }, parent)()).output).to.deep.equal({ value: 3 });
+				const streamed = await create.LLMAgent.withTemplate.asStream({ model: textModel('{"value":4}'), prompt: 'Object', output: Output.object({ schema: schema }) }, parent)();
 				const partials = [];
-				for await (const value of streamed.partialObjectStream) partials.push(value);
+				for await (const value of streamed.partialOutputStream) partials.push(value);
 				expect(partials.at(-1)).to.deep.equal({ value: 4 });
-				expect(await streamed.object).to.deep.equal({ value: 4 });
+				expect(await streamed.output).to.deep.equal({ value: 4 });
 			} finally {
 				console.log = originalLog;
 			}
 			const messages = logs.map(args => String(args[0]));
-			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', '_TextGenerator created', '_TextStreamer created', '_ObjectGenerator created', '_ObjectStreamer created', 'LLMComponent created', 'Component call']) {
+			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', 'LLMAgent created', 'LLMAgent call']) {
 				expect(messages.some(logged => logged.includes(message)), message).to.equal(true);
 			}
 			expect(logs.some(args => args.some(arg => (arg as { context?: { circular?: unknown } } | undefined)?.context?.circular === circular))).to.equal(true);
