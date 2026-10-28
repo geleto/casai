@@ -1,9 +1,9 @@
 import { AsyncEnvironment, compileScript, compileTemplateAsync } from 'cascada-engine';
-import type { CascadaConfig } from './types/config.js';
-import type { CascadaLoaders } from './types/cascada.js';
-import type { ScriptPromptType, TemplatePromptType } from './types/prompt.js';
-import type { Context } from './types/utils.js';
-import { ScriptError, TemplateError } from './errors.js';
+import type { CascadaConfig } from '../types/config.js';
+import type { CascadaLoaders } from '../types/cascada.js';
+import type { ScriptPromptType, TemplatePromptType } from '../types/prompt.js';
+import type { Context } from '../types/utils.js';
+import { ScriptError, TemplateError } from '../errors.js';
 
 type Renderer<T> = (sourceOverride: string | undefined, context: Context) => Promise<T>;
 type SourceType = TemplatePromptType | ScriptPromptType;

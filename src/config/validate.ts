@@ -1,13 +1,13 @@
-import type { PromptType } from './types/prompt.js';
-import type { SchemaType } from './types/schema.js';
+import type { PromptType } from '../types/prompt.js';
+import type { SchemaType } from '../types/schema.js';
 import { z, ZodError } from 'zod';
 import { isRecord } from '@ai-sdk/provider-utils';
-import * as configs from './types/config.js';
+import * as configs from '../types/config.js';
 import { modelMessageSchema as ModelMessageSchema } from 'ai';
 
-import { ConfigError, ValidationError } from './errors.js';
-import { parseSchema, validateSchemaVersion } from './schema.js';
-import { retiredSettings, agentSourceConflicts } from './agent-settings-policy.js';
+import { ConfigError, ValidationError } from '../errors.js';
+import { parseSchema, validateSchemaVersion } from '../schema.js';
+import { retiredSettings, agentSourceConflicts } from '../runtime/agent-settings-policy.js';
 
 // --- Helper Functions ---
 

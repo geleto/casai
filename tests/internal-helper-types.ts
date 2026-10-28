@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { parseSchema } from '../src/schema.js';
-import { validateAndParseOutput } from '../src/validate.js';
+import { validateAndParseOutput } from '../src/config/validate.js';
 import { expectEqual, expectType } from './type-safety/assert.js';
 
 const transformed = z.string().transform(Number);

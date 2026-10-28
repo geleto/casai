@@ -1,13 +1,13 @@
-import type { Fields } from './types/utils.js';
-import type { CascadaConfig, ConfigProvider } from './types/config.js';
-import type { ScriptPromptType, TemplatePromptType, PromptType } from './types/prompt.js';
-import type { ExecutionConfig } from './types/execution.js';
-import type { SchemaType } from './types/schema.js';
-import { mergeConfigs, processConfig } from './config-utils.js';
-import { createCascadaRenderer } from './cascada-renderer.js';
+import type { Fields } from '../types/utils.js';
+import type { CascadaConfig, ConfigProvider } from '../types/config.js';
+import type { ScriptPromptType, TemplatePromptType, PromptType } from '../types/prompt.js';
+import type { ExecutionConfig } from '../types/execution.js';
+import type { SchemaType } from '../types/schema.js';
+import { mergeConfigs, processConfig } from '../config/config-utils.js';
+import { createCascadaRenderer } from '../renderers/cascada-renderer.js';
 import { defineTool, namedArguments, prepareExecution, runSettings, validateRegistryConfig } from './execution.js';
-import { validateAndParseOutput, validateFunctionConfig, validateRendererConfig } from './validate.js';
-import { ValidationError } from './errors.js';
+import { validateAndParseOutput, validateFunctionConfig, validateRendererConfig } from '../config/validate.js';
+import { ValidationError } from '../errors.js';
 
 type RuntimeCodedConfig = CascadaConfig & ExecutionConfig & {
 	promptType?: PromptType; template?: string; script?: string;

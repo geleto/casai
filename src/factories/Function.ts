@@ -1,4 +1,4 @@
-import { createCodedComponent } from '../coded-component.js';
+import { createCodedComponent } from '../runtime/coded-component.js';
 import type { ComponentToolFromConfig } from '../types/tool-binding.js';
 import type { EmptyMap, UnionKeys } from '../types/utils.js';
 import type { SchemaConfigInferShape, ConfigSchemas, FinalConfig, CallbackParent, ToolMode, ToolModeConfig } from '../types/factory-config.js';

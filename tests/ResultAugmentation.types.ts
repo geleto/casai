@@ -4,7 +4,7 @@ import { Output, tool } from 'ai';
 import type { Agent, ModelMessage, LanguageModel, StreamTextResult, GenerateTextResult } from 'ai';
 import { z } from 'zod';
 import { create } from 'casai';
-import { generateTextWithResult, streamTextWithResult } from '../src/augment-result.js';
+import { generateTextWithResult, streamTextWithResult } from '../src/runtime/augment-result.js';
 import { expectEqual, expectType } from './type-safety/assert.js';
 
 declare const model: LanguageModel;

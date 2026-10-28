@@ -773,13 +773,13 @@ inheritedTool.generate({ prompt: 'Answer' });
     .replace("from './type-safety/assert.js'", "from '../../tests/type-safety/assert.js'")
     .replaceAll("from '../src/", "from './src/");
   const settingOwnershipMutations = [
-    ['Agent request setting ownership', "'asTool', 'debug', 'prepareCall'", "'asTool', 'prepareCall'", /error TS2554/, 'src/llm-agent.ts'],
-    ['Agent observer setting completeness', "'onEnd', 'onChunk', 'onAbort'", "'onEnd', 'onChunk'", /error TS2554/, 'src/agent-settings-policy.ts'],
-    ['Agent observer alias completeness', "onStart: 'experimental_onStart', ", '', /error TS2554/, 'src/agent-settings-policy.ts'],
-    ['Agent streaming setting completeness', "'experimental_transform', 'streamRetries'", "'experimental_transform'", /error TS2554/, 'src/agent-settings-policy.ts'],
-    ['Agent native setting names', "'telemetry', ...observers", "'telemetery', ...observers", /not assignable/, 'src/agent-settings-policy.ts'],
-    ['Agent fixed setting names', "'loader', 'id', 'streaming', 'asTool'", "'loader', 'identity', 'streaming', 'asTool'", /error TS2554/, 'src/agent-settings-policy.ts'],
-    ['Agent coded setting completeness', "'template', 'script', 'execute', 'schema'", "'template', 'script', 'execute'", /error TS2554/, 'src/agent-settings-policy.ts'],
+    ['Agent request setting ownership', "'asTool', 'debug', 'prepareCall'", "'asTool', 'prepareCall'", /error TS2554/, 'src/runtime/llm-agent.ts'],
+    ['Agent observer setting completeness', "'onEnd', 'onChunk', 'onAbort'", "'onEnd', 'onChunk'", /error TS2554/, 'src/runtime/agent-settings-policy.ts'],
+    ['Agent observer alias completeness', "onStart: 'experimental_onStart', ", '', /error TS2554/, 'src/runtime/agent-settings-policy.ts'],
+    ['Agent streaming setting completeness', "'experimental_transform', 'streamRetries'", "'experimental_transform'", /error TS2554/, 'src/runtime/agent-settings-policy.ts'],
+    ['Agent native setting names', "'telemetry', ...observers", "'telemetery', ...observers", /not assignable/, 'src/runtime/agent-settings-policy.ts'],
+    ['Agent fixed setting names', "'loader', 'id', 'streaming', 'asTool'", "'loader', 'identity', 'streaming', 'asTool'", /error TS2554/, 'src/runtime/agent-settings-policy.ts'],
+    ['Agent coded setting completeness', "'template', 'script', 'execute', 'schema'", "'template', 'script', 'execute'", /error TS2554/, 'src/runtime/agent-settings-policy.ts'],
   ];
   const factoryContracts = `import { LLMAgent } from './src/factories/LLMAgent.js';
 import { Function as component } from './src/factories/Function.js';

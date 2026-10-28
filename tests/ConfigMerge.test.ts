@@ -1,6 +1,6 @@
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
-import { mergeConfigs } from '../src/config-utils.js';
+import { mergeConfigs } from '../src/config/config-utils.js';
 import { create, z } from './cascada';
 import type { ILoaderAny } from 'cascada-engine';
 import type { FunctionToolConfig } from './cascada';

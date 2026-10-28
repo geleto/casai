@@ -1,5 +1,5 @@
 import type { Agent, AgentCallParameters, AgentStreamParameters, LanguageModel, ModelMessage, OutputInterface, PrepareStepFunction, Tool, ToolSet } from 'ai';
-import type { protectedSettings, incompatibleAgentSettings, fixedSettings } from '../agent-settings-policy.js';
+import type { protectedSettings, incompatibleAgentSettings, fixedSettings } from '../runtime/agent-settings-policy.js';
 import type { AIOutput, StreamRequest } from './sdk.js';
 import type { CascadaConfig, ConfigValue, ContextFromConfig, RuntimeContextFromConfig, ToolProperties, ToolRegistryFromConfig, ToolsFromConfig } from './config.js';
 import type { SchemaType } from './schema.js';

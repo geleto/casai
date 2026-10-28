@@ -1,12 +1,12 @@
-import type { PromptValue, PromptType, PromptFunction } from './types/prompt.js';
-import type { Context } from './types/utils.js';
-import type { CascadaConfig } from './types/config.js';
+import type { PromptValue, PromptType, PromptFunction } from '../types/prompt.js';
+import type { Context } from '../types/utils.js';
+import type { CascadaConfig } from '../types/config.js';
 import type { ILoaderAny } from 'cascada-engine';
 import { AsyncEnvironment, NotFoundError } from 'cascada-engine';
 import { createCascadaRenderer } from './cascada-renderer.js';
-import { PromptStringOrMessagesSchema } from './prompt-schemas.js';
-import { ConfigError, ValidationError } from './errors.js';
-import { parseSchema } from './schema.js';
+import { PromptStringOrMessagesSchema } from './prompt-schema.js';
+import { ConfigError, ValidationError } from '../errors.js';
+import { parseSchema } from '../schema.js';
 
 async function validatePromptOutput(value: unknown): Promise<PromptValue> {
 	// Like the SDK's prompt handling, validate the envelope without normalizing it.

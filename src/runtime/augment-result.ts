@@ -1,6 +1,6 @@
-import type { GenerateRequest, StreamRequest, ResolvedOutput } from './types/sdk.js';
+import type { GenerateRequest, StreamRequest, ResolvedOutput } from '../types/sdk.js';
 import type { InferGenerateOutput, ModelMessage, OutputInterface, StepResult, ToolSet } from 'ai';
-import type { GenerateTextResultAugmented, StreamTextResultAugmented } from './types/result.js';
+import type { GenerateTextResultAugmented, StreamTextResultAugmented } from '../types/result.js';
 import { generateText, streamText, NoOutputGeneratedError } from 'ai';
 
 type Context = Record<string, unknown>;

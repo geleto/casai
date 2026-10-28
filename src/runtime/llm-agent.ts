@@ -1,17 +1,17 @@
 import type { LanguageModel, ModelMessage, OutputInterface } from 'ai';
-import type { CascadaConfig } from './types/config.js';
-import type { AnyPromptSource, PromptType } from './types/prompt.js';
-import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry } from './types/execution.js';
-import type { GenerateRequest, StreamRequest, PrepareStepOptions } from './types/sdk.js';
-import type { Fields } from './types/utils.js';
+import type { CascadaConfig } from '../types/config.js';
+import type { AnyPromptSource, PromptType } from '../types/prompt.js';
+import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry } from '../types/execution.js';
+import type { GenerateRequest, StreamRequest, PrepareStepOptions } from '../types/sdk.js';
+import type { Fields } from '../types/utils.js';
 import { isRecord } from '@ai-sdk/provider-utils';
 import { generateTextWithResult, streamTextWithResult } from './augment-result.js';
-import { mergeConfigs } from './config-utils.js';
-import { createPromptRenderer } from './prompt-renderers.js';
+import { mergeConfigs } from '../config/config-utils.js';
+import { createPromptRenderer } from '../renderers/prompt-renderers.js';
 import { defineTool, descriptorKeys, namedArguments, prepareExecution, prepareRegistry, validateRegistryConfig } from './execution.js';
-import { ConfigError, ValidationError } from './errors.js';
-import { requireContextObject } from './schema.js';
-import { validateConfigBasics, validateMessagesArray } from './validate.js';
+import { ConfigError, ValidationError } from '../errors.js';
+import { requireContextObject } from '../schema.js';
+import { validateConfigBasics, validateMessagesArray } from '../config/validate.js';
 import { observers, aliases, protectedSettings, streamingSettings, agentSourceConflicts, fixedSettings } from './agent-settings-policy.js';
 
 type CallHook = (request: Fields, config: RuntimeAgentConfig, context: PreparedExecutionContext) => Fields | PromiseLike<Fields>;

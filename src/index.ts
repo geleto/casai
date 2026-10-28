@@ -35,7 +35,7 @@ export type { Context } from './types/utils.js';
 export type { SchemaType } from './types/schema.js';
 export type { TemplatePromptType, ScriptPromptType, FunctionPromptType } from './types/prompt.js';
 export type { StreamTextOnFinishEvent } from './types/sdk.js';
-export { PromptStringOrMessagesSchema } from './prompt-schemas.js';
+export { PromptStringOrMessagesSchema } from './renderers/prompt-schema.js';
 
 // --- Result Types ---
 export type { ScriptResult, GenerateTextResultAugmented as GenerateTextResult, StreamTextResultAugmented as StreamTextResult } from './types/result.js';

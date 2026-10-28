@@ -8,7 +8,7 @@ import type { ModelMessage, OutputInterface, TextStreamPart, ToolExecutionOption
 import type { LanguageModelV3GenerateResult, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { z } from 'zod';
-import { generateTextWithResult as generatePrepared, streamTextWithResult as streamPrepared } from '../src/augment-result.js';
+import { generateTextWithResult as generatePrepared, streamTextWithResult as streamPrepared } from '../src/runtime/augment-result.js';
 import { create } from './cascada';
 
 // Protocol tests start at the normalized internal boundary. Public entry-point ownership is tested below.

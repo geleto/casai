@@ -7,8 +7,8 @@ import type { AnyConfigCallbackInput } from '../types/callbacks.js';
 import type { ValidateConfigFragment } from '../types/config-validation.js';
 import type { AnyConfigExecuteContext, ConfigInferDefinition } from '../types/function-config.js';
 import type { ResolvedConfig } from '../types/provisional.js';
-import { mergeConfigs, processConfig } from '../config-utils.js';
-import { validateAnyConfig, validateConfigBasics } from '../validate.js';
+import { mergeConfigs, processConfig } from '../config/config-utils.js';
+import { validateAnyConfig, validateConfigBasics } from '../config/validate.js';
 import type * as configs from '../types/config.js';
 
 // One authoring contract for Config's standalone and inherited calls.

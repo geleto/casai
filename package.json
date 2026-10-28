@@ -58,7 +58,7 @@
 		"test:types": "node tests/fixtures/readme2-examples.cjs && npm run typecheck:src && npm run build && npm run typecheck && npm run typecheck:exact",
 		"test:local": "mocha",
 		"test:file": "mocha --no-config --node-option import=tsx/esm --node-option conditions=casai-source --require dotenv/config",
-		"test:coverage": "c8 npm run test:local -- --timeout 10000 --reporter dot && c8 check-coverage --include src/augment-result.ts --per-file --lines 100 --statements 100 --functions 100 --branches 98",
+		"test:coverage": "c8 npm run test:local -- --timeout 10000 --reporter dot && c8 check-coverage --include src/runtime/augment-result.ts --per-file --lines 100 --statements 100 --functions 100 --branches 98",
 		"test:phase2-production": "node tests/fixtures/phase2-factory-cost.cjs && node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
 		"test:package": "npm run build && node tests/fixtures/phase2-package-consumer.cjs",
 		"test:watch": "npm run test:local -- --watch",
@@ -70,6 +70,9 @@
 		"include": [
 			"src/*.ts",
 			"src/factories/*.ts",
+			"src/config/*.ts",
+			"src/renderers/*.ts",
+			"src/runtime/*.ts",
 			"src/types/merge.ts"
 		],
 		"reporter": [

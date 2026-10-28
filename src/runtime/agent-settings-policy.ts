@@ -1,4 +1,4 @@
-import type { GenerateRequest, StreamRequest } from './types/sdk.js';
+import type { GenerateRequest, StreamRequest } from '../types/sdk.js';
 
 // Casai's overlapping policies for SDK dispatch, configuration validation and hook types.
 type NativeSetting = keyof StreamRequest;

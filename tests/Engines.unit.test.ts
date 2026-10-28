@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process';
 import { posix } from 'node:path';
 import { promisify } from 'node:util';
 import { create, ValidationError, ScriptError, TemplateError, z } from './cascada';
-import { createPromptRenderer } from '../src/prompt-renderers';
+import { createPromptRenderer } from '../src/renderers/prompt-renderers';
 import { Loader, AsyncTemplate as CascadaTemplate, Script as CascadaScript, type LoaderInterface, type LoaderSource } from 'cascada-engine';
 import { jsonSchema } from 'ai';
 

@@ -9,11 +9,11 @@ import type { PromptType } from '../types/prompt.js';
 import type { CompletedOutput } from '../types/result.js';
 import type { EmptyMap, UnionKeys } from '../types/utils.js';
 import type { Provisional, ResolvedConfig, ValidateResolved } from '../types/provisional.js';
-import type { RuntimeAgentConfig } from '../llm-agent.js';
-import { createLLMAgent } from '../llm-agent.js';
-import { processConfig, mergeConfigs } from '../config-utils.js';
-import { validateAgentConfig } from '../validate.js';
-import { validateRegistryConfig } from '../execution.js';
+import type { RuntimeAgentConfig } from '../runtime/llm-agent.js';
+import { createLLMAgent } from '../runtime/llm-agent.js';
+import { processConfig, mergeConfigs } from '../config/config-utils.js';
+import { validateAgentConfig } from '../config/validate.js';
+import { validateRegistryConfig } from '../runtime/execution.js';
 
 type IsUnion<T, All = T> = T extends unknown ? [All] extends [T] ? false : true : never;
 

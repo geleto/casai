@@ -9,7 +9,7 @@ import type { ModelMessage, Tool } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { create, ConfigError, ValidationError, TemplateError, race, z } from './cascada';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
-import { validateMessagesArray } from '../src/validate.js';
+import { validateMessagesArray } from '../src/config/validate.js';
 
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },

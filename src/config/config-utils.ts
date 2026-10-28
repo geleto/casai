@@ -1,8 +1,8 @@
-import { ConfigError, ValidationError } from './errors.js';
-import { configMapKeys } from './types/merge.js';
-import type { MergedConfig, ProcessedConfig } from './types/merge.js';
-import * as configs from './types/config.js';
-import { mergeLoaders, processLoaders, type CasaiAILoader } from './loaders.js';
+import { ConfigError, ValidationError } from '../errors.js';
+import { configMapKeys } from '../types/merge.js';
+import type { MergedConfig, ProcessedConfig } from '../types/merge.js';
+import * as configs from '../types/config.js';
+import { mergeLoaders, processLoaders, type CasaiAILoader } from '../loaders.js';
 import { validateConfigBasics } from './validate.js';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(

@@ -57,7 +57,7 @@ Expanded the preceding `application.ts` cleanup to every declaration in the type
 
 Shared schema inference no longer sits in Function-specific types; component descriptors no longer sit in results. Factory-only Template, Script and TextStreamer final shapes remain with their implementations. The LLM runner owns its private invocation view, promise helper and fixed-settings list; object-validation shapes remain private to their validation owner. SDK/native imports and public exports go directly to their owners. Unused aliases, redundant `RequiredPromptType`/`CallContext` indirection, unnecessary internal exports and type forwarding re-exports are removed.
 
-Runtime prompt validators moved from `types/schemas.ts` to `prompt-schemas.ts`. `ModelMessageSchema` is centrally re-exported from the SDK, retaining identity; coverage now follows the moved runtime code through the existing `src/*.ts` include. `types/merge.ts` deliberately keeps `configMapKeys`: runtime merging and its type algebra must share one policy. No parallel runtime schema or new compatibility barrel was introduced.
+Runtime prompt validators live in `renderers/prompt-schema.ts`. `ModelMessageSchema` is centrally re-exported from the SDK, retaining identity; coverage follows the runtime code through the `src/renderers/*.ts` include. `types/merge.ts` deliberately keeps `configMapKeys`: runtime merging and its type algebra must share one policy. No parallel runtime schema or new compatibility barrel was introduced.
 
 The review retained cohesive type families even where a leaf has one external consumer. Moving those leaves individually would export private helpers and increase coupling. Native-derived aliases remain in the types directory, including single-use ones. `Context` and `Fields` keep their different existing contracts; schema raw/output and authored/resolved tool distinctions are also preserved. Type recursion between execution, tools and configuration remains erased.
 
@@ -527,7 +527,7 @@ This review found one medium runtime defect and one low-priority obsolete API se
 
 ### 1. Medium: an injected tool named `then` prevents execution
 
-Owner: `src/execution.ts:169-184`, consumed by ordinary preparation at line 199 and SDK tool execution at line 219.
+Owner: `src/runtime/execution.ts:169-184`, consumed by ordinary preparation at line 199 and SDK tool execution at line 219.
 
 ```ts
 const lookup = tool({ inputSchema: z.object({}), execute: () => 1 });
@@ -1535,7 +1535,7 @@ The closing consumer pass revisited every ledger row, including all coded entry 
 
 ## Production integration (2026-10-20)
 
-The earlier sections are dated design/prototype evidence. The current implementation now has one production preparation owner (`src/execution.ts`), one bounded declaration/schema owner (`src/schema.ts`), and explicit JavaScript stream utilities (`src/streams.ts`). Function, Template, Script and the existing LLM factory entry paths consume those owners. Prompt renderers receive prepared values directly; they no longer construct hidden components or restore raw defaults. Native SDK execution and result augmentation remain the execution owners.
+The earlier sections are dated design/prototype evidence. The current implementation now has one production preparation owner (`src/runtime/execution.ts`), one bounded declaration/schema owner (`src/schema.ts`), and explicit JavaScript stream utilities (`src/streams.ts`). Function, Template, Script and the existing LLM factory entry paths consume those owners. Prompt renderers receive prepared values directly; they no longer construct hidden components or restore raw defaults. Native SDK execution and result augmentation remain the execution owners.
 
 The production regressions are `Phase2.integration.test.ts`, `Phase2ProductionSecurity.unit.test.ts`, `ToolLifecycle.unit.test.ts`, `Registry.unit.test.ts`, `Streams.unit.test.ts`, the revised existing factory suites, and `type-safety/phase2-production.ts`. The generated production matrix exercises 16,128 schema/key/ownership combinations and 243 forwarding combinations. SDK tests cover generation and streaming, public transport, approvals and continuation, safe owned errors, UI/history and subsequent model requests. Registry tests cover removal/orphans, native absent context, prototype-shaped names and fixed bindings. Stream tests distinguish lazy validation from producer failure and iterator cleanup from owner disposal.
 
@@ -2015,7 +2015,7 @@ This is an evidence/status and architectural-control assessment following the fr
 
 | Check | Current evidence | Outstanding work |
 | :--- | :--- | :--- |
-| Shared protections on every real entry and renderer path | The combined fixture enforces parsed-input and final-context checks, including ordinary forwarding. Current `src/validate.ts` still has the older `_toolCallOptions` marker-based validation routing. | Integrate the shared pipeline into all affected production factories, internal preparers, registered wrappers and the selected compiler/renderer. Verify no consumer re-merges unchecked input or bypasses preparation. |
+| Shared protections on every real entry and renderer path | The combined fixture enforces parsed-input and final-context checks, including ordinary forwarding. Current `src/config/validate.ts` still has the older `_toolCallOptions` marker-based validation routing. | Integrate the shared pipeline into all affected production factories, internal preparers, registered wrappers and the selected compiler/renderer. Verify no consumer re-merges unchecked input or bypasses preparation. |
 | Execution, approval, history, errors and next-model-request tests | Real installed SDK generation/streaming, UI and continuation behavior is exercised with mock providers around isolated adapters. Tests assert body counts, actual subsequent requests and private sentinels in real publication paths. | Repeat through the exported production components and renderer combinations, including full model-facing projection. Native SDK integration in a fixture is meaningful but does not close this gap. |
 | Generated schema/key/forwarding combinations | Existing files contain curated nested matrices, fixed special-name cases, and independently removed guards; the last recorded combined runner caught 25 deliberate faults. | No broad generated schema/path suite was found in the Phase 2 files. Add bounded reproducible generation with an oracle independent of the implementation, valid neighbors and minimized failures; retain runtime/type pairing. |
 | Stable bindings versus intentionally mutable state, then independent integrated review | Binding capture/concurrent-isolation and native parser shared-reference cases exist. Recent stateful-body documentation and exploratory shallow-freeze examples do not establish the actual component/state contract. | Verify authorized effects, immutable dependency bindings and native ownership on real SDK/Cascada paths. The integrated implementation does not yet exist to receive the requested independent review. |

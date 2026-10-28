@@ -7,7 +7,7 @@ import type { ModelMessage, Tool } from 'ai';
 import * as mini from 'zod/mini';
 import { create, ConfigError, ValidationError, collectTextStream, z } from './cascada';
 import type { ComponentExecutionOptions } from './cascada';
-import { mergeConfigs, processConfig } from '../src/config-utils.js';
+import { mergeConfigs, processConfig } from '../src/config/config-utils.js';
 import { inputNames } from '../src/schema.js';
 import { explicitMetadata } from './fixtures/phase2-api-schemas.js';
 import { modelFor } from './fixtures/phase2-security-sdk.js';

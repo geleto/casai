@@ -3,8 +3,8 @@ import type { AgentFactoryShape } from '../src/types/agent.js';
 import type { FunctionConfigShape, ScriptConfig, TemplateConfig } from '../src/types/config.js';
 import type { PromptType } from '../src/types/prompt.js';
 import type { GenerateRequest, StreamRequest } from '../src/types/sdk.js';
-import type { observers, aliases, retiredSettings, streamingSettings, fixedSettings, agentSourceConflicts } from '../src/agent-settings-policy.js';
-import type { componentSettings } from '../src/llm-agent.js';
+import type { observers, aliases, retiredSettings, streamingSettings, fixedSettings, agentSourceConflicts } from '../src/runtime/agent-settings-policy.js';
+import type { componentSettings } from '../src/runtime/llm-agent.js';
 import { expectEqual } from './type-safety/assert.js';
 
 // A new Casai-only property must be accounted for at the SDK request boundary.

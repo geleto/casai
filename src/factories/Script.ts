@@ -1,4 +1,4 @@
-import { createCodedComponent } from '../coded-component.js';
+import { createCodedComponent } from '../runtime/coded-component.js';
 import type { InferSchema } from '../types/schema.js';
 import type { EmptyMap } from '../types/utils.js';
 import type { SchemaConfigInferShape, ConfigSchemas, FinalConfig, CallbackParent, ToolMode, ToolModeConfig, SourceModeConfig } from '../types/factory-config.js';
