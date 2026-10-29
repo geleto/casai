@@ -1,13 +1,13 @@
 import {
 	create, Config, Function as FunctionFactory, Template, Script,
 	LLMAgent,
-	FileSystemLoader, PrecompiledLoader, WebLoader, NotFoundError, race,
+	FileSystemLoader, PrecompiledLoader, WebLoader, NotFoundError, raceLoaders, raceParent, overrideParent,
 	ModelMessageSchema, PromptStringOrMessagesSchema, ConfigError, ValidationError, TemplateError, ScriptError, z,
 } from 'casai';
-import type { ConfigProvider, ModelMessage, ToolSet, RaceGroup, RaceLoader, SchemaType, Context, ScriptResult, TemplatePromptType, ScriptPromptType, FunctionPromptType, ToolContextSchemaConfig, ToolConfig, StreamTextOnFinishEvent } from 'casai';
+import type { ConfigProvider, ModelMessage, ToolSet, LoaderGroup, LoaderInput, ParentLoader, SchemaType, Context, ScriptResult, TemplatePromptType, ScriptPromptType, FunctionPromptType, ToolContextSchemaConfig, ToolConfig, StreamTextOnFinishEvent } from 'casai';
 import type { ModelMessage as SDKModelMessage, ToolSet as SDKToolSet, StreamTextOnEndCallback } from 'ai';
 import { jsonSchema } from 'ai';
-import type { ILoaderAny, LoaderInterface } from 'cascada-engine';
+import type { LoaderInterface } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
 
 declare const caught: unknown;
@@ -28,7 +28,7 @@ expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' |
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
 	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'
-	| 'race' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'ValidationError' | 'TemplateError' | 'ScriptError' | 'z'
+	| 'raceLoaders' | 'raceParent' | 'overrideParent' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'ValidationError' | 'TemplateError' | 'ScriptError' | 'z'
 >();
 type PromptModifiers = 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript';
 expectEqual<keyof typeof LLMAgent, PromptModifiers | 'asTool' | 'asStream'>();
@@ -70,56 +70,57 @@ declare const filesystem: InstanceType<typeof FileSystemLoader>;
 declare const precompiled: InstanceType<typeof PrecompiledLoader>;
 declare const web: InstanceType<typeof WebLoader>;
 declare const native: LoaderInterface;
-declare const merged: RaceLoader;
 const sync = (name: string) => name;
 const asyncLoader = async (name: string) => ({ src: name, path: name, noCache: true });
-const group = race([filesystem, precompiled, web, native, sync, asyncLoader], 'sources');
-expectEqual<typeof group, RaceGroup>();
-expectType<ILoaderAny[]>(group.loaders);
-expectType<string | null>(group.groupName);
-expectType<LoaderInterface>(merged);
-race(sync);
-race([], 'empty');
+const group = raceLoaders([[filesystem, precompiled], [web, native, sync, asyncLoader]]);
+expectType<LoaderInterface>(group);
+const directive: ParentLoader = raceParent([group, sync]);
+const configured: LoaderInput = directive;
+expectType<LoaderGroup>(directive.group);
+create.Config({ loader: configured });
+create.Config({ loader: [filesystem, [group, asyncLoader]] });
+create.Config({ loader: overrideParent([]) });
+// @ts-expect-error Null loader settings remain unsupported in TypeScript.
+create.Config({ loader: null });
+create.Template.loadsTemplate({ loader: sync });
+create.Script.loadsScript({ loader: asyncLoader });
+raceLoaders([]);
+raceLoaders([[sync]]);
 const sourceLoader = {
 	cachePolicy: 'reload' as const,
 	load: async (name: string) => name === 'missing' ? null : ({ src: name, path: name, noCache: false }),
 	isRelative: (name: string) => name.startsWith('.'),
-	resolve: (from: string, to: string) => `${from}/${to}`,
+	resolve: (from: string, to: string) => from + '/' + to,
 };
-race(sourceLoader);
-const cachedFunction = Object.assign((name: string) => name, { cachePolicy: 'cache' as const });
-race(cachedFunction);
-create.Config({ loader: group });
-create.Config({ loader: [filesystem, group, merged, asyncLoader] });
-create.Template.loadsTemplate({ loader: sync });
-create.Script.loadsScript({ loader: asyncLoader });
-// @ts-expect-error Loader callbacks receive string names.
-race((_name: number) => 'source');
-// @ts-expect-error Loader callbacks must return source text, metadata or null.
-race(() => 123);
-// @ts-expect-error Loader callback promises must resolve to valid sources.
-race(async () => false);
-// @ts-expect-error Loader objects need a correctly typed load function.
-race({ load: () => 123 });
-// @ts-expect-error Loader source metadata must include its required path.
-race(() => ({ src: 'source', noCache: false }));
-// @ts-expect-error Loader source metadata retains its cache flag type.
-race({ load: () => ({ src: 'source', path: 'source', noCache: 'false' }) });
-// @ts-expect-error Loader cache policies retain their declared finite values.
-race({ load: sync, cachePolicy: 'forever' });
+raceLoaders([sourceLoader]);
+raceLoaders([Object.assign(sync, { cachePolicy: 'cache' as const })]);
+// @ts-expect-error A native race takes exactly one array argument.
+raceLoaders(sync);
+// @ts-expect-error Named groups have been removed.
+raceLoaders([sync], 'name');
+// @ts-expect-error Native loader callback names are strings.
+raceLoaders([(_name: number) => 'source']);
+// @ts-expect-error Loader callbacks return text, source metadata or null.
+raceLoaders([() => 123]);
+// @ts-expect-error Loader promises resolve to valid sources.
+raceLoaders([async () => false]);
+// @ts-expect-error Source metadata includes the required physical path.
+raceLoaders([() => ({ src: 'source', noCache: false })]);
+// @ts-expect-error Cache policy is a finite native setting.
+raceLoaders([{ load: sync, cachePolicy: 'forever' }]);
 // @ts-expect-error Relative-path callbacks return booleans.
-race({ load: sync, isRelative: () => 'yes' });
-// @ts-expect-error Resolution callbacks return a path string.
-race({ load: sync, resolve: () => 123 });
-// @ts-expect-error Native loader callback arguments remain string names.
-race({ load: (_name: number) => 'source' });
-// @ts-expect-error Race group names are strings.
-race(sync, 123);
-// @ts-expect-error Race groups are config inputs, not nested source loaders.
-race([group]);
-// @ts-expect-error Arbitrary scalars cannot be loader config values.
+raceLoaders([{ load: sync, isRelative: () => 'yes' }]);
+// @ts-expect-error Resolution callbacks return resource names.
+raceLoaders([{ load: sync, resolve: () => 123 }]);
+// @ts-expect-error Parent directives cannot be race competitors.
+raceLoaders([raceParent(sync)]);
+// @ts-expect-error Parent directives cannot nest inside ordered chains.
+create.Config({ loader: [overrideParent(sync)] });
+// @ts-expect-error Parent directives cannot wrap another directive.
+overrideParent(raceParent(sync));
+// @ts-expect-error Arbitrary scalars are not loader inputs.
 create.Config({ loader: 123 });
-// @ts-expect-error Built-in loaders still require string names.
+// @ts-expect-error Native loader methods retain their string argument.
 void native.load(123);
 
 const provider: ConfigProvider<{ description: string }> = create.Config({ description: 'Shared' });

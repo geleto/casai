@@ -3,11 +3,10 @@ import { Output } from 'ai';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
-import { EventEmitter } from 'node:events';
 import { jsonSchema } from 'ai';
 import type { ModelMessage } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { create, ConfigError, ValidationError, race, z } from './cascada';
+import { create, ConfigError, ValidationError, z } from './cascada';
 
 function model(text = 'DONE'): MockLanguageModelV3 {
 	const usage = {
@@ -220,45 +219,6 @@ describe('Regressions across component boundaries', () => {
 				}
 			}
 		}
-	});
-
-	describe('processed loader groups', () => {
-		for (const named of [false, true]) {
-			it(`deduplicates inherited ${named ? 'named' : 'anonymous'} racers against child loaders`, async () => {
-				const calls: string[] = [];
-				const first = { load: () => { calls.push('first'); return null; } };
-				const second = { load: () => { calls.push('second'); return null; } };
-				const parent = create.Config({ loader: race([first, second], named ? 'remote' : undefined) });
-				const child = create.Config({ loader: first }, parent);
-				const component = create.LLMAgent.loadsText({ model: model(), prompt: 'missing' }, child);
-				await rejects(() => component(), /Failed to load prompt/);
-				expect(calls).to.deep.equal(['first', 'second']);
-			});
-
-			it(`reuses unchanged ${named ? 'named' : 'anonymous'} race loaders across calls`, async () => {
-				const source = Object.assign(new EventEmitter(), { load: () => 'Input.' });
-				const other = { load: () => null };
-				const parent = create.Config({ loader: race([source, other], named ? 'remote' : undefined) });
-				const component = create.LLMAgent.loadsText({ model: model(), prompt: 'input' }, parent);
-				const subscriptions = source.listenerCount('update');
-				for (let call = 0; call < 3; call++) await component();
-				expect(source.listenerCount('update')).to.equal(subscriptions);
-			});
-		}
-
-		it('preserves anonymous race membership across several levels of partial deduplication', async () => {
-			const calls: string[] = [];
-			const member = (name: string) => ({ load: () => { calls.push(name); return null; } });
-			const first = member('first');
-			const second = member('second');
-			const third = member('third');
-			const parent = create.Config({ loader: race([first, second, third]) });
-			const child = create.Config({ loader: first }, parent);
-			const grandchild = create.Config({ loader: second }, child);
-			const component = create.LLMAgent.loadsText({ model: model(), prompt: 'missing' }, grandchild);
-			await rejects(() => component(), /Failed to load prompt/);
-			expect(calls).to.deep.equal(['second', 'first', 'third']);
-		});
 	});
 
 	describe('conversation snapshots', () => {

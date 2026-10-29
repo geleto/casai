@@ -2,7 +2,7 @@
 import { expect } from 'chai';
 import { mergeConfigs } from '../src/config/config-utils.js';
 import { create, z } from './cascada';
-import type { ILoaderAny } from 'cascada-engine';
+import type { LoaderGroup } from 'cascada-engine';
 import type { FunctionToolConfig } from './cascada';
 import { MockLanguageModelV3 } from 'ai/test';
 
@@ -104,12 +104,12 @@ describe('Config merging', () => {
 		}
 	});
 
-	it('should expose processed loader arrays and preserve child-first lookup order', async () => {
+	it('preserves native loader identities and child-first group boundaries', async () => {
 		const parentLoader = { load: (name: string) => `parent ${name}` };
 		const childLoader = { load: (name: string) => `child ${name}` };
 		const parent = create.Config({ loader: parentLoader });
-		const processed: ILoaderAny[] = parent.config.loader;
-		expect(processed).to.have.length(1);
+		const processed: LoaderGroup = parent.config.loader;
+		expect(processed).to.equal(parentLoader);
 		const child = create.Config({ loader: childLoader }, parent);
 		expect(child.config.loader).to.deep.equal([childLoader, parentLoader]);
 		expect(await create.Template.loadsTemplate({ template: 'test' }, child)()).to.equal('child test');

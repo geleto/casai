@@ -43,7 +43,7 @@ The SDK defines no Template/Script source-execution protocol. Keep those compone
 
 ### Loader Composition and Inheritance
 
-**Agreed design (2026-10-28), not implemented.** See the self-contained [loader guide](../README2.md#loader-composition-and-inheritance) for examples. This replaces the earlier named-group and ordinary-replacement proposals; it is separate from the completed Phase 3 simplification trial.
+**Implemented in the paired Casai/Cascada checkouts (2026-10-29).** Track verification and the coordinated release gate in [Phase 3 Follow-up: Loader Composition](#phase-3-follow-up-loader-composition). See the self-contained [loader guide](../README2.md#combining-loaders) for examples. This replaces the earlier named-group and ordinary-replacement proposals.
 
 Cascada owns recursive composition. An array is an ordered chain; `raceLoaders(array)` races its entries. Keep the existing name and exactly one array argument, accepting configuration-driven lists of any length. An array inside the competitor list is one chain competitor: `raceLoaders([[a, b], c])` races the A-then-B chain against C. Preserve group boundaries instead of flattening them. The main race use is adding independent resource collections: discover which loader holds each requested name concurrently. Duplicate copies may race too, with completion order selecting the result; ordered overrides use a chain.
 
@@ -53,15 +53,15 @@ Casai re-exports native `raceLoaders` and adds only these inheritance directives
 - `loader: overrideParent(group)` uses the supplied group without automatically adding the parent.
 - Both directives occupy the whole property. Disallow nested/multiple parent directives; their contents can freely nest chains and races. Advanced composition can reference `parent.config.loader` explicitly inside `overrideParent(...)`.
 
-Omitting `loader` inherits it. The ordinary parent/child lookup order when both supply a plain loader remains open. Do not silently settle it as part of implementation. Current child-first ordering and empty/undefined inheritance remain current behavior, not evidence that every new directive has the same clearing semantics.
+**Confirmed inheritance behavior (2026-10-29):** omitting `loader` or supplying `undefined` inherits it. An ordinary child loader group is tried before the inherited group, preserving order within each chain, so children can replace parent resources by name and fall back to parent resources on a miss. Both `raceParent(group)` and `overrideParent(group)` also work without a parent or inherited loaders; in that case they use the supplied group. A race with a parent still selects the first success, without guaranteed child priority. An empty ordinary group falls back to the parent; `overrideParent([])` removes inherited resources.
 
-The implementation should remove Casai's `RaceGroup`/named-group aggregation, executable-to-description recovery, anonymous-members registry and special group reconstruction. Resolve the parent directive during configuration inheritance, leaving Cascada a native composition. No Cascada parent operators or replacement policy are needed.
+Casai resolves the parent directive during configuration inheritance, leaving Cascada a native composition. `RaceGroup`/named-group aggregation, executable-to-description recovery, the anonymous-members registry and special group reconstruction are removed. No Cascada parent operators or replacement policy are needed.
 
 Ordered overrides must also affect relative imports: `[overrides, base]` can load `pages/main` from `base` and `./part` from `overrides`. Keep logical resource names and group resolution scope distinct from physical source paths. A race retains its selected member's scope, including an ordered chain, without searching unrelated competitors for relative imports. Preserve cache invalidation, pending-request sharing, miss caching, `noCache` and reload policy; do not remember one winning loader for unrelated resources.
 
-Current native probes establish nested races and chains containing races, but nested chain arrays fail in both source and build. Add recursive runtime/types support and verify grouping, start order, relative overrides, cache/update behavior and empty/single-member lists. Environment fallback continues on `null` and stops on actual loader errors; races return the first success, miss if all miss, and report an error if none succeeds and one fails. Already-started work is not cancelled. The standalone native `loadString` utility currently falls back after errors too: resolve that existing contract difference explicitly if sharing its implementation.
+Native runtime/types now support recursive chains, including chains used as race competitors. Environment fallback continues on `null` and stops on actual loader errors; races return the first success, miss if all miss, and report an error if none succeeds and one fails. Already-started work is not cancelled. The standalone native `loadString` utility preserves its existing fallback after errors as well as misses; this deliberate difference is tested and documented rather than hidden behind an error-policy adapter.
 
-Update exports, runtime/types, inheritance consumers and documentation together when implementing. README2 marks the agreed API as pending; README.md continues to describe the working API. The published Cascada documentation should distinguish existing composition from the recursive-chain and relative-override work.
+Exports, runtime/types, inheritance consumers, examples and both repositories' loader guides use the same contract. `.config.loader` contains the native `LoaderGroup`, not a normalized flat array; `LoaderInput` additionally admits a whole-property parent directive. Publication requires a coordinated engine release and dependency minimum containing these changes; local linked builds alone do not establish published compatibility.
 
 ## Phase Dependencies and Implementation Order
 
@@ -756,7 +756,7 @@ Use this inventory as the change/review checklist. A passing representative Func
 | Preparation and execution | `llm-agent.ts`, `prompt-renderers.ts`, `cascada-renderer.ts` | Prepared internal handoff, one input boundary, no raw-default restoration or metadata reset, per-run registries, preparer-result schemas, all source modes, and cancellation before backend dispatch. |
 | Tools and schema ownership | `execution.ts`, `schema.ts`, Function tool creation, `types/config.ts`, `types/tool-binding.ts`, `types/result.ts`, `validate.ts` | Original `.config`, SDK descriptor callbacks, raw direct caller versus parsed executor, native non-object tools, fallback shadowing, output collection and error ownership. The former `renderer-tool.ts` is removed. |
 | Result consumers | `augment-result.ts`, generator tool adapters, `types/result.ts`, SDK model/UI/approval paths | One execution, parsed final tool value, native receivers/streams, native history, transformed approval/UI limitations, and no private bindings in argument records. Preserve the existing output-eligibility rules. |
-| Loaders, filters and environments | `loaders.ts`, both engines, loaded LLM paths, `types/config.ts`, `types/cascada.ts` | `renderOptions`, loader/race identity, relative imports, updates/`noCache`, inline caching, and no invocation context stored in shared environments. Unused configuration-key lists are removed. |
+| Loaders, filters and environments | `loaders.ts`, both renderers, loaded LLM paths, `types/config.ts` | `renderOptions`, loader/race identity, relative imports, updates/`noCache`, inline caching, and no invocation context stored in shared environments. Unused configuration-key lists are removed. |
 | Output schemas and streams | `validateAndParseOutput`, `renderers/prompt-schema.ts`, public stream schemas/collectors | Async parsed output, prompt-message validation distinct from model output, unschematized Script `unknown`, declared root kinds, lazy element parsing and iterator cleanup. Native channels remain Phase 6. |
 | Validation and distribution | `tests/*.test.ts`, `tests/type-safety`, `package.json`, generated declarations | Local mock tests, TS7 source and declaration checks, exact optional properties, public examples, and new mock files registered in `test:local`. No paid calls needed. |
 
@@ -795,6 +795,8 @@ The binding and bounded declaration prototypes already cover the indistinguishab
 - Configured required/optional `toolsContext`, per-call inference, merge-by-name with whole-entry replacement, validation, wrapper capture, and concurrent invocation isolation on Template, Script, and Function. Construction-time tool replacement and null/undefined removal must agree across exposed registry names, fallback wrappers, and required context inference; removed tools leave no required entries or wrappers. Component definitions/original schemas stay fixed; each `.run()` may derive its own immutable binding descriptors; configured and caller data remain unchanged. Retain parent/child merging and explicitly public direct-call overrides, with undeclared private names protected.
 
 ## Phase 3: LLMAgent
+
+**Status (2026-10-29): core complete.** The additional loader redesign is tracked separately in the [Phase 3 follow-up](#phase-3-follow-up-loader-composition).
 
 Reuse Phase 2's closed tool-input contract for LLMAgent `.asTool`: declared top-level parameters, rejection of unknown raw keys before parsing, and nested dynamic data. Do not add an open-root escape switch or a second input schema. Native SDK tools remain unchanged.
 
@@ -1448,6 +1450,17 @@ Shared invocation deadlines and automatic nested propagation belong to [Phase 7]
 Verify native SDK timeout/signal forwarding, original abort reasons, terminal failure in `value`, native message availability/rejection in history, and unchanged configuration. Cooperative JavaScript checks verify explicit forwarding and no later backend dispatch after awaited preparation reports cancellation. Phase 7 verifies inherited end times, async call ancestry, race limits, late-running work, and stream lifetimes. Actual engine interruption tests follow the native capability.
 
 LLMAgent reports its own SDK usage and callbacks. Phase 7 uses the Cascada async call context developed with telemetry to identify parents and nested calls, including calls through ordinary JavaScript. Whole-workflow usage reporting is a separate consumer of that foundation; Casai adds no parallel call tracker. See [future.md](future.md).
+
+### Phase 3 Follow-up: Loader Composition
+
+**Status (2026-10-29): implemented; final verification is recorded in the [review](phase3-review.md#loader-composition-follow-up-2026-10-29).** This follow-up extends the completed Phase 3 core. The authoritative [loader contract](#loader-composition-and-inheritance) defines composition, inheritance, relative imports, caching and errors. Package publication/version selection remains a coordinated release task.
+
+The engine prerequisite is in Cascada commit `2a2ac2c1`, beyond the published 0.6.2 contract. Before publishing Casai, release an engine version containing that commit and raise Casai's `cascada-engine` minimum to that version. The paired development-package check does not close this release gate. The [loader review corrections](phase3-review.md#loader-review-corrections-2026-10-29) record null handling, file-lookup documentation and final verification.
+
+- [x] Complete Cascada's prerequisite runtime/type support for recursive loader chains and ordered relative-import overrides.
+- [x] Re-export native `raceLoaders`; implement `raceParent` and `overrideParent` during Casai configuration resolution, including use without a parent. Preserve ordinary child-first fallback.
+- [x] Replace Casai's named-group aggregation and reconstruction with native compositions; migrate public loader types, exports, consumers and documentation together.
+- [x] Verify standalone and inherited groups, no-parent directives, child overrides and parent fallback, relative dependencies, empty/single-member groups, caching/invalidation and error behavior. Pair runtime cases with source/emitted types in both optional-property modes, then run the affected integration gates.
 
 ## Phase 4: Tool Continuations
 

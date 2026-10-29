@@ -34,7 +34,7 @@ try {
     }
   }
   const [packed] = JSON.parse(npm(['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], workspace));
-  assert.ok(!packed.files.some(({ path: file }) => /(?:TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt)\./.test(file)),
+  assert.ok(!packed.files.some(({ path: file }) => /(?:TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt|types\/cascada)\./.test(file)),
     'Removed factories and adapters must not survive in the published package.');
   fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
   npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', path.join(temporary, packed.filename), ...engine ? [engine] : []]);
@@ -64,10 +64,10 @@ try {
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
-import { create, z, streamSchema, collectStream, makeSharedIterable } from 'casai';
+import { create, z, streamSchema, collectStream, makeSharedIterable, raceLoaders, raceParent, overrideParent } from 'casai';
 import { Output } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { makeSharedIterable as nativeSharedIterable } from 'cascada-engine';
+import { makeSharedIterable as nativeSharedIterable, raceLoaders as nativeRaceLoaders } from 'cascada-engine';
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 assert.notEqual(create.Function, foreignCreate.Function);
 const foreignTool = foreignCreate.Function.asTool({ inputSchema: z.object({ factor: z.number() }), context: { factor: 3 }, execute: input => input.factor });
@@ -82,6 +82,23 @@ const engineEntry = import.meta.resolve('cascada-engine');
 assert.equal(realpathSync(fileURLToPath(engineEntry)), fileURLToPath(engineEntry));
 assert.ok(engineEntry.startsWith(new URL('./node_modules/cascada-engine/', import.meta.url).href));
 assert.equal(makeSharedIterable, nativeSharedIterable);
+assert.equal(raceLoaders, nativeRaceLoaders);
+const baseLoader = {
+  load: name => name === 'pages/main' ? { src: '{% include "./part" %}', path: 'base/' + name }
+    : name === 'pages/part' ? 'base' : null,
+  isRelative: name => name.startsWith('./'),
+  resolve: (from, to) => new URL(to, new URL(from.slice(5), 'https://resources.test/')).pathname.slice(1),
+};
+const childLoader = name => name === 'pages/part' ? 'child' : null;
+const baseTemplate = create.Template.loadsTemplate({ loader: [[baseLoader]], template: 'pages/main' });
+assert.equal(await create.Template({ loader: null }, baseTemplate)(), 'base');
+const childTemplate = create.Template({ loader: [childLoader] }, baseTemplate);
+assert.equal(await childTemplate(), 'child');
+const replacedTemplate = create.Template({ loader: overrideParent([[baseLoader]]) }, childTemplate);
+assert.equal(await replacedTemplate(), 'base');
+assert.equal(await create.Template.loadsTemplate({ loader: raceParent([baseLoader]), template: 'pages/main' })(), 'base');
+const foreignLoader = foreignCreate.Config({ loader: overrideParent([baseLoader]) });
+assert.equal(await create.Template.loadsTemplate({ template: 'pages/main' }, foreignLoader)(), 'base');
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
 const finishReason = { unified: 'stop', raw: 'stop' };
 const model = new MockLanguageModelV3({ doStream: async () => ({ stream: convertArrayToReadableStream([
@@ -115,10 +132,18 @@ assert.deepEqual(await collectStream(shared), [4]);
 await shared.dispose();
 `);
   fs.writeFileSync(path.join(temporary, 'consumer.ts'), `
-import { create, z } from 'casai';
+import { create, z, raceLoaders, raceParent, overrideParent } from 'casai';
 import { Output } from 'ai';
 import type { Agent, LanguageModel } from 'ai';
 import type { ComponentExecutionOptions, ToolContextSchemaConfig, StreamSchema } from 'casai';
+import type { LoaderGroup, LoaderInput, ParentLoader } from 'casai';
+const loaderGroup: LoaderGroup = [[name => name === 'main' ? 'answer' : null], raceLoaders([[]])];
+const parentLoader: ParentLoader = overrideParent(loaderGroup);
+const loaderInput: LoaderInput = raceParent(loaderGroup);
+const loaded = create.Template.loadsTemplate({ loader: parentLoader, template: 'main' });
+const loadedValue: Promise<string> = loaded();
+// @ts-expect-error Parent directives occupy the complete loader property.
+create.Template.loadsTemplate({ loader: [loaderInput], template: 'main' });
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 const foreignTool = foreignCreate.Function.asTool({ inputSchema: z.object({ factor: z.number() }), context: { factor: 3, db: () => 'private' }, execute: input => input.factor });
 const foreignOwner = create.Function({ tools: { foreignTool }, toolsContext: { foreignTool: { factor: 5 } }, execute: ({ foreignTool }) => foreignTool({}) });

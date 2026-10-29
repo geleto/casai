@@ -86,9 +86,9 @@ describe('Component boundary contracts', () => {
 				const loader = { load: (name: string) => `Loaded ${name}` };
 				const parent = create.Config({ loader });
 				const child = create.Config({ loader: childLoader }, parent);
-				expect(child.config.loader).to.deep.equal([loader]);
+				expect(child.config.loader).to.deep.equal(childLoader === undefined ? loader : [childLoader, loader]);
 				expect(await create.Template.loadsTemplate({ template: 'contract' }, child)()).to.equal('Loaded contract');
-				expect(parent.config.loader).to.deep.equal([loader]);
+				expect(parent.config.loader).to.equal(loader);
 			});
 		}
 	});

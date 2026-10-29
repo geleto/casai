@@ -1,7 +1,7 @@
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { z } from 'zod';
-import { create, race } from './cascada';
+import { create, raceLoaders, raceParent } from './cascada';
 import { AsyncStringLoader, timeout } from './common';
 
 chai.use(chaiAsPromised);
@@ -113,15 +113,13 @@ describe('README literal examples', function () {
 		localLoader.addString('main.njk', 'Template result: {{ source }} from local');
 
 		const parentConfig = create.Config({
-			loader: race([
+			loader: raceLoaders([
 				webLoader
-			], 'cdn')
+			])
 		});
 
 		const component = create.Template.loadsTemplate({
-			loader: race([
-				localLoader
-			], 'cdn'),
+			loader: raceParent(localLoader),
 			template: 'main.njk'
 		}, parentConfig);
 

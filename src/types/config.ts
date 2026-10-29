@@ -1,8 +1,7 @@
 import type { ContextFromSchema, InferSchema, SchemaType } from './schema.js';
 import type { EmptyMap, Fields } from './utils.js';
 import type { LLMAgentConfig } from './agent.js';
-import type { CascadaFilters } from './cascada.js';
-import type { CasaiAILoaders } from '../loaders.js';
+import type { LoaderInput } from '../loaders.js';
 import type { TemplatePromptType, ScriptPromptType, AnyPromptSource } from './prompt.js';
 import type { FunctionImplementation, FunctionToolImplementation } from './function-config.js';
 import type { Tool, ToolSet } from 'ai';
@@ -76,13 +75,13 @@ interface RegistryConfig {
 }
 
 export interface CascadaConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends ContextConfig<CONTEXT> {
-	filters?: CascadaFilters;
+	filters?: Record<string, (input: any, ...args: any[]) => any>;
 	renderOptions?: ConfigureOptions;
-	loader?: CasaiAILoaders | undefined;
+	loader?: LoaderInput | undefined;
 }
 
 export interface LoaderConfig {
-	loader: CasaiAILoaders;
+	loader: LoaderInput;
 }
 
 // Only for use in Template

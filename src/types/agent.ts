@@ -117,9 +117,9 @@ export type LLMAgentComponent<T, P extends PromptType, AsTool extends boolean = 
 	& (AsTool extends true ? ComponentToolFromConfig<Record<string, any>, CompletedOutput<AgentOutput<T>>, T> : AgentMethods<T>);
 
 export type AgentFactoryShape<P extends PromptType, AsTool extends boolean> = LLMAgentConfig<ToolSet, Record<string, any>, PromptSource<P>> & import('./config.js').ModifierConfig
-	& (P extends `${string}-name` ? { loader: import('../loaders.js').CasaiAILoaders } : EmptyMap)
+	& (P extends `${string}-name` ? { loader: import('../loaders.js').LoaderInput } : EmptyMap)
 	& (AsTool extends true ? { inputSchema: SchemaType<Record<string, any>> } & ToolProperties & import('./config.js').ToolContextSchemaConfig : EmptyMap);
 
 export type AgentRequiredSettings<P extends PromptType, AsTool extends boolean> = { model: LanguageModel }
-	& (P extends `${string}-name` ? { loader: import('../loaders.js').CasaiAILoaders } : EmptyMap)
+	& (P extends `${string}-name` ? { loader: import('../loaders.js').LoaderInput } : EmptyMap)
 	& (AsTool extends true ? { inputSchema: SchemaType<Record<string, any>>; prompt: ConfiguredSource<P> } : EmptyMap);

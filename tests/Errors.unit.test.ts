@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { create, ConfigError, ValidationError, TemplateError, ScriptError, z } from './cascada';
 import * as errors from '../src/errors.js';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
-import { createRaceLoader } from '../src/loaders.js';
+import { overrideParent } from '../src/loaders.js';
 
 describe('Casai error boundaries', () => {
 	it('exports the centralized error constructors from the public entry point', () => {
@@ -43,7 +43,7 @@ describe('Casai error boundaries', () => {
 		const operation = create.Function({ execute: () => 1 });
 		await assert.rejects(operation.run({ toolsContext: { missing: {} } } as never), ValidationError);
 		await assert.rejects(operation.run({ unknown: true } as never), ValidationError);
-		assert.throws(() => createRaceLoader([], ''), ConfigError);
+		assert.throws(() => create.Config({ loader: [overrideParent([])] } as never), ConfigError);
 	});
 
 	it('retains configuration errors for schema capabilities discovered during invocation', async () => {

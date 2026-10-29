@@ -39,7 +39,7 @@ Expanded the preceding `application.ts` cleanup to every declaration in the type
 | `types/schema.ts` | Supported schema protocols and native raw/parsed inference; Casai's Zod-version and object-input adaptations |
 | `types/schema-shape.ts` | Input/output declaration discovery, object shapes, root alternatives and openness |
 | `types/sdk.ts` | SDK-derived request/result/callback aliases, output specifications, JSON Schema and invocation metadata, including single-use native aliases |
-| `types/cascada.ts` | Cascada loader and filter integration contracts used by configuration and engines |
+| `types/cascada.ts` (removed 2026-10-29) | Loader types now come from Cascada; filter settings are defined in `types/config.ts` |
 | `types/prompt.ts` | Prompt kinds, sources, values and basic function-prompt contract |
 | `types/merge.ts` | Type-level merge/processing laws and the map-key policy shared with runtime merging |
 | `types/provisional.ts` | Erased inference identity, deferred validation and resolved empty-config behavior |

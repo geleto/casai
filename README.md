@@ -88,7 +88,9 @@ await concise(); // still renders the inherited template
 
 Reusable `Config` fragments may be incomplete. A finished callable must already have settings that its shorthand call cannot supply: an LLMAgent needs a model, loaded sources need a loader, and tools need a configured implementation and `inputSchema`.
 
-Loader arrays provide ordered fallback. The current `race([loaderA, loaderB], groupName?)` helper primarily adds resources from different collections, such as billing and support templates: both loaders start together, and the first success supplies the requested resource. Duplicate copies can race too, but their selection depends on completion order. The agreed replacement API uses `raceLoaders`, `raceParent` and `overrideParent`; see [the design and implementation status](README2.md#loader-composition-and-inheritance).
+Custom loaders can be a function `(name) => ...` or an object/class with `load(name)`. Casai uses Cascada's support for both forms.
+
+An array tries loaders in order; `raceLoaders([...])` tries them together. Child loaders run before parent loaders. Use `raceParent(...)` to try both together, or `overrideParent(...)` to use only the child's loaders. Both helpers work without a parent. See [combining loaders](README2.md#combining-loaders) for examples.
 
 ### Input, defaults, and private context
 
@@ -433,6 +435,10 @@ const ragOrchestrator = create.Script({
 ```
 
 ## Migration
+
+Replace `race(loaders, groupName?)` with `raceLoaders(loaders)`. Group names and the `RaceGroup`/`RaceLoader` types are removed. `.config.loader` now keeps nested arrays and races; use `LoaderGroup` for its type. `LoaderInput` also accepts `raceParent(...)` and `overrideParent(...)`.
+
+Child files can now replace files included or imported by a parent's template. Previously, relative files always came from the loader that supplied the template. With `raceParent`, relative files stay on the side that found the main file; they do not fall back between child and parent.
 
 `LLMAgent` replaces `TextGenerator`, `TextStreamer`, `ObjectGenerator`, and `ObjectStreamer`; the old exports and types are removed. Use `.asStream` for streaming and native `Output.object`, `Output.array`, `Output.choice`, or other SDK output specifications for structured results. Use `.value` for application output and keep native result properties where needed.
 

@@ -20,7 +20,7 @@
 		"tests/LLMComponents.unit.test.ts",
 		"tests/LLMSurface.unit.test.ts",
 		"tests/LLMRun.test.ts",
-		"tests/Loaders.coverage.test.ts",
+		"tests/LoaderComposition.unit.test.ts",
 		"tests/MessageHistory.test.ts",
 		"tests/NativeSchemaBehavior.unit.test.ts",
 		"tests/Phase2Lifecycle.unit.test.ts",
@@ -40,7 +40,6 @@
 		"tests/Regressions.unit.test.ts",
 		"tests/ToolContext.test.ts",
 		"tests/Workflow.unit.test.ts",
-		"tests/loaders-unit.test.ts",
 		"tests/messages-unit.test.ts",
 		"tests/LLMAgent.unit.test.ts",
 		"tests/ModifierInheritance.unit.test.ts"

@@ -23,7 +23,7 @@ The paired package check packs the existing engine build without running its scr
 
 The preceding runs recorded 21–55 seconds for mock coverage (1,424 tests in the final run). The reported 18-minute full check was dominated by compilation and lint, not model latency. The old type gate started five compiler processes. Type-aware ESLint uses the TS6 compiler API in another process; a previous full lint attempt reached about 6 GB before it was stopped under system memory pressure. These are historical observations, not a fresh timing of the changed commands. All lint rules and file coverage remain enabled.
 
-`test:types` first extracts all 64 current TypeScript examples directly from README2 into `.cache/readme2`. The source and emitted-consumer profiles compile these files, including exact optional properties; examples make no model calls. Every TypeScript fence must have a checking marker or an explicit future-phase skip (currently 17). Setup supplies application dependencies and wraps property fragments in concrete components; the example code stays verbatim. Run `node tests/fixtures/readme2-examples.cjs` to refresh them before an individual typecheck.
+`test:types` first extracts all 65 current TypeScript examples directly from README2 into `.cache/readme2`. The source and emitted-consumer profiles compile these files, including exact optional properties; examples make no model calls. Every TypeScript fence must have a checking marker or an explicit future-phase skip (currently 17). Setup supplies application dependencies and wraps property fragments in concrete components; the example code stays verbatim. Run `node tests/fixtures/readme2-examples.cjs` to refresh them before an individual typecheck.
 
 `test:types` uses four compiler passes:
 

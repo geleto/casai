@@ -646,7 +646,7 @@ declare const optionalParent: [] | [typeof parent];
 Config({ debug: false }, ...optionalParent);
 const loaderParent = Config({ loader: { load: (name: string) => name } });
 const loaderChild = Config({ loader: { load: (name: string) => name.toUpperCase() } }, loaderParent);
-const loaders: import('cascada-engine').ILoaderAny[] = loaderChild.config.loader;
+const loaders: import('cascada-engine').LoaderGroup = loaderChild.config.loader;
 const described: import('./src/types/config.js').ConfigProvider<{ description: string }> = Config({ description: 'Shared' });
 const lookup = tool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query.length });
 Config({ tools: { lookup }, onEnd: event => {

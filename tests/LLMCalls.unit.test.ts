@@ -7,7 +7,7 @@ import { EventEmitter } from 'node:events';
 import { generateText, streamText, isStepCount, InvalidPromptError } from 'ai';
 import type { ModelMessage, Tool } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import { create, ConfigError, ValidationError, TemplateError, race, z } from './cascada';
+import { create, ConfigError, ValidationError, TemplateError, raceLoaders, z } from './cascada';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
 import { validateMessagesArray } from '../src/config/validate.js';
 
@@ -585,13 +585,13 @@ describe('LLM call contracts without providers', () => {
 			expect(promptTexts(model)).to.deep.equal([['Version 1'], ['Version 2']]);
 		});
 
-		for (const groupName of [undefined, 'remote']) {
-			it(`invalidates loaded text when a member of an ${groupName ? 'named' : 'anonymous'} race updates`, async () => {
+		for (const nested of [false, true]) {
+			it(`invalidates loaded text when a member of an ${nested ? 'nested' : 'direct'} race updates`, async () => {
 				let value = 'Original';
 				const loader = Object.assign(new EventEmitter(), { load: (name: string) => ({ src: value, path: name, noCache: false }) });
 				const model = mockModel('DONE');
 				const generator = create.LLMAgent.loadsText({
-					model, prompt: 'name', loader: race([loader, { load: () => null }], groupName),
+					model, prompt: 'name', loader: raceLoaders(nested ? [[loader, () => null], () => null] : [loader, () => null]),
 				});
 				await generator();
 				value = 'Changed';

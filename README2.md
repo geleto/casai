@@ -536,13 +536,13 @@ A `Config` can be partial. Children supply fixed configuration requirements; the
 | Property | Inheritance behavior |
 | :--- | :--- |
 | `context`, `filters`, `tools`, `toolsContext` | Merge by key; a child entry replaces the same parent entry |
-| `loader` | Compose chains and races; `raceParent(...)` adds concurrent sources and `overrideParent(...)` replaces inherited loaders. See [loader composition](#loader-composition-and-inheritance). |
+| `loader` | Try child loaders first; `raceParent(...)` tries both together and `overrideParent(...)` uses only the child. See [combining loaders](#combining-loaders). |
 | Streaming mode on LLMAgent/Template | Inherit from the parent; `.asStream` enables it and no modifier disables it |
 | Other properties, including `model`, `prompt`, schemas, `output`, `renderOptions`, and `providerOptions` | Replace the whole value |
 
 Key merging is shallow. A child `context: { settings: { language: 'French' } }` replaces the entire inherited `settings` value. A `toolsContext` entry similarly replaces that tool's whole context value.
 
-Omitting a property inherits it. Explicit `undefined` clears ordinary replacement properties. For merged maps, an omitted, empty, or `undefined` whole map retains inherited entries; an explicitly `undefined` entry replaces that entry. Loader inheritance has its [own rules and implementation status](#loader-composition-and-inheritance). These rules apply to configuration inheritance; in call-time arguments, `undefined` means not supplied.
+Omitting a property inherits it. Explicit `undefined` clears ordinary replacement properties. For merged maps, an omitted, empty, or `undefined` whole map retains inherited entries; an explicitly `undefined` entry replaces that entry. Loaders have [separate rules](#combining-loaders). These rules apply to configuration inheritance; in call-time arguments, `undefined` means not supplied.
 
 Tool definitions merge only by tool name: a supplied definition replaces the whole inherited definition, never its individual fields. A tool entry set to `undefined` or `null` removes that tool after resolution. For example, `tools: { search: undefined }` removes inherited `search` while retaining other tools. Remove cleared entries before exposing the effective SDK tool registry or passing it to the SDK; infer tool names and required tool context from that same effective registry. This is a tool-registry rule, not a reason to remove ordinary null/undefined application data.
 
@@ -1596,16 +1596,23 @@ Put a template such as `Summarize this document: {{ text }}` in `./prompts/summa
 | `FileSystemLoader` | Read local files in Node.js; relative imports resolve from the containing file |
 | `WebLoader` | Load sources from a base URL in a browser |
 | `PrecompiledLoader` | Load sources precompiled with Cascada |
-| Function or custom loader object | Retrieve sources from your own storage |
 
-A loader function returns source text, a `{ src, path, noCache }` object, or `null` when it cannot find the resource. It may return a promise. Plain `.loadsText` requires text source, rather than a precompiled template or script.
+Custom loaders have two forms, both supported directly by Cascada:
+
+| Form | API | Type from `cascada-engine` |
+| :--- | :--- | :--- |
+| Function | `loader(name)` | `LoaderFunction` |
+| Object or class | `loader.load(name)` | `LoaderInterface` |
+
+A plain object works; no class is required. Both forms return text, a `{ src, path, noCache }` object, or `null` for a missing resource. They may return a promise. Throw for a loading failure. Plain `.loadsText` requires text rather than a precompiled template or script.
 
 <!-- typecheck: custom-loader -->
 ```typescript
 const sources: Record<string, string> = {
   'welcome.njk': 'Welcome {{ name }}!',
 };
-const loader = async (name: string) => sources[name] ?? null;
+const load = async (name: string) => sources[name] ?? null;
+const loader = { load }; // Or pass the load function directly below.
 
 const welcome = create.Template.loadsTemplate({
   loader,
@@ -1614,56 +1621,55 @@ const welcome = create.Template.loadsTemplate({
 console.log(await welcome({ name: 'Ada' }));
 ```
 
-For custom object/class loaders, implement `load(name)` with the same return contract. Optional `isRelative(name)` and `resolve(from, to)` methods support relative imports; an optional `on(event, handler)` interface supports load/update events and cache invalidation. Return `null` for a missing resource to permit fallback, and throw for an actual loading failure.
+Object/class loaders can also provide `isRelative(name)` and `resolve(from, to)` for relative paths, and `on(event, handler)` for load/update events. Existing `getSource` loaders are also supported.
 
-#### Loader Composition and Inheritance
+#### Combining loaders
 
-**Agreed design, awaiting implementation:** Casai will expose Cascada's `raceLoaders(array)` and add `raceParent(group)` and `overrideParent(group)`. Recursive chains and relative-import overrides also require Cascada changes. The current implementation is described at the end of this section.
+Use an array to try loaders in order. Use `raceLoaders` to try them together:
 
-Use a chain when order matters and a race when adding another collection of resources:
-
-| Composition | Lookup |
+| Setting | What happens |
 | :--- | :--- |
 | `[loaderA, loaderB]` | Try A, then B only if A returns `null` |
-| `raceLoaders([loaderA, loaderB])` | Start both; use the first successful result |
-| `raceLoaders([[loaderA, loaderB], loaderC])` | Race the A-then-B chain against C |
-| `raceLoaders([[loaderA, loaderB]])` | One competitor: the A-then-B chain |
+| `raceLoaders([loaderA, loaderB])` | Start both; use the first source found |
+| `raceLoaders([[loaderA, loaderB], loaderC])` | Start A and C; try B only if A misses |
 
-**The main use of a race is concurrent discovery across different resource collections.** For example, one loader holds billing templates and another holds support templates. Both start looking for a requested name immediately, so finding a support template does not wait for the billing loader to report a miss. The same resource need not exist in both. Racing duplicate copies is also supported, but completion order then determines which copy wins; use a chain for deliberate overrides.
+Use `raceLoaders` when loaders hold different files, such as billing and support templates. If both hold the requested file, the first one to return it wins. Use an array when one loader should take priority.
 
-`raceLoaders` takes exactly one array argument: its entries are the competitors. An array *inside* that list is one sequential chain. Empty and single-member lists are valid, so callers can assemble lists from configuration without special cases. An empty race is a miss. If every competitor misses, outer fallback can continue; if none succeeds and one fails, the race reports a loading error. Already-started loads are not cancelled.
+A child normally tries its loaders before its parent's:
 
-Casai's parent modifiers select how a child loader group combines with inherited loaders:
-
-| Whole `loader` property | Inheritance |
+| Child's `loader` setting | What happens |
 | :--- | :--- |
-| `raceParent(group)` | Race the child group against the inherited group |
-| `overrideParent(group)` | Use only the supplied group |
-| Omitted | Keep the inherited group |
+| A loader or array | Try the child, then the parent if the file is missing |
+| `raceParent(loaders)` | Try the child and parent together |
+| `overrideParent(loaders)` | Use only the child's loaders |
+| Omitted or `undefined` | Keep the parent's loaders |
 
-For example, let `remoteA` hold billing resources, `remoteB` hold support resources, and `sharedLoader` hold shared resources. All four variables below are ordinary configured loaders:
+Put `raceParent` or `overrideParent` directly in `loader`, not inside an array or another helper. Both work without a parent. An empty array still allows parent lookup; `overrideParent([])` removes the parent's loaders.
 
-<!-- typecheck-skip: loader-composition -->
+For example, with configured `sharedLoader` and `localLoader`:
+
+<!-- typecheck: loader-composition -->
 ```typescript
-import { create, raceLoaders, raceParent } from 'casai';
+import { create, raceParent } from 'casai';
 
 const parent = create.Config({ loader: sharedLoader });
 const page = create.Template.loadsTemplate({
   template: 'billing/invoice.njk',
-  loader: raceParent([
-    localLoader,
-    raceLoaders([remoteA, remoteB]),
-  ]),
+  loader: raceParent(localLoader),
 }, parent);
 ```
 
-The inherited group and `localLoader` start together. If `localLoader` misses, the child starts `remoteA` and `remoteB` together. The first success from the child or inherited group supplies the resource. Local priority applies within the child chain; it does not give the child priority over the inherited group. To replace the inherited group entirely, use `overrideParent(...)` around that same child chain.
+Here, `localLoader` and the parent's loader start together. To give the local file priority instead, use `loader: localLoader`.
 
-Parent modifiers apply only to the whole `loader` property: do not nest them inside arrays or races. Chains and races themselves can nest freely, without group names or automatic named-group merging. For an unusual arrangement, explicitly include `parent.config.loader` inside `overrideParent(...)`.
+Cascada uses the configured loaders for `include`, `import`, and other file-loading operations.
 
-Ordered overrides also apply to relative imports in the agreed design: if `[overrides, base]` finds `pages/main` in `base`, its `./part` import searches for `pages/part` in `overrides` first, then `base`. A race preserves the winning member's resolution scope, which can itself be a chain; it does not search unrelated competitors for relative dependencies. Successful cacheable sources are reused until invalidation; `noCache` and reload policies can trigger discovery again.
+With ordinary inheritance, a parent's `pages/main.njk` including `./part.njk` uses the child's `pages/part.njk` if present, then the parent's file if missing.
 
-**Current implementation:** Casai still exports `race(loaders, groupName?)`; matching named groups merge across inheritance. Child loaders precede parent loaders, and an empty or `undefined` loader value retains the parent chain. Cascada supports nested races, but not arrays nested inside chains or races. Relative imports stay with their source loader. `raceParent` and `overrideParent` are not available yet. The ordinary parent/child lookup order for the new API remains open; the explicit modifiers above are settled. See the [implementation plan](docs/plan.md#loader-composition-and-inheritance).
+With `raceParent`, relative files stay with whichever side found the main file. If the child finds the template but only the parent has its `./part.njk`, that include fails.
+
+`raceLoaders` takes one array, which may be empty or contain one loader. If all loaders miss, it returns `null`. If none succeeds and one fails, it reports an error. An array stops on a loading error. Started loads are not cancelled.
+
+`.config.loader` contains the combined loaders without the parent helpers. Use `LoaderGroup` for that value and `LoaderInput` for a setting that may use those helpers. Cascada handles caching, reload policies, and loader updates.
 
 ### Render Options
 

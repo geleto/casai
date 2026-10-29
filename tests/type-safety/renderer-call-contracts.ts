@@ -2,7 +2,7 @@ import { Output } from 'ai';
 // Compile-only renderer boundaries: defaults may change, call arguments follow runtime dispatch.
 import { create, z } from 'casai';
 import type { LanguageModel, ModelMessage } from 'ai';
-import type { ILoaderAny } from 'cascada-engine';
+import type { LoaderGroup } from 'cascada-engine';
 import { expectEqual, expectType } from './assert.js';
 
 declare const model: LanguageModel;
@@ -96,19 +96,19 @@ const _loadedText = create.LLMAgent.loadsText({ model, loader, prompt: 'answer' 
 const _loadedStream = create.LLMAgent.loadsScript.asStream({ model, loader, prompt: 'answer' });
 const _loadedObject = create.LLMAgent.loadsTemplate({ model, loader, prompt: 'answer', output: Output.object({ schema: schema }) });
 const _loadedObjectStream = create.LLMAgent.loadsText.asStream({ model, loader, prompt: 'answer', output: Output.object({ schema: schema }) });
-expectEqual<typeof configuredTemplate.config.loader, ILoaderAny[]>();
-expectEqual<typeof _configuredScript.config.loader, ILoaderAny[]>();
-expectEqual<typeof _loadedText.config.loader, ILoaderAny[]>();
-expectEqual<typeof _loadedStream.config.loader, ILoaderAny[]>();
-expectEqual<typeof _loadedObject.config.loader, ILoaderAny[]>();
-expectEqual<typeof _loadedObjectStream.config.loader, ILoaderAny[]>();
-expectEqual<typeof namedTemplate.config.loader, ILoaderAny[]>();
-expectEqual<typeof namedScript.config.loader, ILoaderAny[]>();
+expectEqual<typeof configuredTemplate.config.loader, LoaderGroup>();
+expectEqual<typeof _configuredScript.config.loader, LoaderGroup>();
+expectEqual<typeof _loadedText.config.loader, LoaderGroup>();
+expectEqual<typeof _loadedStream.config.loader, LoaderGroup>();
+expectEqual<typeof _loadedObject.config.loader, LoaderGroup>();
+expectEqual<typeof _loadedObjectStream.config.loader, LoaderGroup>();
+expectEqual<typeof namedTemplate.config.loader, LoaderGroup>();
+expectEqual<typeof namedScript.config.loader, LoaderGroup>();
 // @ts-expect-error A processed loader chain is no longer a raw loader callback.
 expectType<(name: string) => string>(configuredTemplate.config.loader);
 const loaderParent = create.Config({ loader });
 const _inheritedTemplate = create.Template({ template: 'Hello' }, loaderParent);
-expectEqual<typeof _inheritedTemplate.config.loader, ILoaderAny[]>();
+expectEqual<typeof _inheritedTemplate.config.loader, LoaderGroup>();
 
 // Select concrete components when their generic call contracts differ.
 declare const chooseTemplate: boolean;

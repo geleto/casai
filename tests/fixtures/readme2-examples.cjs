@@ -52,6 +52,8 @@ const pipeline = create.Script({ inputSchema: z.object({ id: z.string() }), tool
   filters: {},
   'loaded-agent': {},
   'custom-loader': {},
+  'loader-composition': { prelude: false, setup: `const sharedLoader = { load: (name: string) => name };
+const localLoader = { load: (name: string) => name };` },
   'render-options': {},
   'caller-signal': { includes: ['quick-start'], prelude: false, before: '{', after: '}' },
   observers: {},

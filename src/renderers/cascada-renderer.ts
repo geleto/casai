@@ -1,6 +1,6 @@
 import { AsyncEnvironment, compileScript, compileTemplateAsync } from 'cascada-engine';
 import type { CascadaConfig } from '../types/config.js';
-import type { CascadaLoaders } from '../types/cascada.js';
+import type { LoaderGroup } from 'cascada-engine';
 import type { ScriptPromptType, TemplatePromptType } from '../types/prompt.js';
 import type { Context } from '../types/utils.js';
 import { ScriptError, TemplateError } from '../errors.js';
@@ -18,7 +18,7 @@ export function createCascadaRenderer(config: CascadaConfig, promptType: SourceT
 	let env: AsyncEnvironment;
 	try {
 		const options = { ...config.renderOptions, autoescape: config.renderOptions?.autoescape ?? false };
-		env = new AsyncEnvironment((config.loader as CascadaLoaders | undefined) ?? null, options);
+		env = new AsyncEnvironment((config.loader as LoaderGroup | undefined) ?? null, options);
 		for (const [name, filter] of Object.entries(config.filters ?? {})) {
 			if (typeof filter === 'function') env.addFilter(name, filter);
 		}

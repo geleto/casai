@@ -1,5 +1,5 @@
 import type { EmptyMap } from './utils.js';
-import type { ILoaderAny } from 'cascada-engine';
+import type { LoaderGroup } from 'cascada-engine';
 
 // These maps merge by key. Values within each map are replaced, not deep-merged.
 export const configMapKeys = ['context', 'filters', 'tools', 'toolsContext'] as const;
@@ -29,12 +29,14 @@ type MapValue<T> = [NonNullable<T>] extends [never] ? EmptyMap : NonNullable<T> 
 	? undefined extends T ? string extends keyof NonNullable<T> ? NonNullable<T> : Partial<NonNullable<T>>
 	: NonNullable<T> : EmptyMap;
 
-type ProcessedValue<K, T> = K extends 'loader' ? ILoaderAny[] | (undefined extends T ? undefined : never) : T;
+type ProcessedValue<K, T> = K extends 'loader' ? LoaderGroup | (undefined extends T ? undefined : never) : T;
 export type ProcessedConfig<T> = { [K in keyof T]: ProcessedValue<K, T[K]> };
 
+type LoaderValue<T> = 'loader' extends keyof T ? T['loader'] : undefined;
+
 type MergedValue<A, B, K extends PropertyKey> = K extends 'loader'
-	// mergeConfigs normalizes a supplied or inherited loader chain, including explicit undefined.
-	? ILoaderAny[]
+	// Loaders combine or inherit; the result may be undefined if neither side supplies one.
+	? LoaderGroup | (undefined extends LoaderValue<A> ? undefined extends LoaderValue<B> ? undefined : never : never)
 	: K extends 'streaming' | 'asTool' ? A extends Record<K, true> ? true : B extends Record<K, true> ? true : SpreadValue<A, B, K>
 	: K extends keyof A & keyof B
 	? K extends ConfigMapKey ? MergedProperties<MapValue<A[K]>, MapValue<B[K]>>

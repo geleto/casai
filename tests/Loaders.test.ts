@@ -1,250 +1,39 @@
+import { expect } from 'chai';
 import { Output } from 'ai';
-import 'dotenv/config';
-import * as chai from 'chai';
-import chaiAsPromised from 'chai-as-promised';
-import { create, race } from './cascada';
-//unit test imports
+import { create, raceLoaders, raceParent, overrideParent, z } from './cascada';
 import { model, temperatureConfig, timeout, AsyncStringLoader } from './common';
-import { collectTextStream as streamToString } from './cascada';
-import { z } from 'zod';
 
-// Configure chai-as-promised
-chai.use(chaiAsPromised);
-const { expect } = chai;
-
-describe('Loader Integration Tests (Race & Merge)', function () {
+// Provider-backed coverage of prepared prompts; deterministic loader mechanics
+// and inheritance live in LoaderComposition.unit.test.ts and Cascada's tests.
+describe('Loaded LLMAgent provider integration', function () {
 	this.timeout(timeout);
-
-	// --- Test Utilities ---
-
-	// For Template/Script renderers, the content is the final output.
-	const templateContentFast = 'Template result: {{ source }}';
-	const templateContentMedium = 'Template result: {{ source }}';
-	const templateContentSlow = 'Template result: {{ source }}';
-
-	// For LLM-based renderers, the loaded content is a prompt.
-	const llmPromptFast = 'Write only this single word in lowercase: fast';
-	const llmExpectedFast = 'fast';
-	const llmPromptMedium = 'Write only this single word in lowercase: medium';
-	const llmExpectedMedium = 'medium';
-	const llmPromptSlow = 'Write only this single word in lowercase: slow';
-	const llmExpectedSlow = 'slow';
-
-	// Standardized async loaders with predictable delays.
-	// Fast loader (5ms delay)
-	const fastLoader = new AsyncStringLoader(5);
-	fastLoader.addString('prompt.txt', llmPromptFast);
-	fastLoader.addString('template.txt', templateContentFast);
-
-	// Medium loader (10ms delay)
-	const mediumLoader = new AsyncStringLoader(10);
-	mediumLoader.addString('prompt.txt', llmPromptMedium);
-	mediumLoader.addString('template.txt', templateContentMedium);
-
-	// Slow loader (20ms delay)
-	const slowLoader = new AsyncStringLoader(20);
-	slowLoader.addString('prompt.txt', llmPromptSlow);
-	slowLoader.addString('template.txt', templateContentSlow);
-
-	// Failing loader (returns null for the requested template)
-	const failingLoader = new AsyncStringLoader(5);
-	// Does not contain 'prompt.txt' or 'template.txt'
-
-	// --- Test Scenarios ---
-
-	describe('Single Configuration (No Inheritance)', () => {
-		it('Named race groups should merge and the fastest loader should win', async () => {
-			const renderer = create.Template.loadsTemplate({
-				loader: [
-					race([slowLoader], 'templates'), // This one is slower
-					race([fastLoader], 'templates'), // This one is faster
-				],
-				template: 'template.txt',
-			});
-			const result = await renderer({ source: 'fast' });
-			expect(result).to.equal('Template result: fast');
+	function loader(word: string, delay: number) {
+		const source = new AsyncStringLoader(delay);
+		source.addString('prompt', 'Return exactly the word ' + word + ' in lowercase.');
+		return source;
+	}
+	for (const kind of ['text', 'template', 'script'] as const) {
+		it('loads a ' + kind + ' prompt from nested native chains', async () => {
+			const source = new AsyncStringLoader(1);
+			source.addString('prompt', kind === 'script' ? 'return "Return exactly the word ready in lowercase."' : 'Return exactly the word ready in lowercase.');
+			const settings = { model, ...temperatureConfig, prompt: 'prompt', loader: [[() => null], [source]] };
+			const agent = kind === 'text' ? create.LLMAgent.loadsText(settings)
+				: kind === 'template' ? create.LLMAgent.loadsTemplate(settings) : create.LLMAgent.loadsScript(settings);
+			expect((await agent()).value.trim()).to.equal('ready');
 		});
-
-		it('Anonymous race groups should remain separate and execute sequentially', async () => {
-			const renderer = create.Template.loadsTemplate({
-				// The first loader in the chain is the slow one, but it will succeed.
-				loader: [race([slowLoader]), race([fastLoader])],
-				template: 'template.txt',
-			});
-			const result = await renderer({ source: 'slow' });
-			// Because they are executed sequentially, the slow loader wins as it's first.
-			expect(result).to.equal('Template result: slow');
-		});
-
-		it('Mixed sequential and raced loaders should respect sequential precedence', async () => {
-			const templateComponent = create.Template.loadsTemplate({
-				// The mediumLoader is first in the sequential chain and will succeed.
-				loader: [mediumLoader, race([slowLoader, fastLoader])],
-				template: 'template.txt',
-			});
-			const result = await templateComponent({ source: 'medium' });
-			// The race group is never reached.
-			expect(result).to.equal('Template result: medium');
-		});
+	}
+	it('races a child chain with inherited resources', async () => {
+		const parent = create.Config({ loader: loader('parent', 100) });
+		const agent = create.LLMAgent.loadsText({ model, ...temperatureConfig, prompt: 'prompt',
+			loader: raceParent([() => null, loader('child', 1)]) }, parent);
+		expect((await agent()).value.trim()).to.equal('child');
 	});
-
-	describe('Single-Level Inheritance (Parent/Child)', () => {
-		it('Child should add to a parent race group, and the fastest loader should win', async () => {
-			const baseConfig = create.Config({
-				loader: [race([slowLoader], 'templates')],
-			});
-
-			const generator = create.LLMAgent.loadsTemplate(
-				{
-					model,
-					...temperatureConfig,
-					loader: [race([fastLoader], 'templates')], // Child adds a faster loader
-					prompt: 'prompt.txt',
-				},
-				baseConfig,
-			);
-
-			const { text } = await generator();
-			// Proves both were merged and raced, with the fast one winning.
-			expect(text).to.equal(llmExpectedFast);
-		});
-
-		it('Child sequential loaders should have precedence over parent sequential loaders', async () => {
-			const baseConfig = create.Config({
-				loader: [slowLoader], // Parent loader
-			});
-
-			const generator = create.LLMAgent.loadsTemplate(
-				{
-					model,
-					...temperatureConfig,
-					loader: [fastLoader], // Child loader
-					prompt: 'prompt.txt',
-				},
-				baseConfig,
-			);
-
-			const { text } = await generator();
-			// Final chain is [fastLoader, slowLoader]. The fast loader is tried first and succeeds.
-			expect(text).to.equal(llmExpectedFast);
-		});
-	});
-
-	describe('Concurrency and Failure Modes', () => {
-		it('[RACE] The fastest loader in a race group should win', async () => {
-			const streamer = create.LLMAgent.loadsTemplate.asStream({
-				model,
-				...temperatureConfig,
-				loader: [race([slowLoader, fastLoader], 'templates')],
-				prompt: 'prompt.txt',
-			});
-			const result = await streamer();
-			const streamedText = await streamToString(result.textStream);
-			expect(streamedText).to.equal(llmExpectedFast);
-		});
-
-		it('[SEQUENTIAL] The first successful loader in a sequential chain should win', async () => {
-			const streamer = create.LLMAgent.loadsTemplate.asStream({
-				model,
-				...temperatureConfig,
-				// No race wrapper, this is a standard sequential chain.
-				loader: [slowLoader, fastLoader],
-				prompt: 'prompt.txt',
-			});
-			const result = await streamer();
-			const streamedText = await streamToString(result.textStream);
-			// The slow loader is first in the array and succeeds, so it wins.
-			expect(streamedText).to.equal(llmExpectedSlow);
-		});
-
-		it('A race group should succeed even if one loader fails', async () => {
-			const generator = create.LLMAgent.loadsTemplate({ model, ...temperatureConfig, loader: [race([failingLoader, mediumLoader], 'templates')], prompt: 'prompt.txt', output: Output.object({ schema: z.object({ result: z.string() }) }) });
-			const { output: object } = await generator();
-			expect(object.result).to.equal(llmExpectedMedium);
-		});
-
-		it('A race group should fail if all its loaders fail', async () => {
-			const renderer = create.Template.loadsTemplate({
-				loader: [race([failingLoader], 'templates')],
-				template: 'template.txt',
-			});
-			await expect(renderer({ source: 'test' })).to.be.rejectedWith(/Resource not found: template.txt/);
-		});
-	});
-
-	describe('Multi-Level Inheritance (Grandparent/Parent/Child)', () => {
-		it('Loaders from all 3 levels should be merged and raced, with the fastest winning', async () => {
-			// 1. Grandparent has the slowest loader
-			const grandparentConfig = create.Config({
-				loader: [race([slowLoader], 'templates')],
-			});
-
-			// 2. Parent inherits and adds a medium loader
-			const parentConfig = create.Config(
-				{
-					loader: [race([mediumLoader], 'templates')],
-				},
-				grandparentConfig,
-			);
-
-			// 3. Child inherits and adds the fastest loader
-			const renderer = create.Template.loadsTemplate(
-				{
-					loader: [race([fastLoader], 'templates')],
-					template: 'template.txt',
-				},
-				parentConfig,
-			);
-
-			const result = await renderer({ source: 'fast' });
-			// This proves all three were aggregated into one race, and the fastest won.
-			expect(result).to.equal('Template result: fast');
-		});
-	});
-
-	describe('Real-World Component Integration', () => {
-		it('Component-to-renderer inheritance should merge race groups correctly', async () => {
-			const baseGenerator = create.LLMAgent.loadsTemplate({
-				model,
-				...temperatureConfig,
-				loader: [race([slowLoader], 'prompts')],
-			});
-
-			// Inherit directly from the other generator
-			const childGenerator = create.LLMAgent.loadsTemplate(
-				{
-					loader: [race([fastLoader], 'prompts')],
-					prompt: 'prompt.txt',
-				},
-				baseGenerator,
-			);
-
-			const { text } = await childGenerator();
-			expect(text).to.equal(llmExpectedFast);
-		});
-
-		it('A script should correctly use a generator with raced loaders from its context', async () => {
-			const summaryGenerator = create.LLMAgent.loadsTemplate({
-				model,
-				...temperatureConfig,
-				loader: [race([slowLoader, fastLoader], 'prompts')],
-				// The prompt is NOT set here, it will be provided by the script
-			});
-
-			const mainScript = create.Script({
-				context: { summaryGenerator },
-				script: `
-          text output
-          // Call the generator from context, providing the template name to load
-          var result = summaryGenerator.run({ prompt: 'prompt.txt' })
-          output(result.text)
-          return output.snapshot()`,
-			});
-
-			const result = await mainScript();
-			// This proves the generator, when called from the script's context,
-			// still used its own raced loaders correctly.
-			expect(result).to.equal(llmExpectedFast);
-		});
+	it('replaces inherited resources before producing structured output', async () => {
+		const parent = create.Config({ loader: loader('parent', 1) });
+		const source = new AsyncStringLoader(1);
+		source.addString('prompt', 'Return a JSON object whose word field is exactly child.');
+		const agent = create.LLMAgent.loadsText({ model, ...temperatureConfig, prompt: 'prompt',
+			loader: overrideParent(raceLoaders([[source], () => null])), output: Output.object({ schema: z.object({ word: z.string() }) }) }, parent);
+		expect((await agent()).value).to.deep.equal({ word: 'child' });
 	});
 });

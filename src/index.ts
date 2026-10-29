@@ -12,7 +12,8 @@ export const create = factories;
 // --- Third-Party Re-exports (For User Convenience) ---
 export type { ModelMessage, ToolSet } from 'ai';
 export { modelMessageSchema as ModelMessageSchema } from 'ai';
-export { FileSystemLoader, NotFoundError, PrecompiledLoader, WebLoader } from 'cascada-engine';
+export { FileSystemLoader, NotFoundError, PrecompiledLoader, WebLoader, raceLoaders } from 'cascada-engine';
+export type { LoaderGroup } from 'cascada-engine';
 export { z } from 'zod';
 
 // --- Configuration Types ---
@@ -45,7 +46,7 @@ export type { ComponentTool } from './types/tool-binding.js';
 export { ConfigError, ValidationError, TemplateError, ScriptError } from './errors.js';
 
 // --- Public Utilities & Associated Types ---
-export { race, type RaceGroup, type RaceLoader } from './loaders.js';
+export { raceParent, overrideParent, type LoaderInput, type ParentLoader } from './loaders.js';
 
 export type { ComponentExecutionOptions } from './types/sdk.js';
 export { textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './streams.js';

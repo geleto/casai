@@ -8,7 +8,7 @@ const filter = new RegExp(process.argv[2] ?? '');
 const temporary = fs.mkdtempSync(path.join(workspace, '.phase2-production-mutations-'));
 const runtimeFiles = ['tests/Phase2.integration.test.ts', 'tests/ToolLifecycle.unit.test.ts', 'tests/Registry.unit.test.ts', 'tests/cascada.ts',
   'tests/SchemaIdentity.unit.test.ts', 'tests/ComponentInterop.unit.test.ts', 'tests/LLMCalls.unit.test.ts', 'tests/LLMSurface.unit.test.ts', 'tests/ReviewCorrections.unit.test.ts', 'tests/Streams.unit.test.ts', 'tests/SchemaPreparation.unit.test.ts',
-  'tests/LLMAgent.unit.test.ts', 'tests/ModifierInheritance.unit.test.ts', 'tests/Engines.unit.test.ts', 'tests/fixtures/runtime-call.ts', 'tests/ClosedToolInput.unit.test.ts', 'tests/ConfigValidation.test.ts', 'tests/fixtures/phase2-api-schemas.ts', 'tests/fixtures/phase2-security-sdk.ts'];
+  'tests/LLMAgent.unit.test.ts', 'tests/ModifierInheritance.unit.test.ts', 'tests/Engines.unit.test.ts', 'tests/LoaderComposition.unit.test.ts', 'tests/fixtures/runtime-call.ts', 'tests/ClosedToolInput.unit.test.ts', 'tests/ConfigValidation.test.ts', 'tests/fixtures/phase2-api-schemas.ts', 'tests/fixtures/phase2-security-sdk.ts'];
 function run(args, expected) {
   const result = spawnSync(process.execPath, args, { cwd: temporary, encoding: 'utf8', timeout: 180000 });
   assert.equal(result.error, undefined);
@@ -34,6 +34,18 @@ try {
   }));
   mocha('production execution|Production SDK tool lifecycle|Owned tool registries|Production schema identity|LLM call contracts|Review configuration and metadata corrections|Config validation|Template and Script deterministic coverage');
   const mutations = [
+    ['loader JavaScript null child', 'if (child == null) return inherited;', 'if (child === undefined) return inherited;',
+      'inherits a JavaScript null loader', 'src/loaders.ts'],
+    ['loader JavaScript null parent', 'resolveLoader(parent) : parent ?? undefined', 'resolveLoader(parent) : parent',
+      'null loader on a raw parent', 'src/loaders.ts'],
+    ['loader child-first inheritance', '[child, inherited]', '[inherited, child]',
+      'retains nested child/parent chains', 'src/loaders.ts'],
+    ['loader parent replacement', "child[parentLoader] === 'override'", "false",
+      'replaces the parent completely', 'src/loaders.ts'],
+    ['loader standalone parent directive', 'inherited === undefined ? child.group : raceLoaders', 'false ? child.group : raceLoaders',
+      'without inherited loaders', 'src/loaders.ts'],
+    ['loader directive boundary', "if (isParentLoader(group)) throw new ConfigError", "if (false && isParentLoader(group)) throw new ConfigError",
+      'rejects parent directives inside', 'src/loaders.ts'],
     ['renderer inline caching', 'compiled ??= compile(selected, env);', 'compiled = compile(selected, env);',
       'lazily compiles configured', 'src/renderers/cascada-renderer.ts'],
     ['renderer override isolation', 'result = await (script ? env.renderScriptString(selected, context) : env.renderTemplateString(selected, context));',

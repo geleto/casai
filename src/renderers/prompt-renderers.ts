@@ -1,7 +1,7 @@
 import type { PromptValue, PromptType, PromptFunction } from '../types/prompt.js';
 import type { Context } from '../types/utils.js';
 import type { CascadaConfig } from '../types/config.js';
-import type { ILoaderAny } from 'cascada-engine';
+import type { LoaderGroup } from 'cascada-engine';
 import { AsyncEnvironment, NotFoundError } from 'cascada-engine';
 import { createCascadaRenderer } from './cascada-renderer.js';
 import { PromptStringOrMessagesSchema } from './prompt-schema.js';
@@ -22,7 +22,7 @@ export function createPromptRenderer(config: CascadaConfig & { promptType?: Prom
 		case 'text':
 			return (source: unknown) => (source === undefined ? config.prompt : source) as PromptValue;
 		case 'text-name': {
-			const loader = new AsyncEnvironment(config.loader as ILoaderAny[]);
+			const loader = new AsyncEnvironment(config.loader as LoaderGroup);
 			return async (source: unknown): Promise<string> => {
 				const name = source === undefined ? config.prompt : source;
 				if (typeof name !== 'string') throw new ValidationError('A loaded prompt must be a resource name.');

@@ -2,7 +2,7 @@ import { ConfigError, ValidationError } from '../errors.js';
 import { configMapKeys } from '../types/merge.js';
 import type { MergedConfig, ProcessedConfig } from '../types/merge.js';
 import * as configs from '../types/config.js';
-import { mergeLoaders, processLoaders, type CasaiAILoader } from '../loaders.js';
+import { resolveLoader, type LoaderInput } from '../loaders.js';
 import { validateConfigBasics } from './validate.js';
 
 export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(
@@ -14,10 +14,7 @@ export function processConfig<T extends Partial<configs.LoaderConfig> & Record<s
 		if (config[key] !== undefined) Object.assign(processed, { [key]: { ...config[key] as Record<string, unknown> } });
 	}
 	if (Array.isArray(config.prompt)) Object.assign(processed, { prompt: [...config.prompt as unknown[]] });
-	if ('loader' in config && config.loader) {
-		const loader = processLoaders(config.loader);
-		return { ...processed, loader };
-	}
+	if ('loader' in config) Object.assign(processed, { loader: resolveLoader(config.loader) });
 	return processed;
 }
 
@@ -61,24 +58,8 @@ export function mergeConfigs<
 		}
 	}
 
-	const parentLoaders = ('loader' in parentConfig) ? (parentConfig.loader
-		? Array.isArray(parentConfig.loader)
-			? parentConfig.loader
-			: [parentConfig.loader]
-		: []) as CasaiAILoader[] : undefined;
-
-	const childLoaders = ('loader' in childConfig) ? (childConfig.loader
-		? Array.isArray(childConfig.loader)
-			? childConfig.loader
-			: [childConfig.loader]
-		: []) as CasaiAILoader[] : undefined;
-
-	if (parentLoaders && childLoaders) {
-		merged.loader = mergeLoaders(parentLoaders, childLoaders);
-	} else if (childLoaders) {
-		merged.loader = processLoaders(childLoaders);
-	} else if (parentLoaders) {
-		merged.loader = processLoaders(parentLoaders);
+	if ('loader' in parentConfig || 'loader' in childConfig) {
+		merged.loader = resolveLoader(childConfig.loader as LoaderInput | undefined, parentConfig.loader as LoaderInput | undefined);
 	}
 
 	return merged as MergedConfig<TParent, TChild>;

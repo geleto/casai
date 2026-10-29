@@ -1,7 +1,7 @@
 import { Output } from 'ai';
 // Compile-only consumer checks: accepted fragments stay reusable; incompatible settings stay rejected.
 import { create, z } from 'casai';
-import type { ILoaderAny } from 'cascada-engine';
+import type { ILoaderAny, LoaderGroup } from 'cascada-engine';
 import type { LanguageModel, ModelMessage } from 'ai';
 import { tool } from 'ai';
 
@@ -29,7 +29,7 @@ const _spreadParent = create.Config({ debug: false }, ...presentParentArguments)
 expectEqual<typeof _spreadParent.config.context.offset, number>();
 const absentParentArguments: [] = [];
 const _withoutParent = create.Config({ loader: undefined }, ...absentParentArguments);
-expectEqual<typeof _withoutParent.config.loader, ILoaderAny[] | undefined>();
+expectEqual<typeof _withoutParent.config.loader, LoaderGroup | undefined>();
 const schemaOnly = create.Config({ schema });
 const modelOnly = create.Config({ model });
 const outputOnly = create.Config({ output: Output.object({ schema }) });
@@ -204,20 +204,22 @@ const emptyMessages = create.Config({ prompt: [] }, messagesParent);
 expectType<ModelMessage[]>(emptyMessages.config.prompt);
 
 const loaderParent = create.Config({ loader: { load: (name: string) => name } });
-expectType<ILoaderAny[]>(loaderParent.config.loader);
+expectType<LoaderGroup>(loaderParent.config.loader);
 const loaderChild = create.Config({ loader: { load: (name: string) => name.toUpperCase() } }, loaderParent);
-expectType<ILoaderAny[]>(loaderChild.config.loader);
-// @ts-expect-error Processed loader configuration exposes an array, not a single loader.
+expectType<LoaderGroup>(loaderChild.config.loader);
+// @ts-expect-error A resolved composition can be an ordered chain, not just a leaf loader.
 expectType<ILoaderAny>(loaderChild.config.loader);
 const keptLoader = create.Config({ loader: undefined }, loaderParent);
-expectType<ILoaderAny[]>(keptLoader.config.loader);
+expectType<LoaderGroup>(keptLoader.config.loader);
 const emptyLoader = create.Config({ loader: [] }, loaderParent);
-expectType<ILoaderAny[]>(emptyLoader.config.loader);
-// Standalone processing and inheritance retain their existing loader result contracts.
+expectType<LoaderGroup>(emptyLoader.config.loader);
+// Undefined inheritance cannot fabricate a configured loader.
 const _standaloneUndefinedLoader = create.Config({ loader: undefined });
-expectEqual<typeof _standaloneUndefinedLoader.config.loader, ILoaderAny[] | undefined>();
+expectEqual<typeof _standaloneUndefinedLoader.config.loader, LoaderGroup | undefined>();
 const _inheritedUndefinedLoader = create.Config({ loader: undefined }, create.Config({}));
-expectEqual<typeof _inheritedUndefinedLoader.config.loader, ILoaderAny[]>();
+expectEqual<typeof _inheritedUndefinedLoader.config.loader, LoaderGroup | undefined>();
+// @ts-expect-error An undefined loader does not complete a loaded component.
+create.Template.loadsTemplate({ template: 'entry' }, _inheritedUndefinedLoader);
 
 // Ordinary option objects replace their parent's whole value instead of merging nested provider data.
 const providerParent = create.Config({ model, providerOptions: { vendor: { old: true, count: 1 } } });
