@@ -65,7 +65,7 @@ describe('withFunction prompts', () => {
 				[{ prompt: undefined }, { config: { ...settings, prompt: describeItem } }],
 			];
 			for (const args of cases) {
-				expect(() => { Reflect.apply(factory === 'generate' ? create.LLMAgent.withFunction.asTool : create.LLMAgent.withFunction.asStream.asTool, undefined, args); })
+				expect(() => { Reflect.apply(factory === 'generate' ? create.LLMAgent.withFunction.asTool : create.LLMAgent.withFunction.asTool, undefined, args); })
 					.to.throw(ConfigError, /configured prompt/);
 			}
 			expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);

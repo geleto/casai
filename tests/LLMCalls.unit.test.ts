@@ -270,7 +270,7 @@ describe('LLM call contracts without providers', () => {
 		const model = mockModel(answer);
 		const providerOptions = { mock: { inner: true } };
 		// This runtime matrix intentionally erases the different factory signatures.
-		const factoryValue: unknown = (factoryName.startsWith('stream') ? create.LLMAgent.withTemplate.asStream : create.LLMAgent.withTemplate).asTool;
+		const factoryValue: unknown = create.LLMAgent.withTemplate.asTool;
 		const build = factoryValue as (config: object) => Tool & { bindToolContext(context: unknown): { tool: Tool; context: unknown } };
 		const component = build({ model, prompt: 'Topic {{ topic }}', inputSchema: z.object({ topic: z.string() }),
 			providerOptions, ...(factoryName.endsWith('structured') ? { output: Output.object({ schema }) } : {}) });
@@ -843,7 +843,7 @@ describe('LLM call contracts without providers', () => {
 			create.LLMAgent.withFunction, create.LLMAgent.loadsText, create.LLMAgent.loadsTemplate, create.LLMAgent.loadsScript]) {
 			expect(factory.asTool).to.be.a('function');
 			expect(factory.asStream).to.be.a('function');
-			expect(factory.asStream.asTool).to.be.a('function');
+			expect('asTool' in factory.asStream).to.equal(false);
 			expect(factory).not.to.have.property('asAgent');
 		}
 	});

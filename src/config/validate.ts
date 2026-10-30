@@ -105,6 +105,7 @@ export function validateAgentConfig(config: Record<string, unknown>): void {
 	validateConfigCompatibility(config, 'LLMAgent');
 	if (!hasConfiguredValue(config, 'model')) throw new ConfigError("LLMAgent requires a 'model'.");
 	if (config.streaming !== undefined && config.streaming !== true) throw new ConfigError('Streaming mode is enabled with .asStream and cannot be disabled.');
+	if (config.streaming === true && config.asTool === true) throw new ConfigError('LLMAgent tools are generation-only; .asStream cannot be combined with .asTool, including through inheritance.');
 	const mode = config.promptType as PromptType;
 	if (mode.endsWith('-name') && !hasConfiguredValue(config, 'loader')) throw new ConfigError('Loaded prompts require a loader.');
 	if (config.prompt !== undefined) {

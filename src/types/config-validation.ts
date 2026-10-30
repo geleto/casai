@@ -2,7 +2,7 @@ import type { EmptyMap, DistributiveOmit, NamedKeys, UnionKeys, InvalidUnionMemb
 import type { CallbackContextFromConfig, ConfigValue, ContextFromConfig, InputConfigAlternatives, InputSchemaFromConfig, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig, ToolsContextFromConfig, ToolsFromConfig } from './config.js';
 import type { MergedConfig } from './merge.js';
 import type { HasOpenRootInput, HasRootSchemaAlternatives, InputDeclarationKind, SchemaInputNames, SchemaOutputNames, ValidateContextSchema, ValidateToolContextSchema } from './schema-shape.js';
-import type { ComponentResult } from './result.js';
+import type { ComponentBranchResult } from './result.js';
 import type { StreamSchema } from '../streams.js';
 import type { InjectedToolHelpers } from './tool-binding.js';
 import type { ComponentExecutionOptions } from './sdk.js';
@@ -66,9 +66,13 @@ type ValidPromptSource<T> = T extends { promptType: infer P extends import('./pr
 	? Pick<T, 'prompt' & keyof T> extends { prompt?: import('./factory-config.js').PromptSource<P> | undefined } ? unknown
 	: 'Config Error: The prompt does not match its source mode.' : unknown;
 
+// Derive each alternative's callback contract before collecting incompatible implementations.
+type InvalidFragmentExecute<T> = T extends unknown
+	? Pick<T, 'execute' & keyof T> extends { execute?: DeclaredExecute<T> | DeclaredFunctionExecute<T> } ? never : T : never;
+
 export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateResolved<TConfig,
 	[InvalidUnionMembers<TConfig, CallbackConfigShape<TShape>> | InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]
-	? Pick<TFinalConfig, 'execute' & keyof TFinalConfig> extends { execute?: DeclaredExecute<TFinalConfig> | DeclaredFunctionExecute<TFinalConfig> }
+	? [InvalidFragmentExecute<TFinalConfig>] extends [never]
 		? ValidateToolsContext<TConfig, TFinalConfig, true>
 		: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'
 	: 'Config Error: These properties do not belong to any single component configuration.'> & ValidateConfiguredSignal<TFinalConfig>
@@ -137,9 +141,11 @@ export type ValidateScriptParentConfig<Parent, Shape> = ValidateRendererParent<P
 export type ValidateInputDeclarations<TInputSchema, TDefaults, TContextSchema = undefined, TTools extends ToolRegistry = EmptyMap> = [UnionKeys<TDefaults> | SchemaOutputNames<TContextSchema> | PossibleExecutableToolNames<TTools>] extends [never] ? unknown
 	: 'unsupported' extends InputDeclarationKind<TInputSchema> ? { readonly 'Schema needs supported input declarations': never } : unknown;
 
-export type ToolOutputAdmission<TConfig, TResult = ComponentResult<TConfig>> = ConfigValue<TConfig, 'schema'> extends StreamSchema<any, any, any> ? unknown
-	: unknown extends TResult ? unknown : [TResult] extends [never] ? unknown
-	: [TResult] extends [AsyncIterable<unknown>] ? { readonly 'Tool streams require a declared stream schema': never } : unknown;
+type UndeclaredToolOutput<TConfig, TSchema = ConfigValue<TConfig, 'schema'>> = TSchema extends StreamSchema<any, any, any> ? never : ComponentBranchResult<TConfig, TSchema>;
+
+// Keep configuration/schema alternatives paired: declared streams already have a collection contract.
+export type ToolOutputAdmission<TConfig, TResult = TConfig extends unknown ? UndeclaredToolOutput<TConfig> : never> = unknown extends TResult ? unknown
+	: [Extract<TResult, AsyncIterable<unknown>>] extends [never] ? unknown : { readonly 'Tool streams require a declared stream schema': never };
 
 type InvalidToolProjection<TConfig, TDefaults, TAlternatives = InputConfigAlternatives<TConfig>> = TAlternatives extends { config: infer TAlternative; schema: infer TInputSchema } ? true extends HasRootSchemaAlternatives<TInputSchema>
 	? [Extract<NamedKeys<[TDefaults] extends [never] ? ContextFromConfig<TAlternative> : TDefaults>, SchemaInputNames<TInputSchema>>] extends [never] ? never : TAlternatives : never : never;

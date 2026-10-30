@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
-import { NoObjectGeneratedError, NoOutputGeneratedError, Output } from 'ai';
+import { NoObjectGeneratedError, Output } from 'ai';
+import type { ModelMessage } from 'ai';
 import { z } from 'zod';
 import { create } from './cascada';
+import { mcpApprovalReplay } from './fixtures/openai-mcp.js';
 
 // Exercise the installed HTTP adapters, including their schemas and finish-reason mappings.
 // Every provider has a fake fetch and a fake key; these tests make no network requests.
 type Block = { type: string } & Record<string, unknown>;
-interface RequestBody { stream?: boolean, messages?: unknown[] }
+interface RequestBody { stream?: boolean, messages?: unknown[], container?: string }
 
 function eventResponse(events: Record<string, unknown>[], done = false): Response {
 	return new Response(events.map(event => `${typeof event.type === 'string' ? `event: ${event.type}\n` : ''}data: ${JSON.stringify(event)}\n\n`).join('')
@@ -47,7 +49,7 @@ function anthropicReplay(stopReason: 'pause_turn' | 'end_turn', pending = false)
 		return anthropicResponse(requests.length === 1 ? content : [{ type: 'text', text: 'Complete.' }],
 			requests.length === 1 ? stopReason : 'end_turn', request.stream === true);
 	} });
-	return { model: provider('claude-sonnet-4-20250514'), tools: { web_search: provider.tools.webSearch_20250305() }, requests };
+	return { provider, model: provider('claude-sonnet-4-20250514'), tools: { web_search: provider.tools.webSearch_20250305() }, requests };
 }
 
 function openAIChatReplay(refusal: boolean) {
@@ -94,14 +96,136 @@ function openAIResponsesReplay() {
 	return { model: provider.responses('gpt-4.1'), requests };
 }
 
-async function textValue(value: string | AsyncIterable<string>): Promise<string> {
-	if (typeof value === 'string') return value;
-	let text = '';
-	for await (const chunk of value) text += chunk;
-	return text;
-}
 
 describe('Provider HTTP result contracts', () => {
+	for (const delivery of ['generate', 'stream', 'stream-output'] as const) for (const boundary of ['user', 'system'] as const) {
+		// Stateless denial responses are accepted by fake fetch to test native output and history;
+		// this does not establish that OpenAI can resolve the absent approval request.
+		for (const store of [false, true]) for (const denied of [false, true]) {
+			it(`${delivery}: ${boundary} boundary after ${denied ? 'denied' : 'ignored'} MCP approval with store=${store}`, async () => {
+				const replay = mcpApprovalReplay({ complete: false });
+				const config = { model: replay.model, tools: replay.tools, maxRetries: 0, allowSystemInMessages: true,
+					providerOptions: { openai: { store } }, ...(delivery === 'stream-output' ? { output: Output.text() } : {}) };
+				const component = create.LLMAgent(config);
+				const run = (messages: ModelMessage[]) => delivery === 'generate' ? component.generate({ messages }) : component.stream({ messages });
+				const first = await run([{ role: 'user', content: 'Search.' }]);
+				assert.equal('value' in first, false);
+				const history = await first.messageHistory;
+				const approval = history.flatMap(message => message.role === 'assistant' && typeof message.content !== 'string' ? message.content : [])
+					.find(part => part.type === 'tool-approval-request');
+				assert.ok(approval);
+				const messages = [...history];
+				if (denied) messages.push({ role: 'tool', content: [
+					{ type: 'tool-approval-response', approvalId: approval.approvalId, approved: false, providerExecuted: true },
+				] });
+				messages.push({ role: boundary, content: 'Different question.' });
+				const original = JSON.stringify(messages);
+				const second = await run(messages);
+				assert.equal(await second.output, 'done');
+
+				assert.equal(await second.finishReason, 'stop');
+				assert.equal(JSON.stringify(messages), original);
+				const saved = await second.messageHistory;
+				assert.deepEqual(saved, [...messages, ...await second.responseMessages]);
+				const decisions = replay.requests[1].input.filter(part => part.type === 'mcp_approval_response');
+				assert.equal(decisions.length, denied ? 1 : 0);
+				if (denied) assert.equal(decisions[0].approve, false);
+				else assert.deepEqual(replay.requests[1].input.map(part => part.role), ['user', boundary]);
+				assert.ok(!replay.requests[1].input.some(part => part.type === 'function_call_output'));
+				const third = await run([...saved, { role: 'user', content: 'Next question.' }]);
+				assert.equal(await third.output, 'done');
+				assert.equal(replay.requests.length, 3);
+			});
+		}
+	}
+
+	for (const streaming of [false, true]) for (const policy of ['generic', 'per-tool'] as const) {
+		it(`${streaming ? 'stream' : 'generate'}: Anthropic result remains settled under ${policy} automatic approval`, async () => {
+			const replay = anthropicReplay('end_turn');
+			assert.equal(replay.tools.web_search.supportsDeferredResults, true);
+			const config = { model: replay.model, tools: replay.tools, toolApproval: policy === 'generic'
+				? () => 'approved' as const : { web_search: 'approved' as const } };
+			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
+			const first = await component.run({ prompt: 'Search.' });
+			assert.equal(await first.output, 'Let me search for that.The answer is 42.');
+			const history = await first.messageHistory;
+			const parts = history.flatMap(message => message.role === 'assistant' && typeof message.content !== 'string' ? message.content : []);
+			assert.ok(parts.some(part => part.type === 'tool-result'));
+			assert.ok(parts.some(part => part.type === 'tool-approval-request' && part.isAutomatic));
+			const next = await component.run({ messageHistory: history, prompt: 'Next question.' });
+			assert.equal(await next.output, 'Complete.');
+			assert.equal(replay.requests.length, 2);
+		});
+	}
+
+	for (const streaming of [false, true]) {
+		it(`${streaming ? 'stream' : 'generate'}: rendered Anthropic pause derives continuation settings without preparing another user turn`, async () => {
+			const replay = anthropicReplay('pause_turn');
+			let preparations = 0;
+			const config = { model: replay.model, tools: { ...replay.tools, code_execution: replay.provider.tools.codeExecution_20250825() }, inputSchema: z.object({ message: z.string() }),
+				prompt: ({ message }: { message: string }) => { preparations++; return message; } };
+			const component = streaming ? create.LLMAgent.withFunction.asStream(config) : create.LLMAgent.withFunction(config);
+			const context = { message: 'Search.' };
+			const providerOptions = { anthropic: { container: { id: 'container_fixture' } } };
+			const first = await component.run({ context, providerOptions });
+			assert.equal('value' in first, false);
+			const history = await first.messageHistory;
+			const continuation = create.LLMAgent({ providerOptions }, component);
+			const next = streaming ? await continuation.stream({ messages: history, options: context })
+				: await continuation.generate({ messages: history, options: context });
+			assert.equal(await next.output, 'Complete.');
+			assert.equal(preparations, 1);
+			assert.deepEqual(replay.requests.map(request => request.container), ['container_fixture', 'container_fixture']);
+			assert.equal('providerOptions' in component.config, false);
+			assert.deepEqual(await next.messageHistory, [...history, ...await next.responseMessages]);
+			assert.equal(replay.requests.length, 2);
+		});
+	}
+
+	for (const delivery of ['generate', 'stream', 'stream-output'] as const) {
+		for (const entry of ['native', 'run'] as const) for (const linked of [false, true]) {
+			it(`${delivery}/${entry}: MCP output survives approval and a later turn with linkage=${linked}`, async () => {
+				const replay = mcpApprovalReplay();
+				const config = { model: replay.model, tools: replay.tools, maxRetries: 0,
+					...(delivery === 'stream-output' ? { output: Output.text() } : {}) };
+				const component = delivery === 'generate' ? create.LLMAgent(config) : create.LLMAgent.asStream(config);
+				async function run(messages: ModelMessage[], prompt?: string) {
+					if (entry === 'run') return component.run({ messageHistory: messages, prompt });
+					const args = { messages: [...messages, ...prompt === undefined ? [] : [{ role: 'user' as const, content: prompt }]] };
+					return delivery === 'generate' ? component.generate(args) : component.stream(args);
+				}
+				const first = await run([], 'Search.');
+				assert.equal('value' in first, false);
+				const history = await first.messageHistory;
+				const parts = history.flatMap(message => message.role === 'assistant' && typeof message.content !== 'string' ? message.content : []);
+				const call = parts.find(part => part.type === 'tool-call');
+				const approval = parts.find(part => part.type === 'tool-approval-request');
+				assert.ok(call && approval);
+				assert.equal(call.providerOptions?.openai?.approvalRequestId, undefined);
+				if (linked) call.providerOptions = { openai: { approvalRequestId: approval.approvalId } };
+				const messages: ModelMessage[] = [...history, { role: 'tool', content: [
+					{ type: 'tool-approval-response', approvalId: approval.approvalId, approved: true, providerExecuted: true },
+				] }];
+				const original = JSON.stringify(messages);
+				const second = await run(messages);
+				assert.equal(await second.output, 'done');
+
+				assert.equal(await second.finishReason, 'stop');
+				const completed = (await second.content).find(part => part.type === 'tool-call');
+				assert.ok(completed);
+				assert.equal(completed.toolCallId === call.toolCallId, linked);
+				const saved = await second.messageHistory;
+				assert.equal(JSON.stringify(messages), original);
+				assert.deepEqual(saved, [...messages, ...await second.responseMessages]);
+				const third = await run(saved, 'Next question.');
+				assert.equal(await third.output, 'done');
+
+				assert.ok(replay.requests[1].input.some(part => part.type === 'mcp_approval_response' && part.approve === true));
+				assert.equal(replay.requests.length, 3);
+			});
+		}
+	}
+
 	for (const streaming of [false, true]) {
 		const mode = streaming ? 'stream' : 'generate';
 		it(`${mode}: OpenAI Responses preserves the SDK text from both message phases`, async () => {
@@ -109,13 +233,13 @@ describe('Provider HTTP result contracts', () => {
 			const component = streaming ? create.LLMAgent.asStream({ model: replay.model }) : create.LLMAgent({ model: replay.model });
 			const call: (prompt: string) => ReturnType<typeof component> = component;
 			const result = await call('question');
-			assert.equal(await textValue(result.value), 'Checking.Complete.');
 			assert.equal(await result.output, 'Checking.Complete.');
+
 			assert.equal((await result.steps).length, 1);
 			assert.equal(replay.requests.length, 1);
 		});
 		for (const pending of [false, true]) {
-			it(`${mode}: an Anthropic pause with ${pending ? 'pending' : 'resolved'} search results is unavailable`, async () => {
+			it(`${mode}: an Anthropic pause with ${pending ? 'pending' : 'resolved'} search results retains native output`, async () => {
 				const replay = anthropicReplay('pause_turn', pending);
 				const config = { model: replay.model, tools: replay.tools };
 				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
@@ -125,13 +249,13 @@ describe('Provider HTTP result contracts', () => {
 				assert.equal(await result.rawFinishReason, 'pause_turn');
 				assert.equal(await result.output, 'Let me search for that.Let me refine the search.');
 				assert.equal((await result.steps)[0].toolResults.length, pending ? 0 : 1);
-				await assert.rejects(async () => textValue(result.value), error => NoOutputGeneratedError.isInstance(error) && error.message.includes('paused'));
+				assert.equal('value' in result, false);
 				const history = await result.messageHistory;
 				assert.ok(history.length > 1);
 				if (!pending) {
 					assert.ok(JSON.stringify(history).includes('encrypted-source'));
 					const resumed = await component.run({ messageHistory: history });
-					assert.equal(await textValue(resumed.value), 'Complete.');
+					assert.equal(await resumed.output, 'Complete.');
 					assert.ok(JSON.stringify(replay.requests[1].messages).includes('encrypted-source'));
 				}
 				assert.equal(replay.requests.length, pending ? 1 : 2);
@@ -146,7 +270,7 @@ describe('Provider HTTP result contracts', () => {
 			const result = await call('question');
 			const nativeOutput = await result.output;
 			assert.equal(nativeOutput, 'Let me search for that.The answer is 42.');
-			assert.equal(await textValue(result.value), nativeOutput);
+			assert.equal(await result.output, nativeOutput);
 			assert.equal((await result.steps).length, 1);
 			assert.equal((await result.steps)[0].toolResults.length, 1);
 			assert.equal(replay.requests.length, 1);
@@ -160,7 +284,7 @@ describe('Provider HTTP result contracts', () => {
 				const result = await call('question');
 				assert.equal(await result.finishReason, 'stop');
 				assert.equal(await result.output, '');
-				assert.equal(await textValue(result.value), '');
+
 				assert.equal(JSON.stringify(await result.messageHistory).includes('I cannot help'), false);
 				assert.equal(replay.requests.length, 1);
 			});
@@ -170,7 +294,7 @@ describe('Provider HTTP result contracts', () => {
 				const config = { model: replay.model, output: Output.object({ schema: z.object({ n: z.number() }) }) };
 				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 				await assert.rejects(async () => { const call: (prompt: string) => ReturnType<typeof component> = component;
-					const result = await call('question'); await result.value; }, NoObjectGeneratedError);
+					const result = await call('question'); await result.output; }, NoObjectGeneratedError);
 				assert.equal(replay.requests.length, 1);
 			});
 		}

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { NoOutputGeneratedError, Output, smoothStream, streamText, ToolLoopAgent } from 'ai';
+import { Output, smoothStream, streamText, ToolLoopAgent } from 'ai';
 import type { ModelMessage, StreamTextTransform, TextStreamPart, ToolSet } from 'ai';
 import type { LanguageModelV3CallOptions, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { convertArrayToReadableStream, MockLanguageModelV3 } from 'ai/test';
@@ -26,7 +26,6 @@ function model() {
 }
 
 interface Result {
-	value: unknown;
 	text?: string | PromiseLike<string>;
 	object?: unknown;
 	response: { messages?: ModelMessage[] } | PromiseLike<{ messages?: ModelMessage[] }>;
@@ -66,7 +65,7 @@ describe('LLM surface combinations', () => {
 					const make = (factory === 'stream' ? create.LLMAgent.withTemplate.asStream : create.LLMAgent.withTemplate) as unknown as (config: object) => Component;
 					const render = make({ model: mock, prompt: '{{ value.prompt or value }}', context: { secret: 'PRIVATE_SOURCE_SENTINEL' } });
 					const result = await (run ? render.run({ context: { value } }) : render({ value }));
-					await result.value;
+					await result.output;
 					await result.consumeStream?.();
 					const calls = factory === 'generate' ? mock.doGenerateCalls : mock.doStreamCalls;
 					assert.equal(calls.length, 1);
@@ -105,7 +104,7 @@ describe('LLM surface combinations', () => {
 				const result = await component.run({ prompt: undefined });
 				const partials = result.partialOutputStream;
 				if (partials) for await (const _part of partials) { /* Drain native object output. */ }
-				await result.value;
+				await result.output;
 				await result.consumeStream?.();
 				const calls = factory.startsWith('stream') ? mock.doStreamCalls : mock.doGenerateCalls;
 				assert.equal(calls.length, 1);
@@ -146,7 +145,7 @@ describe('LLM surface combinations', () => {
 						const result = await pending;
 						const partials = result.partialOutputStream;
 						if (partials) for await (const _part of partials) { /* Native object streams need a consumer. */ }
-						assert.deepEqual(await result.value, { n: 7 });
+						assert.deepEqual(await result.output, { n: 7 });
 						await result.consumeStream?.();
 						const calls = streaming ? mock.doStreamCalls : mock.doGenerateCalls;
 						assert.equal(calls.length, 1);
@@ -161,7 +160,7 @@ describe('LLM surface combinations', () => {
 						nativeMessages.push({ role: 'user', content: 'turn' });
 						const agent = new ToolLoopAgent({ model: nativeModel, output: Output.object({ schema }), ...(withStatic ? { instructions: 'static' } : {}) });
 						const native = streaming ? await agent.stream({ messages: nativeMessages }) : await agent.generate({ messages: nativeMessages });
-						assert.deepEqual(await result.value, await native.output);
+						assert.deepEqual(await result.output, await native.output);
 						const nativeCalls = streaming ? nativeModel.doStreamCalls : nativeModel.doGenerateCalls;
 						assert.equal(nativeCalls.length, 1);
 						assert.deepEqual(calls[0].prompt, nativeCalls[0].prompt);
@@ -253,12 +252,12 @@ describe('Concurrent LLM invocations', () => {
 					if (object) {
 						const partials = result.partialOutputStream;
 						if (partials) await collect(partials);
-						assert.deepEqual(await result.value, expected);
-						assert.equal(await result.value, await result.output);
+						assert.deepEqual(await result.output, expected);
+						assert.equal('value' in result, false);
 					} else {
-						const value = async () => structured || !streaming ? await result.value : (await collect(result.value as AsyncIterable<string>)).join('');
+						const value = async () => await result.output;
 						if (streaming && !structured && index % 3 === 0) {
-							const first = (result.value as AsyncIterable<string>)[Symbol.asyncIterator]();
+							const first = result.textStream![Symbol.asyncIterator]();
 							assert.equal((await first.next()).done, false);
 							await first.return?.();
 						}
@@ -328,15 +327,6 @@ describe('Stream retries combined with transforms', () => {
 					};
 					const augmentedResult = await (augmented ? create.LLMAgent.asStream(settings)() : undefined);
 					const result = (augmentedResult ?? streamText(settings));
-					if (augmentedResult) {
-						const read = async () => {
-							const values: string[] = [];
-							for await (const value of augmentedResult.value) values.push(value);
-							return values.join('');
-						};
-						if (ending === 'success') assert.equal(await read(), await result.output);
-						else await assert.rejects(read(), error => ending === 'error-with-cause' ? error === terminal : NoOutputGeneratedError.isInstance(error));
-					}
 					assert.equal(await result.output, transform === 'uppercase' ? 'FINAL ' : 'final ');
 					assert.equal(await result.finishReason, ending === 'success' ? 'stop' : 'error');
 					assert.equal(mock.doStreamCalls.length, 2);

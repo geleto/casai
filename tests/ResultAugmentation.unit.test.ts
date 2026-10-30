@@ -1,15 +1,15 @@
 import { runtimeRun } from './fixtures/runtime-call.js';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { setTimeout as delay } from 'node:timers/promises';
 import { inspect, promisify } from 'node:util';
-import { createAgentUIStream, generateText, isStepCount, NoObjectGeneratedError, NoOutputGeneratedError, Output, smoothStream, streamText, tool, ToolLoopAgent } from 'ai';
-import type { ModelMessage, OutputInterface, TextStreamPart, ToolExecutionOptions, ToolSet } from 'ai';
+import { createAgentUIStream, generateText, hasToolCall, isStepCount, NoObjectGeneratedError, NoOutputGeneratedError, Output, streamText, tool, ToolLoopAgent } from 'ai';
+import type { ModelMessage, OutputInterface, StopCondition, ToolExecutionOptions, ToolSet } from 'ai';
 import type { LanguageModelV3GenerateResult, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { z } from 'zod';
-import { generateTextWithResult as generatePrepared, streamTextWithResult as streamPrepared } from '../src/runtime/augment-result.js';
+import { generateTextWithResult as generatePrepared, generateToolOutput, streamTextWithResult as streamPrepared } from '../src/runtime/augment-result.js';
 import { create } from './cascada';
+import { mcpApprovalReplay } from './fixtures/openai-mcp.js';
 
 // Protocol tests start at the normalized internal boundary. Public entry-point ownership is tested below.
 function conversation(content: string): ModelMessage[] { return [{ role: 'user', content }]; }
@@ -18,13 +18,13 @@ function generateTextWithResult<T extends ToolSet, C extends Record<string, unkn
 ) { return generatePrepared(request, history); }
 function streamTextWithResult<T extends ToolSet, C extends Record<string, unknown> = Record<string, unknown>, O extends OutputInterface | undefined = undefined>(
 	request: Parameters<typeof streamPrepared<T, C, O>>[0], history: ModelMessage[] = request.messages,
-) { return streamPrepared(request, history).result; }
+) { return streamPrepared(request, history); }
 
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
 	outputTokens: { total: 2, text: 2, reasoning: 0 },
 };
-type Step = Pick<LanguageModelV3GenerateResult, 'content'> & { reason?: LanguageModelV3GenerateResult['finishReason']['unified'] };
+type Step = Pick<LanguageModelV3GenerateResult, 'content'> & { reason?: LanguageModelV3GenerateResult['finishReason']['unified']; raw?: string };
 const text = (value: string): Step['content'][number] => ({ type: 'text', text: value });
 const call = (providerExecuted = false): Step['content'][number] => ({
 	type: 'tool-call', toolCallId: 'call', toolName: 'lookup', input: '{"query":"test"}', providerExecuted,
@@ -46,7 +46,7 @@ function chunks(step: Step): LanguageModelV3StreamPart[] {
 
 function mock(...steps: Step[]) {
 	return new MockLanguageModelV3({
-		doGenerate: steps.map(step => ({ content: step.content, finishReason: { unified: step.reason ?? 'stop', raw: step.reason ?? 'stop' }, usage, warnings: [] })),
+		doGenerate: steps.map(step => ({ content: step.content, finishReason: { unified: step.reason ?? 'stop', raw: step.raw ?? step.reason ?? 'stop' }, usage, warnings: [] })),
 		doStream: steps.map(step => ({ stream: convertArrayToReadableStream(chunks(step)) })),
 	});
 }
@@ -56,44 +56,13 @@ async function collect<T>(stream: AsyncIterable<T>): Promise<T[]> {
 	for await (const value of stream) values.push(value);
 	return values;
 }
-
-async function value(value: unknown): Promise<unknown> {
-	if (typeof value === 'object' && value !== null && Symbol.asyncIterator in value) {
-		return collect(value as AsyncIterable<unknown>);
-	}
-	return await value;
-}
-
-function controlledModel() {
-	let controller: ReadableStreamDefaultController<LanguageModelV3StreamPart>;
-	const model = new MockLanguageModelV3({
-		doStream: { stream: new ReadableStream({ start(stream) { controller = stream; } }) },
-	});
-	return {
-		model,
-		send(...parts: LanguageModelV3StreamPart[]) { for (const part of parts) controller.enqueue(part); },
-		fail(error: unknown) { controller.enqueue({ type: 'error', error }); controller.close(); },
-		start() {
-			controller.enqueue({ type: 'stream-start', warnings: [] });
-			controller.enqueue({ type: 'text-start', id: 'text' });
-			controller.enqueue({ type: 'text-delta', id: 'text', delta: 'first' });
-		},
-		finish() {
-			controller.enqueue({ type: 'text-delta', id: 'text', delta: ' last' });
-			controller.enqueue({ type: 'text-end', id: 'text' });
-			controller.enqueue({ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage });
-			controller.close();
-		},
-	};
-}
-
 describe('SDK result augmentation', () => {
 	it('can copy, serialize and inspect a paused generation without reading final output', async () => {
 		const result = await generateTextWithResult({
 			model: mock({ content: [call()], reason: 'tool-calls' }), messages: conversation('question'),
 			tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) },
 		});
-		assert.throws(() => result.value, NoOutputGeneratedError);
+		assert.throws(() => result.output, NoOutputGeneratedError);
 		for (const copy of [{ ...result }, Object.assign({}, result)]) {
 			assert.equal('value' in copy, false);
 			assert.equal('messageHistory' in copy, false);
@@ -135,7 +104,7 @@ describe('SDK result augmentation', () => {
 		const tools = {};
 		const agent = create.LLMAgent({ model, tools, id: 'fixture' });
 		const generated = await agent.generate({ messages: conversation('literal {{ source }}') });
-		assert.equal(generated.value, 'one');
+		assert.equal(generated.output, 'one');
 		assert.deepEqual(generated.messageHistory[0], { role: 'user', content: 'literal {{ source }}' });
 		const ui = await createAgentUIStream({ agent, uiMessages: [{ id: 'user', role: 'user', parts: [{ type: 'text', text: 'literal {{ next }}' }] }] });
 		const events = await collect(ui);
@@ -163,18 +132,6 @@ describe('SDK result augmentation', () => {
 		}
 	}
 
-	it('keeps streaming output delivery tied to the executed output setting', async () => {
-		const output = Output.object({ schema: z.object({ n: z.number() }) });
-		const config = { model: mock({ content: [text('{"n":7}')] }), output: output as OutputInterface };
-		const pending = create.LLMAgent.asStream(config)('test');
-		config.output = Output.text();
-		const result = await pending;
-		assert.equal(Symbol.asyncIterator in result.value, false);
-		assert.equal(result.value, result.value);
-		assert.deepEqual(await result.value, { n: 7 });
-		assert.deepEqual(await result.output, { n: 7 });
-	});
-
 	for (const aliases of [false, true]) {
 		it(`preserves native callback receivers with ${aliases ? 'deprecated' : 'canonical'} names`, async () => {
 			for (const augmented of [false, true]) {
@@ -193,340 +150,15 @@ describe('SDK result augmentation', () => {
 		});
 	}
 
-	for (const order of ['output-first', 'value-first', 'together'] as const) {
-		it(`reuses one SDK execution and lazy history with ${order} access`, async () => {
-			const model = mock({ content: [text('answer')] });
-			const messages: ModelMessage[] = [{ role: 'user', content: 'question' }];
-			const result = await create.LLMAgent({ model }).stream({ messages });
-			messages.push({ role: 'user', content: 'later' });
-			if (order === 'output-first') assert.equal(await result.output, 'answer');
-			if (order === 'value-first') assert.deepEqual(await value(result.value), ['answer']);
-			const [final, nativeText, history, events] = await Promise.all([
-				value(result.value), collect(result.textStream), result.messageHistory, collect(result.stream),
-			]);
-			assert.deepEqual(final, ['answer']);
-			assert.equal(nativeText.join(''), 'answer');
-			assert.equal(history.length, 2);
-			assert.equal((await result.response).messages.length, 1);
-			assert.equal((await result.steps).length, 1);
-			assert.ok(events.some(part => part.type === 'finish'));
-			assert.equal(result.messageHistory, result.messageHistory);
-			assert.equal(model.doStreamCalls.length, 1);
-			assert.equal(model.doGenerateCalls.length, 0);
-		});
-	}
-
-	it('returns a live result and emits terminal default text before the provider finishes', async () => {
-		const source = controlledModel();
-		const result = (await create.LLMAgent.asStream({ model: source.model, prompt: 'question' })());
-		assert.ok(Symbol.asyncIterator in result.value);
-		const iterator = result.value[Symbol.asyncIterator]();
-		source.start();
-		assert.deepEqual(await iterator.next(), { value: 'first', done: false });
-		source.finish();
-		assert.deepEqual(await iterator.next(), { value: ' last', done: false });
-		assert.equal((await iterator.next()).done, true);
-		assert.equal(await result.output, 'first last');
-	});
-
-	for (const transform of ['smooth', 'uppercase'] as const) {
-		it(`streams default text incrementally through a ${transform} transform`, async () => {
-			const source = controlledModel();
-			const result = streamTextWithResult({ model: source.model, messages: conversation('test'),
-				experimental_transform: transform === 'smooth' ? smoothStream({ delayInMs: null })
-					: () => new TransformStream<TextStreamPart<ToolSet>, TextStreamPart<ToolSet>>({ transform(part, controller) {
-						controller.enqueue(part.type === 'text-delta' ? { ...part, text: part.text.toUpperCase() } : part);
-					} }),
-			});
-			const iterator = result.value[Symbol.asyncIterator]();
-			let delivered = false;
-			const pending = iterator.next().then(part => { delivered = true; return part; });
-			source.start();
-			if (transform === 'smooth') source.send({ type: 'text-delta', id: 'text', delta: ' ' });
-			const native = result.textStream[Symbol.asyncIterator]();
-			await native.next();
-			await delay(0);
-			const beforeFinish = delivered;
-			source.finish();
-			const first = await pending;
-			const rest = await collect({ [Symbol.asyncIterator]: () => iterator });
-			await native.return?.();
-			assert.equal(beforeFinish, true);
-			assert.equal(first.value, transform === 'smooth' ? 'first ' : 'FIRST');
-			assert.equal([first.value, ...rest].join(''), await result.output);
-			assert.equal(source.model.doStreamCalls.length, 1);
-		});
-	}
-
-	for (const feature of ['tool-callers', 'deferred-provider'] as const) {
-		it(`buffers with ${feature} while native text remains live`, async () => {
-			const deferred = feature === 'deferred-provider';
-			const source = controlledModel();
-			const tools = { lookup: deferred ? tool({ type: 'provider', id: 'fixture.lookup', args: {},
-				isProviderExecuted: true, supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }) }) : lookup };
-			const result = streamTextWithResult({ model: source.model, messages: conversation('test'), tools, toolChoice: 'none',
-				...(!deferred && { experimental_toolCallers: { lookup: ['AI_SDK_DIRECT_TOOL_CALL'] } }),
-			});
-			const iterator = result.value[Symbol.asyncIterator]();
-			let delivered = false;
-			const pending = iterator.next().then(part => { delivered = true; return part; });
-			const unavailable = deferred ? assert.rejects(pending, NoOutputGeneratedError) : undefined;
-			source.start();
-			const native = result.textStream[Symbol.asyncIterator]();
-			assert.equal((await native.next()).value, 'first');
-			await delay(0);
-			const beforeFinish = delivered;
-			if (deferred) source.send({ type: 'tool-call', toolCallId: 'call', toolName: 'lookup', input: '{"query":"test"}', providerExecuted: true });
-			source.finish();
-			if (deferred) await unavailable;
-			else assert.deepEqual(await pending, { value: 'first last', done: false });
-			await native.return?.();
-			await iterator.return?.();
-			assert.equal(beforeFinish, false);
-			assert.equal(source.model.doStreamCalls.length, 1);
-		});
-	}
-
-	it('closing one value iterator preserves SDK views and later value readers', async () => {
-		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, messages: conversation('question') });
-		assert.ok(Symbol.asyncIterator in result.value);
-		const iterator = result.value[Symbol.asyncIterator]();
-		source.start();
-		assert.equal((await iterator.next()).value, 'first');
-		const closed = iterator.return?.();
-		source.finish();
-		await closed;
-		assert.deepEqual(await value(result.value), ['first', ' last']);
-		assert.equal((await collect(result.textStream)).join(''), 'first last');
-	});
-
-	it('streams a stable prefix and reuses final SDK text after overlapping blocks', async () => {
-		const source = controlledModel();
-		let resolveProcessed: () => void;
-		const processed = new Promise<void>(resolve => { resolveProcessed = resolve; });
-		const result = (await create.LLMAgent.asStream({ model: source.model, prompt: 'question', onChunk: ({ chunk }) => {
-			if (chunk.type === 'text-end' && chunk.id === 'other') resolveProcessed();
-		} })());
-		const iterator = result.value[Symbol.asyncIterator]();
-		source.start();
-		assert.equal((await iterator.next()).value, 'first');
-		let delivered = false;
-		const next = iterator.next().then(part => { delivered = true; return part; });
-		source.send(
-			{ type: 'text-start', id: 'other' }, { type: 'text-delta', id: 'other', delta: ' OTHER' },
-			{ type: 'text-delta', id: 'text', delta: ' middle' }, { type: 'text-end', id: 'other' },
-		);
-		await processed;
-		assert.equal(delivered, false);
-		source.finish();
-		assert.deepEqual(await next, { value: ' middle last OTHER', done: false });
-		assert.equal((await iterator.next()).done, true);
-		assert.equal(await result.output, 'first middle last OTHER');
-		assert.equal((await collect(result.value)).join(''), await result.output);
-		assert.equal((await collect(result.textStream)).join(''), 'first OTHER middle last');
-		assert.equal(source.model.doStreamCalls.length, 1);
-	});
-
-	for (const overlap of [false, true]) {
-		it(`preserves text-block order with ${overlap ? 'an empty overlapping' : 'a completed preceding'} block`, async () => {
-			const parts: LanguageModelV3StreamPart[] = [
-				{ type: 'stream-start', warnings: [] }, { type: 'text-start', id: 'first' },
-				...overlap ? [] : [{ type: 'text-delta' as const, id: 'first', delta: 'first' }, { type: 'text-end' as const, id: 'first' }],
-				{ type: 'text-start', id: 'second' }, { type: 'text-delta', id: 'second', delta: 'second' }, { type: 'text-end', id: 'second' },
-				...overlap ? [{ type: 'text-end' as const, id: 'first' }] : [],
-				{ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage },
-			];
-			const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(parts) } });
-			const result = streamTextWithResult({ model, messages: conversation('test') });
-			assert.deepEqual(await collect(result.value), overlap ? ['second'] : ['first', 'second']);
-			assert.equal((await collect(result.value)).join(''), await result.output);
-		});
-	}
-
-	it('preserves failures after a stable prefix and overlapping text', async () => {
-		const error = new Error('overlapping stream failed');
-		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), onError: () => { /* Expected failure. */ } });
-		const iterator = result.value[Symbol.asyncIterator]();
-		source.start();
-		assert.equal((await iterator.next()).value, 'first');
-		source.send({ type: 'text-start', id: 'other' }, { type: 'text-delta', id: 'other', delta: 'unfinished' });
-		source.fail(error);
-		await assert.rejects(iterator.next(), caught => caught === error);
-		assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
-	});
-
 	for (const execution of [generateTextWithResult, streamTextWithResult]) {
 		const mode = execution === generateTextWithResult ? 'generate' : 'stream';
-		for (const reason of ['stop', 'length', 'content-filter', 'other', 'tool-calls', 'error'] as const) {
-			for (const answer of ['', 'answer']) {
-				it(`${mode}: ${reason} with ${answer ? 'nonempty' : 'empty'} output`, async () => {
-					const model = mock({ content: answer ? [text(answer)] : [], reason });
-					const request = execution({ model, messages: conversation('test') });
-					const available = reason === 'stop' || (answer !== '' && reason !== 'tool-calls' && reason !== 'error');
-					const result = await request;
-					if (available) {
-						const final = await value(result.value);
-						assert.equal(Array.isArray(final) ? final.join('') : final, answer);
-					} else {
-						const message = reason === 'error' ? /finished with an error but reported no cause/
-							: reason === 'tool-calls' ? /ended with tool calls and no final application output/
-								: new RegExp(`finished with '${reason}' and no text output`);
-						await assert.rejects(async () => value(result.value), error => NoOutputGeneratedError.isInstance(error) && message.test(error.message));
-					}
-					assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
-				});
-			}
-		}
-
 		it(`${mode}: selects final output after tools without exposing earlier-step commentary`, async () => {
 			const model = mock({ content: [text('checking'), call()], reason: 'tool-calls' }, { content: [text('answer')] });
 			const result = await execution({ model, messages: conversation('test'), tools: { lookup }, stopWhen: isStepCount(2) });
-			const final = await value(result.value);
+			const final = await result.output;
 			assert.equal(Array.isArray(final) ? final.join('') : final, 'answer');
 			assert.equal((await result.steps).length, 2);
 			assert.equal((await result.messageHistory).length, 4);
-		});
-
-		for (const needsApproval of [false, true]) {
-			it(`${mode}: retains history while waiting for ${needsApproval ? 'approval' : 'an external result'}`, async () => {
-				const model = mock({ content: [text('commentary'), call()] });
-				const pendingTool = tool({ inputSchema: z.object({ query: z.string() }), outputSchema: z.string(), needsApproval });
-				const result = await execution({ model, messages: conversation('test'), tools: { lookup: pendingTool } });
-				await assert.rejects(async () => value(result.value), error => NoOutputGeneratedError.isInstance(error)
-					&& error.message.includes('tool results or approvals are pending'));
-				assert.ok((await result.messageHistory).length >= 2);
-			});
-		}
-
-		it(`${mode}: accepts an answer alongside a resolved local tool`, async () => {
-			const model = mock({ content: [call(), text('answer')] });
-			const result = await execution({ model, messages: conversation('test'), tools: { lookup } });
-			const final = await value(result.value);
-			assert.equal(Array.isArray(final) ? final.join('') : final, 'answer');
-		});
-
-		for (const deferred of [false, true]) {
-			for (const resolved of [false, true]) {
-				it(`${mode}: handles a ${resolved ? 'resolved' : 'unresolved'} provider tool with deferred=${deferred}`, async () => {
-					const provider = tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
-						supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() });
-					const content = [call(true), ...(resolved ? [{ type: 'tool-result' as const, toolCallId: 'call', toolName: 'lookup', result: { answer: 3 } }] : []), text('answer')];
-					const result = await execution({ model: mock({ content }), messages: conversation('test'), tools: { lookup: provider } });
-					if (deferred && !resolved) await assert.rejects(async () => value(result.value), NoOutputGeneratedError);
-					else {
-						const final = await value(result.value);
-						assert.equal(Array.isArray(final) ? final.join('') : final, 'answer');
-					}
-					assert.ok((await result.messageHistory).length >= 2);
-				});
-			}
-		}
-
-		it(`${mode}: retains denied tool calls for continuation without executing them`, async () => {
-			let calls = 0;
-			const result = await execution({ model: mock({ content: [call()], reason: 'tool-calls' }), messages: conversation('test'),
-				tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: () => { calls++; return 'result'; } }) },
-				toolApproval: { lookup: 'denied' },
-			});
-			await assert.rejects(async () => value(result.value), NoOutputGeneratedError);
-			assert.ok((await result.messageHistory).length >= 2);
-			assert.equal(calls, 0);
-		});
-
-		for (const resolution of ['missing', 'response', 'history']) {
-			it(`${mode}: carries deferred work between invocations with its result ${resolution}`, async () => {
-				const provider = tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
-					supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() });
-				const tools = { lookup: provider };
-				const first = await execution({ model: mock({ content: [call(true)], reason: 'tool-calls' }), messages: conversation('test'), tools });
-				const messages = [...await first.messageHistory];
-				if (resolution === 'history') messages.push({ role: 'tool', content: [
-					{ type: 'tool-result', toolCallId: 'call', toolName: 'lookup', output: { type: 'text', value: 'done' } },
-				] });
-				const snapshot = JSON.stringify(messages);
-				const second = await execution({ model: mock({ content: [
-					...(resolution === 'response' ? [{ type: 'tool-result' as const, toolCallId: 'call', toolName: 'lookup', result: 'done' }] : []), text('answer'),
-				] }), messages, tools });
-				if (resolution === 'missing') await assert.rejects(async () => value(second.value), NoOutputGeneratedError);
-				else assert.deepEqual(await value(second.value), mode === 'stream' ? ['answer'] : 'answer');
-				assert.equal(await second.output, 'answer');
-				assert.deepEqual(await second.messageHistory, [...messages, ...await second.responseMessages]);
-				assert.equal(JSON.stringify(messages), snapshot);
-			});
-		}
-
-		for (const approved of [false, true]) {
-			it(`${mode}: resolves an incoming local approval before the first model step with approved=${approved}`, async () => {
-				let executions = 0;
-				const tools = { lookup: tool({ inputSchema: z.object({ query: z.string() }), needsApproval: true,
-					execute: () => { executions++; return 'done'; },
-				}) };
-				const first = await execution({ model: mock({ content: [call()], reason: 'tool-calls' }), messages: conversation('test'), tools });
-				const messages = [...await first.messageHistory];
-				const request = messages.flatMap(message => message.role === 'assistant' && typeof message.content !== 'string' ? message.content : [])
-					.find(part => part.type === 'tool-approval-request');
-				assert.ok(request?.type === 'tool-approval-request');
-				messages.push({ role: 'tool', content: [{ type: 'tool-approval-response', approvalId: request.approvalId, approved }] });
-				const snapshot = JSON.stringify(messages);
-				const second = await execution({ model: mock({ content: [text('answer')] }), messages, tools });
-				assert.deepEqual(await value(second.value), mode === 'stream' ? ['answer'] : 'answer');
-				assert.equal(executions, approved ? 1 : 0);
-				assert.equal(JSON.stringify(messages), snapshot);
-			});
-		}
-
-		it(`${mode}: accepts an incoming provider approval denial without requiring a provider result`, async () => {
-			const tools = { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
-				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) };
-			const messages: ModelMessage[] = [
-				{ role: 'user', content: 'test' },
-				{ role: 'assistant', content: [
-					{ type: 'tool-call', toolCallId: 'call', toolName: 'lookup', input: { query: 'test' }, providerExecuted: true },
-					{ type: 'tool-approval-request', toolCallId: 'call', approvalId: 'approval' },
-				] },
-				{ role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'approval', approved: false }] },
-			];
-			const result = await execution({ model: mock({ content: [text('answer')] }), messages, tools });
-			assert.deepEqual(await value(result.value), mode === 'stream' ? ['answer'] : 'answer');
-			const history = await result.messageHistory;
-			assert.ok(history.some(message => message.role === 'tool' && message.content.some(part => part.type === 'tool-approval-response' && !part.approved)));
-			if (mode === 'stream') assert.equal((await result.responseMessages).some(message => message.role === 'tool'
-				&& message.content.some(part => part.type === 'tool-result' && part.toolCallId === 'call')), false);
-		});
-
-		it(`${mode}: retains an unresolved provider approval from incoming history`, async () => {
-			const tools = { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
-				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) };
-			const first = await execution({ model: mock({ content: [call(true),
-				{ type: 'tool-approval-request', toolCallId: 'call', approvalId: 'approval' },
-			], reason: 'tool-calls' }), messages: conversation('test'), tools });
-			const second = await execution({ model: mock({ content: [text('answer')] }), messages: await first.messageHistory, tools });
-			await assert.rejects(async () => value(second.value), NoOutputGeneratedError);
-			assert.equal(await second.output, 'answer');
-			assert.ok((await second.messageHistory).length > 2);
-		});
-
-		it(`${mode}: checks the original conversation even when the request is trimmed`, async () => {
-			const tools = { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
-				supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) };
-			const first = await execution({ model: mock({ content: [call(true)], reason: 'tool-calls' }), messages: conversation('test'), tools });
-			const original = await first.messageHistory;
-			const second = await execution({ model: mock({ content: [text('answer')] }), messages: conversation('rewritten request'), tools,
-				prepareStep: () => ({ messages: [{ role: 'user', content: 'trimmed request' }] }),
-			}, original);
-			await assert.rejects(async () => value(second.value), NoOutputGeneratedError);
-			assert.deepEqual(await second.messageHistory, [...original, ...await second.responseMessages]);
-		});
-
-		it(`${mode}: allows an answer after a recoverable tool error`, async () => {
-			const model = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('recovered')] });
-			const result = await execution({ model, messages: conversation('test'), stopWhen: isStepCount(2),
-				tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: (): string => { throw new Error('tool failure'); } }) },
-			});
-			const final = await value(result.value);
-			assert.equal(Array.isArray(final) ? final.join('') : final, 'recovered');
 		});
 
 		it(`${mode}: forwards SDK runtime/tool context without serializing it into history`, async () => {
@@ -536,7 +168,7 @@ describe('SDK result augmentation', () => {
 			}) };
 			const model = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] });
 			const result = await execution({ model, messages: conversation('test'), tools, toolsContext: { lookup: { privateValue } }, runtimeContext: { trace: 'trace' }, stopWhen: isStepCount(2) });
-			await value(result.value);
+			await result.output;
 			assert.equal((await result.finalStep).runtimeContext.trace, 'trace');
 			assert.equal(JSON.stringify(await result.messageHistory).includes(privateValue), false);
 			assert.equal(JSON.stringify([...model.doGenerateCalls, ...model.doStreamCalls].map(request => request.prompt)).includes(privateValue), false);
@@ -565,7 +197,7 @@ describe('SDK result augmentation', () => {
 					const model = mock({ content: [{ type: 'tool-call', toolCallId: 'actual', toolName: 'lookup', input: JSON.stringify(args) }], reason: 'tool-calls' },
 						{ content: [text('answer')] });
 					const result = await execution({ model, messages: conversation('test'), tools: { lookup: action }, toolsContext: { lookup: { secret } }, stopWhen: isStepCount(2) });
-					await value(result.value);
+					await result.output;
 					const first = (await result.steps)[0];
 					assert.equal(first.toolResults.length, valid ? 1 : 0);
 					if (valid && (kind === 'template' || kind === 'script' || kind === 'function')) assert.equal(first.toolResults[0].output, '2:actual');
@@ -593,7 +225,7 @@ describe('SDK result augmentation', () => {
 			let parses = 0;
 			const output = { ...Output.text(), parseCompleteOutput: async ({ text }: { text: string }) => { parses++; return text.toUpperCase(); } };
 			const result = await execution({ model: mock({ content: [text('answer')] }), messages: conversation('test'), output });
-			const final = await value(result.value);
+			const final = await result.output;
 			assert.equal(Array.isArray(final) ? final.join('') : final, 'ANSWER');
 			assert.equal(await result.output, 'ANSWER');
 			assert.equal(parses, 1);
@@ -607,8 +239,7 @@ describe('SDK result augmentation', () => {
 			];
 			for (const item of cases) {
 				const result = await execution({ model: mock({ content: [text(item.raw)] }), messages: conversation('test'), output: item.output });
-				assert.equal(result.value, result.value);
-				assert.deepEqual(await result.value, item.expected);
+				assert.equal('value' in result, false);
 				assert.deepEqual(await result.output, item.expected);
 			}
 		});
@@ -621,8 +252,6 @@ describe('SDK result augmentation', () => {
 			{ content: [text('{"elements":["final","second"]}')] },
 		);
 		const result = streamTextWithResult({ model, messages: conversation('test'), output, tools: { lookup }, stopWhen: isStepCount(2) });
-		assert.deepEqual(await value(result.value), ['FINAL', 'SECOND']);
-		assert.deepEqual(await value(result.value), ['FINAL', 'SECOND']);
 		assert.deepEqual(await result.output, ['FINAL', 'SECOND']);
 		assert.equal(model.doStreamCalls.length, 2);
 	});
@@ -632,8 +261,7 @@ describe('SDK result augmentation', () => {
 			const model = mock({ content: [text('{"elements":["1","2"]}')] });
 			const output = { ...Output.array({ element: z.string().transform(Number) }), name };
 			const result = (await create.LLMAgent.asStream({ model, prompt: 'test', output })());
-			assert.ok(result.value instanceof Promise);
-			assert.deepEqual(await value(result.value), [1, 2]);
+			assert.ok(result.output instanceof Promise);
 			assert.deepEqual(await result.output, [1, 2]);
 			assert.deepEqual(await collect(result.elementStream), [1, 2]);
 			assert.equal(model.doStreamCalls.length, 1);
@@ -648,8 +276,8 @@ describe('SDK result augmentation', () => {
 		};
 		const model = mock({ content: [text('answer')] });
 		const result = (await create.LLMAgent.asStream({ model, output })('test'));
-		assert.deepEqual([...await result.value], [1, 2]);
-		assert.deepEqual([...await result.value], []);
+		assert.deepEqual([...await result.output], [1, 2]);
+		assert.deepEqual([...await result.output], []);
 		assert.equal(await result.output, parsed);
 		assert.equal(parses, 1);
 		assert.equal(model.doStreamCalls.length, 1);
@@ -659,10 +287,9 @@ describe('SDK result augmentation', () => {
 		const output = { ...Output.array({ element: z.number() }), name: 'array' as const };
 		const model = mock({ content: [text('{"elements":[1,2]}')] });
 		const result = (await create.LLMAgent.asStream({ model, output })('test'));
-		const first = (await result.value)[Symbol.iterator]();
+		const first = (await result.output)[Symbol.iterator]();
 		assert.deepEqual(first.next(), { value: 1, done: false });
-		assert.equal(await result.value, await result.output);
-		assert.deepEqual(await result.value, [1, 2]);
+		assert.equal('value' in result, false);
 		assert.deepEqual(await result.output, [1, 2]);
 		assert.equal(model.doStreamCalls.length, 1);
 	});
@@ -672,7 +299,6 @@ describe('SDK result augmentation', () => {
 		const output = { ...Output.text(), name: 'array' as const, parseCompleteOutput: async () => parsed };
 		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('answer')] }), output })('test'));
 		assert.equal(await result.output, parsed);
-		assert.equal(await result.value, parsed);
 	});
 
 	for (const asynchronous of [false, true]) {
@@ -692,7 +318,7 @@ describe('SDK result augmentation', () => {
 				parseCompleteOutput: async () => { parses++; return parsed; },
 			};
 			const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('{"elements":[1]}')] }), output })('test'));
-			assert.equal(await result.value, parsed);
+			assert.equal(await result.output, parsed);
 			assert.equal(closed, 0);
 			const reader = Symbol.asyncIterator in parsed ? parsed[Symbol.asyncIterator]!() : parsed[Symbol.iterator]();
 			assert.equal((await reader.next()).value, element);
@@ -707,26 +333,8 @@ describe('SDK result augmentation', () => {
 		let parses = 0;
 		const output = { ...Output.text(), parseCompleteOutput: async ({ text }: { text: string }) => { parses++; return { answer: text }; } };
 		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('answer')] }), prompt: 'test', output })());
-		assert.deepEqual(await value(result.value), { answer: 'answer' });
 		assert.deepEqual(await result.output, { answer: 'answer' });
 		assert.equal(parses, 1);
-	});
-
-	it('tracks deferred provider results across steps', async () => {
-		for (const resolved of [false, true]) {
-			const provider = tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
-				supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() });
-			const first = chunks({ content: [call(true)], reason: 'tool-calls' });
-			const second = chunks({ content: [...(resolved ? [{ type: 'tool-result' as const, toolCallId: 'call', toolName: 'lookup', result: 'done' }] : []), text('answer')] });
-			const model = new MockLanguageModelV3({ doStream: [
-				{ stream: convertArrayToReadableStream(first) }, { stream: convertArrayToReadableStream(second) },
-			] });
-			const result = streamTextWithResult({ model, messages: conversation('test'), tools: { lookup: provider }, stopWhen: isStepCount(2) });
-			const steps = await result.steps;
-			assert.equal(steps.length, 2);
-			if (resolved) assert.deepEqual(await value(result.value), ['answer']);
-			else await assert.rejects(async () => value(result.value), NoOutputGeneratedError);
-		}
 	});
 
 	it('keeps preliminary tool results out of the completed exchange', async () => {
@@ -736,14 +344,14 @@ describe('SDK result augmentation', () => {
 		} });
 		const events = await collect(result.stream);
 		assert.ok(events.some(part => part.type === 'tool-result' && part.preliminary && part.output === 'partial'));
-		assert.deepEqual(await value(result.value), ['answer']);
+		assert.deepEqual(await result.output, 'answer');
 		assert.equal(JSON.stringify(await result.messageHistory).includes('partial'), false);
 	});
 
 	it('keeps history when final output parsing fails after a completed exchange', async () => {
 		const output = Output.object({ schema: z.object({ n: z.number() }).refine(() => false) });
 		const result = streamTextWithResult({ model: mock({ content: [text('{"n":3}')] }), messages: conversation('test'), output });
-		await assert.rejects(async () => value(result.value));
+		await assert.rejects(async () => result.output);
 		assert.equal((await result.messageHistory).length, 2);
 		await assert.rejects(generateTextWithResult({ model: mock({ content: [text('{"n":3}')] }), messages: conversation('test'), output }));
 	});
@@ -773,7 +381,7 @@ describe('SDK result augmentation', () => {
 					}
 					const { request, state } = settings();
 					const result = streamTextWithResult(request);
-					await assert.rejects(async () => value(result.value), executable && reason === 'stop' ? NoObjectGeneratedError : NoOutputGeneratedError);
+					await assert.rejects(async () => result.output, NoObjectGeneratedError);
 					await assert.rejects(async () => result.output, NoObjectGeneratedError);
 					assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
 					assert.equal((await result.messageHistory).length, executable && reason === 'stop' ? 3 : 2);
@@ -788,7 +396,7 @@ describe('SDK result augmentation', () => {
 		const result = streamTextWithResult({ model: mock({ content: [text('{"elements":["one"]}')] }), messages: conversation('test'),
 			output: Output.array({ element: z.string(), minItems: 2 }),
 		});
-		await assert.rejects(async () => value(result.value));
+		await assert.rejects(async () => result.output);
 		assert.equal((await result.messageHistory).length, 2);
 	});
 
@@ -799,7 +407,7 @@ describe('SDK result augmentation', () => {
 		assert.equal(parses, 0);
 		await result.messageHistory;
 		assert.equal(parses, 0);
-		assert.equal(await result.value, 'answer');
+		assert.equal(await result.output, 'answer');
 		assert.equal(parses, 1);
 	});
 
@@ -811,48 +419,6 @@ describe('SDK result augmentation', () => {
 		await assert.rejects(async () => result.output, reason => reason === error);
 		await assert.rejects(async () => result.responseMessages, reason => reason === error);
 		await assert.rejects(result.messageHistory, reason => reason === error);
-	});
-
-	for (const changed of ['finish', 'finish-step', 'both'] as const) {
-		for (const nativeFirst of [false, true]) for (const explicit of [false, true]) {
-			it(`rejects a transformed ${changed} error with ${nativeFirst ? 'native' : 'value'} first and ${explicit ? 'explicit' : 'default'} output`, async () => {
-				const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), messages: conversation('test'),
-					...(explicit && { output: Output.text() }),
-					experimental_transform: () => new TransformStream<TextStreamPart<ToolSet>, TextStreamPart<ToolSet>>({ transform(part, controller) {
-						if ((part.type === 'finish' || part.type === 'finish-step') && (changed === 'both' || part.type === changed)) {
-							controller.enqueue({ ...part, finishReason: 'error' });
-						} else controller.enqueue(part);
-					} }),
-				});
-				if (nativeFirst) assert.equal(await result.output, 'answer');
-				await assert.rejects(async () => value(result.value), NoOutputGeneratedError);
-				assert.equal(await result.output, 'answer');
-				assert.equal(await result.finishReason, changed === 'finish-step' ? 'stop' : 'error');
-				assert.equal((await result.steps).at(-1)?.finishReason, changed === 'finish' ? 'stop' : 'error');
-				assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
-			});
-		}
-	}
-
-	it('preserves SDK normalization when a provider stream omits its finish event', async () => {
-		const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(chunks({ content: [text('unfinished')] }).slice(0, -1)) } });
-		const result = streamTextWithResult({ model, messages: conversation('test'), onError: () => { /* Expected failure. */ } });
-		assert.equal(await result.output, 'unfinished');
-		assert.equal(await result.finishReason, 'other');
-		assert.equal((await result.messageHistory).length, 2);
-	});
-
-	it('reports the original terminal error after a delivered prefix', async () => {
-		const error = new Error('provider failed');
-		const parts = chunks({ content: [text('prefix')] }).slice(0, -1);
-		parts.push({ type: 'error', error });
-		const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(parts) } });
-		const result = streamTextWithResult({ model, messages: conversation('test'), onError: () => { /* Expected failure. */ } });
-		assert.ok(Symbol.asyncIterator in result.value);
-		const iterator = result.value[Symbol.asyncIterator]();
-		assert.equal((await iterator.next()).value, 'prefix');
-		await assert.rejects(iterator.next(), reason => reason === error);
-		assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
 	});
 
 	it('characterizes native Agent error loss when the provider fails before returning a stream', async () => {
@@ -872,113 +438,6 @@ describe('SDK result augmentation', () => {
 		assert.equal(model.doGenerateCalls.length, 1);
 		assert.equal(model.doStreamCalls.length, 1);
 	});
-
-	for (const kind of ['default', 'text', 'array', 'object'] as const) {
-		for (const order of ['value-first', 'native-first', 'concurrent'] as const) {
-			it(`preserves the provider connection error in ${kind} value with ${order} consumption`, async () => {
-				const error = new Error('provider connection failed');
-				const model = new MockLanguageModelV3({ doStream: async () => { throw error; } });
-				const result = (await create.LLMAgent.asStream({ model, prompt: 'test', maxRetries: 0, onError: () => undefined,
-					...(kind !== 'default' && { output: kind === 'array' ? Output.array({ element: z.number() })
-						: kind === 'object' ? Output.object({ schema: z.object({ n: z.number() }) }) : Output.text() }),
-				})());
-				const nativeFailure = () => assert.rejects(async () => result.output, reason => NoOutputGeneratedError.isInstance(reason) && reason.cause === undefined);
-				if (order === 'native-first') await nativeFailure();
-				const historyError = result.messageHistory.catch((reason: unknown) => reason);
-				const nativeHistoryError = Promise.resolve(result.responseMessages).catch((reason: unknown) => reason);
-				await Promise.all([
-					assert.rejects(async () => value(result.value), reason => reason === error),
-					...(order === 'concurrent' ? [nativeFailure(), collect(result.stream), collect(result.textStream)] : []),
-				]);
-				await nativeFailure();
-				assert.equal(await historyError, await nativeHistoryError);
-				assert.ok(await historyError instanceof Error);
-				assert.equal(model.doStreamCalls.length, 1);
-			});
-		}
-	}
-
-	for (const withCause of [false, true]) {
-		it(`preserves a native rejection ${withCause ? 'with its own cause' : 'of another error type'} despite an earlier error chunk`, async () => {
-			const reported = new Error('reported error');
-			const nativeError = withCause ? new NoOutputGeneratedError({ cause: new Error('native cause') }) : new Error('native transform failure');
-			let observed!: () => void;
-			const received = new Promise<void>(resolve => { observed = resolve; });
-			const model = new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream([{ type: 'error', error: reported }]) } });
-			const result = streamTextWithResult({ model, messages: conversation('test'), output: Output.object({ schema: z.object({ n: z.number() }) }),
-				onError: () => undefined,
-				onChunk: ({ chunk }) => { if (chunk.type === 'error' && chunk.error === reported) observed(); },
-				experimental_transform: () => new TransformStream({ transform(part, controller) { controller.enqueue(part); },
-					async flush() { await received; throw nativeError; },
-				}),
-			});
-			await assert.rejects(async () => value(result.value), reason => reason === nativeError);
-			await assert.rejects(async () => result.steps, reason => reason === nativeError);
-		});
-	}
-
-	for (const invalid of ['missing-start', 'unknown-id', 'after-end']) {
-		it(`excludes the ${invalid} delta from value when the SDK excludes it from final output`, async () => {
-			const parts: LanguageModelV3StreamPart[] = [{ type: 'stream-start', warnings: [] }];
-			if (invalid !== 'missing-start') parts.push({ type: 'text-start', id: 'text' }, { type: 'text-delta', id: 'text', delta: 'answer' });
-			if (invalid === 'after-end') parts.push({ type: 'text-end', id: 'text' });
-			parts.push({ type: 'text-delta', id: invalid === 'unknown-id' ? 'unknown' : 'text', delta: 'phantom' },
-				{ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage });
-			const settings = () => ({ model: new MockLanguageModelV3({ doStream: { stream: convertArrayToReadableStream(parts) } }),
-				messages: conversation('test'), onError: () => undefined,
-			});
-			const native = streamText(settings());
-			const result = streamTextWithResult(settings());
-			assert.ok(Symbol.asyncIterator in result.value);
-			assert.equal((await collect(result.value)).join(''), await native.output);
-			assert.equal(await result.output, await native.output);
-			assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await native.responseMessages]);
-		});
-	}
-
-	it('does not substitute a successful earlier step when a continuation fails inside its stream', async () => {
-		const error = new Error('continuation failed');
-		const model = new MockLanguageModelV3({ doStream: [
-			{ stream: convertArrayToReadableStream(chunks({ content: [text('earlier'), call()], reason: 'tool-calls' })) },
-			{ stream: convertArrayToReadableStream([{ type: 'error', error }]) },
-		] });
-		const result = streamTextWithResult({ model, messages: conversation('test'), tools: { lookup }, stopWhen: isStepCount(2), onError: () => { /* Expected failure. */ } });
-		await assert.rejects(async () => value(result.value), reason => reason === error);
-		assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
-	});
-
-	for (const phase of ['prepareStep', 'model']) {
-		for (const reason of ['stop', 'tool-calls'] as const) {
-			it(`preserves native completed steps after a ${reason} step when ${phase} fails before returning a stream`, async () => {
-				const error = new Error('continuation setup failed');
-				const errors: unknown[] = [];
-				const request = () => {
-					let calls = 0;
-					return {
-						model: new MockLanguageModelV3({ doStream: async () => {
-							if (calls++ > 0) throw error;
-							return { stream: convertArrayToReadableStream(chunks({ content: [text('earlier'), call()], reason })) };
-						} }),
-						messages: conversation('test'), tools: { lookup }, stopWhen: isStepCount(2), maxRetries: 0,
-						prepareStep: ({ stepNumber }: { stepNumber: number }) => {
-							if (phase === 'prepareStep' && stepNumber === 1) throw error;
-							return undefined;
-						},
-						onError: ({ error }: { error: unknown }) => { errors.push(error); },
-					};
-				};
-				const native = streamText(request());
-				const result = streamTextWithResult(request());
-				assert.equal(await native.output, 'earlier');
-				assert.equal(await result.output, await native.output);
-				assert.equal((await result.steps).length, 1);
-				assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await native.responseMessages]);
-				if (reason === 'stop') assert.deepEqual(await value(result.value), ['earlier']);
-				else await assert.rejects(async () => value(result.value), NoOutputGeneratedError);
-				assert.deepEqual(errors, [error, error]);
-			});
-		}
-	}
 
 	it('preserves a generation continuation failure instead of manufacturing a result', async () => {
 		const error = new Error('continuation failed');
@@ -1031,7 +490,7 @@ describe('SDK result augmentation', () => {
 				const result = await pending;
 				assert.equal(result.finishReason, 'tool-calls');
 				assert.equal(result.steps[0].content.some(part => part.type === (cooperative ? 'tool-error' : 'tool-result')), true);
-				if ('value' in result) assert.throws(() => result.value, NoOutputGeneratedError);
+				if ('value' in result) assert.throws(() => result.output, NoOutputGeneratedError);
 				if ('messageHistory' in result) assert.deepEqual(result.messageHistory, [{ role: 'user', content: 'test' }, ...result.responseMessages]);
 				assert.equal(model.doGenerateCalls.length, 1);
 			}
@@ -1056,124 +515,17 @@ describe('SDK result augmentation', () => {
 					} }),
 				} });
 				const failedSteps = assert.rejects(async () => result.steps, error => error === reason);
-				const failedValue = 'value' in result ? assert.rejects(async () => value(result.value), error => error === reason) : undefined;
+				const failedOutput = assert.rejects(async () => result.output, error => error === reason);
 				await ready;
 				controller.abort(reason);
 				release();
 				await failedSteps;
-				await failedValue;
+				await failedOutput;
 				await assert.rejects(async () => result.responseMessages, error => error === reason);
 				if ('messageHistory' in result) await assert.rejects(async () => result.messageHistory, error => error === reason);
 				assert.equal(model.doStreamCalls.length, 1);
 			}
 		});
-	}
-
-	it('preserves retry control and excludes abandoned output', async () => {
-		const error = new Error('retry');
-		const model = new MockLanguageModelV3({ doStream: [
-			{ stream: convertArrayToReadableStream([...chunks({ content: [text('abandoned')] }).slice(0, -1), { type: 'error', error }]) },
-			{ stream: convertArrayToReadableStream(chunks({ content: [text('recovered')] })) },
-		] });
-		let errors = 0;
-		const result = streamTextWithResult({ model, messages: conversation('test'), streamRetries: 0, onError: event => {
-			assert.equal(event.error, error);
-			errors++;
-			return { retry: true };
-		} });
-		assert.deepEqual(await value(result.value), ['recovered']);
-		assert.equal(errors, 1);
-		assert.equal(model.doStreamCalls.length, 2);
-	});
-
-	for (const retry of ['automatic', 'callback']) {
-		for (const hasTerminalCause of [false, true]) {
-			it(`scopes errors to the final ${retry} retry attempt ${hasTerminalCause ? 'with' : 'without'} a cause`, async () => {
-				const discarded = new Error('discarded attempt');
-				const terminal = new Error('terminal attempt');
-				const model = new MockLanguageModelV3({ doStream: [
-					{ stream: convertArrayToReadableStream([...chunks({ content: [text('abandoned')] }).slice(0, -1), { type: 'error', error: discarded }]) },
-					{ stream: convertArrayToReadableStream(hasTerminalCause
-						? [{ type: 'error', error: terminal }]
-						: chunks({ content: [text('final')], reason: 'error' })) },
-				] });
-				let starts = 0;
-				const result = streamTextWithResult({ model, messages: conversation('test'), streamRetries: retry === 'automatic' ? 1 : 0,
-					onLanguageModelCallStart: () => { starts++; },
-					onError: ({ error }) => error === discarded && retry === 'callback' ? { retry: true } : undefined,
-				});
-				const expected = (error: unknown) => hasTerminalCause ? error === terminal : NoOutputGeneratedError.isInstance(error);
-				await assert.rejects(async () => value(result.value), expected);
-				assert.deepEqual(await result.messageHistory, [{ role: 'user', content: 'test' }, ...await result.responseMessages]);
-				assert.equal(model.doStreamCalls.length, 2);
-				assert.equal(starts, 2);
-			});
-		}
-	}
-
-	it('uses effective prepareStep settings for incremental finality without rerunning hooks', async () => {
-		const source = controlledModel();
-		let preparations = 0;
-		let starts = 0;
-		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), tools: { lookup },
-			prepareStep: () => { preparations++; return { toolChoice: 'none' }; },
-			onStepStart: () => { starts++; },
-		});
-		assert.ok(Symbol.asyncIterator in result.value);
-		const iterator = result.value[Symbol.asyncIterator]();
-		source.start();
-		assert.equal((await iterator.next()).value, 'first');
-		source.finish();
-		await collect({ [Symbol.asyncIterator]: () => iterator });
-		assert.equal(preparations, 1);
-		assert.equal(starts, 1);
-	});
-
-	it('buffers when prepareStep re-enables tools while native SDK events remain live', async () => {
-		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), tools: { lookup }, toolChoice: 'none',
-			prepareStep: () => ({ toolChoice: 'auto' }),
-		});
-		assert.ok(Symbol.asyncIterator in result.value);
-		const iterator = result.value[Symbol.asyncIterator]();
-		let delivered = false;
-		const pending = iterator.next().then(chunk => { delivered = true; return chunk; });
-		source.start();
-		const native = result.textStream[Symbol.asyncIterator]();
-		assert.equal((await native.next()).value, 'first');
-		assert.equal(delivered, false);
-		source.finish();
-		assert.equal((await pending).value, 'first last');
-		await collect({ [Symbol.asyncIterator]: () => native });
-		await iterator.return?.();
-	});
-
-	for (const controls of ['toolChoice-none', 'activeTools-empty', 'no-tools'] as const) {
-		for (const nativeFirst of [false, true]) {
-			it(`rejects value when a provider continues despite ${controls}, with ${nativeFirst ? 'native' : 'value'} consumption first`, async () => {
-				const model = mock(
-					{ content: [text('intermediate'), call()], reason: 'tool-calls' },
-					{ content: [text('final')] },
-				);
-				let executions = 0;
-				const tools: ToolSet = controls === 'no-tools' ? {} : { lookup: tool({ inputSchema: z.object({ query: z.string() }),
-					execute: () => { executions++; return 'done'; },
-				}) };
-				const result = (await create.LLMAgent.asStream({ model, tools, stopWhen: isStepCount(2),
-					...(controls === 'toolChoice-none' ? { toolChoice: 'none' as const } : { activeTools: [] }),
-				})('test'));
-				if (nativeFirst) assert.equal(await result.output, 'final');
-				const iterator = result.value[Symbol.asyncIterator]();
-				assert.equal((await iterator.next()).value, 'intermediate');
-				await assert.rejects(collect({ [Symbol.asyncIterator]: () => iterator }), NoOutputGeneratedError);
-				assert.equal(await result.output, 'final');
-				assert.deepEqual(await collect(result.textStream), ['intermediate', 'final']);
-				assert.equal((await result.messageHistory).at(-1)?.role, 'assistant');
-				assert.equal(model.doStreamCalls.length, 2);
-				assert.equal(Boolean(model.doStreamCalls[0].tools?.length), controls === 'toolChoice-none');
-				assert.equal(executions, controls === 'toolChoice-none' ? 1 : 0);
-			});
-		}
 	}
 
 	it('forwards the complete timeout configuration to the SDK without mutation', async () => {
@@ -1189,47 +541,11 @@ describe('SDK result augmentation', () => {
 		}
 	});
 
-	it('preserves SDK total timeout failure in value and native message availability', async () => {
-		const source = controlledModel();
-		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), timeout: 30 });
-		assert.ok(Symbol.asyncIterator in result.value);
-		const iterator = result.value[Symbol.asyncIterator]();
-		source.start();
-		assert.equal((await iterator.next()).value, 'first');
-		await assert.rejects(iterator.next(), { name: 'TimeoutError' });
-		await assert.rejects(async () => result.responseMessages, { name: 'TimeoutError' });
-		await assert.rejects(result.messageHistory, { name: 'TimeoutError' });
-	});
-
-	it('retains completed native results after a late abort or timeout', async () => {
-		const controller = new AbortController();
-		const result = streamTextWithResult({ model: mock({ content: [text('answer')] }), messages: conversation('test'), abortSignal: controller.signal, timeout: 40 });
-		assert.equal(await result.output, 'answer');
-		await delay(55);
-		controller.abort(new Error('late'));
-		assert.deepEqual(await value(result.value), ['answer']);
-		assert.equal((await result.messageHistory).length, 2);
-	});
-
-	it('preserves SDK step-timeout reasons and invokes the abort callback once', async () => {
-		const source = controlledModel();
-		let reason: unknown;
-		let aborts = 0;
-		const result = streamTextWithResult({ model: source.model, messages: conversation('test'), timeout: { stepMs: 20 },
-			onAbort: event => { reason = event.reason; aborts++; },
-		});
-		source.start();
-		await assert.rejects(async () => value(result.value), error => error === reason && error instanceof DOMException && error.name === 'TimeoutError');
-		await assert.rejects(async () => result.responseMessages, error => error === reason);
-		await assert.rejects(result.messageHistory, error => error === reason);
-		assert.equal(aborts, 1);
-	});
 });
-
 describe('Public generator and streamer augmentation', () => {
 	for (const streaming of [false, true]) {
 		for (const renderer of ['text', 'template', 'script', 'function', 'loaded-text', 'loaded-template', 'loaded-script']) {
-			it(`${streaming ? 'streamer' : 'generator'}: ${renderer} returns value and dynamic history from one execution`, async () => {
+			it(`${streaming ? 'streamer' : 'generator'}: ${renderer} returns native output and dynamic history from one execution`, async () => {
 				const model = mock({ content: [text('answer')] });
 				const config = { model, instructions: 'Static instruction.' };
 				const input = { ...config, context: { input: 'question' } };
@@ -1249,7 +565,7 @@ describe('Public generator and streamer augmentation', () => {
 										: streaming ? create.LLMAgent.loadsScript.asStream(loadedScript) : create.LLMAgent.loadsScript(loadedScript);
 				const history: ModelMessage[] = [{ role: 'assistant', content: 'Earlier answer.' }];
 				const result = await runtimeRun(component, { messageHistory: history });
-				assert.deepEqual(await value(result.value), streaming ? ['answer'] : 'answer');
+				assert.deepEqual(await result.output, 'answer');
 				assert.deepEqual(await result.messageHistory, [...history, { role: 'user', content: 'question' }, ...await result.responseMessages]);
 				assert.deepEqual((await result.response).messages, (await result.finalStep).response.messages);
 				assert.equal('messageHistory' in await result.response, false);
@@ -1264,7 +580,6 @@ describe('Public generator and streamer augmentation', () => {
 			const config = { model: mock({ content: [text('{"n":"3"}')] }), prompt: 'question', output };
 			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 			const result = await component();
-			assert.deepEqual(await result.value, { n: 3 });
 			assert.deepEqual(await result.output, { n: 3 });
 			assert.equal(parses, 1);
 		});
@@ -1333,7 +648,7 @@ describe('Result augmentation in tools and templates', () => {
 				prompt: ({ query }) => query, tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) },
 			});
 			const direct = await nested({ query: 'test' });
-			assert.throws(() => direct.value, NoOutputGeneratedError);
+			assert.equal('value' in direct, false);
 			const outerModel = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('Outer answer.')] });
 			const outer = await generateTextWithResult({ model: outerModel, messages: conversation('test'), tools: { lookup: nested }, stopWhen: isStepCount(2) });
 			const failure = outer.steps[0].content.find(part => part.type === 'tool-error');
@@ -1343,7 +658,7 @@ describe('Result augmentation in tools and templates', () => {
 			assert.ok(sent?.role === 'tool');
 			assert.equal(sent.content[0].type, 'tool-result');
 			assert.equal(sent.content[0].output.type, 'error-text');
-			assert.equal(outer.value, 'Outer answer.');
+			assert.equal(outer.output, 'Outer answer.');
 			assert.equal(model.doGenerateCalls.length, 2);
 		});
 	}
@@ -1376,7 +691,7 @@ describe('Result augmentation in tools and templates', () => {
 			prompt: ({ query }) => query,
 			output: Output.object({ schema: z.object({ n: z.string().transform(value => { parses++; return Number(value); }) }) }),
 		});
-		assert.deepEqual((await nested({ query: 'test' })).value, { n: 7 });
+		assert.deepEqual((await nested({ query: 'test' })).output, { n: 7 });
 		const result: { n: number } = await nested.execute({ query: 'test' }, { toolCallId: 'outer', messages: [], context: undefined });
 		assert.deepEqual(result, { n: 7 });
 		const outerModel = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] });
@@ -1390,21 +705,510 @@ describe('Result augmentation in tools and templates', () => {
 		assert.equal(model.doGenerateCalls.length, 3);
 	});
 
-	it('consumes a streaming value with a template loop using one execution', async () => {
+});
+describe('LLMAgent tool completion boundary', () => {
+	const options = { toolCallId: 'outer', messages: [], context: undefined };
+	it('native generation consults stop conditions only when another step is eligible', async () => {
+		// SDK-only canary for the tool adapter's cutoff observation; a final step
+		// count alone cannot distinguish a cutoff from natural completion.
+		for (const withTool of [false, true]) {
+			let checks = 0;
+			const model = mock({ content: [text('answer'), ...withTool ? [call()] : []] });
+			const result = await generateText({ model, prompt: 'question', tools: { lookup },
+				stopWhen: ({ steps }) => { checks++; assert.equal(steps.length, 1); return true; },
+			});
+			assert.equal(result.output, 'answer');
+			assert.equal(result.steps.length, 1);
+			assert.equal(checks, Number(withTool));
+			assert.equal(result.toolResults.length, Number(withTool));
+		}
+		const model = mock({ content: [call(), text('draft')] }, { content: [text('answer')] });
+		const result = await generateText({ model, prompt: 'question', tools: { lookup } });
+		assert.equal(model.doGenerateCalls.length, 1);
+		assert.equal(result.output, 'draft'); // Native default is still one model step.
+	});
+	for (const kind of ['default', 'limit', 'predicate', 'array', 'terminal'] as const) {
+		it(`rejects a ${kind} stop-condition cutoff even with schema-valid output and settled calls`, async () => {
+			let checks = 0, executions = 0, parses = 0;
+			const condition: StopCondition<ToolSet> = async () => { checks++; return true; };
+			const stopWhen = kind === 'default' ? undefined : kind === 'limit' ? isStepCount(2)
+				: kind === 'terminal' ? hasToolCall('lookup') : kind === 'array' ? [condition, () => false] : condition;
+			const model = mock({ content: [text('{"answer":"draft"}'), call()] }, { content: [text('{"answer":"draft"}'), call()] });
+			const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen,
+				output: Output.object({ schema: z.object({ answer: z.string() }).transform(value => { parses++; return value; }) }),
+				tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: () => { executions++; return 'done'; } }) },
+			});
+			await assert.rejects(async () => nested.execute({}, options), error => NoOutputGeneratedError.isInstance(error) && error.message.includes('stop condition'));
+			assert.equal(model.doGenerateCalls.length, kind === 'limit' ? 2 : 1);
+			assert.equal(executions, kind === 'limit' ? 2 : 1);
+			assert.equal(parses, 1);
+			assert.equal(checks, kind === 'predicate' || kind === 'array' ? 1 : 0);
+		});
+	}
+	for (const withTool of [false, true]) it(`accepts natural completion on the last allowed step, earlier tool=${withTool}`, async () => {
+		let checks = 0;
+		const limit = isStepCount(withTool ? 2 : 1);
+		const model = mock(...withTool ? [{ content: [call()], reason: 'tool-calls' as const }, { content: [text('answer')] }] : [{ content: [text('answer')] }]);
+		const nested = create.LLMAgent.asTool({ model, tools: { lookup }, prompt: 'question', inputSchema: z.object({}),
+			stopWhen: async input => { checks++; return limit(input); },
+		});
+		assert.equal(await nested.execute({}, options), 'answer');
+		assert.equal(checks, Number(withTool));
+		assert.equal(model.doGenerateCalls.length, withTool ? 2 : 1);
+	});
+	it('observes native concurrent stop predicates once and does not overwrite a true decision with false', async () => {
+		let release!: () => void;
+		const started = new Promise<void>(resolve => { release = resolve; });
+		const calls: string[] = [];
+		const nested = create.LLMAgent.asTool({ model: mock({ content: [call(), text('draft')] }), tools: { lookup },
+			prompt: 'question', inputSchema: z.object({}), stopWhen: [
+				async () => { calls.push('first'); await started; return false; },
+				() => { calls.push('second'); release(); return true; },
+			],
+		});
+		await assert.rejects(async () => nested.execute({}, options), /stop condition/);
+		assert.deepEqual(calls, ['first', 'second']);
+	});
+	for (const cutoff of [false, true]) it(`uses the hook-selected stop condition, cutoff=${cutoff}`, async () => {
+		let configuredChecks = 0, selectedChecks = 0;
+		const model = mock({ content: [call(), text('draft')] }, { content: [text('answer')] });
+		const nested = create.LLMAgent.asTool({ model, tools: { lookup }, prompt: 'question', inputSchema: z.object({}),
+			stopWhen: () => { configuredChecks++; return true; },
+			prepareCall: request => ({ ...request, stopWhen: () => { selectedChecks++; return cutoff; } }),
+		});
+		if (cutoff) await assert.rejects(async () => nested.execute({}, options), /stop condition/);
+		else assert.equal(await nested.execute({}, options), 'answer');
+		assert.equal(configuredChecks, 0);
+		assert.equal(selectedChecks, 1);
+		assert.equal(model.doGenerateCalls.length, cutoff ? 1 : 2);
+	});
+	for (const native of [false, true]) for (const asynchronous of [false, true]) it(`preserves stop predicate failure timing, native=${native}, asynchronous=${asynchronous}`, async () => {
+		const error = new Error('stop predicate failed');
+		let laterCalls = 0;
+		const config = { model: mock({ content: [call(), text('draft')] }), tools: { lookup }, prompt: 'question',
+			stopWhen: [asynchronous ? async () => { throw error; } : () => { throw error; },
+				() => { laterCalls++; return false; }] };
+		await assert.rejects(async () => native ? generateText(config) : create.LLMAgent.asTool({ ...config, inputSchema: z.object({}) }).execute({}, options), reason => reason === error);
+		assert.equal(laterCalls, Number(asynchronous));
+	});
+	for (const omitted of [false, true]) it(`uses the native default when the call hook clears stopWhen, omitted=${omitted}`, async () => {
+		let configuredChecks = 0;
+		const nested = create.LLMAgent.asTool({ model: mock({ content: [call(), text('draft')] }), tools: { lookup }, prompt: 'question', inputSchema: z.object({}),
+			stopWhen: () => { configuredChecks++; return false; },
+			prepareCall: ({ stopWhen: _stopWhen, ...request }) => omitted ? request : { ...request, stopWhen: undefined },
+		});
+		await assert.rejects(async () => nested.execute({}, options), /stop condition/);
+		assert.equal(configuredChecks, 0);
+	});
+	it('keeps cutoff state local to concurrent tool invocations', async () => {
+		const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => ({
+			content: prompt.some(message => message.role === 'tool') ? [text('answer')] : [call(), text('draft')],
+			finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [],
+		}) });
+		const nested = create.LLMAgent.asTool({ model, tools: { lookup }, prompt: 'question', inputSchema: z.object({ cutoff: z.boolean() }),
+			prepareCall: (request, _config, context) => ({ ...request, stopWhen: () => context.cutoff }),
+		});
+		const [cutoff, complete] = await Promise.allSettled([nested.execute({ cutoff: true }, options), nested.execute({ cutoff: false }, options)]);
+		assert.ok(cutoff.status === 'rejected' && NoOutputGeneratedError.isInstance(cutoff.reason) && cutoff.reason.message.includes('stop condition'));
+		assert.deepEqual(complete, { status: 'fulfilled', value: 'answer' });
+		assert.equal(model.doGenerateCalls.length, 3);
+	});
+	for (const injected of [false, true]) it(`delivers a cutoff as a tool failure to its caller, injected=${injected}`, async () => {
+		const innerModel = mock({ content: [call(), text('draft')] });
+		const nested = create.LLMAgent.asTool({ model: innerModel, tools: { lookup }, prompt: 'question', inputSchema: z.object({}) });
+		if (injected) {
+			const owner = create.Function({ tools: { nested }, execute: ({ nested }) => nested({}) });
+			await assert.rejects(owner(), /stop condition/);
+		} else {
+			const outerModel = mock({ content: [{ type: 'tool-call', toolCallId: 'outer', toolName: 'nested', input: '{}' }], reason: 'tool-calls' }, { content: [text('handled')] });
+			const result = await generateText({ model: outerModel, prompt: 'question', tools: { nested }, stopWhen: isStepCount(2) });
+			assert.equal(result.output, 'handled');
+			assert.ok(result.steps[0].content.some(part => part.type === 'tool-error' && NoOutputGeneratedError.isInstance(part.error) && part.error.message.includes('stop condition')));
+		}
+		assert.equal(innerModel.doGenerateCalls.length, 1);
+		assert.equal('resume' in nested, false);
+	});
+	for (const entry of ['ordinary', 'run', 'generate', 'stream'] as const) it(`keeps native cutoff results on the ${entry} entry path`, async () => {
+		const model = mock({ content: [call(), text('draft')] });
+		const config = { model, tools: { lookup }, prompt: 'question', inputSchema: z.object({}) };
+		const result = entry === 'ordinary' ? await create.LLMAgent.asTool(config)()
+			: entry === 'run' ? await create.LLMAgent.asTool(config).run({})
+				: entry === 'generate' ? await create.LLMAgent(config).generate({ messages: conversation('question') })
+					: await create.LLMAgent(config).stream({ messages: conversation('question') });
+		assert.equal(await result.output, 'draft');
+		assert.equal((await result.steps).length, 1);
+	});
+	it('awaits a native async approval policy and all inner steps as one tool invocation', async () => {
+		let enter!: () => void;
+		let decide!: (value: 'approved') => void;
+		const entered = new Promise<void>(resolve => { enter = resolve; });
+		const decision = new Promise<'approved'>(resolve => { decide = resolve; });
+		let executions = 0;
+		const model = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] });
+		const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(2),
+			tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: () => { executions++; return 'done'; } }) },
+			toolApproval: async () => { enter(); return decision; },
+		});
+		const running = nested.execute({}, options);
+		await entered;
+		assert.equal(executions, 0);
+		assert.equal(model.doGenerateCalls.length, 1);
+		decide('approved');
+		assert.equal(await running, 'answer');
+		assert.equal(executions, 1);
+		assert.equal(model.doGenerateCalls.length, 2);
+	});
+	for (const approved of [true, false]) for (const injected of [true, false]) {
+		it(`settles a provider approval sent by a step hook, approved=${approved}, injected=${injected}`, async () => {
+			const replay = mcpApprovalReplay({ complete: approved, bridge: true });
+			let executions = 0;
+			const nested = create.LLMAgent.asTool({ model: replay.model, prompt: 'Search.', inputSchema: z.object({}), maxRetries: 0, stopWhen: isStepCount(2),
+				tools: { ...replay.tools, bridge: tool({ inputSchema: z.object({}), execute: () => { executions++; return 'next'; } }) },
+				// Exercise a hook installed by prepareCall, after configuration resolution.
+				prepareCall: request => ({ ...request, prepareStep: async ({ stepNumber, messages }) => stepNumber === 1
+					? { messages: [...messages, { role: 'tool', content: [
+						{ type: 'tool-approval-response', approvalId: 'mcpr_fixture', approved, providerExecuted: true },
+					] }] } : undefined }),
+			});
+			const owner = create.Function({ tools: { nested }, execute: async ({ nested }) => nested({}) });
+			assert.equal(await (injected ? owner() : nested.execute({}, options)), 'done');
+			assert.equal(executions, 1);
+			assert.equal(replay.requests.length, 2);
+			assert.deepEqual(replay.requests[1].input.filter(part => part.type === 'mcp_approval_response'), [
+				{ type: 'mcp_approval_response', approval_request_id: 'mcpr_fixture', approve: approved },
+			]);
+		});
+	}
+	it('captures the decision position before a hook edits its response-message copy', async () => {
+		const replay = mcpApprovalReplay({ complete: true, bridge: true });
+		const nested = create.LLMAgent.asTool({ model: replay.model, prompt: 'Search.', inputSchema: z.object({}), maxRetries: 0, stopWhen: isStepCount(2),
+			tools: { ...replay.tools, bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }) },
+			prepareStep: ({ stepNumber, messages, responseMessages }) => {
+				if (stepNumber !== 1) return;
+				assert.ok(responseMessages.length > 0);
+				responseMessages.length = 0;
+				return { messages: [...messages, { role: 'tool', content: [
+					{ type: 'tool-approval-response', approvalId: 'mcpr_fixture', approved: true, providerExecuted: true },
+				] }] };
+			},
+		});
+		assert.equal(await nested.execute({}, options), 'done');
+		assert.equal(replay.requests.length, 2);
+		assert.deepEqual(replay.requests[1].input.filter(part => part.type === 'mcp_approval_response'), [
+			{ type: 'mcp_approval_response', approval_request_id: 'mcpr_fixture', approve: true },
+		]);
+	});
+	for (const decision of ['missing', 'unknown', 'local', 'provider'] as const) for (const deferred of [false, true]) {
+		it(`hook approval completion respects ${decision} decisions and deferred=${deferred}`, async () => {
+			const model = mock({ content: [call(true), { type: 'tool-approval-request', approvalId: 'approval', toolCallId: 'call' },
+				{ type: 'tool-call', toolCallId: 'bridge', toolName: 'bridge', input: '{}' }], reason: 'tool-calls' }, { content: [text('answer')] });
+			const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(2), tools: {
+				lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true, supportsDeferredResults: deferred,
+					inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+				bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }),
+			}, prepareStep: ({ stepNumber, messages }) => stepNumber === 1 ? { messages: [...messages, { role: 'tool', content:
+				decision === 'missing' ? [] : [{ type: 'tool-approval-response', approvalId: decision === 'unknown' ? 'other' : 'approval',
+					approved: true, providerExecuted: decision !== 'local' }] }] } : undefined });
+			if (decision === 'provider' && !deferred) assert.equal(await nested.execute({}, options), 'answer');
+			else await assert.rejects(async () => nested.execute({}, options), /pending/);
+			assert.equal(model.doGenerateCalls.length, 2);
+		});
+	}
+	for (const early of [false, true]) it(`hook approvals cannot settle a later definition, supplied before first call=${early}`, async () => {
+		const model = mock({ content: [call(true), { type: 'tool-approval-request', approvalId: 'approval', toolCallId: 'call' },
+			{ type: 'tool-call', toolCallId: 'bridge', toolName: 'bridge', input: '{}' }], reason: 'tool-calls' },
+		{ content: early ? [text('answer')] : [call(true), { type: 'tool-approval-request', approvalId: 'new-approval', toolCallId: 'call' }, text('answer')] });
+		const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(2), tools: {
+			lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+			bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }),
+		}, prepareStep: ({ stepNumber, messages }) => stepNumber === (early ? 0 : 1) ? { messages: [...messages, { role: 'tool', content: [
+			{ type: 'tool-approval-response', approvalId: 'approval', approved: true, providerExecuted: true },
+		] }] } : undefined });
+		await assert.rejects(async () => nested.execute({}, options), /pending/);
+		assert.equal(model.doGenerateCalls.length, 2);
+	});
+	it('an old hook approval cannot settle a redefined call even when sent after the new request', async () => {
+		const first: Step = { content: [call(true), { type: 'tool-approval-request', approvalId: 'old', toolCallId: 'call' },
+			{ type: 'tool-call', toolCallId: 'bridge-1', toolName: 'bridge', input: '{}' }], reason: 'tool-calls' };
+		const second: Step = { content: [call(true), { type: 'tool-approval-request', approvalId: 'new', toolCallId: 'call' },
+			{ type: 'tool-call', toolCallId: 'bridge-2', toolName: 'bridge', input: '{}' }], reason: 'tool-calls' };
+		for (const approvalId of ['old', 'new']) {
+			const nested = create.LLMAgent.asTool({ model: mock(first, second, { content: [text('answer')] }), prompt: 'question', inputSchema: z.object({}),
+				stopWhen: isStepCount(3), tools: {
+					lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+						inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+					bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }),
+				}, prepareStep: ({ stepNumber, messages }) => stepNumber === 2 ? { messages: [...messages, { role: 'tool', content: [
+					{ type: 'tool-approval-response', approvalId, approved: true, providerExecuted: true },
+				] }] } : undefined });
+			if (approvalId === 'new') assert.equal(await nested.execute({}, options), 'answer');
+			else await assert.rejects(async () => nested.execute({}, options), /pending/);
+		}
+	});
+	it('keeps hook decisions local to concurrent invocations of one tool', async () => {
+		const first: Step = { content: [call(true), { type: 'tool-approval-request', approvalId: 'approval', toolCallId: 'call' },
+			{ type: 'tool-call', toolCallId: 'bridge', toolName: 'bridge', input: '{}' }], reason: 'tool-calls' };
+		const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => ({
+			content: prompt.some(message => message.role === 'tool') ? [text('answer')] : first.content,
+			finishReason: { unified: 'stop', raw: 'stop' }, usage, warnings: [],
+		}) });
+		const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({ approve: z.boolean() }), stopWhen: isStepCount(2), tools: {
+			lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+			bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }),
+		}, prepareStep: async ({ stepNumber, messages }, _config, context) => stepNumber === 1 && context.approve
+			? { messages: [...messages, { role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'approval', approved: true, providerExecuted: true }] }] }
+			: undefined });
+		const [approved, waiting] = await Promise.allSettled([nested.execute({ approve: true }, options), nested.execute({ approve: false }, options)]);
+		assert.deepEqual(approved, { status: 'fulfilled', value: 'answer' });
+		assert.equal(waiting.status, 'rejected');
+		assert.ok(waiting.status === 'rejected' && NoOutputGeneratedError.isInstance(waiting.reason));
+		assert.equal(model.doGenerateCalls.length, 4);
+	});
+	for (const deferred of [false, true]) it(`hook settlement preserves native empty text output, deferred=${deferred}`, async () => {
+		const nested = create.LLMAgent.asTool({ prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(2), tools: {
+			lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true, supportsDeferredResults: deferred,
+				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+			bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }),
+		}, model: mock({ content: [call(true), { type: 'tool-approval-request', approvalId: 'approval', toolCallId: 'call' },
+			{ type: 'tool-call', toolCallId: 'bridge', toolName: 'bridge', input: '{}' }], reason: 'tool-calls' },
+		{ content: deferred ? [{ type: 'tool-result', toolCallId: 'call', toolName: 'lookup', result: 'done' }] : [] }),
+		prepareStep: ({ stepNumber, messages }) => stepNumber === 1 ? { messages: [...messages, { role: 'tool', content: [
+			{ type: 'tool-approval-response', approvalId: 'approval', approved: true, providerExecuted: true },
+		] }] } : undefined });
+		assert.equal(await nested.execute({}, options), '');
+	});
+	it('preserves native failure when a step fails after the hook supplies approval', async () => {
+		const error = new Error('step failed');
+		const model = mock({ content: [call(true), { type: 'tool-approval-request', approvalId: 'approval', toolCallId: 'call' },
+			{ type: 'tool-call', toolCallId: 'bridge', toolName: 'bridge', input: '{}' }, text('unfinished')], reason: 'stop' });
+		const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(2), tools: {
+			lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+			bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }),
+		}, prepareStep: ({ stepNumber, messages }) => stepNumber === 1 ? {
+			model: new MockLanguageModelV3({ doGenerate: () => { throw error; } }),
+			messages: [...messages, { role: 'tool', content: [
+				{ type: 'tool-approval-response', approvalId: 'approval', approved: true, providerExecuted: true },
+			] }],
+		} : undefined, maxRetries: 0 });
+		await assert.rejects(async () => nested.execute({}, options), reason => reason === error);
+	});
+	for (const kind of ['local', 'provider', 'deferred'] as const) it(`a result cannot settle a later same-ID ${kind} call in this run`, async () => {
+		const provider = kind !== 'local';
+		const tools = { lookup: provider ? tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+			supportsDeferredResults: kind === 'deferred', inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) : tool({ inputSchema: z.object({ query: z.string() }) }) };
+		const nested = create.LLMAgent.asTool({ model: mock({ content: [
+			call(true), { type: 'tool-result', toolCallId: 'call', toolName: 'lookup', result: 'old result' },
+			{ type: 'tool-call', toolCallId: 'bridge', toolName: 'bridge', input: '{}' },
+		], reason: 'tool-calls' }, { content: [call(provider), { type: 'tool-approval-request', approvalId: 'new-approval', toolCallId: 'call' }, text('answer')] }),
+		prompt: 'question', tools: { ...tools, bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }) }, inputSchema: z.object({}), stopWhen: isStepCount(2) });
+		await assert.rejects(async () => nested.execute({}, options), /pending/);
+	});
+	it('a new non-deferred definition resets Casai wait without bypassing an SDK cutoff', async () => {
+		const nested = create.LLMAgent.asTool({ model: mock({ content: [call(true)], reason: 'tool-calls' }, { content: [
+			{ type: 'tool-call', toolCallId: 'call', toolName: 'completed', input: '{}', providerExecuted: true }, text('answer'),
+		] }), prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(2), tools: {
+			lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true, supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+			completed: tool({ type: 'provider', id: 'fixture.completed', args: {}, isProviderExecuted: true, inputSchema: z.object({}), outputSchema: z.unknown() }),
+		} });
+		await assert.rejects(async () => nested.execute({}, options), /stop condition/);
+	});
+	it('the tool adapter accepts the SDK response type\'s string-content representation', async () => {
 		const model = mock({ content: [text('answer')] });
-		const writer = create.LLMAgent.asStream({ model });
-		const render = create.Template({ template: 'Before {% for chunk in writer("test").value %}{{ chunk }}{% endfor %} after', context: { writer } });
-		assert.equal(await render(), 'Before answer after');
-		assert.equal(model.doStreamCalls.length, 1);
+		const result = await generateText({ model, prompt: 'question' });
+		// Native generation emits arrays today; its public response type also permits text strings.
+		result.response.messages[0].content = 'answer';
+		assert.equal(generateToolOutput(result, undefined), 'answer');
+		assert.equal(model.doGenerateCalls.length, 1);
 	});
+	it('the tool adapter keeps an unclassified response approval pending', async () => {
+		const result = await generateText({ model: mock({ content: [text('answer')] }), prompt: 'question' });
+		// Exercise the adapter's conservative fallback, not a claim that this
+		// installed SDK emits approvals without their call definitions.
+		result.response.messages[0].content = [{ type: 'tool-approval-request', approvalId: 'unknown', toolCallId: 'unknown' }];
+		assert.throws(() => generateToolOutput(result, undefined, [{ responseMessageCount: 1, approvalIds: ['unknown'] }]), /pending/);
+	});
+	it('a template consumes native live text, including intermediate commentary, with one execution', async () => {
+		const model = mock({ content: [text('checking'), call()], reason: 'tool-calls' }, { content: [text('answer')] });
+		const writer = create.LLMAgent.asStream({ model, tools: { lookup }, stopWhen: isStepCount(2) });
+		const render = create.Template({ context: { writer }, template: '{% for chunk in writer("question").textStream %}{{ chunk }}{% endfor %}' });
+		assert.equal(await render(), 'checkinganswer');
+		assert.equal(model.doStreamCalls.length, 2);
+	});
+	for (const streaming of [false, true]) it(`native output can satisfy a schema with unresolved work, streaming=${streaming}`, async () => {
+		const output = Output.object({ schema: z.object({ answer: z.string() }) });
+		const config = { model: mock({ content: [text('{"answer":"Looks complete"}'), call()] }), output,
+			tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) } };
+		const result = await (streaming ? create.LLMAgent.asStream(config)('question') : create.LLMAgent(config)('question'));
+		assert.deepEqual(await result.output, { answer: 'Looks complete' });
+		assert.equal((await result.toolCalls).length, 1);
+		assert.equal((await result.toolResults).length, 0);
+		assert.equal('value' in result, false);
+	});
+	it('rejects that schema-valid incomplete output as a tool, and accepts a settled neighbor', async () => {
+		for (const settled of [false, true]) {
+			let parses = 0;
+			const nested = create.LLMAgent.asTool({ model: mock({ content: [text('{"answer":"Looks complete"}'), call()] }, { content: [text('{"answer":"Looks complete"}')] }), stopWhen: isStepCount(2),
+				inputSchema: z.object({}), prompt: 'question', output: Output.object({ schema: z.object({ answer: z.string() }).transform(value => { parses++; return value; }) }),
+				tools: { lookup: settled ? lookup : tool({ inputSchema: z.object({ query: z.string() }) }) } });
+			if (settled) assert.deepEqual(await nested.execute({}, options), { answer: 'Looks complete' });
+			else await assert.rejects(async () => nested.execute({}, options), /tool results or approvals are pending/);
+			assert.equal(parses, 1);
+		}
+	});
+	for (const reason of ['stop', 'length', 'content-filter', 'other', 'error', 'tool-calls'] as const) for (const answer of ['', 'answer']) {
+		it(`tool completion with ${reason} and ${answer ? 'nonempty' : 'empty'} text`, async () => {
+			const nested = create.LLMAgent.asTool({ model: mock({ content: [text(answer)], reason }), inputSchema: z.object({}), prompt: 'question' });
+			if (reason === 'error' || reason === 'tool-calls' || reason !== 'stop' && answer === '') await assert.rejects(async () => nested.execute({}, options), NoOutputGeneratedError);
+			else assert.equal(await nested.execute({}, options), answer);
+		});
+	}
+	it('rejects an explicit provider pause even with text and no pending tools', async () => {
+		const nested = create.LLMAgent.asTool({ model: mock({ content: [text('Working.')], raw: 'pause_turn' }), inputSchema: z.object({}), prompt: 'question' });
+		await assert.rejects(async () => nested.execute({}, options), /provider paused/);
+	});
+	for (const deferred of [false, true]) for (const policy of ['generic', 'per-tool'] as const) for (const resolved of [false, true]) {
+		it(`tool provider automatic approval: deferred=${deferred}, ${policy}, result=${resolved}`, async () => {
+			const provider = tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+				supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() });
+			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question', tools: { lookup: provider },
+				toolApproval: policy === 'generic' ? () => 'approved' : { lookup: 'approved' },
+				model: mock({ content: [call(true), ...resolved ? [{ type: 'tool-result' as const, toolCallId: 'call', toolName: 'lookup', result: 'done' }] : [], text('answer')] }) });
+			if (deferred && !resolved) await assert.rejects(async () => nested.execute({}, options), /pending/);
+			else assert.equal(await nested.execute({}, options), 'answer');
+		});
+	}
+	for (const deferred of [false, true]) for (const resolved of [false, true]) {
+		it(`a later user-approval request preserves provider result settlement: deferred=${deferred}, result=${resolved}`, async () => {
+			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question',
+				tools: { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+					supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) },
+				toolApproval: () => 'user-approval', model: mock({ content: [call(true),
+					...resolved ? [{ type: 'tool-result' as const, toolCallId: 'call', toolName: 'lookup', result: 'done' }] : [], text('answer')] }) });
+			if (resolved) assert.equal(await nested.execute({}, options), 'answer');
+			else await assert.rejects(async () => nested.execute({}, options), /pending/);
+		});
+	}
+	for (const deferred of [false, true]) for (const decision of ['approved', 'denied', 'user-approval'] as const) {
+		it(`a provider request followed by SDK ${decision} retains its completion rule, deferred=${deferred}`, async () => {
+			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question',
+				tools: { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+					supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) },
+				toolApproval: () => decision, model: mock({ content: [call(true),
+					{ type: 'tool-approval-request', approvalId: 'provider-approval', toolCallId: 'call' }, text('answer')] }) });
+			if (decision === 'denied') assert.equal(await nested.execute({}, options), 'answer');
+			else await assert.rejects(async () => nested.execute({}, options), /pending/);
+		});
+	}
+	for (const injected of [false, true]) it(`rejects an automatic provider approval that was never sent, injected=${injected}`, async () => {
+		const step: Step = { content: [call(true), { type: 'tool-approval-request', approvalId: 'provider-approval', toolCallId: 'call' }, text('Waiting for approval.')] };
+		const model = mock(step, step);
+		const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(20),
+			tools: { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+				inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) }, toolApproval: { lookup: 'approved' } });
+		const result = await nested();
+		assert.equal(result.output, 'Waiting for approval.');
+		const parts = result.responseMessages.flatMap(message => typeof message.content === 'string' ? [] : [...message.content]);
+		assert.equal(parts.some(part => part.type === 'tool-result'), false);
+		const decisions = parts.filter(part => part.type === 'tool-approval-response');
+		assert.equal(decisions.length, 1);
+		assert.notEqual(decisions[0].approvalId, 'provider-approval');
+		assert.equal(model.doGenerateCalls.length, 1);
+		const owner = create.Function({ tools: { nested }, execute: ({ nested }) => nested({}) });
+		await assert.rejects(async () => injected ? owner() : nested.execute({}, options), /pending/);
+		assert.equal(model.doGenerateCalls.length, 2, 'Each invocation makes only one provider request.');
+	});
+	for (const policy of ['approved', 'user-approval'] as const) for (const selected of ['retained', 'provider', 'sdk', 'both'] as const) {
+		it(`matches each provider approval ID across hook transport: ${policy}, ${selected}`, async () => {
+			const model = mock({ content: [call(true), { type: 'tool-approval-request', approvalId: 'provider-approval', toolCallId: 'call' },
+				{ type: 'tool-call', toolCallId: 'bridge', toolName: 'bridge', input: '{}' }], reason: 'tool-calls' }, { content: [text('answer')] });
+			let sdkApprovalId: string | undefined;
+			const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(2),
+				tools: {
+					lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+						inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }),
+					bridge: tool({ inputSchema: z.object({}), execute: () => 'next' }),
+				}, toolApproval: { lookup: policy }, prepareStep: ({ stepNumber, messages, responseMessages }) => {
+					if (stepNumber === 0) return;
+					const requests = responseMessages.flatMap(message => typeof message.content === 'string' ? [] : [...message.content])
+						.filter(part => part.type === 'tool-approval-request');
+					sdkApprovalId = requests.find(part => part.approvalId !== 'provider-approval')?.approvalId;
+					assert.ok(sdkApprovalId);
+					const ids = selected === 'both' ? ['provider-approval', sdkApprovalId] : selected === 'provider' ? ['provider-approval'] : selected === 'sdk' ? [sdkApprovalId] : [];
+					return { messages: [...messages, ...ids.length ? [{ role: 'tool' as const, content: ids.map(approvalId => ({
+						type: 'tool-approval-response' as const, approvalId, approved: true, providerExecuted: true,
+					})) }] : []] };
+				} });
+			if (selected === 'both' || policy === 'approved' && selected === 'provider') assert.equal(await nested.execute({}, options), 'answer');
+			else await assert.rejects(async () => nested.execute({}, options), /pending/);
+			assert.equal(model.doGenerateCalls.length, 2);
+			const sent = model.doGenerateCalls[1].prompt.flatMap(message => message.role === 'tool' ? message.content : [])
+				.filter(part => part.type === 'tool-approval-response').map(part => part.approvalId);
+			assert.equal(sent.includes('provider-approval'), selected === 'provider' || selected === 'both');
+			assert.equal(sent.includes(sdkApprovalId!), policy === 'approved' || selected === 'sdk' || selected === 'both');
+		});
+	}
+	for (const kind of ['local', 'provider', 'deferred'] as const) {
+		it(`a denied ${kind} call emitted by this run is settled`, async () => {
+			let executions = 0;
+			const provider = kind !== 'local';
+			const tools = { lookup: provider ? tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+				supportsDeferredResults: kind === 'deferred', inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() })
+				: tool({ inputSchema: z.object({ query: z.string() }), execute: () => { executions++; return 'done'; } }) };
+			const nested = create.LLMAgent.asTool({ model: mock({ content: [call(provider), text('answer')] }, { content: [text('answer')] }), tools, stopWhen: isStepCount(2),
+				prompt: 'question', inputSchema: z.object({}), toolApproval: () => 'denied' });
+			assert.equal(await nested.execute({}, options), 'answer');
+			assert.equal(executions, 0);
+		});
+	}
+	for (const rendered of [false, true]) it(`a hook may remove incoming work without blocking tool output, rendered=${rendered}`, async () => {
+		const history: ModelMessage[] = [{ role: 'user', content: 'original' }, { role: 'assistant', content: [
+			{ type: 'tool-call', toolCallId: 'old', toolName: 'lookup', input: { query: 'old' } },
+			{ type: 'tool-approval-request', approvalId: 'old-approval', toolCallId: 'old' },
+		] }];
+		const original = JSON.stringify(history);
+		const model = mock({ content: [text('answer')] });
+		const config = { model, inputSchema: z.object({}) };
+		const nested = rendered
+			? create.LLMAgent.withFunction.asTool({ ...config, prompt: () => history, prepareCall: request => ({ ...request, messages: conversation('trimmed') }) })
+			: create.LLMAgent.asTool({ ...config, prompt: history, prepareCall: request => ({ ...request, messages: conversation('trimmed') }) });
+		assert.equal(await nested.execute({}, options), 'answer');
+		assert.deepEqual(model.doGenerateCalls[0].prompt, [{ role: 'user', content: [{ type: 'text', text: 'trimmed' }], providerOptions: undefined }]);
+		assert.equal(JSON.stringify(history), original);
+	});
+	it('incoming deferred provider work follows native handling even when sent to the model', async () => {
+		const model = mock({ content: [text('answer')] });
+		const nested = create.LLMAgent.asTool({ model, prompt: [{ role: 'user', content: 'original' }, { role: 'assistant', content: [
+			{ type: 'tool-call', toolCallId: 'old', toolName: 'lookup', input: { query: 'old' }, providerExecuted: true },
+		] }], inputSchema: z.object({}), tools: { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
+			supportsDeferredResults: true, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) } });
+		assert.equal(await nested.execute({}, options), 'answer');
+		assert.equal(model.doGenerateCalls[0].prompt[1].role, 'assistant');
+	});
+	for (const approved of [false, true]) it(`native incoming approval outcomes need no response-local call definition, approved=${approved}`, async () => {
+		let executions = 0;
+		const nested = create.LLMAgent.asTool({ model: mock({ content: [text('answer')] }), inputSchema: z.object({}), prompt: [
+			{ role: 'user', content: 'original' }, { role: 'assistant', content: [
+				{ type: 'tool-call', toolCallId: 'old', toolName: 'lookup', input: { query: 'old' } },
+				{ type: 'tool-approval-request', approvalId: 'old-approval', toolCallId: 'old' },
+			] }, { role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'old-approval', approved }] },
+		], tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: () => { executions++; return 'done'; } }) } });
+		assert.equal(await nested.execute({}, options), 'answer');
+		assert.equal(executions, approved ? 1 : 0);
+	});
+});
 
-	it('propagates unavailable streaming value through a template loop', async () => {
-		const model = mock({ content: [text('Let me check.'), call()], reason: 'tool-calls' });
-		const writer = create.LLMAgent.asStream({ model, tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }) }) } });
-		const render = create.Template({ template: '{% for chunk in writer("test").value %}{{ chunk }}{% endfor %}', context: { writer } });
-		await assert.rejects(render(), /ended with tool calls and no final application output/);
-		assert.equal(model.doStreamCalls.length, 1);
-	});
+// SDK-only canary: the tool adapter delegates these output eligibility rules to generation.
+describe('Native generation output availability', () => {
+	for (const reason of ['stop', 'length', 'content-filter', 'other', 'error', 'tool-calls'] as const) for (const answer of ['', 'answer']) {
+		it(`${reason} with ${answer ? 'nonempty' : 'empty'} text`, async () => {
+			const result = await generateText({ model: mock({ content: [text(answer)], reason }), prompt: 'question' });
+			if (reason === 'tool-calls' || reason !== 'stop' && answer === '') assert.throws(() => result.output, NoOutputGeneratedError);
+			else assert.equal(result.output, answer);
+		});
+	}
 });
 
 describe('Object result augmentation', () => {
@@ -1419,11 +1223,10 @@ describe('Object result augmentation', () => {
 			assert.equal('value' in { ...result }, false);
 			assert.equal('value' in Object.assign({}, result), false);
 			assert.doesNotThrow(() => JSON.stringify(result));
-			assert.equal(result.value, result.value);
-			assert.equal(await result.value, await result.output);
+			assert.equal('value' in result, false);
 			if ('partialOutputStream' in result) await collect(result.partialOutputStream);
-			assert.deepEqual(await result.value, { n: 3 });
-			assert.equal(await result.value, await result.output);
+			assert.deepEqual(await result.output, { n: 3 });
+			assert.equal('value' in result, false);
 			assert.equal(parses, 1);
 			assert.equal(model.doGenerateCalls.length, streaming ? 0 : 1);
 			assert.equal(model.doStreamCalls.length, streaming ? 1 : 0);
@@ -1436,10 +1239,8 @@ describe('Object result augmentation', () => {
 			const config = { model, prompt: 'question', output: Output.array({ element: z.number() }) };
 			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 			const result = await component();
-			assert.equal(result.value, result.value);
-			assert.equal(await result.value, await result.output);
+			assert.equal('value' in result, false);
 			if ('elementStream' in result) assert.deepEqual(await collect(result.elementStream), [1, 2]);
-			assert.deepEqual(await result.value, [1, 2]);
 			assert.deepEqual(await result.output, [1, 2]);
 			assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 1);
 		});
@@ -1449,29 +1250,29 @@ describe('Object result augmentation', () => {
 			const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 			const result = await component();
 			if ('textStream' in result) assert.deepEqual(await collect(result.textStream), ['[1,2]']);
-			assert.deepEqual(await result.value, [1, 2]);
-			assert.equal(await result.value, await result.output);
+			assert.deepEqual(await result.output, [1, 2]);
+			assert.equal('value' in result, false);
 		});
 	}
 
 	it('retains choice values and native response metadata', async () => {
 		const result = await create.LLMAgent({ model: mock({ content: [text('{"result":"yes"}')] }), prompt: 'question', output: Output.choice({ options: ['yes', 'no'] }) })();
-		assert.equal(result.value, 'yes');
+		assert.equal(result.output, 'yes');
 		assert.equal(result.response.messages.at(-1)?.role, 'assistant');
 	});
 
 	it('forwards native validation failures through the completed streaming value', async () => {
 		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('{"n":"invalid"}')] }), prompt: 'question', output: Output.object({ schema: z.object({ n: z.number() }) }) })());
-		assert.equal(result.value, result.value);
+		assert.equal('value' in result, false);
 		await collect(result.stream);
 		const error = await Promise.resolve(result.output).catch((error: unknown) => error);
-		await assert.rejects(result.value, caught => caught === error);
+		await assert.rejects(async () => result.output, caught => caught === error);
 	});
 
 	it('rejects array value when the completed array fails validation', async () => {
 		const result = (await create.LLMAgent.asStream({ model: mock({ content: [text('{"elements":[1,"invalid"]}')] }), prompt: 'question', output: Output.array({ element: z.number() }) })());
 		await collect(result.stream);
-		await assert.rejects(result.value);
+		await assert.rejects(async () => result.output);
 		await assert.rejects(async () => result.output);
 	});
 });

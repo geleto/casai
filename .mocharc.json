@@ -23,6 +23,8 @@
 		"tests/LoaderComposition.unit.test.ts",
 		"tests/MessageHistory.test.ts",
 		"tests/NativeSchemaBehavior.unit.test.ts",
+		"tests/NativeMCPHistory.unit.test.ts",
+		"tests/NativeProviderApprovals.unit.test.ts",
 		"tests/Phase2Lifecycle.unit.test.ts",
 		"tests/Phase2NativeSecurityControls.unit.test.ts",
 		"tests/ProductionSecurityLifecycle.unit.test.ts",

@@ -22,10 +22,10 @@ const standard = create.LLMAgent.asStream({ model, output: standardOutput });
 const native = create.LLMAgent({ model, output: nativeOutput });
 const miniature = create.LLMAgent({ model, output: miniOutput });
 const legacy = create.LLMAgent({ model, output: legacyOutput });
-expectEqual<Awaited<Awaited<ReturnType<typeof standard>>['value']>, { count: number }>();
-expectEqual<Awaited<ReturnType<typeof native>>['value'], { count: number }>();
-expectEqual<Awaited<ReturnType<typeof miniature>>['value'], { count: number }>();
-expectEqual<Awaited<ReturnType<typeof legacy>>['value'], { count: number }>();
+expectEqual<Awaited<Awaited<ReturnType<typeof standard>>['output']>, { count: number }>();
+expectEqual<Awaited<ReturnType<typeof native>>['output'], { count: number }>();
+expectEqual<Awaited<ReturnType<typeof miniature>>['output'], { count: number }>();
+expectEqual<Awaited<ReturnType<typeof legacy>>['output'], { count: number }>();
 
 const operation = create.Function.asTool({
 	inputSchema: z.object({ amount: transformed }), schema: transformed,

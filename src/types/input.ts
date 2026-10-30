@@ -23,7 +23,7 @@ type RendererArguments<TConfig, Key extends string> = [TConfig] extends [Record<
 type ValidateRendererArguments<TArgs extends unknown[]> = TArgs extends [infer FIRST, ...infer REST]
 	? [FIRST] extends [string] ? ValidateContextValue<REST[0]> : ValidateContextValue<FIRST> : unknown;
 
-type ValidateMessageArgument<T> = [Extract<T, readonly unknown[]>] extends [ModelMessage[]] ? unknown : never;
+type ValidateMessageArgument<T> = [Extract<T, readonly unknown[]>] extends [readonly ModelMessage[]] ? unknown : never;
 type ValidateAgentSource<T, Allowed> = [Extract<T, readonly unknown[] | ((...args: never[]) => unknown)>] extends
 	[Extract<Allowed, readonly unknown[] | ((...args: never[]) => unknown)>] ? unknown : never;
 type ContextArgument<A extends unknown[]> = A extends [infer First, ...infer Rest]

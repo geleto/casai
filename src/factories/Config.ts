@@ -44,10 +44,10 @@ type ConfigFactory = <
 		& ValidateConfigFragment<TConfig, [TParentConfig] extends [never] ? TConfig : MergedConfig<TParentConfig, TConfig>,
 			Partial<configs.AnyConfigShape<ToolSet, Record<string, any>, unknown>>>,
 	...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig>]
-) => configs.ConfigProvider<[TParentConfig] extends [never]
+) => NoInfer<configs.ConfigProvider<[TParentConfig] extends [never]
 	? ProcessedConfig<ResolvedConfig<TConfig>>
-	// The expected return type must not infer a parent that was never supplied.
-	: MergedConfig<NoInfer<TParentConfig>, ResolvedConfig<TConfig>>>;
+	// Block return-driven inference around the complete result, so parent alternatives still distribute.
+	: MergedConfig<TParentConfig, ResolvedConfig<TConfig>>>>;
 
 // Implementation
 export const Config = (function Config(

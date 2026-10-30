@@ -1,15 +1,17 @@
-import type { LanguageModel, ModelMessage, OutputInterface } from 'ai';
+import type { LanguageModel, ModelMessage, OutputInterface, StopCondition, ToolSet } from 'ai';
+import { isStepCount } from 'ai';
 import type { CascadaConfig } from '../types/config.js';
 import type { AnyPromptSource, PromptType } from '../types/prompt.js';
 import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry } from '../types/execution.js';
 import type { GenerateRequest, StreamRequest, PrepareStepOptions } from '../types/sdk.js';
 import type { Fields } from '../types/utils.js';
 import { isRecord } from '@ai-sdk/provider-utils';
-import { generateTextWithResult, streamTextWithResult } from './augment-result.js';
+import { generateTextWithResult, generateToolOutput, streamTextWithResult } from './augment-result.js';
+import type { ToolStepApprovals } from './augment-result.js';
 import { mergeConfigs } from '../config/config-utils.js';
 import { createPromptRenderer } from '../renderers/prompt-renderers.js';
 import { defineTool, descriptorKeys, namedArguments, prepareExecution, prepareRegistry, validateRegistryConfig } from './execution.js';
-import { ConfigError, ValidationError } from '../errors.js';
+import { ValidationError } from '../errors.js';
 import { requireContextObject } from '../schema.js';
 import { validateConfigBasics, validateMessagesArray } from '../config/validate.js';
 import { observers, aliases, protectedSettings, streamingSettings, agentSourceConflicts, fixedSettings } from './agent-settings-policy.js';
@@ -29,10 +31,6 @@ export type RuntimeAgentConfig = ExecutionConfig & CascadaConfig & Fields & {
 
 export const componentSettings = ['prompt', 'messageHistory', 'context', 'inputSchema', 'toolContextSchema', 'promptType', 'filters',
 	'renderOptions', 'loader', 'id', 'streaming', 'asTool', 'debug', 'prepareCall', ...descriptorKeys.filter(key => key !== 'providerOptions')] as const;
-function rejectSettings(settings: Fields, keys: readonly string[], ErrorClass: typeof ConfigError | typeof ValidationError) {
-	const invalid = keys.filter(key => Object.hasOwn(settings, key));
-	if (invalid.length) throw new ErrorClass(`Unsupported LLMAgent settings: ${invalid.join(', ')}.`);
-}
 
 /** Positional calls select source, context, then history. Only marked Cascada keywords may follow history. */
 function callSettings(args: readonly unknown[], promptType: PromptType): Fields {
@@ -57,10 +55,10 @@ function callSettings(args: readonly unknown[], promptType: PromptType): Fields 
 	return { prompt: source, context, messageHistory: history };
 }
 
-function messages(prompt: unknown, literal: boolean): ModelMessage[] {
+function messages(prompt: unknown): ModelMessage[] {
+	if (prompt === undefined) return [];
 	if (typeof prompt === 'string') return [{ role: 'user', content: prompt }];
 	if (Array.isArray(prompt)) return [...prompt as ModelMessage[]];
-	if (prompt === undefined && !literal) return [];
 	throw new ValidationError('A literal prompt must be text or model messages.');
 }
 
@@ -79,7 +77,6 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 		const supplied = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined));
 		if (native) {
 			if (supplied.prompt !== undefined && supplied.messages !== undefined) throw new ValidationError('Supply prompt or messages, not both.');
-			if (supplied.prompt === undefined && supplied.messages === undefined) throw new ValidationError('A native agent call requires prompt or messages.');
 			if (supplied.options !== undefined) supplied.context = supplied.options;
 			delete supplied.options;
 			for (const [key, alias] of Object.entries(aliases)) {
@@ -89,16 +86,17 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 		} else {
 			validateConfigBasics(raw, ValidationError);
 		}
-		rejectSettings(raw, [...fixedSettings, ...agentSourceConflicts], ValidationError);
-		const literal = native ? messages(supplied.messages ?? supplied.prompt, true) : undefined;
+		const invalid = [...fixedSettings, ...agentSourceConflicts].filter(key => Object.hasOwn(raw, key));
+		if (invalid.length) throw new ValidationError(`Unsupported LLMAgent settings: ${invalid.join(', ')}.`);
+		const literal = native ? messages(supplied.messages !== undefined ? supplied.messages : supplied.prompt) : undefined;
 		delete supplied.messages;
 		if (native) delete supplied.prompt;
 		if (Array.isArray(supplied.prompt)) supplied.prompt = [...supplied.prompt as ModelMessage[]];
-		// The SDK validates the hook's request, but history and output checks retain the original conversation.
+		// The SDK validates the hook's request, but retained history uses the original conversation.
 		for (const original of [supplied.messageHistory, literal, Array.isArray(supplied.prompt) ? supplied.prompt : undefined]) {
 			validateMessagesArray(original, ValidationError);
 		}
-		const history = supplied.messageHistory === undefined ? [] : [...supplied.messageHistory as ModelMessage[]];
+		const history = supplied.messageHistory === undefined ? [] : [...supplied.messageHistory as readonly ModelMessage[]];
 		const settings = mergeConfigs(config, supplied, ValidationError) as RuntimeAgentConfig;
 		settings.abortSignal?.throwIfAborted();
 		validateRegistryConfig(settings, supplied, ValidationError);
@@ -106,7 +104,7 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 			settings.abortSignal === undefined ? {} : { abortSignal: settings.abortSignal });
 		const prompt = !native && settings.prompt !== undefined
 			? await renderer(settings.prompt === config.prompt ? undefined : settings.prompt, execution.context) : undefined;
-		const conversation = literal ?? [...history, ...messages(prompt, false)];
+		const conversation = literal ?? [...history, ...messages(prompt)];
 		const protectedValues: Fields = {};
 		for (const key of protectedSettings) protectedValues[key] = settings[key];
 		for (const key of observers) {
@@ -129,20 +127,39 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 			: prepareRegistry(request);
 		if (request.tools !== undefined) request = { ...request, tools: registry.tools, toolsContext: registry.toolsContext };
 		const prepareStep = request.prepareStep as StepHook | undefined;
+		const stepApprovals: ToolStepApprovals[] = [];
 		if (prepareStep) request = { ...request, prepareStep: async (step: PrepareStepOptions) => {
+			const responseMessageCount = step.responseMessages.length;
 			const next = await prepareStep(step, settings, execution.context);
 			if (next?.toolsContext !== undefined) registry.assertContext(next.toolsContext);
+			if (tool && next?.messages) {
+				const approvalIds = next.messages.flatMap(message => message.role === 'tool' ? message.content.flatMap(part =>
+					part.type === 'tool-approval-response' && part.providerExecuted ? [part.approvalId] : []) : []);
+				if (approvalIds.length) stepApprovals.push({ responseMessageCount, approvalIds });
+			}
 			return next;
 		} };
 		request = { ...request, ...protectedValues, messages: [...request.messages as ModelMessage[]] };
 		if (!streaming) for (const key of streamingSettings) Reflect.deleteProperty(request, key);
 		settings.abortSignal?.throwIfAborted();
 		if (streaming) {
-			const { result, finalOutput } = streamTextWithResult(request as StreamRequest & { messages: ModelMessage[] }, conversation);
-			return tool ? finalOutput() as Promise<unknown> : result;
+			return streamTextWithResult(request as StreamRequest & { messages: ModelMessage[] }, conversation);
+		}
+		let stoppedByCondition = false;
+		if (tool) {
+			const { stopWhen = isStepCount(1) } = request as GenerateRequest;
+			// The SDK evaluates these only when another step is otherwise eligible.
+			// Observe that decision once, retaining native array/concurrency behavior.
+			request.stopWhen = (Array.isArray(stopWhen) ? stopWhen : [stopWhen]).map((condition): StopCondition<ToolSet> => options => {
+				const decision = condition(options); // Preserve synchronous throws before later predicates run.
+				return Promise.resolve(decision).then(met => {
+					if (met) stoppedByCondition = true;
+					return met;
+				});
+			});
 		}
 		const result = await generateTextWithResult(request as GenerateRequest & { messages: ModelMessage[] }, conversation);
-		return tool ? result.value as unknown : result;
+		return tool ? generateToolOutput(result, request.tools as GenerateRequest['tools'], stepApprovals, stoppedByCondition) as unknown : result;
 	}
 
 	const call = async (...args: unknown[]) => invoke(callSettings(args, promptType), config.streaming === true);
@@ -156,7 +173,7 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 		const { providerOptions: _modelOptions, ...descriptorConfig } = config;
 		return defineTool(component, (context, registry) => invoke(
 			context._toolOptions.abortSignal === undefined ? {} : { abortSignal: context._toolOptions.abortSignal },
-			config.streaming === true, { tool: { context, registry } }), undefined, descriptorConfig);
+			false, { tool: { context, registry } }), undefined, descriptorConfig);
 	}
 	return Object.assign(component, {
 		version: 'agent-v1' as const, id: config.id as string | undefined, tools: prepareRegistry(config).tools,

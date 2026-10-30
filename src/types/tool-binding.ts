@@ -121,8 +121,9 @@ type ConfiguredToolHelpers<TConfig, TAlternatives = InputConfigAlternatives<TCon
 
 // Run callbacks keep the component's original helper contract. Descriptor
 // compatibility alone does not preserve helper availability or omitted input.
+// Optional helpers must not add undefined to the failed-key union.
 export type ValidateRunHelpers<TConfig, TChanges, TBefore = ConfiguredToolHelpers<TConfig>, TAfter = ConfiguredToolHelpers<MergedConfig<TConfig, TChanges>>,
-	TInvalid = { [K in keyof TBefore]: Pick<TAfter, Extract<K, keyof TAfter>> extends Pick<TBefore, K> ? never : K }[keyof TBefore],
+	TInvalid = { [K in keyof TBefore]-?: Pick<TAfter, Extract<K, keyof TAfter>> extends Pick<TBefore, K> ? never : K }[keyof TBefore],
 > = [Extract<ConfigValue<TConfig, 'execute'> | ConfigValue<TConfig, 'prompt'> | ConfigValue<TConfig, 'prepareCall'> | ConfigValue<TConfig, 'prepareStep'>, (...args: any[]) => any>] extends [never] ? unknown
 	: [TInvalid] extends [never] ? unknown : `Config Error: Replacement changes the helper call contract for tool '${TInvalid & string}'.`;
 

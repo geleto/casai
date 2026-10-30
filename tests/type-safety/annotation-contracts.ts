@@ -112,28 +112,28 @@ type OutputConfig<O extends OutputInterface> = LLMAgentConfig<EmptyMap, EmptyMap
 const arrayOutput = Output.array({ element: schema });
 const arrayConfig: OutputConfig<typeof arrayOutput> = { model, output: arrayOutput };
 const arrayAgent = create.LLMAgent(arrayConfig);
-expectEqual<Awaited<ReturnType<typeof arrayAgent>>['value'], { length: number }[]>();
+expectEqual<Awaited<ReturnType<typeof arrayAgent>>['output'], { length: number }[]>();
 // @ts-expect-error An annotated array retains the element's field types.
 const wrongArray: OutputConfig<typeof arrayOutput> = { model, output: Output.array({ element: z.object({ length: z.string() }) }) };
 
 const choiceOutput = Output.choice({ options: ['short', 'long'] });
 const choiceConfig: OutputConfig<typeof choiceOutput> = { model, output: choiceOutput };
 const choiceAgent = create.LLMAgent(choiceConfig);
-expectEqual<Awaited<ReturnType<typeof choiceAgent>>['value'], 'short' | 'long'>();
+expectEqual<Awaited<ReturnType<typeof choiceAgent>>['output'], 'short' | 'long'>();
 // @ts-expect-error An annotated choice retains its literal choices.
 const wrongChoice: OutputConfig<typeof choiceOutput> = { model, output: Output.choice({ options: ['other'] }) };
 
 const jsonOutput = Output.json();
 const jsonConfig: OutputConfig<typeof jsonOutput> = { model, output: jsonOutput };
 const jsonAgent = create.LLMAgent(jsonConfig);
-expectEqual<Awaited<ReturnType<typeof jsonAgent>>['value'], JSONValue>();
+expectEqual<Awaited<ReturnType<typeof jsonAgent>>['output'], JSONValue>();
 // @ts-expect-error Legacy object-generation mode is not an LLMAgent setting.
 const wrongJson: OutputConfig<typeof jsonOutput> = { model, output: jsonOutput, mode: 'tool' };
 
 const objectOutput = Output.object({ schema });
 const objectConfig: OutputConfig<typeof objectOutput> = { model, output: objectOutput };
 const objectStream = create.LLMAgent.asStream(objectConfig);
-expectEqual<Awaited<Awaited<ReturnType<typeof objectStream>>['value']>, { length: number }>();
+expectEqual<Awaited<Awaited<ReturnType<typeof objectStream>>['output']>, { length: number }>();
 // @ts-expect-error An annotated structured stream retains its final output type.
 const wrongObject: OutputConfig<typeof objectOutput> = { model, output: Output.object({ schema: z.object({ length: z.boolean() }) }) };
 

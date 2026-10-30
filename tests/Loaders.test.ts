@@ -19,14 +19,14 @@ describe('Loaded LLMAgent provider integration', function () {
 			const settings = { model, ...temperatureConfig, prompt: 'prompt', loader: [[() => null], [source]] };
 			const agent = kind === 'text' ? create.LLMAgent.loadsText(settings)
 				: kind === 'template' ? create.LLMAgent.loadsTemplate(settings) : create.LLMAgent.loadsScript(settings);
-			expect((await agent()).value.trim()).to.equal('ready');
+			expect((await agent()).output.trim()).to.equal('ready');
 		});
 	}
 	it('races a child chain with inherited resources', async () => {
 		const parent = create.Config({ loader: loader('parent', 100) });
 		const agent = create.LLMAgent.loadsText({ model, ...temperatureConfig, prompt: 'prompt',
 			loader: raceParent([() => null, loader('child', 1)]) }, parent);
-		expect((await agent()).value.trim()).to.equal('child');
+		expect((await agent()).output.trim()).to.equal('child');
 	});
 	it('replaces inherited resources before producing structured output', async () => {
 		const parent = create.Config({ loader: loader('parent', 1) });
@@ -34,6 +34,6 @@ describe('Loaded LLMAgent provider integration', function () {
 		source.addString('prompt', 'Return a JSON object whose word field is exactly child.');
 		const agent = create.LLMAgent.loadsText({ model, ...temperatureConfig, prompt: 'prompt',
 			loader: overrideParent(raceLoaders([[source], () => null])), output: Output.object({ schema: z.object({ word: z.string() }) }) }, parent);
-		expect((await agent()).value).to.deep.equal({ word: 'child' });
+		expect((await agent()).output).to.deep.equal({ word: 'child' });
 	});
 });

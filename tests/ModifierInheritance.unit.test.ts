@@ -4,6 +4,17 @@ import { MockLanguageModelV3 } from 'ai/test';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
 
 describe('modifier inheritance', () => {
+	it('rejects streaming LLMAgent tools in both inheritance directions and through fragments', () => {
+		const config = { model: new MockLanguageModelV3(), inputSchema: z.object({}), prompt: 'hello' };
+		const streaming = create.LLMAgent.asStream(config);
+		const tool = create.LLMAgent.asTool(config);
+		assert.equal('asTool' in create.LLMAgent.asStream, false);
+		// Erased inputs exercise runtime enforcement independently of types.
+		assert.throws(() => create.LLMAgent.asTool({} as never, streaming), /generation-only/);
+		assert.throws(() => create.LLMAgent.asStream({} as never, tool), /generation-only/);
+		assert.throws(() => create.LLMAgent({} as never, create.Config({ streaming: true }, tool)), /generation-only/);
+		assert.throws(() => create.LLMAgent({ ...config, asTool: true, streaming: true } as never), /generation-only/);
+	});
 	it('inherits loaded Template and Script sources through Config and supports explicit inline sources', async () => {
 		const template = create.Template.loadsTemplate({ template: 'entry', loader: { load: () => 'hello {{ name }}' }, context: { name: 'Ada' } });
 		const script = create.Script.loadsScript({ script: 'entry', loader: { load: () => 'return name' }, context: { name: 'Ada' } });
@@ -28,11 +39,11 @@ describe('modifier inheritance', () => {
 		assert.throws(() => create.Function({ inputSchema: undefined } as never, fn), ConfigError);
 	});
 
-	it('inherits an LLMAgent source, streaming and tool mode together', () => {
-		const parent = create.LLMAgent.withTemplate.asStream.asTool({ model: new MockLanguageModelV3(), inputSchema: z.object({}), prompt: 'hello' });
-		const child = create.LLMAgent({}, create.Config({ asTool: undefined, streaming: undefined }, parent));
+	it('inherits an LLMAgent source and generation tool mode', () => {
+		const parent = create.LLMAgent.withTemplate.asTool({ model: new MockLanguageModelV3(), inputSchema: z.object({}), prompt: 'hello' });
+		const child = create.LLMAgent({}, create.Config({ asTool: undefined }, parent));
 		assert.equal(child.config.promptType, 'async-template');
-		assert.equal(child.config.streaming, true);
+		assert.equal('streaming' in child.config, false);
 		assert.equal(child.config.asTool, true);
 		assert.equal(typeof child.execute, 'function');
 		assert.equal('generate' in child, false);
@@ -40,7 +51,7 @@ describe('modifier inheritance', () => {
 		const literal = create.LLMAgent.withText({}, child);
 		assert.equal(literal.config.promptType, 'text');
 		assert.equal(literal.config.asTool, true);
-		assert.equal(literal.config.streaming, true);
+		assert.equal('streaming' in literal.config, false);
 		assert.throws(() => create.LLMAgent({ inputSchema: undefined } as never, parent), ConfigError);
 	});
 	it('inherits function preparation and parses input before an overriding callback', async () => {

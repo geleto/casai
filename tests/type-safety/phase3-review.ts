@@ -1,10 +1,51 @@
 import { create, z } from 'casai';
 import { generateText, streamText, tool, Output } from 'ai';
-import type { LanguageModel } from 'ai';
+import type { LanguageModel, ModelMessage } from 'ai';
 import { expectEqual } from './assert.js';
 
 declare const model: LanguageModel;
 const fixedOutput = create.LLMAgent({ model, output: Output.object({ schema: z.object({ answer: z.number() }) }) });
+const readonlyHistory: readonly ModelMessage[] = Object.freeze([{ role: 'user', content: 'Earlier.' }]);
+void fixedOutput('Next.', readonlyHistory);
+void fixedOutput('Next.', {}, readonlyHistory);
+void fixedOutput.run({ messageHistory: readonlyHistory });
+const readonlyChat = create.LLMAgent.withFunction({ model, inputSchema: z.object({ question: z.string() }), prompt: ({ question }) => question });
+void readonlyChat({ question: 'Next.' }, readonlyHistory);
+void readonlyChat(undefined, { question: 'Next.' }, readonlyHistory);
+void readonlyChat(context => context.question, { question: 'Next.' }, readonlyHistory);
+void readonlyChat.run({ context: { question: 'Next.' }, messageHistory: readonlyHistory });
+const readonlyStream = create.LLMAgent.withFunction.asStream({}, readonlyChat);
+void readonlyStream({ question: 'Next.' }, readonlyHistory);
+void readonlyStream.run({ context: { question: 'Next.' }, messageHistory: readonlyHistory });
+const readonlyTool = create.LLMAgent.withFunction.asTool({}, readonlyChat);
+void readonlyTool({ question: 'Next.' }, readonlyHistory);
+void readonlyTool.run({ context: { question: 'Next.' }, messageHistory: readonlyHistory });
+// @ts-expect-error Readonly history does not supply required application context.
+void readonlyChat({}, readonlyHistory);
+// @ts-expect-error Named calls retain context requiredness.
+void readonlyChat.run({ messageHistory: readonlyHistory });
+// @ts-expect-error Readonly input does not relax the message shape.
+void fixedOutput('Next.', [42] as const);
+// @ts-expect-error Named history retains message validation.
+void fixedOutput.run({ messageHistory: [42] as const });
+// @ts-expect-error Native SDK message parameters retain their own mutable-array contract.
+void fixedOutput.generate({ messages: readonlyHistory });
+// @ts-expect-error Streaming native methods retain the same SDK contract.
+void fixedOutput.stream({ messages: readonlyHistory });
+// @ts-expect-error The literal prompt source type is unchanged.
+void fixedOutput(readonlyHistory);
+// @ts-expect-error Named prompt source types are unchanged too.
+void fixedOutput.run({ prompt: readonlyHistory });
+void fixedOutput.generate({ messages: [] });
+void fixedOutput.stream({ messages: [] });
+// @ts-expect-error Native TypeScript callers still supply a source, even when a hook can fill empty messages.
+void fixedOutput.generate({});
+// @ts-expect-error Runtime acceptance of missing sources does not broaden the native stream type.
+void fixedOutput.stream({});
+// @ts-expect-error Native source alternatives remain exclusive.
+void fixedOutput.generate({ prompt: 'Answer.', messages: [] });
+// @ts-expect-error Streaming keeps the same source exclusivity.
+void fixedOutput.stream({ prompt: 'Answer.', messages: [] });
 // @ts-expect-error Native methods cannot replace a component's fixed output contract.
 void fixedOutput.generate({ prompt: 'Answer.', output: Output.text() });
 // @ts-expect-error Streaming uses the same fixed configuration boundary.
@@ -115,3 +156,31 @@ create.LLMAgent({ model, tools: { contextual }, toolsContext: { contextual: { te
 const optionalContext = create.Function.asTool({ inputSchema: z.object({}), toolContextSchema: z.object({ tenant: z.string() }).optional(), execute: () => 'ok' });
 create.LLMAgent({ model, tools: { optionalContext }, prepareCall: request => ({ model: request.model, messages: request.messages, tools: { optionalContext } }) });
 create.LLMAgent({ model, tools, prepareCall: request => ({ model: request.model, messages: request.messages, tools }) });
+
+// A native continuation uses configuration for settings beyond the Agent call surface.
+const pausedRenderer = create.LLMAgent.withFunction({ model, tools: { contextual }, toolsContext: { contextual: { tenant: 'default' } },
+	inputSchema: z.object({ message: z.string() }), prompt: ({ message }) => message });
+const messages = [{ role: 'user' as const, content: 'Search.' }];
+const options = { message: 'Search.' };
+const savedSettings = { toolsContext: { contextual: { tenant: 'turn' } }, runtimeContext: { role: 'reviewer' },
+	toolApproval: { contextual: 'user-approval' as const }, providerOptions: { anthropic: { container: { id: 'container_fixture' } } } };
+void pausedRenderer.run({ context: options, ...savedSettings });
+const continuation = create.LLMAgent(savedSettings, pausedRenderer);
+void continuation.generate({ messages, options, timeout: 5000 });
+void continuation.stream({ messages, options, experimental_transform: () => new TransformStream() });
+// @ts-expect-error Native call parameters cannot carry trusted tool context.
+void pausedRenderer.generate({ messages, options, toolsContext: savedSettings.toolsContext });
+// @ts-expect-error Native streaming has the same tool-context restriction.
+void pausedRenderer.stream({ messages, options, toolsContext: savedSettings.toolsContext });
+// @ts-expect-error Native call parameters cannot replace runtime context.
+void pausedRenderer.generate({ messages, options, runtimeContext: savedSettings.runtimeContext });
+// @ts-expect-error Native streaming cannot replace runtime context.
+void pausedRenderer.stream({ messages, options, runtimeContext: savedSettings.runtimeContext });
+// @ts-expect-error Native calls use the configured approval policy.
+void pausedRenderer.generate({ messages, options, toolApproval: savedSettings.toolApproval });
+// @ts-expect-error Native streaming uses the configured approval policy.
+void pausedRenderer.stream({ messages, options, toolApproval: savedSettings.toolApproval });
+// @ts-expect-error Per-call provider options belong to run() or continuation configuration.
+void pausedRenderer.generate({ messages, options, providerOptions: savedSettings.providerOptions });
+// @ts-expect-error Native streaming also has no providerOptions override.
+void pausedRenderer.stream({ messages, options, providerOptions: savedSettings.providerOptions });

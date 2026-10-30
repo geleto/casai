@@ -52,7 +52,7 @@ const choiceFragment = create.Config({ output: choice, onEnd: _event => {
 } });
 expectEqual<typeof choiceFragment.config.output, typeof choice>();
 const choiceConsumer = create.LLMAgent({ model }, choiceFragment);
-expectEqual<Awaited<ReturnType<typeof choiceConsumer>>['value'], 'YES' | 'NO'>();
+expectEqual<Awaited<ReturnType<typeof choiceConsumer>>['output'], 'YES' | 'NO'>();
 const lookup = tool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query.length });
 const _registryFragment = create.Config({
 	tools: { lookup }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'],
@@ -241,6 +241,24 @@ create.Config(invalidAlternative);
 create.Config({ schema: z.number(), execute: () => 1 });
 // @ts-expect-error A provisional fallback cannot conceal an incompatible producer.
 create.Config({ schema: z.number(), execute: () => 'wrong' });
+
+// Each complete configuration keeps its own schema/implementation contract through fragments.
+const _scalarSchema = z.number().transform(String);
+declare const scalarChoice: { schema: typeof _scalarSchema; execute: () => number } | { execute: () => boolean };
+const scalarFragment = create.Config(scalarChoice);
+const _scalarComponent = create.Function({}, scalarFragment);
+expectEqual<Awaited<ReturnType<typeof _scalarComponent>>, string | boolean>();
+const inheritedScalarFragment = create.Config({ debug: true }, scalarFragment);
+const _inheritedScalar = create.Function({}, inheritedScalarFragment);
+expectEqual<Awaited<ReturnType<typeof _inheritedScalar>>, string | boolean>();
+declare const invalidScalarChoice: { schema: typeof _scalarSchema; execute: () => boolean } | { execute: () => boolean };
+// @ts-expect-error A valid schema-free branch cannot conceal an incompatible producer.
+create.Config(invalidScalarChoice);
+// @ts-expect-error The same validation applies to inherited configuration alternatives.
+create.Config({ debug: true }, { config: invalidScalarChoice });
+declare const incompleteScalarChoice: { schema: typeof _scalarSchema; execute: () => boolean } | { debug: boolean };
+// @ts-expect-error Omitting execute in one branch must not hide the other branch's mismatch.
+create.Config(incompleteScalarChoice);
 
 // Config remains reusable: finished components check unresolved implementation dependencies.
 const dependencyParent = create.Config({ context: { factor: 2 }, execute: (input: { factor: number }) => input.factor });

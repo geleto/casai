@@ -46,6 +46,27 @@ describe('LLM component contracts without providers', () => {
 	const schema = z.object({ answer: z.number() });
 	const answer = '{"answer":4}';
 
+	it('reads native structured LLMAgent output from a Script', async () => {
+		const model = mockModel('{"city":"Paris","country":"France"}');
+		const locationGen = create.LLMAgent.withTemplate({
+			model,
+			prompt: 'Generate a JSON object for the capital of {{ countryName }}.',
+			output: Output.object({ schema: z.object({ city: z.string(), country: z.string() }) }),
+		});
+		const scriptRunner = create.Script({
+			schema: z.object({ result: z.string() }),
+			context: { getCapital: locationGen },
+			script: `
+				var loc = (getCapital({ countryName: "France" })).output
+				return { result: loc.city }
+			`,
+		});
+		expect(await scriptRunner()).to.deep.equal({ result: 'Paris' });
+		expect(promptCalls(model, false)).to.deep.equal([[
+			{ role: 'user', content: [{ type: 'text', text: 'Generate a JSON object for the capital of France.' }] },
+		]]);
+	});
+
 	it('rejects erased iterable model outputs on tool execution without consuming them', async () => {
 		let acquired = 0;
 		const source = { async *[Symbol.asyncIterator]() { acquired++; yield 1; } };
@@ -55,10 +76,9 @@ describe('LLM component contracts without providers', () => {
 		});
 		const tools = [
 			create.LLMAgent.asTool({ model: mockModel('{}'), prompt: 'ready', inputSchema: z.object({}), output: Output.object({ schema: outputSchema }) }),
-			create.LLMAgent.asStream.asTool({ model: mockModel('{}'), prompt: 'ready', inputSchema: z.object({}), output: Output.object({ schema: outputSchema }) }),
 		];
 		for (const component of tools) {
-			expect(await (await component()).value).to.equal(source);
+			expect(await (await component()).output).to.equal(source);
 			await rejects(async () => { await component.execute({}, { toolCallId: 'output', messages: [], context: undefined }); }, /requires textStreamSchema/);
 		}
 		expect(acquired).to.equal(0);
@@ -213,7 +233,7 @@ describe('LLM component contracts without providers', () => {
 				const result = await runtimeRun(component, { model: replacement, context: { topic: 'Runtime' }, maxOutputTokens: 25 });
 				if ('partialOutputStream' in result) await collect<unknown>(result.partialOutputStream);
 				expect(await result.output).to.deep.equal({ answer: 8 });
-				expect(await result.value).to.equal(await result.output);
+				expect('value' in result).to.equal(false);
 				expect(validations).to.equal(1);
 				expect(promptCalls(replacement, streaming)).to.deep.equal([[
 					{ role: 'user', content: [{ type: 'text', text: 'About Runtime' }] },
@@ -245,7 +265,7 @@ describe('LLM component contracts without providers', () => {
 				const result = await call(prompt, { topic: 'Runtime' }, history);
 				if ('partialOutputStream' in result) await collect<unknown>(result.partialOutputStream);
 				expect(await result.output).to.deep.equal({ answer: 4 });
-				expect(await result.value).to.equal(await result.output);
+				expect('value' in result).to.equal(false);
 				const response = await result.response;
 				expect(response).not.to.have.property('messageHistory');
 				expect(response).to.have.property('messages');
@@ -276,7 +296,7 @@ describe('LLM component contracts without providers', () => {
 			const result = await runtimeRun(component, { messageHistory: history });
 			if ('partialOutputStream' in result) await collect<unknown>(result.partialOutputStream);
 			expect(await result.output).to.deep.equal({ answer: 4 });
-			expect(await result.value).to.equal(await result.output);
+			expect('value' in result).to.equal(false);
 			expect(promptCalls(model, streaming)).to.deep.equal([[
 				{ role: 'system', content: 'Static instructions.' },
 				{ role: 'assistant', content: [{ type: 'text', text: 'Earlier reply.' }] },

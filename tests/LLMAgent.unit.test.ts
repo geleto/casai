@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Output, createAgentUIStream, isStepCount, tool, registerTelemetry, InvalidToolApprovalSignatureError } from 'ai';
+import { Output, createAgentUIStream, isStepCount, tool, registerTelemetry, InvalidToolApprovalSignatureError, InvalidPromptError, NoOutputGeneratedError } from 'ai';
 import type { Agent, InferAgentUIMessage, LanguageModel, ModelMessage } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 import { z } from 'zod';
@@ -47,8 +47,7 @@ describe('LLMAgent', () => {
 
 				const original: ModelMessage = { role: 'user', content: 'Original.' };
 				const result = await invoke([original]);
-				const value = result.value;
-				assert.equal(typeof value === 'string' ? value : await collectTextStream(value), 'answer');
+				assert.equal(await result.output, 'answer');
 				assert.equal((await result.messageHistory)[0], original);
 				assert.equal(parses, 1);
 				assert.equal(hooks, 1);
@@ -59,6 +58,65 @@ describe('LLMAgent', () => {
 	}
 
 	for (const method of ['generate', 'stream'] as const) {
+		it(`lets prepareCall supply an absent or empty native conversation on ${method}`, async () => {
+			const provider = model();
+			let hooks = 0, renders = 0;
+			const agent = create.LLMAgent.withFunction({ model: provider, inputSchema: z.object({ name: z.string().transform(value => value.toUpperCase()) }),
+				prompt: ({ name }) => { renders++; return name; }, prepareCall: (request, _config, context) => {
+					hooks++;
+					assert.deepEqual(request.messages, []);
+					assert.equal(context.name, 'ADA');
+					return { ...request, messages: [{ role: 'user', content: `Hello, ${context.name}.` }] };
+				},
+			});
+			for (const source of [{}, { prompt: undefined, messages: undefined }, { messages: [] }]) {
+				const args = { ...source, options: { name: 'Ada' } };
+				// Source omission exercises JavaScript callers; the native TypeScript contract still requires one.
+				const result = method === 'generate' ? await agent.generate(args as Parameters<typeof agent.generate>[0])
+					: await agent.stream(args as Parameters<typeof agent.stream>[0]);
+				assert.equal(await result.output, 'answer');
+				assert.deepEqual(await result.messageHistory, await result.responseMessages);
+			}
+			assert.equal(hooks, 3);
+			assert.equal(renders, 0);
+			const calls = method === 'generate' ? provider.doGenerateCalls : provider.doStreamCalls;
+			assert.equal(calls.length, 3);
+			for (const call of calls) assert.deepEqual(call.prompt.map(({ role, content }) => ({ role, content })),
+				[{ role: 'user', content: [{ type: 'text', text: 'Hello, ADA.' }] }]);
+		});
+
+		it(`delegates an empty final native conversation to SDK validation on ${method}`, async () => {
+			const provider = model();
+			let hooks = 0, renders = 0;
+			const errors: unknown[] = [];
+			const agent = create.LLMAgent.withFunction({ model: provider, prompt: () => { renders++; return 'Configured prompt.'; },
+				prepareCall: request => { hooks++; return request; }, onError: ({ error }) => { errors.push(error); },
+			});
+			for (const source of [{}, { messages: [] }]) {
+				await assert.rejects(async () => {
+					const result = method === 'generate' ? await agent.generate(source as Parameters<typeof agent.generate>[0])
+						: await agent.stream(source as Parameters<typeof agent.stream>[0]);
+					await result.output;
+				}, error => method === 'generate' ? InvalidPromptError.isInstance(error) : NoOutputGeneratedError.isInstance(error));
+			}
+			assert.equal(hooks, 2);
+			assert.equal(renders, 0);
+			assert.equal(provider.doGenerateCalls.length + provider.doStreamCalls.length, 0);
+			assert.equal(errors.length, method === 'stream' ? 2 : 0);
+			assert.ok(errors.every(error => InvalidPromptError.isInstance(error)));
+		});
+
+		it(`rejects invalid or conflicting native conversations before hooks on ${method}`, async () => {
+			const provider = model();
+			let hooks = 0;
+			const agent = create.LLMAgent({ model: provider, prepareCall: request => { hooks++; return request; } });
+			for (const source of [{ prompt: null }, { messages: null }, { prompt: 42 }, { messages: 42 }, { prompt: 'question', messages: [] }]) {
+				await assert.rejects((agent[method] as (args: unknown) => Promise<unknown>)(source), ValidationError);
+			}
+			assert.equal(hooks, 0);
+			assert.equal(provider.doGenerateCalls.length + provider.doStreamCalls.length, 0);
+		});
+
 		it(`rejects fixed settings on ${method} before preparation or dispatch`, async () => {
 			const provider = model('{"answer":42}');
 			let prepares = 0;
@@ -78,7 +136,7 @@ describe('LLMAgent', () => {
 			assert.equal(provider.doGenerateCalls.length + provider.doStreamCalls.length, 0);
 			const args = { prompt: 'Answer.', options: { count: 1 }, timeout: 10000 };
 			const result = method === 'generate' ? await agent.generate(args) : await agent.stream(args);
-			assert.deepEqual(await result.value, { answer: 42 });
+			assert.deepEqual(await result.output, { answer: 42 });
 			assert.equal(prepares, 1);
 		});
 
@@ -157,7 +215,7 @@ describe('LLMAgent', () => {
 		});
 		const result = await agent({ count: '3' });
 		assert.equal(parses, 1);
-		assert.equal(result.value, 'answer');
+		assert.equal(result.output, 'answer');
 		assert.deepEqual(result.messageHistory[0], { role: 'user', content: 'count 3' });
 		assert.equal(agent.config.context.count, '2');
 	});
@@ -218,7 +276,7 @@ describe('LLMAgent', () => {
 			},
 		});
 		const result = await agent.run({ prompt: 'question', model: original, onEnd: () => { seen.push('call'); } });
-		assert.deepEqual(result.value, { answer: 42 });
+		assert.deepEqual(result.output, { answer: 42 });
 		assert.deepEqual(seen.sort(), ['call', 'config']);
 		assert.equal(original.doGenerateCalls.length, 0);
 		assert.equal(selected.doGenerateCalls[0].temperature, undefined);
@@ -232,12 +290,12 @@ describe('LLMAgent', () => {
 		const pending = inherited();
 		assert.ok(pending instanceof Promise);
 		const result = await pending;
-		assert.equal(await collectTextStream(result.value), 'answer');
+		assert.equal(await result.output, 'answer');
 		assert.equal(await collectTextStream(result.textStream), 'answer');
 		const explicit = create.LLMAgent.asStream({ model: model(), output: Output.text() });
 		const completed = await explicit('question');
-		assert.ok(completed.value instanceof Promise);
-		assert.equal(await completed.value, 'answer');
+		assert.ok(completed.output instanceof Promise);
+		assert.equal(await completed.output, 'answer');
 		assert.equal(await collectTextStream(completed.textStream), 'answer');
 	});
 
@@ -269,9 +327,26 @@ describe('LLMAgent', () => {
 		await assert.rejects(invalidCall(history as never, { name: 'Ada' } as never), ValidationError);
 		await assert.rejects(literal.run({ messageHistory: 3 } as never), ValidationError);
 	});
+	for (const streaming of [false, true]) it(`borrows frozen history through literal and rendered calls, streaming=${streaming}`, async () => {
+		const provider = model();
+		const previous = Object.freeze({ role: 'assistant' as const, content: 'Earlier.' });
+		const history: readonly ModelMessage[] = Object.freeze([previous]);
+		const literal = (streaming ? create.LLMAgent.asStream : create.LLMAgent)({ model: provider });
+		const rendered = (streaming ? create.LLMAgent.withTemplate.asStream : create.LLMAgent.withTemplate)({ model: provider, prompt: '{{ name }}' });
+		const results = [await literal('Next.', history), await literal.run({ messageHistory: history }),
+			await rendered({ name: 'Ada' }, history), await rendered.run({ context: { name: 'Ada' }, messageHistory: history })];
+		for (const result of results) {
+			assert.equal(await result.output, 'answer');
+			const saved = await result.messageHistory;
+			assert.notEqual(saved, history);
+			assert.equal(saved[0], previous);
+		}
+		assert.deepEqual(history, [{ role: 'assistant', content: 'Earlier.' }]);
+		assert.equal((streaming ? provider.doStreamCalls : provider.doGenerateCalls).length, 4);
+	});
 
-	it('keeps tool and Agent surfaces separate, and tools return completed output in either mode', async () => {
-		for (const factory of [create.LLMAgent.asTool, create.LLMAgent.asStream.asTool]) {
+	it('keeps tool and Agent surfaces separate, and tools return completed generation output', async () => {
+		for (const factory of [create.LLMAgent.asTool]) {
 			const component = factory({ model: model(), prompt: 'fixed', inputSchema: z.object({}) });
 			for (const key of ['id', 'version', 'generate', 'stream']) assert.equal(key in component, false);
 			assert.equal(await component.execute({}, { toolCallId: 'id', messages: [], context: undefined }), 'answer');

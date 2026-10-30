@@ -33,8 +33,8 @@ expectType<PromiseLike<string>>(result.finalStep.then(_value => _value.runtimeCo
 expectType<PromiseLike<string>>(result.output.then(_value => _value.answer));
 const generated = create.LLMAgent({}, parent)('Input.');
 expectType<PromiseLike<SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>>>(generated);
-expectEqual<Omit<typeof result, 'value' | 'messageHistory'>, SDKStreamTextResult<typeof tools, typeof runtimeContext, typeof output>>();
-expectEqual<Omit<Awaited<typeof generated>, 'value' | 'messageHistory'>, SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>>();
+expectEqual<Omit<typeof result, 'messageHistory'>, SDKStreamTextResult<typeof tools, typeof runtimeContext, typeof output>>();
+expectEqual<Omit<Awaited<typeof generated>, 'messageHistory'>, SDKGenerateTextResult<typeof tools, typeof runtimeContext, typeof output>>();
 expectEqual<Awaited<typeof generated>, PublicGenerateTextResult<typeof tools, typeof output, typeof runtimeContext>>();
 expectEqual<typeof result, PublicStreamTextResult<typeof tools, typeof output, typeof runtimeContext>>();
 // @ts-expect-error Default text output is a string.
@@ -69,9 +69,9 @@ result.toUIMessageStream<Message>({ messageMetadata: () => ({ traceId: 123 }) })
 result.toUIMessageStream<Message>({ onEnd: async () => 123 });
 // @ts-expect-error Response methods validate their options.
 result.toTextStreamResponse({ status: '200' });
-expectType<PromiseLike<Response>>(objectGenerator('Input.').then(_value => Response.json(_value.value, { status: 200 })));
+expectType<PromiseLike<Response>>(objectGenerator('Input.').then(_value => Response.json(_value.output, { status: 200 })));
 // @ts-expect-error Object result methods retain SDK option validation.
-void objectGenerator('Input.').then(_value => Response.json(_value.value, { status: '200' }));
+void objectGenerator('Input.').then(_value => Response.json(_value.output, { status: '200' }));
 expectType<Response>((await objectStreamer('Input.')).toTextStreamResponse({ status: 200 }));
 expectType<Promise<void>>((await objectStreamer('Input.')).pipeTextStreamToResponse(response));
 
@@ -146,11 +146,10 @@ expectEqual<typeof _defaultText.elementStream, AsyncIterableStream<never>>();
 
 // Object results preserve each output strategy, including partial-object streams.
 const _generatedObject = objectGenerator('Input.');
-expectEqual<Omit<Awaited<typeof _generatedObject>, 'value' | 'messageHistory'>, SDKGenerateTextResult<EmptyMap, Record<string, unknown>, typeof output>>();
-expectEqual<Awaited<typeof _generatedObject>['value'], Answer>();
+expectEqual<Omit<Awaited<typeof _generatedObject>, 'messageHistory'>, SDKGenerateTextResult<EmptyMap, Record<string, unknown>, typeof output>>();
+expectEqual<Awaited<typeof _generatedObject>['output'], Answer>();
 const streamedObject = (await objectStreamer('Input.'));
-expectEqual<Omit<typeof streamedObject, 'value' | 'messageHistory'>, SDKStreamTextResult<EmptyMap, Record<string, unknown>, typeof output>>();
-expectEqual<typeof streamedObject.value, Promise<Answer>>();
+expectEqual<Omit<typeof streamedObject, 'messageHistory'>, SDKStreamTextResult<EmptyMap, Record<string, unknown>, typeof output>>();
 expectEqual<typeof streamedObject.output, PromiseLike<Answer>>();
 expectEqual<typeof streamedObject.elementStream, AsyncIterableStream<never>>();
 expectEqual<typeof streamedObject.stream, AsyncIterableStream<TextStreamPart<EmptyMap>>>();
@@ -168,13 +167,11 @@ const _arrayObjects = await create.LLMAgent.asStream({ model, output: Output.arr
 expectEqual<typeof _arrayObjects.output, PromiseLike<Answer[]>>();
 expectEqual<typeof _arrayObjects.partialOutputStream, AsyncIterableStream<Answer[]>>();
 expectEqual<typeof _arrayObjects.elementStream, AsyncIterableStream<Answer>>();
-expectEqual<typeof _arrayObjects.value, Promise<Answer[]>>();
+expectEqual<typeof _arrayObjects.output, PromiseLike<Answer[]>>();
 const _enumObjects = create.LLMAgent({ model, output: Output.choice({ options: ['yes', 'no'] as const }) })('Input.');
 expectEqual<Awaited<typeof _enumObjects>['output'], 'yes' | 'no'>();
-expectEqual<Awaited<typeof _enumObjects>['value'], 'yes' | 'no'>();
 const _jsonObjects = await create.LLMAgent.asStream({ model, output: Output.json() })('Input.');
 expectEqual<typeof _jsonObjects.output, PromiseLike<JSONValue>>();
-expectEqual<typeof _jsonObjects.value, Promise<JSONValue>>();
 expectEqual<typeof _jsonObjects.partialOutputStream, AsyncIterableStream<JSONValue>>();
 // All UI-result callback options validate arguments, metadata, and returned values.
 const uiStream = result.toUIMessageStream<Message>({
@@ -284,7 +281,6 @@ const _customStream = await create.LLMAgent.asStream({ onEnd: _event => {
 	expectEqual<typeof _event.output, { total: number } | undefined>();
 } }, customParent)('Input.');
 expectEqual<typeof _customStream.output, PromiseLike<{ total: number }>>();
-expectEqual<typeof _customStream.value, Promise<{ total: number }>>();
 expectEqual<typeof _customStream.partialOutputStream, AsyncIterableStream<string>>();
 expectEqual<typeof _customStream.elementStream, AsyncIterableStream<boolean>>();
 const _customGenerated = create.LLMAgent({}, customParent)('Input.');
@@ -308,7 +304,6 @@ const variantSchema = z.discriminatedUnion('kind', [
 type Variant = { kind: 'count', value: number } | { kind: 'label', value: string };
 void create.LLMAgent({ model, output: Output.object({ schema: variantSchema }) })('Input.').then(_value => {
 	expectEqual<typeof _value.output, Variant>();
-	expectEqual<typeof _value.value, Variant>();
 	if (_value.output.kind === 'count') {
 		expectEqual<typeof _value.output.value, number>();
 		// @ts-expect-error Object results expose transformed schema outputs.

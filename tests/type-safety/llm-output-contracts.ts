@@ -12,24 +12,24 @@ const output = Output.object({ schema });
 const parent = create.Config({ model, output });
 const generated = create.LLMAgent({ prompt: 'Answer' }, parent);
 const streamed = create.LLMAgent.asStream({ prompt: 'Answer' }, parent);
-expectEqual<Awaited<ReturnType<typeof generated>>['value'], Answer>();
-expectEqual<Awaited<ReturnType<typeof streamed>>['value'], Promise<Answer>>();
+expectEqual<Awaited<ReturnType<typeof generated>>['output'], Answer>();
+expectEqual<Awaited<ReturnType<typeof streamed>>['output'], PromiseLike<Answer>>();
 expectEqual<Awaited<ReturnType<typeof generated>>['output'], Answer>();
 // @ts-expect-error Parsed output differs from the raw schema input.
-expectType<{ answer: string }>((await generated()).value);
+expectType<{ answer: string }>((await generated()).output);
 // @ts-expect-error Structured streaming value is a promise of the complete output.
-expectType<AsyncIterable<Answer>>((await streamed()).value);
+expectType<AsyncIterable<Answer>>((await streamed()).output);
 
-const sdkSchema = jsonSchema<{ value: string }>({ type: 'object', properties: { value: { type: 'string' } }, required: ['value'] });
+const sdkSchema = jsonSchema<{ value: string }>({ type: 'object', properties: { value: { type: 'string' } }, required: ['output'] });
 const sdk = create.LLMAgent({ model, output: Output.object({ schema: sdkSchema }) });
-expectEqual<Awaited<ReturnType<typeof sdk>>['value'], { value: string }>();
+expectEqual<Awaited<ReturnType<typeof sdk>>['output'], { value: string }>();
 const scalar = create.LLMAgent({ model, output: Output.object({ schema: z.number() }) });
-expectEqual<Awaited<ReturnType<typeof scalar>>['value'], number>();
+expectEqual<Awaited<ReturnType<typeof scalar>>['output'], number>();
 const arrays = create.LLMAgent.asStream({ model, output: Output.array({ element: schema }) });
-expectEqual<Awaited<ReturnType<typeof arrays>>['value'], Promise<Answer[]>>();
+expectEqual<Awaited<ReturnType<typeof arrays>>['output'], PromiseLike<Answer[]>>();
 expectType<AsyncIterable<Answer>>((await arrays('Answer')).elementStream);
 const nested = create.LLMAgent({ model, output: Output.array({ element: z.array(z.boolean()) }) });
-expectEqual<Awaited<ReturnType<typeof nested>>['value'], boolean[][]>();
+expectEqual<Awaited<ReturnType<typeof nested>>['output'], boolean[][]>();
 // @ts-expect-error The native array specification requires its element schema.
 Output.array({});
 // @ts-expect-error The native object specification requires its schema.
@@ -38,43 +38,43 @@ Output.object({});
 const choice = Output.choice({ options: ['YES', 'NO'] });
 const chooser = create.LLMAgent({ model, output: choice });
 const choiceStream = create.LLMAgent.asStream({ model, output: choice });
-expectEqual<Awaited<ReturnType<typeof chooser>>['value'], 'YES' | 'NO'>();
-expectEqual<Awaited<ReturnType<typeof choiceStream>>['value'], Promise<'YES' | 'NO'>>();
+expectEqual<Awaited<ReturnType<typeof chooser>>['output'], 'YES' | 'NO'>();
+expectEqual<Awaited<ReturnType<typeof choiceStream>>['output'], PromiseLike<'YES' | 'NO'>>();
 // @ts-expect-error Choice alternatives are strings.
 Output.choice({ options: [1, 2] });
 const json = create.LLMAgent({ model, output: Output.json() });
 const jsonStream = create.LLMAgent.asStream({ model, output: Output.json() });
-expectEqual<Awaited<ReturnType<typeof json>>['value'], JSONValue>();
-expectEqual<Awaited<ReturnType<typeof jsonStream>>['value'], Promise<JSONValue>>();
+expectEqual<Awaited<ReturnType<typeof json>>['output'], JSONValue>();
+expectEqual<Awaited<ReturnType<typeof jsonStream>>['output'], PromiseLike<JSONValue>>();
 // @ts-expect-error JSON cannot promise a specific object shape.
-expectType<{ answer: number }>((await json('Answer')).value);
+expectType<{ answer: number }>((await json('Answer')).output);
 
 const text = create.LLMAgent({ model });
 const textStream = create.LLMAgent.asStream({ model });
 const explicitText = create.LLMAgent.asStream({ model, output: Output.text() });
-expectEqual<Awaited<ReturnType<typeof text>>['value'], string>();
-expectEqual<Awaited<ReturnType<typeof textStream>>['value'], AsyncIterable<string>>();
-expectEqual<Awaited<ReturnType<typeof explicitText>>['value'], Promise<string>>();
+expectEqual<Awaited<ReturnType<typeof text>>['output'], string>();
+expectEqual<Awaited<ReturnType<typeof textStream>>['output'], PromiseLike<string>>();
+expectEqual<Awaited<ReturnType<typeof explicitText>>['output'], PromiseLike<string>>();
 const cleared = create.LLMAgent.asStream({ output: undefined }, parent);
-expectEqual<Awaited<ReturnType<typeof cleared>>['value'], AsyncIterable<string>>();
+expectEqual<Awaited<ReturnType<typeof cleared>>['output'], PromiseLike<string>>();
 const replacement = create.LLMAgent({ output: Output.object({ schema: z.object({ accepted: z.boolean() }) }) }, parent);
-expectEqual<Awaited<ReturnType<typeof replacement>>['value'], { accepted: boolean }>();
+expectEqual<Awaited<ReturnType<typeof replacement>>['output'], { accepted: boolean }>();
 // @ts-expect-error Replacing output replaces the completed value type.
-expectType<Answer>((await replacement('Answer')).value);
+expectType<Answer>((await replacement('Answer')).output);
 
 declare const optionalOutput: typeof output | undefined;
 const maybe = create.LLMAgent.asStream({ model, output: optionalOutput });
-expectEqual<Awaited<ReturnType<typeof maybe>>['value'], Promise<Answer> | AsyncIterable<string>>();
+expectEqual<Awaited<ReturnType<typeof maybe>>['output'], PromiseLike<Answer | string>>();
 declare const unionOutput: typeof output | typeof choice;
 const union = create.LLMAgent.asStream({ model, output: unionOutput });
-expectEqual<Awaited<ReturnType<typeof union>>['value'], Promise<Answer> | Promise<'YES' | 'NO'>>();
+expectEqual<Awaited<ReturnType<typeof union>>['output'], PromiseLike<Answer | 'YES' | 'NO'>>();
 declare const custom: OutputInterface<AsyncIterable<number>, number, number>;
 const customStream = create.LLMAgent.asStream({ model, output: custom });
-expectEqual<Awaited<ReturnType<typeof customStream>>['value'], Promise<AsyncIterable<number>>>();
+expectEqual<Awaited<ReturnType<typeof customStream>>['output'], PromiseLike<AsyncIterable<number>>>();
 
 const annotated: LLMAgentConfig<EmptyMap, EmptyMap, string, typeof output> = { model, output };
 const annotatedAgent = create.LLMAgent(annotated);
-expectEqual<Awaited<ReturnType<typeof annotatedAgent>>['value'], Answer | string | Promise<Answer> | AsyncIterable<string>>();
+expectEqual<Awaited<ReturnType<typeof annotatedAgent>>['output'], Answer | string | PromiseLike<Answer | string>>();
 
 // Configuration owns output; calls only override invocation settings.
 void generated.run({ temperature: 0.2, maxOutputTokens: 30 });

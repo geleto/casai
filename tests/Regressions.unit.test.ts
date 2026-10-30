@@ -204,7 +204,7 @@ describe('Regressions across component boundaries', () => {
 						if (outcome === 'miss') {
 							const result = await invoke();
 							if ('partialOutputStream' in result) for await (const _part of result.partialOutputStream) { /* Native object streams require consumption. */ }
-							expect(await ('object' in result ? result.value : result.output)).to.deep.equal(factory.endsWith('-structured') ? { n: 1 } : '{"n":1}');
+							expect(await (result.output)).to.deep.equal(factory.endsWith('-structured') ? { n: 1 } : '{"n":1}');
 							const calls = factory.startsWith('stream') ? mock.doStreamCalls : mock.doGenerateCalls;
 							expect(calls).to.have.length(1);
 							expect(calls[0].prompt[0].content).to.deep.equal([{ type: 'text', text: 'Input.' }]);
@@ -237,7 +237,7 @@ describe('Regressions across component boundaries', () => {
 						run(config: { prompt: string | (() => string), context: object }): Promise<{
 							messageHistory?: ModelMessage[] | Promise<ModelMessage[]>;
 							partialOutputStream?: AsyncIterable<unknown>;
-							value: unknown;
+							output: unknown;
 						}>;
 					};
 					const prompt = (word: string) => modifier === 'withFunction' ? () => word
@@ -254,7 +254,7 @@ describe('Regressions across component boundaries', () => {
 					const stream = result.partialOutputStream;
 					if (stream) for await (const _part of stream) { /* drain */ }
 					if (result.messageHistory) await result.messageHistory;
-					await result.value;
+					await result.output;
 					const request = factory.startsWith('stream') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
 					expect(request.prompt.map(message => message.content)).to.deep.equal([[{ type: 'text', text: 'first' }]]);
 				});
@@ -280,7 +280,7 @@ describe('Regressions across component boundaries', () => {
 				const result = await pending;
 				if ('partialOutputStream' in result) for await (const _part of result.partialOutputStream) { /* drain */ }
 				if ('messageHistory' in result) await result.messageHistory;
-				await result.value;
+				await result.output;
 				const request = factory.startsWith('stream') ? mock.doStreamCalls[0] : mock.doGenerateCalls[0];
 				expect(request.prompt.map(message => message.content)).to.deep.equal([
 					[{ type: 'text', text: 'Earlier.' }], [{ type: 'text', text: 'Input.' }],

@@ -5,7 +5,7 @@ import { validateTypes } from '@ai-sdk/provider-utils';
 import { MockLanguageModelV3 } from 'ai/test';
 import type { ModelMessage, Tool } from 'ai';
 import * as mini from 'zod/mini';
-import { create, ConfigError, ValidationError, collectTextStream, z } from './cascada';
+import { create, ConfigError, ValidationError, z } from './cascada';
 import type { ComponentExecutionOptions } from './cascada';
 import { mergeConfigs, processConfig } from '../src/config/config-utils.js';
 import { inputNames } from '../src/schema.js';
@@ -456,7 +456,7 @@ describe('Review configuration and metadata corrections', () => {
 		const model = modelFor({}, 'scale');
 		const component = create.LLMAgent({ model, prompt: 'ready', stopWhen: isStepCount(2) });
 		const owner = create.Script({ context: { component, registry: { scale }, contexts: { scale: { factor: 5 } } },
-			script: 'var result = component.run(tools=registry, toolsContext=contexts)\nreturn result.value' });
+			script: 'var result = component.run(tools=registry, toolsContext=contexts)\nreturn result.output' });
 		assert.equal(await owner(), 'done');
 		assert.deepEqual(seen, [5]);
 	});
@@ -473,8 +473,7 @@ describe('Review configuration and metadata corrections', () => {
 				: rendered ? create.LLMAgent.withTemplate(config) : create.LLMAgent(config);
 			// This deliberately exercises JavaScript callers: typed run overrides retain configured tool names.
 			const result = await runtimeRun(component, { tools: { scale }, toolsContext: { scale: { factor: 5 } } });
-			const value = result.value;
-			assert.equal(typeof value === 'string' ? value : await collectTextStream(value), 'done');
+			assert.equal(await result.output, 'done');
 			assert.deepEqual(seen, [5]);
 			assert.equal((streaming ? model.doStreamCalls : model.doGenerateCalls).length, 2);
 		});
@@ -489,9 +488,8 @@ describe('Review configuration and metadata corrections', () => {
 		await assert.rejects(async () => {
 			const result = await runtimeRun(component, { tools: { scale }, toolsContext: { scale: { factor: 5 } },
 				prepareStep: () => ({ toolsContext: { scale: { factor: 9 } } }) });
-			const value = result.value;
-			if (typeof value !== 'string') await collectTextStream(value);
-		}, /cannot change within an invocation/);
+			await result.responseMessages;
+		}, streaming ? /No output generated/ : /cannot change within an invocation/);
 		if (streaming) assert.match(String(errors[0]), /cannot change within an invocation/);
 		assert.equal((streaming ? model.doStreamCalls : model.doGenerateCalls).length, 0);
 	});

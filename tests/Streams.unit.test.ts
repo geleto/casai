@@ -3,6 +3,29 @@ import { createTextStreamResponse } from 'ai';
 import { create, z, ValidationError, textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './cascada';
 
 describe('Component streams', () => {
+	it('keeps a collected stream paired with direct and inherited configurations when another branch has no schema', async () => {
+		const schema = textStreamSchema();
+		const chunks = async function* () { yield 'a'; yield 'b'; };
+		for (const inherited of [false, true]) for (const streaming of [true, false]) {
+			const config: { schema: typeof schema; execute: typeof chunks } | { execute: () => string } = streaming
+				? { schema, execute: chunks }
+				: { execute: () => 'ab' };
+			const operation = inherited
+				? create.Function.asTool({ inputSchema: z.object({}) }, create.Config(config))
+				: create.Function.asTool({ inputSchema: z.object({}), ...config });
+			const ordinary = await operation();
+			assert.equal(typeof ordinary === 'string' ? ordinary : await collectTextStream(ordinary), 'ab');
+			const options = { context: undefined, toolCallId: 'paired', messages: [] };
+			assert.equal((await operation.execute({}, options)).toUpperCase(), 'AB');
+			const bound = operation.bindToolContext({});
+			assert.ok(bound.tool.execute);
+			assert.equal(await bound.tool.execute({}, { ...options, context: bound.context }), 'ab');
+			const owner = create.Function({ tools: { operation }, execute: async ({ operation }) => (await operation({})).toUpperCase() });
+			assert.equal(await owner(), 'AB');
+			assert.equal(await create.Script({ tools: { operation }, script: 'return operation({})' })(), 'ab');
+		}
+	});
+
 	it('collects only the stream branch of a conditional output schema on every tool path', async () => {
 		for (const streaming of [true, false]) {
 			const mixed = create.Function.asTool({

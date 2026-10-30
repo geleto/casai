@@ -7,7 +7,24 @@ const inputSchema = z.object({ name: z.string() });
 const template = create.Template.loadsTemplate.asTool({ inputSchema, template: 'entry', loader: { load: () => '{{ name }}' } });
 const script = create.Script.loadsScript.asTool({ inputSchema, script: 'entry', schema: z.string(), loader: { load: () => 'return name' } });
 const fn = create.Function.asTool({ inputSchema, execute: ({ name }) => name });
-const agent = create.LLMAgent.withTemplate.asStream.asTool({ model, inputSchema, prompt: '{{ name }}' });
+const agent = create.LLMAgent.withTemplate.asTool({ model, inputSchema, prompt: '{{ name }}' });
+// @ts-expect-error LLMAgent has no combined streaming tool modifier.
+expectType<unknown>(create.LLMAgent.asStream.asTool);
+// @ts-expect-error An inherited tool cannot become a streaming component.
+create.LLMAgent.asStream({}, agent);
+const streaming = create.LLMAgent.withTemplate.asStream({ model, inputSchema, prompt: '{{ name }}' });
+// @ts-expect-error An inherited streaming component cannot become a tool.
+create.LLMAgent.asTool({}, streaming);
+// @ts-expect-error Config fragments do not bypass generation-only tool admission.
+create.LLMAgent({}, create.Config({ streaming: true }, agent));
+// @ts-expect-error Direct settings cannot enable both modes.
+create.LLMAgent({ model, inputSchema, prompt: 'hello', streaming: true, asTool: true });
+// @ts-expect-error Native result properties replace public value.
+expectType<unknown>((await streaming({ name: 'Ada' })).value);
+declare const separateModes: { model: LanguageModel; inputSchema: typeof inputSchema; prompt: string } & (
+	{ asTool: true; streaming?: never } | { streaming: true; asTool?: never });
+// Each configuration alternative is valid; no branch combines both modes.
+create.LLMAgent(separateModes);
 
 const childTemplate = create.Template({}, create.Config({}, template));
 const childScript = create.Script({}, create.Config({}, script));
@@ -20,7 +37,8 @@ expectType<Tool<{ name: string }, string, undefined>>(childAgent);
 expectEqual<typeof childTemplate.config.promptType, 'async-template-name'>();
 expectEqual<typeof childScript.config.promptType, 'async-script-name'>();
 expectEqual<typeof childAgent.config.promptType, 'async-template'>();
-expectEqual<typeof childAgent.config.streaming, true>();
+// @ts-expect-error Generation tools have no inherited streaming mode.
+expectType<unknown>(childAgent.config.streaming);
 expectEqual<typeof childFunction.config.asTool, true>();
 // @ts-expect-error An inherited tool keeps the separate tool interface.
 expectType<Agent>(childAgent);
@@ -42,7 +60,8 @@ const literalAgent = create.LLMAgent.withText({}, agent);
 expectEqual<typeof inlineTemplate.config.promptType, 'async-template'>();
 expectEqual<typeof inlineScript.config.promptType, 'async-script'>();
 expectEqual<typeof literalAgent.config.promptType, 'text'>();
-expectEqual<typeof literalAgent.config.streaming, true>();
+// @ts-expect-error Source replacement does not add streaming.
+expectType<unknown>(literalAgent.config.streaming);
 expectEqual<typeof literalAgent.config.asTool, true>();
 expectType<Tool<{ name: string }, string, undefined>>(inlineTemplate);
 expectType<Tool<{ name: string }, string, undefined>>(inlineScript);

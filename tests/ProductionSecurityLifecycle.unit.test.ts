@@ -136,7 +136,7 @@ describe('Production security lifecycle and native boundaries', () => {
 					const streamer = create.LLMAgent.asStream({ model, prompt: messages, tools: { probe: fresh.tool }, toolsContext: { probe: fresh.context },
 						onError: ({ error }) => { handled.push(error); } });
 					const explicit = (await streamer());
-					await assert.rejects(async () => { for await (const _chunk of explicit.value) { /* consume */ } }, safeContextError);
+					await assert.rejects(async () => explicit.output);
 					assert.equal(handled.length, 1);
 					assert.ok(safeContextError(handled[0]));
 					assert.equal(logged.length, 1, 'The explicit handler replaces native default logging.');

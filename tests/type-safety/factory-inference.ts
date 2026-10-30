@@ -100,7 +100,7 @@ const _generated = create.LLMAgent({ onStart: event => {
 }, onEnd: _event => {
 	expectEqual<typeof _event.runtimeContext.requestId, string>();
 } }, textParent);
-expectEqual<Awaited<ReturnType<typeof _generated>>['value'], { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof _generated>>['output'], { answer: number }>();
 const streaming = create.LLMAgent.asStream({}, textParent);
 expectType<StreamTextResult<typeof textTools, { requestId: string }, typeof output>>(await streaming('Answer'));
 const prepared = create.LLMAgent.withFunction.asStream({ prompt: () => 'Answer' }, textParent);
@@ -117,7 +117,7 @@ const objectStream = create.LLMAgent.asStream({ output: Output.array({ element: 
 create.LLMAgent.asStream({ output: Output.array({ element: undefined }) }, objectParent);
 // @ts-expect-error Generators must capture the same child override in exact-optional mode.
 create.LLMAgent({ output: Output.array({ element: undefined }) }, objectParent);
-expectEqual<Awaited<Awaited<ReturnType<typeof objectStream>>['value']>, { answer: number }[]>();
+expectEqual<Awaited<Awaited<ReturnType<typeof objectStream>>['output']>, { answer: number }[]>();
 expectType<AsyncIterable<{ answer: number }>>((await objectStream('Answer')).elementStream);
 const objectPrepared = create.LLMAgent.withFunction.asStream({ output: Output.array({ element: schema }), prompt: () => 'Answer' }, objectParent);
 expectType<ReturnType<typeof objectStream>>(objectPrepared());
@@ -164,7 +164,7 @@ void inheritedObjectPrompt({ value: '4' });
 void inheritedObjectStreamPrompt({ value: '4' });
 void inheritedTextPromptTool({ value: '4' });
 void inheritedObjectPromptTool({ value: '4' });
-expectEqual<Awaited<ReturnType<typeof inheritedObjectPrompt>>['value'], { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof inheritedObjectPrompt>>['output'], { answer: number }>();
 // @ts-expect-error Each selected parser consumes raw string input.
 void inheritedTextPrompt({ value: 4 });
 // @ts-expect-error The output schema does not relax the preparer's raw input.
@@ -197,19 +197,19 @@ expectEqual<Awaited<ReturnType<typeof _rawScriptTool.execute>>, unknown>();
 const objectWithMetadata = create.Config({ model, output: Output.object({ schema, name: 'Answer', description: 'An answer' }) });
 const json = create.LLMAgent({ output: Output.json() }, objectWithMetadata);
 const jsonStream = create.LLMAgent.asStream({ output: Output.json() }, objectWithMetadata);
-expectEqual<Awaited<ReturnType<typeof json>>['value'], import('ai').JSONValue>();
-expectEqual<Awaited<Awaited<ReturnType<typeof jsonStream>>['value']>, import('ai').JSONValue>();
+expectEqual<Awaited<ReturnType<typeof json>>['output'], import('ai').JSONValue>();
+expectEqual<Awaited<Awaited<ReturnType<typeof jsonStream>>['output']>, import('ai').JSONValue>();
 const jsonFragment = create.Config({ output: Output.json() }, objectWithMetadata);
 create.LLMAgent({}, jsonFragment);
 create.LLMAgent.asStream({}, jsonFragment);
 const choiceFromObject = create.LLMAgent({ onEnd: _event => {
 	expectEqual<typeof _event.output, 'YES' | 'NO' | undefined>();
 }, output: Output.choice({ options: ['YES', 'NO'] }) }, objectWithMetadata);
-expectEqual<Awaited<ReturnType<typeof choiceFromObject>>['value'], 'YES' | 'NO'>();
+expectEqual<Awaited<ReturnType<typeof choiceFromObject>>['output'], 'YES' | 'NO'>();
 const objectFromChoice = create.LLMAgent({ onEnd: _event => {
 	expectEqual<typeof _event.output, { answer: number } | undefined>();
 }, output: Output.object({ schema }) }, choiceFromObject);
-expectEqual<Awaited<ReturnType<typeof objectFromChoice>>['value'], { answer: number }>();
+expectEqual<Awaited<ReturnType<typeof objectFromChoice>>['output'], { answer: number }>();
 create.LLMAgent.withFunction({ prompt: () => 'Answer', output: Output.json() }, objectWithMetadata);
 create.LLMAgent.withFunction.asStream({ prompt: () => 'Answer', output: Output.json() }, objectWithMetadata);
 create.LLMAgent.asTool({ prompt: 'Answer', inputSchema: z.object({}), output: Output.json() }, objectWithMetadata);

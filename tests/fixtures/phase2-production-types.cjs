@@ -660,6 +660,9 @@ Config({ output: Output.choice({ options: ['YES', 'NO'] }), onEnd: event => {
   const wrong: number = event.output;
 } });
 `;
+  const configFactoryResult = fs.readFileSync(path.join(production, 'src/factories/Config.ts'), 'utf8')
+    .match(/\) => NoInfer<configs\.ConfigProvider<[^;]+;/)?.[0];
+  assert.ok(configFactoryResult, 'Config return-inference barrier');
   const configFactoryMutations = [
     ['Config object constraint', 'TConfig extends object & configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>',
       'TConfig extends configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
@@ -671,9 +674,9 @@ Config({ output: Output.choice({ options: ['YES', 'NO'] }), onEnd: event => {
       '...parent: [] | [parent: configs.ConfigProvider<TParentConfig>]', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
     ['Config merged validation', 'ValidateConfigFragment<TConfig, [TParentConfig] extends [never] ? TConfig : MergedConfig<TParentConfig, TConfig>,',
       'ValidateConfigFragment<TConfig, TConfig,', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
-    ['Config parent return inference', ': MergedConfig<NoInfer<TParentConfig>, ResolvedConfig<TConfig>>',
-      ': MergedConfig<TParentConfig, ResolvedConfig<TConfig>>', /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
-    ['Config inherited result', ': MergedConfig<NoInfer<TParentConfig>, ResolvedConfig<TConfig>>',
+    ['Config parent return inference', configFactoryResult,
+      configFactoryResult.replace('NoInfer<', '').replace('>>>>;', '>>>;'), /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
+    ['Config inherited result', ': MergedConfig<TParentConfig, ResolvedConfig<TConfig>>',
       ': ProcessedConfig<ResolvedConfig<TConfig>>', /Property 'offset' does not exist/, 'src/factories/Config.ts'],
     ['Config callback registry inference', 'TCallbackTools, TCallbackRuntime, TCallbackOutput>',
       'configs.ToolRegistry, TCallbackRuntime, TCallbackOutput>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
@@ -737,9 +740,10 @@ LLMAgent({ prompt: context => {
   return String(value);
 } }, Config({}, functionSource))({ value: '4' });
 LLMAgent.asStream({ model, prompt: [{ role: 'user', content: 'Answer' }] })();
-const tool = LLMAgent.withTemplate.asStream.asTool({ model, inputSchema, prompt: '{{ value }}' });
+const tool = LLMAgent.withTemplate.asTool({ model, inputSchema, prompt: '{{ value }}' });
 const inheritedTool = LLMAgent({}, Config({}, tool));
-const enabled: true = inheritedTool.config.streaming;
+// @ts-expect-error Tools are generation-only.
+inheritedTool.config.streaming;
 const descriptor: import('ai').Tool = inheritedTool;
 // @ts-expect-error Inherited tools retain the separate tool interface.
 inheritedTool.generate({ prompt: 'Answer' });

@@ -147,13 +147,13 @@ describe('Component workflow contracts', () => {
 		it(`runs the documented revision workflow with scores ${scenario.scores.join(',')}, minimum ${scenario.min}, maximum ${scenario.max}`, async () => {
 			const drafts: string[] = [];
 			const critiques: string[] = [];
-			const draftGenerator = create.Function({ execute: () => ({ value: 'draft' }) });
+			const draftGenerator = create.Function({ execute: () => ({ output: 'draft' }) });
 			const critiqueGenerator = create.Function({
 				inputSchema: z.object({ draft: z.string() }),
 				execute: ({ draft }) => {
 					const score = scenario.scores[critiques.length];
 					critiques.push(draft);
-					return { value: { score, suggestions: [`improve ${draft}`] } };
+					return { output: { score, suggestions: [`improve ${draft}`] } };
 				},
 			});
 			const revisionGenerator = create.Function({
@@ -162,7 +162,7 @@ describe('Component workflow contracts', () => {
 					expect(suggestions).to.deep.equal([`improve ${draft}`]);
 					const revised = `${draft}+revision`;
 					drafts.push(revised);
-					return { value: revised };
+					return { output: revised };
 				},
 			});
 			const agent = create.Script({
@@ -187,7 +187,7 @@ describe('Component workflow contracts', () => {
 			inputSchema: z.object({ context: z.string() }),
 			execute: ({ context }) => {
 				calls.push(`answer:${context}`);
-				return { value: `Based on ${context}` };
+				return { output: `Based on ${context}` };
 			},
 		});
 		const workflow = create.Script({

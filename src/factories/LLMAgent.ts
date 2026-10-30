@@ -43,6 +43,8 @@ type PromptError<T, P extends PromptType, A extends boolean> = [P] extends ['fun
 	: ConfigValue<T, 'prompt'> extends import('../types/factory-config.js').PromptSource<P> | undefined ? never : 'prompt';
 type Missing<T, Required> = T extends unknown ? { [K in keyof Required]-?: K extends keyof T
 	? [T[K]] extends [Required[K]] ? never : K : K }[keyof Required] : never;
+type StreamingToolConfig<T> = T extends unknown
+	? true extends ConfigValue<T, 'asTool'> & ConfigValue<T, 'streaming'> ? T : never : never;
 type Validate<C, Parent, T, P extends PromptType, A extends boolean,
 	Unknown = Exclude<UnionKeys<C> | UnionKeys<Parent>, keyof AgentFactoryShape<P, A>>,
 	Required = Missing<T, AgentRequiredSettings<P, A>>,
@@ -50,6 +52,7 @@ type Validate<C, Parent, T, P extends PromptType, A extends boolean,
 	([Unknown] extends [never] ? unknown : `Config Error: Unknown LLMAgent properties: '${Unknown & string}'.`)
 	& ([Required] extends [never] ? unknown : `Config Error: Missing required LLMAgent property '${Required & string}'.`)
 	& ([Callbacks] extends [never] ? unknown : `Config Error: Hook or callback '${Callbacks & string}' is incompatible with the final configuration.`)
+	& ([StreamingToolConfig<T>] extends [never] ? unknown : 'Config Error: LLMAgent tools are generation-only; streaming is not supported.')
 	& ComponentAdmission<T>
 	& ([Extract<UnionKeys<T>, 'tools' | 'toolsContext'>] extends [never] ? unknown : ValidateToolsContext<C, T>)
 	& ([Extract<UnionKeys<T>, 'experimental_refineToolInput' | 'toolApproval'>] extends [never] ? unknown : ValidateToolCallbackNames<T>)
@@ -80,9 +83,10 @@ type AgentFactory<P extends SourceMode, A extends boolean = false, S extends boo
 	...parent: [ParentConfig] extends [never] ? [] : [parent: ConfigProvider<ParentConfig & ParentToolSelectionInput<ParentConfig, Tools>>]
 ) => NoInfer<LLMAgentComponent<Complete, Extract<ConfigValue<Complete, 'promptType'>, PromptType>, EffectiveTool>>;
 
-type FactoryModes<P extends SourceMode, S extends boolean = false> = AgentFactory<P, false, S> & {
-	asTool: AgentFactory<P, true, S>;
-} & (S extends false ? { asStream: FactoryModes<P, true> } : EmptyMap);
+type FactoryModes<P extends SourceMode> = AgentFactory<P> & {
+	asTool: AgentFactory<P, true>;
+	asStream: AgentFactory<P, false, true>;
+};
 
 function factory(promptType: SourceMode, streaming = false, asTool = false) {
 	return (config: Record<string, unknown>, parent?: ConfigProvider<Record<string, unknown>>) => {
@@ -97,7 +101,7 @@ function factory(promptType: SourceMode, streaming = false, asTool = false) {
 }
 
 function modes<P extends SourceMode>(promptType: P): FactoryModes<P> {
-	const stream = Object.assign(factory(promptType, true), { asTool: factory(promptType, true, true) });
+	const stream = factory(promptType, true);
 	return Object.assign(factory(promptType), { asStream: stream, asTool: factory(promptType, false, true) }) as FactoryModes<P>;
 }
 

@@ -22,8 +22,8 @@ export type JSONSchema = Awaited<ReturnType<typeof asSchema>['jsonSchema']>;
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;
 
 // Omitted output uses the SDK's native text type; explicit specifications retain theirs.
-export type ResolvedOutput<O extends OutputInterface | undefined> = [Exclude<O, undefined>] extends [never]
-	? ReturnType<typeof Output.text> : Exclude<O, undefined>;
+export type ResolvedOutput<O extends OutputInterface | undefined> = [O] extends [never] ? ReturnType<typeof Output.text>
+	: O extends OutputInterface ? O : ReturnType<typeof Output.text>;
 
 export type StreamTextOnFinishEvent<TOOLS extends ToolSet = Record<string, never>, OUTPUT extends AIOutput = AIOutput<string, string, never>, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
 	Parameters<StreamTextOnEndCallback<TOOLS, RUNTIME_CONTEXT, OUTPUT>>[0];

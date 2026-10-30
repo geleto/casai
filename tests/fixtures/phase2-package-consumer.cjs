@@ -111,7 +111,7 @@ const inheritedWriter = create.LLMAgent({}, create.Config({}, writer));
 assert.equal(inheritedWriter.version, 'agent-v1');
 assert.equal(inheritedWriter.config.streaming, true);
 const answer = await inheritedWriter({ topic: 'recycling' });
-assert.equal(await answer.value, 'answer');
+assert.equal(await answer.output, 'answer');
 assert.deepEqual(await collectStream(answer.textStream), ['answer']);
 assert.equal(model.doStreamCalls.length, 1);
 assert.equal(model.doStreamCalls[0].prompt.at(-1).content[0].text, 'recycling');
@@ -176,7 +176,7 @@ const writer = create.LLMAgent.withFunction.asStream({ model, inputSchema: z.obj
 });
 const inheritedWriter = create.LLMAgent({}, create.Config({}, writer));
 const nativeAgent: Agent<{ topic: string }> = inheritedWriter;
-const finalText: Promise<string> = inheritedWriter({ topic: 'recycling' }).then(result => result.value);
+const finalText: Promise<string> = inheritedWriter({ topic: 'recycling' }).then(result => result.output);
 // @ts-expect-error Inherited source still requires its declared input.
 inheritedWriter();
 // @ts-expect-error Native entry points retain the same required application context.

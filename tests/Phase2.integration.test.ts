@@ -33,7 +33,7 @@ describe('Phase 2 production execution', () => {
 		assert.equal(streaming.doStreamCalls.length, 1);
 		const absent = settings(false, modelFor(undefined));
 		assert(!('tools' in absent));
-		assert.equal((await create.LLMAgent(absent)()).value, 'done');
+		assert.equal((await create.LLMAgent(absent)()).output, 'done');
 		const configured = create.LLMAgent({ model: modelFor({}, 'secured'), prompt: 'ready', tools: { secured }, toolsContext: { secured: { tenant: 'trusted' } } });
 		const completed = await configured();
 		assert.equal(completed.toolResults[0]?.output, 'trusted');
@@ -102,11 +102,13 @@ describe('Phase 2 production execution', () => {
 		const parent = create.LLMAgent.asStream(settings(true));
 		// @ts-expect-error A possible string callback cannot consume a numeric result.
 		const invalid = create.LLMAgent.asStream({ output: Output.object({ schema: numeric }) }, parent);
-		assert.deepEqual(await (await invalid()).value, { value: 3 });
+		const invalidResult = await invalid();
+		assert.deepEqual(await invalidResult.output, { value: 3 });
+		await invalidResult.consumeStream();
 		assert.equal(started, 1);
 		assert.equal(finished, 0); // Native notify swallows the hook error; generation itself succeeds.
 		const valid = create.LLMAgent.asStream({ onEnd: event => { assert.equal(event.output?.value, 3); finished++; }, output: Output.object({ schema: numeric }) }, parent);
-		await (await valid()).value;
+		await (await valid()).consumeStream();
 		assert.equal(finished, 1);
 	});
 
@@ -129,7 +131,7 @@ describe('Phase 2 production execution', () => {
 		// @ts-expect-error Named invocation settings reject the same forbidden branch.
 		await assert.rejects(generator.run(runSettings(true)), /toolContextSchema/);
 		assert.equal(model.doGenerateCalls.length, 0);
-		assert.equal((await generator.run({ temperature: 0 })).value, 'done');
+		assert.equal((await generator.run({ temperature: 0 })).output, 'done');
 	});
 
 	it('distinguishes absent trusted context from present null after parsing', async () => {
@@ -216,8 +218,8 @@ describe('Phase 2 production execution', () => {
 		assert.equal(await operation(valid), 2);
 		assert.equal(await template(valid), '2');
 		assert.equal(await script(valid), 2);
-		assert.equal((await generator(valid)).value, 'done');
-		assert.equal(await collectTextStream((await streamer(valid)).value), 'done');
+		assert.equal((await generator(valid)).output, 'done');
+		assert.equal(await collectTextStream((await streamer(valid)).textStream), 'done');
 		assert.equal(await operation({ kind: 'closed', value: 2 }), 2);
 	});
 
@@ -276,8 +278,8 @@ describe('Phase 2 production execution', () => {
 		assert.equal(model.doStreamCalls.length, 0);
 		assert.equal(await template({ value: 1, extra: 'allowed' }), '1');
 		assert.equal(await script({ value: 1, extra: 'allowed' }), 1);
-		assert.equal((await generator({ value: 1, extra: 'allowed' })).value, 'done');
-		assert.equal(await collectTextStream((await streamer({ value: 1, extra: 'allowed' })).value), 'done');
+		assert.equal((await generator({ value: 1, extra: 'allowed' })).output, 'done');
+		assert.equal(await collectTextStream((await streamer({ value: 1, extra: 'allowed' })).textStream), 'done');
 	});
 
 	it('accepts union arguments with optional declared tool fields', async () => {
@@ -325,7 +327,7 @@ describe('Phase 2 production execution', () => {
 		const sourceFree = create.LLMAgent.withTemplate({ model, inputSchema: opaque, prompt: '{{ value }}' });
 		const declared = create.LLMAgent.withTemplate({ ...config, inputSchema: z.object({ value: z.number() }), prompt: '{{ value }}' });
 		const metadata = create.LLMAgent.withTemplate({ ...config, inputSchema: described, prompt: '{{ value }}' });
-		for (const call of [() => sourceFree({ value: 1 }), () => declared({ value: 1 }), () => metadata({ value: 1 })]) assert.equal((await call()).value, 'done');
+		for (const call of [() => sourceFree({ value: 1 }), () => declared({ value: 1 }), () => metadata({ value: 1 })]) assert.equal((await call()).output, 'done');
 		assert.equal(model.doGenerateCalls.length, 3);
 	});
 
@@ -356,7 +358,7 @@ describe('Phase 2 production execution', () => {
 					return String(value);
 				},
 			});
-			assert.equal((await generator()).value, 'done');
+			assert.equal((await generator()).output, 'done');
 		}
 	});
 
@@ -410,7 +412,7 @@ describe('Phase 2 production execution', () => {
 			assert.equal(model.doGenerateCalls.length, 0);
 			assert.equal(await script({ a: 2, b: 3 }), 5);
 			assert.equal(await template({ a: 2, b: 3 }), '5');
-			assert.equal((await generator.run({ context: { a: 2, b: 3 } })).value, 'done');
+			assert.equal((await generator.run({ context: { a: 2, b: 3 } })).output, 'done');
 		}
 	});
 

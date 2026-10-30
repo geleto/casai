@@ -19,7 +19,8 @@ type DeprecatedSettings = typeof incompatibleAgentSettings[number];
 type ProtectedSettings = typeof protectedSettings[number];
 type AgentContext<T, AsTool extends boolean> = AsTool extends true ? ToolExecutionContext<T> : ExecutionContext<T>;
 export type AgentOutput<T> = Extract<ConfigValue<T, 'output'>, OutputInterface | undefined>;
-type SDKOutput<T> = import('./sdk.js').ResolvedOutput<AgentOutput<T>>;
+// Configuration describes the selected specification; result types also include an absent-output text fallback.
+type SDKOutput<T> = import('./sdk.js').ResolvedOutput<Exclude<AgentOutput<T>, undefined>>;
 type Step<T> = PrepareStepFunction<ToolsFromConfig<T>, RuntimeContextFromConfig<T>>;
 
 export type PrepareStep<T, AsTool extends boolean = false> = (step: Parameters<Step<T>>[0],
@@ -78,15 +79,15 @@ type ConfiguredSource<P extends PromptType> = P extends 'function' ? (...args: n
 type AgentSource<T, P extends PromptType, A extends boolean> = P extends 'function'
 	? (context: AgentContext<T, A>) => PromptValue | PromiseLike<PromptValue> : PromptSource<P>;
 
-type History = [messageHistory?: ModelMessage[]];
+type History = [messageHistory?: readonly ModelMessage[]];
 type ContextHistory<T> = [...ContextArguments<T>, ...History];
 type SourceContextHistory<T, P extends PromptType, A extends boolean> = [prompt: AgentSource<T, P, A>, ...ContextHistory<T>]
-	| (CanOmitComponentInput<T> extends true ? [prompt: AgentSource<T, P, A>, messageHistory?: ModelMessage[]] : never);
+	| (CanOmitComponentInput<T> extends true ? [prompt: AgentSource<T, P, A>, ...History] : never);
 type AgentArguments<T, P extends PromptType, A extends boolean> = SourceContextHistory<T, P, A>
 	| ([T] extends [{ prompt: ConfiguredSource<P> }] ? ContextHistory<T> | [prompt: undefined, ...ContextHistory<T>] : never);
 
-type AgentRunSource<T, P extends PromptType, A extends boolean> = { prompt?: AgentSource<T, P, A>; messageHistory?: ModelMessage[] }
-	& ([T] extends [{ prompt: ConfiguredSource<P> }] ? EmptyMap : { prompt: AgentSource<T, P, A> } | { messageHistory: ModelMessage[] });
+type AgentRunSource<T, P extends PromptType, A extends boolean> = { prompt?: AgentSource<T, P, A>; messageHistory?: readonly ModelMessage[] }
+	& ([T] extends [{ prompt: ConfiguredSource<P> }] ? EmptyMap : { prompt: AgentSource<T, P, A> } | { messageHistory: readonly ModelMessage[] });
 type CompatibleTool<T> = T extends Tool ? T | Tool<import('ai').InferToolInput<T>, import('ai').InferToolOutput<T>, import('@ai-sdk/provider-utils').InferToolContext<T>> : never;
 type RunTools<T> = { [K in keyof ToolsFromConfig<T>]?: CompatibleTool<ToolsFromConfig<T>[K]> | null | undefined };
 export type AgentRunSettings<T, P extends PromptType, AsTool extends boolean> = OptionalUndefined<Omit<Partial<LLMAgentConfig<ToolsFromConfig<T>, any, PromptSource<P>, SDKOutput<T>, RuntimeContextFromConfig<T>>>,
@@ -104,7 +105,7 @@ type Streamed<T> = StreamTextResultAugmented<ToolsFromConfig<T>, AgentOutput<T>,
 type AgentResult<T> = [T] extends [{ streaming: true }] ? Streamed<T> : true extends ConfigValue<T, 'streaming'> ? Generated<T> | Streamed<T> : Generated<T>;
 
 type AgentMethods<T> = Omit<Agent<ComponentInputShape<T> | (CanOmitComponentInput<T> extends true ? undefined : never),
-	ToolsFromConfig<T>, RuntimeContextFromConfig<T>, SDKOutput<T>>, 'generate' | 'stream'> & {
+	ToolsFromConfig<T>, RuntimeContextFromConfig<T>, import('./sdk.js').ResolvedOutput<AgentOutput<T>>>, 'generate' | 'stream'> & {
 	generate<Args extends NativeArguments<AgentCallParameters<ComponentInputShape<T>, ToolsFromConfig<T>, RuntimeContextFromConfig<T>>, T>>(
 		args: Args & NativeValidation<Args, T, AgentCallParameters<unknown>>): Promise<Generated<T>>;
 	stream<Args extends NativeArguments<AgentStreamParameters<ComponentInputShape<T>, ToolsFromConfig<T>, RuntimeContextFromConfig<T>>, T>>(

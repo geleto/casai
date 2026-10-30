@@ -32,7 +32,7 @@ expectEqual<keyof typeof import('casai'),
 >();
 type PromptModifiers = 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript';
 expectEqual<keyof typeof LLMAgent, PromptModifiers | 'asTool' | 'asStream'>();
-expectEqual<keyof typeof LLMAgent.asStream, 'asTool'>();
+expectEqual<keyof typeof LLMAgent.asStream, never>();
 expectEqual<keyof typeof LLMAgent.asTool, never>();
 expectEqual<keyof typeof Template, 'withTemplate' | 'loadsTemplate' | 'asTool'>();
 expectEqual<keyof typeof Script, 'withScript' | 'loadsScript' | 'asTool' | 'loadsScriptAsTool'>();

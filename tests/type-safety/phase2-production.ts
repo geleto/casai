@@ -208,8 +208,8 @@ expectType<PromiseLike<string>>(scriptStream.execute({}, { toolCallId: 'call', m
 const iterableOutput = z.object({}).transform(() => ({ async *[Symbol.asyncIterator]() { yield 1; } }));
 const nativeIterableOutput = Output.object({ schema: iterableOutput });
 // Ordinary native model outputs retain their declared result type.
-expectType<Promise<AsyncIterable<number>>>(create.LLMAgent({ model, prompt: 'ready', output: nativeIterableOutput })().then(result => result.value));
-expectType<Promise<AsyncIterable<number>>>(create.LLMAgent({ model, prompt: 'ready', output: Output.object({ schema: iterableOutput }) })().then(result => result.value));
+expectType<Promise<AsyncIterable<number>>>(create.LLMAgent({ model, prompt: 'ready', output: nativeIterableOutput })().then(result => result.output));
+expectType<Promise<AsyncIterable<number>>>(create.LLMAgent({ model, prompt: 'ready', output: Output.object({ schema: iterableOutput }) })().then(result => result.output));
 // @ts-expect-error Casai tools cannot expose an undeclared root iterable to the SDK.
 create.LLMAgent.asTool({ model, prompt: 'ready', inputSchema: z.object({}), output: nativeIterableOutput });
 // @ts-expect-error Object generator tools have the same completed-output requirement.

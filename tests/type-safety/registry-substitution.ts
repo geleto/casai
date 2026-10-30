@@ -67,6 +67,16 @@ const fromNumber = create.Function.asTool({
 	inputSchema: z.object({ value: z.number() }),
 	toolContextSchema: z.object({ factor: z.number() }), context: { factor: 1 }, execute: ({ value }) => value,
 });
+// Optional helpers must not manufacture a failed replacement from their optionality.
+declare const optionalOperation: typeof fromText | undefined;
+const optionalPreparer = create.LLMAgent.withFunction({
+	model, tools: { operation: optionalOperation }, toolsContext: { operation: { factor: 1 } },
+	prompt: async ({ operation }) => operation ? String(await operation({ value: '4' })) : 'No operation.',
+});
+void optionalPreparer.run({});
+void optionalPreparer.run({ tools: { operation: fromText } });
+// @ts-expect-error Optional availability does not permit changing the retained helper's raw input.
+void optionalPreparer.run({ tools: { operation: fromNumber } });
 const rawCaller = create.LLMAgent.withFunction({
 	model, tools: { operation: fromText }, toolsContext: { operation: { factor: 1 } },
 	prompt: async ({ operation }) => String(await operation({ value: '4' })),

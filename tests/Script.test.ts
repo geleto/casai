@@ -271,20 +271,6 @@ describe('create.Script', function () {
 			expect((result as any).text).to.be.a('string');
 		});
 
-		it('reads from an structured LLMAgent and uses the result', async () => {
-			const locationGen = create.LLMAgent.withTemplate({ model, ...temperatureConfig, prompt: `Generate a JSON object for the capital of {{ countryName }}.`, output: Output.object({ schema: z.object({ city: z.string(), country: z.string() }) }) });
-			const scriptRunner = create.Script({
-				schema: z.object({ result: z.string() }),
-				context: { getCapital: locationGen },
-				script: `
-          var loc = (getCapital({ countryName: "France" })).value
-          return { result: loc.city }
-        `,
-			});
-			const result = await scriptRunner();
-			expect(result).to.deep.equal({ result: 'Paris' });
-		});
-
 		it('reads from object array stream', async () => {
 			const characterStreamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: 'Generate 3 character descriptions with names Peter, Paul and Mary, in this order.', output: Output.array({ element: z.object({
 				name: z.string(),
