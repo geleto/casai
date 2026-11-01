@@ -1568,7 +1568,7 @@ const requests = pending.content.flatMap(
 
 The call returns these requests; it does not remain open waiting for a person. Save this fresh paused step's request list together with its complete `messageHistory` and raw context/tool-context inputs as one conversation revision. Restore that record to show the requests after a reload or restart. Update the saved list with the history when recording decisions, external results or a later pause: display requests without a recorded decision or result, matching approval selection. Automatic requests normally have decisions; an automatic request missing its decision and result remains selectable. When rebuilding from history, use the active segment and last-write ID lookup described below rather than treating old step content as current state. Collect decisions against the displayed revision. If the user approves all displayed requests, pass their IDs explicitly:
 
-<!-- typecheck-skip: continuation -->
+<!-- typecheck: continuation -->
 ```typescript
 const result = await reviewCalculator.resume(pending.messageHistory, {
   approve: requests.map(request => request.approvalId),
@@ -1624,15 +1624,17 @@ Incoming approved tools receive the caller's cancellation signal and SDK total/t
 
 #### Starting a new message while approvals are pending
 
-Call `denyPendingApprovals(history, reason?)` before adding a replacement user message. This synchronous helper returns a new history array. For each undecided local approval, it adds a negative approval response and a matching `execution-denied` tool result. For provider-executed approvals, it adds only a negative response with `providerExecuted: true`. It uses the same active-segment selection as resume and leaves existing decisions/results unchanged. It does not execute tools or contact a provider.
+Call `denyPendingApprovals(history, reason?)` before adding a replacement user message. This synchronous helper returns a new history array. For each undecided local approval, it adds a negative approval response and a matching `execution-denied` tool result. For provider-executed approvals, it adds only a negative response with `providerExecuted: true`. It uses the same active-segment selection as resume. A local denial already recorded in that segment without its result also receives the `execution-denied` result, keeping the recorded reason, as the SDK's UI message conversion does. Other existing decisions and results are unchanged. It does not execute tools or contact a provider.
 
-The helper accepts `readonly ModelMessage[]` and an optional string reason. It copies only the outer array and a final tool message/content array it extends; other objects remain borrowed. Every selected request needs a matching tool-call definition so the helper can determine the tool name and execution kind; a missing definition raises `ValidationError`. With no undecided requests, it returns a new outer array without adding any parts.
+The helper accepts `readonly ModelMessage[]` and an optional string reason for the denials it adds. It copies only the outer array and a final tool message/content array it extends; other objects remain borrowed. Every request it denies or settles needs a matching tool-call definition so the helper can determine the tool name and execution kind; a missing definition raises `ValidationError`. With nothing to deny or settle, it returns a new outer array without adding any parts.
 
-Other unfinished work still needs to be settled, including external results, already-approved calls awaiting execution and earlier denials without results. This work can be in the same turn or an older one. The helper does not certify that history is ready for a new message, undo effects or stop work already running.
+Other unfinished work still needs to be settled, including external results, already-approved calls awaiting execution and anything left unsettled in an older turn. The helper does not certify that history is ready for a new message, undo effects or stop work already running.
+
+SDK chat UIs that build model messages with `convertToModelMessages` do not need the helper: that conversion already drops unanswered approval requests before a newer user message and adds denial results for recorded denials. Dropping a request sends no provider denial; see the MCP note below.
 
 For the paused calculator above, when its unanswered approvals are the only unfinished work:
 
-<!-- typecheck-skip: continuation-denial -->
+<!-- typecheck: continuation-denial -->
 ```typescript
 import { denyPendingApprovals } from 'casai';
 
@@ -1641,15 +1643,12 @@ const settledHistory = denyPendingApprovals(
   'The user sent a different request.',
 );
 const nextText = 'Explain multiplication without using a calculator.';
-const nextResult = await reviewCalculator.resume([
-  ...settledHistory,
-  { role: 'user', content: nextText },
-]);
+const nextResult = await reviewCalculator(nextText, settledHistory);
 ```
 
-Literal text on any non-tool form can use `agent.resume([...settledHistory, { role: 'user', content: nextText }], { context: newTurnContext })`. This skips rendering and uses the component's generation/streaming mode. Supply the new turn's raw context, including required renderer fields. This also works for `.loadsText`, which does not interpolate `context.message`.
+On a plain text agent, the ordinary call adds the new user message, replacing any configured text. Any non-tool form, including `.loadsText`, can instead append the message itself: `agent.resume([...settledHistory, { role: 'user', content: nextText }], { context: newTurnContext })`. This skips rendering and uses the component's generation/streaming mode. Supply the new turn's raw context, including required renderer fields.
 
-When the new message needs configured template/script/function preparation, including loaded templates/scripts, use `.run({ messageHistory: settledHistory, context: { ...context, message: nextText } })`, with the application's declared field consumed by its preparer. Never pass end-user text as a rendered agent's `prompt`: that selects executable source, a resource name or a function. Both recipes rely on the application to establish the earlier settlement. With a new user message last, the SDK does not synthesize earlier missing denial results, and an incomplete denial can reach the provider without a local error. See [rendering only the new message](#render-only-the-new-message).
+When the new message needs configured template/script/function preparation, including loaded templates/scripts, use `.run({ messageHistory: settledHistory, context: { ...context, message: nextText } })`, with the application's declared field consumed by its preparer. Never pass end-user text as a rendered agent's `prompt`: that selects executable source, a resource name or a function. These recipes rely on the application to establish the earlier settlement. With a new user message last, the SDK does not synthesize earlier missing denial results, and an incomplete denial can reach the provider without a local error. See [rendering only the new message](#render-only-the-new-message).
 
 For a pending OpenAI MCP approval, the helper's negative provider response is sent by the subsequent literal or rendered call. Retain provider history/metadata and the provider options used for continuation. The adapter forwards the response as an MCP denial even though the tool message is no longer last. Starting a new user/system turn without a negative response sends no denial and does not establish provider cancellation. Provider acceptance still depends on the saved conversation and available provider state.
 

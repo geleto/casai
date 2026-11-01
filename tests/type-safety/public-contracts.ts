@@ -28,7 +28,7 @@ expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' |
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
 	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'
-	| 'raceLoaders' | 'raceParent' | 'overrideParent' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'ValidationError' | 'TemplateError' | 'ScriptError' | 'z'
+	| 'raceLoaders' | 'raceParent' | 'overrideParent' | 'denyPendingApprovals' | 'ModelMessageSchema' | 'PromptStringOrMessagesSchema' | 'ConfigError' | 'ValidationError' | 'TemplateError' | 'ScriptError' | 'z'
 >();
 type PromptModifiers = 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript';
 expectEqual<keyof typeof LLMAgent, PromptModifiers | 'asTool' | 'asStream'>();

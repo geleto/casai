@@ -15,6 +15,7 @@ import { ValidationError } from '../errors.js';
 import { requireContextObject } from '../schema.js';
 import { validateConfigBasics, validateMessagesArray } from '../config/validate.js';
 import { observers, aliases, protectedSettings, streamingSettings, agentSourceConflicts, fixedSettings } from './agent-settings-policy.js';
+import { applyApprovalSelection } from './approvals.js';
 
 type CallHook = (request: Fields, config: RuntimeAgentConfig, context: PreparedExecutionContext) => Fields | PromiseLike<Fields>;
 type StepHook = (step: PrepareStepOptions, config: RuntimeAgentConfig, context: PreparedExecutionContext) => ReturnType<NonNullable<StreamRequest['prepareStep']>>;
@@ -55,10 +56,10 @@ function callSettings(args: readonly unknown[], promptType: PromptType): Fields 
 	return { prompt: source, context, messageHistory: history };
 }
 
-function messages(prompt: unknown): ModelMessage[] {
+function messages(prompt: unknown): readonly ModelMessage[] {
 	if (prompt === undefined) return [];
 	if (typeof prompt === 'string') return [{ role: 'user', content: prompt }];
-	if (Array.isArray(prompt)) return [...prompt as ModelMessage[]];
+	if (Array.isArray(prompt)) return prompt as ModelMessage[];
 	throw new ValidationError('A literal prompt must be text or model messages.');
 }
 
@@ -69,8 +70,9 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 	const promptType = config.promptType;
 	const renderer = createPromptRenderer(config);
 
-	async function invoke(raw: Fields, streaming: boolean, { native = false, tool }: {
-		native?: boolean; tool?: { context: PreparedExecutionContext; registry: PreparedToolRegistry };
+	async function invoke(raw: Fields, streaming: boolean, { native = false, literal, approve, tool }: {
+		native?: boolean; literal?: readonly ModelMessage[]; approve?: unknown;
+		tool?: { context: PreparedExecutionContext; registry: PreparedToolRegistry };
 	} = {}) {
 		if (config.debug) console.log('[DEBUG] LLMAgent call:', raw);
 		(raw.abortSignal as AbortSignal | undefined)?.throwIfAborted();
@@ -88,7 +90,7 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 		}
 		const invalid = [...fixedSettings, ...agentSourceConflicts].filter(key => Object.hasOwn(raw, key));
 		if (invalid.length) throw new ValidationError(`Unsupported LLMAgent settings: ${invalid.join(', ')}.`);
-		const literal = native ? messages(supplied.messages !== undefined ? supplied.messages : supplied.prompt) : undefined;
+		if (native) literal = messages(supplied.messages !== undefined ? supplied.messages : supplied.prompt);
 		delete supplied.messages;
 		if (native) delete supplied.prompt;
 		if (Array.isArray(supplied.prompt)) supplied.prompt = [...supplied.prompt as ModelMessage[]];
@@ -96,15 +98,16 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 		for (const original of [supplied.messageHistory, literal, Array.isArray(supplied.prompt) ? supplied.prompt : undefined]) {
 			validateMessagesArray(original, ValidationError);
 		}
+		const continued = literal === undefined ? undefined : applyApprovalSelection(literal, approve);
 		const history = supplied.messageHistory === undefined ? [] : [...supplied.messageHistory as readonly ModelMessage[]];
 		const settings = mergeConfigs(config, supplied, ValidationError) as RuntimeAgentConfig;
 		settings.abortSignal?.throwIfAborted();
 		validateRegistryConfig(settings, supplied, ValidationError);
 		const execution = tool ?? await prepareExecution({ ...settings, context: config.context }, supplied.context,
 			settings.abortSignal === undefined ? {} : { abortSignal: settings.abortSignal });
-		const prompt = !native && settings.prompt !== undefined
+		const prompt = continued === undefined && settings.prompt !== undefined
 			? await renderer(settings.prompt === config.prompt ? undefined : settings.prompt, execution.context) : undefined;
-		const conversation = literal ?? [...history, ...messages(prompt)];
+		const conversation = continued ?? [...history, ...messages(prompt)];
 		const protectedValues: Fields = {};
 		for (const key of protectedSettings) protectedValues[key] = settings[key];
 		for (const key of observers) {
@@ -177,6 +180,17 @@ export function createLLMAgent(config: RuntimeAgentConfig) {
 	}
 	return Object.assign(component, {
 		version: 'agent-v1' as const, id: config.id as string | undefined, tools: prepareRegistry(config).tools,
+		resume: async (...args: unknown[]) => {
+			const { values } = namedArguments(args);
+			const [history, options = {}] = values;
+			if (values.length > 2 || !Array.isArray(history) || !isRecord(options)) {
+				throw new ValidationError('Use resume(messageHistory, options?) with positional history and an options object.');
+			}
+			const excluded = ['prompt', 'messageHistory', 'messages', 'options'].filter(key => Object.hasOwn(options, key));
+			if (excluded.length) throw new ValidationError(`Unsupported resume settings: ${excluded.join(', ')}. Use positional history and application context; for a new turn, append a user message to history or use an ordinary call.`);
+			const { approve, ...settings } = options;
+			return invoke(settings, config.streaming === true, { literal: history, approve });
+		},
 		generate: async (args: Fields) => invoke(requireContextObject(args), false, { native: true }),
 		stream: async (args: Fields) => invoke(requireContextObject(args), true, { native: true }),
 	});

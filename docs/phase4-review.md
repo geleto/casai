@@ -1,31 +1,92 @@
-# Phase 4 design review
+# Phase 4 design and implementation review
 
-**Current output decision (2026-10-30):** public `value` is removed. Ordinary LLMAgent results expose native SDK output/streams plus history. LLMAgent tools use generation only and check unfinished work at descriptor/injected execution. Historical `value` probes below document superseded behavior; they do not define the current API.
+The [README continuation guide](../README.md#tool-approvals-and-continuation) owns current public behavior; [README2](../README2.md#tool-approvals-and-continuation) carries it in the future guide. [Agent notes](../AGENTS.md#continuation-implementation) own implementation invariants, and [the plan](plan.md#phase-4-tool-continuations) owns status and deferred scope. This record owns implementation evidence, review findings and historical rationale.
 
-The [implementation and verification record](phase3-review.md#native-output-and-generation-only-tools-2026-10-30) covers this removal. Planned resume returns native results plus history and does not reuse the nested-tool completion check as an admission validator.
+The [historical design reviews](#historical-design-reviews) include superseded APIs and admission rules. They explain decisions, not current requirements or pending work. In particular, historical `value` probes predate its [removal](phase3-review.md#native-output-and-generation-only-tools-2026-10-30).
 
-Scope: the planned continuation API, not an implemented Phase 4 runtime. The review covers call forms, defaults and IDs, generation/streaming, application context, ordinary/tool forms, history assembly, SDK approval execution, external result conversion, hooks and SDK UI consumers. Earlier rounds changed only the design; the [MCP final-value correction](#mcp-final-value-correction-2026-10-29) and [provider wait/order follow-up](#provider-wait-boundaries-and-result-ordering-2026-10-29) also fix the existing Phase 3 result adapter. The findings below retain the reasons for the design changes.
+## Claude implementation review follow-up (2026-10-30)
 
-**Current scope, confirmed 2026-10-30:** [SDK-backed resume](#sdk-backed-resume-scope-revision-2026-10-30) supersedes the earlier whole-history preflight and definition-ID restrictions. Casai translates approval shorthand and prepares one native continuation; the SDK owns historical validation, execution and failure timing. Earlier admission decisions below are historical evidence, not implementation requirements. `options.toolResults` remains deferred unless an explicit need arises. Public `value` was subsequently removed; nested-tool completion checks do not become a resume dispatch validator.
+The user authorized the findings of Claude's implementation review. It found no correctness defect in the agreed scope; the applied changes are:
 
-## Confirmed decisions after review
+| Finding | Change |
+| --- | --- |
+| A local denial recorded without its result stays unsettled; with a new user message last, the call reaches the provider without a result and without a local error | `denyPendingApprovals` also adds the `execution-denied` result for recorded local denials in the active segment, keeping the recorded reason. Native `convertToModelMessages` does the same for a recorded UI denial. Recorded approvals, provider denials and settled calls stay unchanged; a missing call definition raises the existing construction error. This supersedes "existing local denials are not repaired" in the [denial-helper review](#denial-helper-and-history-consistency-2026-10-30). Resume is unchanged. |
+| The guides did not say that SDK chat UIs need no helper | Both guides note that native UI conversion drops unanswered requests before a newer user message and settles recorded denials; dropping sends no provider denial. |
+| New-turn guidance used `resume()` on a plain agent; the resume error recommended an ordinary call | The checked example uses the ordinary call `reviewCalculator(nextText, settledHistory)`; `resume([...history, userMessage])` remains the literal recipe for any non-tool form, including `.loadsText`. The error now names both routes. |
+| Nits | The approval selector type is inlined in the public types; resume reports a non-object options argument as a resume usage error rather than "Expected an object context." |
 
-- **Loop controls clarified (2026-10-30):** no additional resume hook for ordinary agents or tools. `stopWhen` decides whether another eligible step may run; `prepareStep` can change its model/settings. Neither resets counts or restarts a returned invocation. `.run()` and planned `resume()` both use supplied tool replies; their difference is prompt preparation, not whether old tool work is assumed complete. Configuration supplies context and execution settings unless overridden; earlier per-call overrides are not remembered.
-- Use only `resume(messageHistory, options?)`. The options object supplies context, approval selection and execution controls.
-- Keep ordinary calls in `.run()`, with no continuation mode. `resume()` reuses the existing literal-conversation execution path and common preparation/validation.
-- Require `options.context` in types when configured defaults alone do not meet the existing application-input contract. No context is recovered from history or stored on the component.
-- Defer `options.toolResults` until an explicit consumer need arises; it has no scheduled implementation. Applications supply native encoded results in history. Casai never reconverts those results, even if a hook replaces tools.
-- Use ordinary-call ownership: copy the history array and only the final tool message/content array being extended. Consume approval selectors synchronously; borrow other messages/parts and nested values under the unchanged-input authoring contract. This supersedes the earlier broad protocol snapshots.
+One active-segment scan now returns unsettled requests with their call and recorded decision. Selection filters undecided requests, so its behavior is unchanged. Evidence: new pure helper cases (recorded/provider/approved/answered/pending, idempotence, missing call), the new-turn execution test extended to shorthand, literal and rendered calls with provider prompts containing results for both a recorded and an undecided denial, and a native canary for UI conversion. Claude's probes are `r17-ui-newturn.mts`, `r17-auto-deny.mts` and `r17-recorded-denial.mts` in its session scratchpad. No paid calls were made.
 
-These decisions resolve findings 3–6 and the `.run()` routing portion of finding 7. Tool-form scope is also settled: only non-tool LLMAgents, including `.asStream`, expose `resume()`. `.asTool` forms omit it. Shared component methods do not justify adding agent-continuation behavior to a tool. Automatic continuation of a paused inner tool remains outside Phase 4.
+**Independent approval review (2026-10-31):** approved all four changes after tracing native UI conversion and reviewing the complete diff. Recorded-denial settlement is a useful, bounded contract expansion, not a defect in the previously agreed scope. It completes an already-chosen denial without changing resume's synthesis or adding a general history-repair mechanism. All 66 focused approval/resume/native-continuation tests and the full type/build/example gate pass. The existing 300 independent native comparisons and 18 new-turn controls still pass; six additional cases in `.cache/phase4-evaluation/recorded-denial.mts` verify absent/empty/nonempty recorded reasons, local/provider behavior, idempotence and old-turn preservation. Documentation links and whitespace checks pass. The subsequent affected-surface pass found no unresolved issue. The full mock suite, coverage and lint were not independently repeated in this focused review; Claude's reported verification remains separate. No production changes or paid calls were made by this review.
 
-**Current approval decision:** use `approve: boolean | readonly string[] | null`. `true` approves all remaining requests; `false` or `[]` denies all; an ID array approves listed requests and denies the rest. Omission, undefined and null supply no new decisions and skip selection, leaving history handling to the SDK. Null supports Cascada `none` and unset variables. Existing encoded decisions/results exclude their requests from selection; that does not certify their placement or native execution. There is no separate `isAutomatic` filter: an automatic request without a recorded decision or result stays selectable. New decisions concern effective requests in the segment after the last user/system message; request/call definitions use native whole-history last-write lookup. Treat selector IDs as a set: unknown/resolved selections reject, repeated entries do not. Copy the provider flag when its call exists; missing-call validation belongs to the SDK after hooks. These decisions supersede the omission guard, ambiguity/duplicate-selector and missing-call errors, automatic-request exclusion, earlier two-field `approved`/`approvalIds` design and implicit approve-all default; none became a production API. The plan and README2 describe the current contract. Subsequent chronological sections retain their historical decisions, superseded where noted by later user choices.
+## Implementation completeness review (2026-10-30)
 
-**Current history boundary:** no global definition-ID uniqueness, local/provider collision ban, stale/split-history admission or duplicate-existing-response rejection. Existing history follows native semantics, including last-write lookups and effects before later protocol errors. Casai checks selector shape and membership; the SDK validates historical request/call associations. This supersedes both the original global uniqueness rule and its later provider-only exception.
+**Outcome:** no new correctness, completeness or architecture defect found in the agreed Phase 4 scope. Both public entries, generation/streaming dispatch, inherited forms, context and tool binding, hooks, history ownership, public types, package exports and documentation were checked. The subsequent complete affected-surface pass produced no additional finding. No production code or test changes were needed.
 
-Both SDK modes accept a complete mixed decision set. They do not safely postpone unlisted local work: approving only the first of two requests executes that tool and then fails with `AI_MissingToolResultsError`, before a model request. The complete-set rule is therefore useful preparation, not a reason to add waiting state or a continuation loop.
+The assessment retains the earlier simplification conclusion: one shared invocation path and the small approval transform are appropriate. The denial helper and native resume need different result placement; approval selection and nested-tool completion need different facts. No new adapter, shared protocol engine or defensive history pass is justified. The separate twenty-step-default follow-up and deliberately deferred `toolResults` convenience are not missing Phase 4 work.
 
-## Denial helper and history consistency (2026-10-30)
+Additional evidence beyond the existing examples:
+
+- `.cache/phase4-evaluation/probe.mts` independently constructs expected native decisions from a bounded two-call grammar: pending, approved, denied, result-bearing and approved-with-result states, crossed with six approval selections and both execution modes. All **300 comparisons** match native output/errors, response messages, executor effects, formatter calls and provider prompts; caller history stays unchanged. Another **18 helper/new-turn cases** complete without executing denied tools. This is bounded interaction coverage, not exhaustive protocol verification.
+- `.cache/phase4-evaluation/package-flow.mjs` imports the built public package and performs **12 pause/save/resume/later-turn flows**, crossing generation/streaming, signed/unsigned JSON history, approval, cancellation and changed public defaults. Histories originate from actual mocked SDK executions. Schema-transformed tool arguments survive the valid round trips, changed defaults fail native revalidation without executing, rendering is skipped on continuation, and later calls do not replay settled effects.
+- The full source/build/emitted-consumer/exact-optional type gate passes, including 67 README2 examples and 23 current/promoted examples; 17 future examples remain explicitly skipped. All **1,730 mock tests** and required coverage gates pass. Runtime modules have 100% line/function coverage; the approval transform has 98.36% branch coverage. The full repository lint check also passes. Documentation checks pass 457 local links and all fences, and diff whitespace checks pass.
+
+These checks use mocks or existing fake-fetch fixtures and do not establish new live-provider guarantees. No paid calls were made; Cascada remains linked to `C:\Projects\cascada`. Earlier mutation evidence remains recorded below and was not repeated without a source change.
+
+## Post-implementation structural simplification review (2026-10-30)
+
+Reviewed the implemented continuation entries and their shared invocation, settings, context/tool binding, output, public types and downstream consumers. This pass prioritized fewer concepts and mechanisms over shorter functions. No substantial runtime reduction justified a rewrite or a contract change. Production source, tests and the existing index were left unchanged.
+
+The documentation-centralization recommendation was implemented after user approval. README and README2 retain their steps/hooks explanation and continuation recipes. The completed plan now links to the guide and evidence, AGENTS keeps concise implementation invariants, and the historical rounds below are explicitly archived. Existing headings and link targets are preserved; no runtime or type contract changed. Documentation checks preserve all 145 existing anchors in the edited documents and validate 143 inbound links across 20 tracked Markdown files; the seven-document guide check passes 457 local links and all fences. Runtime/compiler suites were not repeated for this documentation-only follow-up.
+
+| Candidate | Assessment |
+| --- | --- |
+| Normalize native spelling at `.generate()`/`.stream()` before the shared executor | An isolated prototype removes the `native` option and its branches. It adds a `nativeCall` adapter, repeats the immediate cancellation check and has zero net line reduction. All 1,730 mock tests and the focused continuation source-type check pass, but that establishes feasibility rather than a worthwhile reduction in total complexity. Keep the existing local normalization unless a future consumer eliminates more machinery. |
+| Replace dispatch with `ToolLoopAgent` | Its preparation and restoration rules differ from Casai's complete hook replacement, protected settings and tool binding. Restoring these would introduce more wrapping; retain SDK core execution. |
+| Unify approval selection and nested-tool completion | Their differences are load-bearing: selection uses active-segment settlement and last-write definitions; completion tracks this invocation's response order, deferred work and hook-transported decisions. A common analyzer would need policies and more state. |
+| Make cancellation helper and resume use one denial mechanism | They already share selection and copy-on-append. The helper must add local results before a new user turn; resume must leave synthesis and `responseMessages` placement native. A synthesis mode would obscure this distinction without deleting the necessary work. |
+| Prepare tool bindings only once, after hooks | Renderers and hooks need configured injected tools before `prepareCall`; the model needs the hook-selected registry afterward. Identity reuse already avoids rebuilding the unchanged registry. Fixed binding context keeps schema defaults, approval revalidation and execution consistent. |
+| Generalize generation/stream history wrappers or resume call signatures | The small wrappers preserve synchronous versus promised native history. The small resume signature already shares settings and validation; the earlier generic-prefix attempt weakened component-union checking. Further abstraction has no demonstrated gain. |
+| Remove interface-integrity defenses | No brand registry, protocol snapshot tree or integrity-validation subsystem remains in the reviewed path. The copied-component diagnostic is a cheap local check; its negative cases can be consolidated when those tests are next edited, but this is not a structural runtime finding. Keep validation of caller/model history and arguments, and fixed-binding checks on documented hook overrides. Do not expand testing of forged internal capabilities or exotic property descriptors. |
+
+Evidence: inspected installed `ToolLoopAgent`, result contracts and native approval collection, and traced generation/streaming dispatch and their consumers. The isolated normalization prototype is `.cache/phase4-review-simplification/prototype.mjs`, with the candidate in `.cache/phase4-boundary-flz3bH`. Its first run lacked the README fixture; copying that fixture allowed the full suite to pass. The unchanged production tree independently passes all 1,730 mock tests. No paid calls, production edits or new public APIs were introduced. Full compiler/declaration, lint and coverage gates were not rerun for this review; the implementation evidence below remains separate.
+
+The subsequent affected-surface pass revisited shorthand/run/native/resume and tool entries, source modes, context/default/private preparation, selectors and history placement, hooks/binding, output/UI consumers, public typing and current/future documentation. It produced no additional important simplification finding. The documentation follow-up is complete; no runtime rewrite is recommended by this pass.
+
+## Implementation and verification (2026-10-30)
+
+Phase 4 now implements non-tool `resume(history, options?)` and the standalone synchronous `denyPendingApprovals(history, reason?)`. There is one invocation path and one SDK dispatch. Literal history is independent of native Agent argument spelling; resume supplies Casai settings, skips source preparation and uses the existing context parser, hooks, tool binding, protected settings and result history. Approval controls are removed before configuration merging and debug logging. Native error timing, output, denial synthesis and UI processing remain unchanged.
+
+The small approval module owns only active-segment selection and new message construction. Request/call definitions use last-write maps, recorded decisions/results exclude work in the active segment, and selector IDs use set semantics. Resume builds responses; the standalone helper adds local denial results. It shares the selection/append functions without a mode-driven protocol engine, provider-specific metadata injection or dependency on tool registries. Old history is not certified, repaired or copied recursively. The nested-tool completion checker remains independent.
+
+Public signatures reuse named-call settings, context requiredness and validation. A trial abstraction added a positional-prefix tuple to all named-call signatures, but allowed a union of components to omit required input. It was reverted. Resume instead has its own small overload with the existing `RunArgument` and resolved settings types; ordinary call signatures remain unchanged. Source/emitted controls cover required/defaulted/transformed/private context, complete unions of inputs/components, inherited rendering/stream/tool forms, callbacks, readonly history, setting replacement and excluded own-undefined keys. Public exports add only the denial helper; no compatibility alias or extra executor is introduced.
+
+| Verification boundary | Evidence |
+| --- | --- |
+| Pure history construction | Selection/no-decision variants, unknown/resolved IDs, orphan automatic requests, active user/system boundaries, last-write definitions, prototype-shaped IDs, missing calls, metadata/identity preservation, frozen history and one local result per call. |
+| Public execution | Both modes compared with native mixed approval/denial execution; hooks supply executors and messages, source loading/rendering stays skipped, context parses once, tool context and cancellation reach executors, counts reset, and no-pending calls still run. Real Cascada keyword/null calls and malformed-argument controls exercise normalization. |
+| Ownership and failures | Concurrent invocations share no selection state; selector mutation after entry cannot change decisions. Native missing work can fail after approved effects. Hooks still run before missing-call validation. Complete augmented history retains supplied decisions and native outcomes. |
+| Provider and application flows | Real OpenAI adapter with fake fetch: unlinked and linked MCP completion and later turns in both modes, plus provider denial before a replacement message. Local literal/rendered new-turn recipes preserve template-looking input as data. Signed JSON history with an embedded affirmative response executes under `approve: []`; current deny policy blocks it. Fake-fetch success establishes transport only. |
+| Native canaries | SDK-only final-tool-message lookup, incomplete new-turn denial transport, execution before step zero, absence from step aggregates, settled denial event replay and UI reader state. Existing provider, signing/policy and timer canaries remain their owners. |
+| Documentation | Promoted continuation, history and source-safe recipes to README; both guides share checked examples. The default-step revision remains a separate unimplemented follow-up: current default is one, future README specifies twenty. Removed the obsolete native-only example fixture and its unused extraction fallback. |
+
+The full mock suite passes **1,730 tests** with required coverage: `src/runtime` has 100% line/function coverage, the completion adapter has 100% coverage, and the approval module has 100% lines/functions with 98.36% branches. The six isolated mutations all fail the relevant tests: splitting the final tool message, dropping provider flags, reselecting decided requests, rendering during resume, omitting local helper results and making resume context optional. Runtime/type baselines pass in the same isolated checkout; logs are in `.cache/phase4-mutations-quvPum`. No root source was mutated for these checks, and no paid calls were made. Cascada remains linked to `C:\Projects\cascada`.
+
+The final `test:types` gate passes source, build, emitted consumers and exact optional properties. Example extraction checks 67 README2 examples and 23 promoted README examples, with 17 future-API skips. A built-package runtime smoke verifies both new public entries without the source export condition. The full lint scan found only assertion-style issues in the new compile-only fixture; those were corrected and the final affected-file lint check passes. All 438 local links and fences across seven documents and diff whitespace checks pass.
+
+The subsequent complete affected-surface review checked entry normalization, public types and unions, source modes, selectors/definitions, active-segment settlement, ownership, hooks/context/tool binding, native dispatch and failure timing, output/history/UI consumers, provider transport, cancellation recipes and documentation. It corrected one own-property ordering issue: inspect excluded source keys on the original options object before destructuring/copying, retaining the required rejection even for non-enumerable own properties. The regression and full mock suite pass after that correction. No important unresolved issue remains in the Phase 4 implementation. The twenty-step default and unrelated upstream/release gates remain separate work.
+
+## Historical design reviews
+
+The remaining sections preserve earlier reviews and their evidence. Statements such as “planned,” “unimplemented” or “current” describe that review round; later decisions and the current guide take precedence.
+
+### Confirmed decisions after review
+
+The current decisions are consolidated in the [continuation guide](../README.md#tool-approvals-and-continuation). The [SDK-backed scope revision](#sdk-backed-resume-scope-revision-2026-10-30), [continuation simplification review](#continuation-simplification-review-2026-10-30), [native validation delegation](#native-validation-delegation-2026-10-30) and [denial-helper review](#denial-helper-and-history-consistency-2026-10-30) below record how the earlier proposals changed.
+
+Native evidence motivating complete decision sets remains relevant: approving only the first of two local requests can execute that tool and then fail with `AI_MissingToolResultsError` before a model request. This motivated selection shorthand, not a separate waiting loop or a preflight guarantee.
+
+### Denial helper and history consistency (2026-10-30)
 
 The next supplied review proposed a public cancellation helper, readonly Casai history inputs and a consistent displayed approval list. The user confirmed planning `denyPendingApprovals(history, reason?)` while keeping resume's denial synthesis native. The plan and future guide now describe the helper; it and resume remain unimplemented. Current readonly history admission is implemented and verified in the [Phase 3 record](phase3-review.md#readonly-history-admission-2026-10-30).
 
@@ -43,7 +104,7 @@ Evidence: reread installed `ToolLoopAgent`, approval collection and generation/s
 
 The subsequent affected-surface pass checked history admission/ownership, native versus Casai source types, selection/display consistency, helper versus resume result placement, same-turn unfinished-work controls, rendered data safety, provider state and current/future documentation. No important unresolved issue remained in this review. All 430 local links and code fences across seven documents passed; extraction prepared 65 README2 examples and checked 17 current/promoted README examples, with 19 future examples explicitly skipped. Whitespace checks passed. The helper and resume still require their planned implementation and acceptance tests.
 
-## Native validation delegation (2026-10-30)
+### Native validation delegation (2026-10-30)
 
 The user authorized the actionable simplifications from the next review. Current native `.generate()`/`.stream()` now allow absent conversation input to reach `prepareCall` as an empty literal conversation. The SDK validates the final request; configured source rendering remains skipped. The message normalizer no longer needs a literal-mode parameter, and a single-use error-class-parameterized guard was inlined. No new adapter, facade or alternative executor was introduced. Present invalid sources (including null) and conflicting sources still reject before hooks; native TypeScript callers still supply `prompt` or `messages`, with `messages: []` supported. Implementation evidence is recorded in the [Phase 3 follow-up](phase3-review.md#native-empty-conversation-simplification-2026-10-30).
 
@@ -51,7 +112,7 @@ Two reductions apply to planned resume. First, constructing a new decision copie
 
 The plan, README2 and current instructions now agree on these rules. The planned literal-source path reuses native spelling normalization in the existing invocation path rather than requiring a standalone adapter. The previous review's retained cutoff observation, ordered hook decisions and separation of completion from selection remain intact. Resume itself is still unimplemented.
 
-## Continuation simplification review (2026-10-30)
+### Continuation simplification review (2026-10-30)
 
 The supplied review proposed further reductions in planned resume and the implemented nested-tool completion check. The user confirmed three contract changes: omitted/undefined/null approval delegates unchanged history to the SDK without selection; ownership matches ordinary calls rather than snapshotting every protocol container; and explicit selections use set semantics plus native last-write request/call lookup. Unknown/resolved selected IDs still reject. This round retained the missing-call guard, subsequently removed by the delegation follow-up above. The current decision summary, plan, README2 and agent instructions reflect the latest choices; earlier sections' omission, ambiguity, duplicate-selector and snapshot rules are superseded.
 
@@ -66,13 +127,13 @@ The following proposals were not adopted:
 
 Verification: `.cache/review-simplification/probe.mts` runs four SDK-only omission cases across local/provider work and generation/streaming. Local cases reject with zero model calls/effects; provider cases reach the mock model without a decision and with zero local effects. A fifth native case confirms the actual deferred-work cutoff missed by the proposed final-step check. All 24 focused cutoff, hook-decision and natural-completion regressions passed. Local links (413 across six documents), fences and diff whitespace checks passed. The subsequent affected-contract pass rechecked normalization, selection/lookup, source routing, context/hooks, ownership, message placement, native outcomes, persistence and current/future documentation; no important unresolved inconsistency remained. These characterize SDK behavior, not live provider acceptance. No production code was changed and no paid calls were made; compiler/lint gates were not rerun for documentation changes. The accepted changes remain implementation requirements for resume, not an implemented API.
 
-## Confirmed protocol corrections
+### Confirmed protocol corrections
 
 The later [simplification review](#continuation-simplification-review-2026-10-30) records the confirmed omission, ownership and selector changes and the implementation proposals retained or declined.
 
 The chronological findings below describe the contract selected in each round. The current scope above supersedes their stronger admission requirements; native observations remain useful evidence.
 
-### 1. Always appending a tool message can hide approvals
+#### 1. Always appending a tool message can hide approvals
 
 The original plan said to append one new tool message. Installed `collectToolApprovals` reads responses only from the last tool message, before the later provider-prompt conversion combines adjacent messages.
 
@@ -80,15 +141,15 @@ Native generation and streaming probes use a history with approval response A al
 
 The plan now requires copying and extending an existing last tool message, preserving its fields and parts. It appends a new message only when needed and never appends an empty message. No generic history rewrite or deep-copy planner is needed.
 
-### 2. Approval completeness alone misses mixed tool work
+#### 2. Approval completeness alone misses mixed tool work
 
 A model can request an approval-controlled local tool and an application-executed tool together. Completing every approval still leaves the other tool's result missing. In both modes, the SDK executes the approved tool and then raises `AI_MissingToolResultsError`. Supplying the other result succeeds.
 
 The plan now checks pending local results and decisions together before dispatch. This is a preflight of Casai's continuation inputs, not a new tool executor. Provider-executed/deferred results retain their native exceptions. Duplicate detection is justified too: a native duplicate approval response executes the same local tool twice within one invocation. Keep signature, schema/input and current approval-policy validation in the SDK.
 
-## Design findings and resolutions
+### Design findings and resolutions
 
-### 3. The shorthand cannot supply required application context
+#### 3. The shorthand cannot supply required application context
 
 The earlier positional API accepted only history and approval decisions. Many ordinary LLMAgents require application context, such as a rendered agent with required `topic`. Stored history does not provide this context, and the component cannot remember it without changing the stateless contract.
 
@@ -96,7 +157,7 @@ Runtime controls through the existing native methods confirm the issue in both m
 
 **Resolved:** the single options object provides raw application `context` and execution settings directly. The options/context argument is required exactly when the shared input contract requires it. Both omission checks and callback inference reuse existing preparation/types; required renderer-only fields remain required even though rendering is skipped.
 
-### 4. External result conversion needs an owner and stage
+#### 4. External result conversion needs an owner and stage
 
 The earlier plan said to call the registered tool's `toModelOutput`, without defining which registry supplies it or its stage relative to `prepareCall`. Call overrides and that hook can replace tools.
 
@@ -104,19 +165,19 @@ This matters because `prepareCall` must receive SDK messages and its returned re
 
 **Earlier resolution, now deferred with `toolResults`:** convert only newly supplied application values once, using the resolved call registry before `prepareCall`; treat the resulting parts as history and preserve the returned hook request unchanged. Never apply current converters to encoded historical results. The latter rule still applies to approvals-only resume; new conversion is no longer an implementation target.
 
-### 5. The external-result convenience is most of the extra machinery
+#### 5. The external-result convenience is most of the extra machinery
 
 Approval shorthand only needs pending-ID selection, decisions and immutable message assembly. The external `toolResults` shape additionally owns matching original calls, converter lookup, success/error handling and JSON normalization. The SDK's `createToolModelOutput` helper is internal, not a public root export; an integration must not deep-import it.
 
 **Revised by the final scope review:** the earlier decision retained application-value results, but their accumulated contract cost prompted reconsideration. The user now defers this convenience unless an explicit need arises. Native encoded history and native SDK methods remain supported. Add no second public callback API: native async `toolApproval` and `execute` already cover live invocations.
 
-### 6. The two approval input formats now overlap more than before
+#### 6. The two approval input formats now overlap more than before
 
 The selected-set rule can express every binary approval/denial partition. The earlier argument that named `approvals` records are required for mixed decisions no longer applies. Those records still support per-ID reasons and can accept decisions already collected in that form.
 
 **Resolved:** use one selection input, now the confirmed `approve` field. `.run()` has no continuation inputs, and uncommon per-ID metadata can use native SDK messages. Normalize one complete decision set for unsettled calls; maintain no separate approval-record API or decision engine. The earlier two-field selector was superseded by the Claude-review decisions below.
 
-### 7. Define the method surface and entry mode before writing factory types
+#### 7. Define the method surface and entry mode before writing factory types
 
 The reviewed plan did not settle whether `.asTool` components expose `resume()`. Their own ordinary calls and `.run()` return augmented results, while native tool execution returns only the final application value. An inner approval pause still becomes an outer tool error and does not expose inner history.
 
@@ -124,7 +185,7 @@ The reviewed plan did not settle whether `.asTool` components expose `resume()`.
 
 **Routing resolved:** `.run()` never enters continuation mode. `messageHistory` alone already participates in ordinary calls with configured prompt rendering, and Casai probes show that this route adds the configured user prompt again. Only `resume()` selects the literal-conversation continuation path. Never guess from history contents, render the prompt during resume, or expose Casai's continuation controls as SDK request fields.
 
-## Evidence and review boundary
+### Evidence and review boundary
 
 The retained exploratory fixture is `.cache/phase4-review/probe.ts`; run it with `node --import tsx/esm .cache/phase4-review/probe.ts`. Its log has twenty-two case summaries across native generation/streaming and existing Casai context/routing paths. It uses installed `ai@7.0.130`, scripted model mocks and no paid provider calls. It is runtime characterization, not a production Phase 4 implementation or a public type proof.
 
@@ -132,11 +193,11 @@ Counterfactual inputs independently remove a decision/result, duplicate an appro
 
 The subsequent complete surface pass retained the selected-set decision, checked the corrected history/preflight rules against both modes, and retraced context, hooks, binding/default stability, result history/finality, UI callers, tool forms and distribution boundaries. It identified the overlapping named approval representation and confirmed the ordinary-versus-continuation routing boundary, now resolved above. A further pass over that complete inventory added no finding. Findings 3–7 are resolved in the plan, including tool-form method absence; no open design decision remains from this review. Full runtime/type/lint/coverage and compiler-cost gates belong to the eventual implementation; none was rerun for these plan-only edits.
 
-## Independent follow-up review (2026-10-29)
+### Independent follow-up review (2026-10-29)
 
 This pass evaluates the revised plan, not the superseded API. Findings 1–7 remain resolved as recorded above. The additional issues below qualified the earlier clean-pass statement: the design needed a precise history-admission boundary and an explicit limit on its preflight guarantee. The user subsequently confirmed rejection of unsupported split histories and preflight limited to Casai's assembled continuation. The plan and README2 now record those decisions and the missing-executor acceptance cases. No production code changed.
 
-### 8. The final-message rule does not cover already-split history
+#### 8. The final-message rule does not cover already-split history
 
 **Priority: P1.** Plan lines describing history assembly and preflight need to distinguish facts found anywhere in history from work the SDK will actually consume. `collectToolApprovals` reads both approval responses and existing results from the **last tool message only**. Extending that message prevents Casai from introducing a new split; it does not repair or reject a split already present in supplied history.
 
@@ -149,7 +210,7 @@ These are shape-valid native message arrays. A global pending/resolved-ID set ca
 
 **Resolved by user confirmation:** reject unsupported split histories with `ValidationError` before result conversion or dispatch, including when no new parts are supplied. An approval response for local work still needing execution or a synthesized denial result must be in the final tool message; reject a final response whose matching existing result lies only in an earlier message. Completed older turns remain valid and unchanged, with native provider/deferred exceptions preserved. Do not repair or coalesce existing messages. These are `resume()` admission rules, not changes to native Agent/UI entry paths.
 
-### 9. Preflight and complete hook replacement have different authority
+#### 9. Preflight and complete hook replacement have different authority
 
 **Priority: P2.** The plan checks completeness before result conversion, then lets `prepareCall` replace messages and tools unchanged. It also promises missing local work is rejected before tools execute and an externally completed approved call will not run again. Those guarantees can only describe the checked conversation, not every replacement request.
 
@@ -157,13 +218,13 @@ The existing Casai literal path reproduces the distinction in both modes. Start 
 
 **Resolved by user confirmation:** preserve complete hook replacement and scope the promise to the continuation Casai assembles using the resolved pre-hook registry. Authored hooks remain responsible for preserving pending protocol work, just as on native methods. Add no second continuation preflight after hooks and no message repair; retain existing Phase 3 binding checks and native SDK validation. `prepareStep` runs after initial approved-tool execution, so this is not a blanket guarantee about later preparation failures.
 
-### 10. Approved external tools need an explicit acceptance case
+#### 10. Approved external tools need an explicit acceptance case
 
 **Classification: missing verification case, not a new API decision.** A registered tool may intentionally lack `execute`. An affirmative approval response does not supply its result. Both native modes can execute another approved local tool and reach the provider with the external call still unresolved: approval-response IDs suppress the native missing-result check even when no executor produced a result.
 
 **Resolved in the plan:** preflight explicitly requires an external result or denial for an approved local call without a registered native-executable tool. The verification list covers registered tools without executors, removed/unregistered tools, affirmative versus negative decisions, and supplied-result controls. Execution capability uses the resolved pre-hook registry, including call overrides, consistent with finding 9. Dynamic approval policy remains SDK-owned; Casai does not evaluate it during preflight to predict whether it will deny a call. Production coverage remains an implementation gate.
 
-### Evidence, simplification and remaining gates
+#### Evidence, simplification and remaining gates
 
 The exploratory fixture is `.cache/phase4-followup/probe.ts`, run with `node --import tsx/esm .cache/phase4-followup/probe.ts`. Twenty-four cases pass across installed `ai@7.0.130` generation/streaming and Casai literal calls. Each failure case has a valid neighboring arrangement. The fixture counts tool effects, provider calls, native errors and final-value rejection separately, and checks unresolved calls in the actual provider prompt. It is local, ignored by Git, and is not production `resume()` coverage or a callable type proof. No paid provider calls or full compiler/coverage gates were run.
 
@@ -173,7 +234,7 @@ The consumer pass revisited non-tool/tool modifiers, source skipping, required r
 
 The earlier review tested splits introduced while appending new parts, but did not cross already-split input with the SDK's result lookup scope. Its hook cases checked formatter ownership without checking how conversation replacement changes dispatch readiness. A subsequent complete pass retained findings 8–9 and verification gap 10 for resolution; the user-confirmed decisions above now close those design findings. A reconciliation pass checked the method/context surface, pre-hook registry and conversion ownership, history admission, hook authority, native Agent/UI boundaries and verification requirements without another unresolved finding. Phase 4 remains planned: runtime/type integration and production acceptance tests are still required, and the native probes do not establish an implemented `resume()` contract.
 
-## Claude review reconciliation (2026-10-29)
+### Claude review reconciliation (2026-10-29)
 
 The user supplied a source-based review with seven proposals and documentation corrections, then confirmed the approval, external-result and history-scope choices. The current plan incorporates the dispositions below. These supersede conflicting earlier approval/default descriptions in this review; historical probe results retain their original scope.
 
@@ -194,7 +255,7 @@ The focused fixture `.cache/phase4-claude-review/probe.ts` runs with `node --imp
 
 The final reconciliation pass followed the selected API through missing/undefined controls, external-only and mixed work, active/older history, existing decisions, source/context requirements, conversion/hooks, persistence, native Agent/UI paths and final-output consumption. No additional decision is open from this review. Production runtime/type/coverage and compiler-cost checks remain implementation gates; only the documentation example extractor and diff consistency checks were needed for this plan-only reconciliation.
 
-## Claude transport and result follow-up (2026-10-29)
+### Claude transport and result follow-up (2026-10-29)
 
 The second supplied review was checked against installed SDK and OpenAI adapter source, actual fake-fetch request bodies, Casai literal calls and focused compiler fixtures. The following corrections are now in the plan, including the subsequently confirmed output-value guard. No production runtime changed.
 
@@ -220,7 +281,7 @@ The focused `.cache/phase4-transport-review/binding.ts` fixture compares authore
 
 The isolated `.cache/phase4-transport-review/optional.ts` fixture compiles with installed TypeScript 7.0.2 and `exactOptionalPropertyTypes: false`; enabling the option produces the expected TS2322 for an entry containing `output` and `error: undefined`. This verifies a language limitation, not a production resume signature. The final pass reconciled transport, authored/bound entry facts, control separation, output ownership, result visibility, signing and error/type boundaries with the current API and native Agent/UI consumers. The output guard is now confirmed and no decision remains open from this follow-up. The full runtime implementation, package/type-cost and production acceptance gates remain deferred; these probes do not establish an implemented resume API.
 
-## Claude scope and ownership review (2026-10-29)
+### Claude scope and ownership review (2026-10-29)
 
 The third supplied review raised nine items. The user confirmed two choices: defer `toolResults` unless an explicit need arises, probably indefinitely; and shallow-snapshot protocol containers/approval ID arrays while borrowing nested values. These supersede earlier Phase 4 convenience requirements. The plan and README2 now describe approvals-only resume, with no scheduled result-conversion follow-up. No production code changed.
 
@@ -246,7 +307,7 @@ The source trace revisited `namedArguments`, LLMAgent entry and preparation, mes
 
 Earlier passes focused on protocol placement and conversion ownership, missing per-invocation step policy, capability additions by hooks and mutation of protocol containers across preparation. The accumulated conversion work also warranted a fresh scope decision. The review process now calls out those dimensions and requires removal of acceptance work when a convenience is removed. A subsequent complete plan pass rechecked method/modifier surfaces, context requiredness, argument normalization, ordinary/native/UI consumers, snapshots, ID lookup, active/stale/split history, executor admission, hooks, provider flags, signing, outcomes, step budgets, cancellation, persistence and verification against the reduced scope. No further unresolved design choice remains. Documentation checks and native probes do not replace the eventual runtime/source/emitted/editor/type-cost acceptance gates.
 
-### Deferred external-result convenience
+#### Deferred external-result convenience
 
 This is a historical design record, **not a scheduled phase, backlog commitment or authorization to implement**. Reopen only for an explicit consumer need, and reassess total complexity then. The prior decisions were:
 
@@ -258,7 +319,7 @@ This is a historical design record, **not a scheduled phase, backlog commitment 
 
 The earlier transport/value/optional-property probes remain evidence for that unimplemented design. They impose no current Phase 4 conversion or formatter-failure test requirement.
 
-## Claude source-boundary and native-event follow-up (2026-10-29)
+### Claude source-boundary and native-event follow-up (2026-10-29)
 
 All four findings are accepted with no new API decision. The earlier cancellation recipe was verified only on plain agents; its unqualified `prompt: nextPrompt` was unsafe guidance for template/script agents and incorrect for loaded/function forms. This is a documentation correction to the established source/data contract, not a new input restriction or a production runtime fix.
 
@@ -277,7 +338,7 @@ The source trace checked every branch of `createPromptRenderer`, LLMAgent settin
 
 The previous review missed the source-mode dimension by probing its new-message recipe only on plain/native paths, and tested denial synthesis without replaying a settled automatic denial alongside another approval. The deferral edit also missed earlier plan summaries. The review process now requires those consumer combinations and a document-wide scope scan. A subsequent complete reduced-scope pass rechecked call/context/source modes, Cascada/settings boundaries, tool/modifier exposure, snapshots, selection and history admission, hooks/executor requirements, transport/signing, step scope, result/event ownership, persistence and phase handoffs. No additional unresolved design choice was found. Runtime and public-type implementation gates remain future Phase 4 work; these are plan/README/review-process corrections plus native characterization, not production `resume()` tests.
 
-## Claude UI consumption and retained-input follow-up (2026-10-29)
+### Claude UI consumption and retained-input follow-up (2026-10-29)
 
 The fifth supplied review identifies a real UI consumer limitation, a better existing entry path for literal new messages, missing application persistence guidance, and an upgrade-test gap. The plan/README now incorporate all four, with the qualifications below. No API choice or production runtime change is required.
 
@@ -299,7 +360,7 @@ The ignored fixture `.cache/phase4-ui-review/probe.ts`, run with `node --import 
 
 The earlier event probes stopped at full-stream/history results and did not follow native UI helpers into state construction. The recipe review chose a safe literal native entry without comparing its admission with the already-allowed no-pending resume path. Required renderer fields were stated without showing how the application preserves their original raw values. The review process now includes those downstream/state/persistence comparisons and explicit SDK-only upgrade canaries. A subsequent complete reduced-scope pass rechecked entry modes, context/tool-context lifetime, ordinary/rendered/native/UI consumers, snapshots, approval/history rules, hooks/executor capability, transport/signing, step and output ownership, persistence and verification boundaries. No further unresolved design choice was found. The new UI probes do not establish an implemented resume method, browser end-to-end test or permanent canary suite; those remain implementation acceptance work.
 
-## Claude persistence, policy and ID follow-up (2026-10-29)
+### Claude persistence, policy and ID follow-up (2026-10-29)
 
 The supplied attachment contains five new findings and references an earlier report on reused IDs, pre-step controls and pending-approval lists that was not included. The user authorized independent investigation of those three topics and was consulted on the two meaningful admission choices. The plan/README now incorporate the dispositions below; no production runtime changed.
 
@@ -325,7 +386,7 @@ The SDK-only `.cache/phase4-persistence-review/ids.ts` fixture passes **16 cases
 
 Earlier reviews tested in-memory history and stable public defaults without crossing storage representation with signing. They checked step counts without terminal `hasToolCall` behavior, retained application inputs without all policy-dependent settings, and tested duplicate responses without duplicate definitions. The review process now includes those dimensions and requires consultation before broader history rejection. The subsequent complete reduced-scope pass rechecked typed history entry, selectors including empty sets, request displays, active/stale/split/duplicate-definition history, snapshots, context/policy reconstruction, source/native/UI consumers, executor/pre-step controls, transport/signing, terminal steps, persistence and verification. No unresolved design choice remains from this supplied review and the independently investigated topics. The 65 cases are local characterization, not implemented resume tests or the future permanent canary suite; documentation extraction and diff checks passed, and full production gates remain implementation work.
 
-## Reconciliation of the missing sixth review (2026-10-29)
+### Reconciliation of the missing sixth review (2026-10-29)
 
 The previously referenced report is now supplied in full. The independent investigation above covered its three main topics, but not every recommendation: exact timeout coverage, retaining the pending list for reloads, early empty-history rejection and the system-message fixture opt-in required this reconciliation. Later explicit user decisions remain authoritative. Changes here are to the plan, README and verification requirements, not the production continuation API.
 
@@ -343,7 +404,7 @@ Additional cases confirm native and Casai literal calls reject a final empty con
 
 The subsequent reduced-scope pass checked entry types/options, selectors and global definition uniqueness, snapshot ownership, active/stale/split history, context/policy retention, executor and timeout scope, hook authority, native/UI consumers, source-safe recipes, transport/signing, persistence and verification. No additional issue was found. The user's final-request-validation decision closes the remaining empty-history question and is reflected in the plan, README and verification cases. README example extraction prepared 65 examples with 17 future-API skips, and `git diff --check` passed. These probes characterize native/current behavior; Phase 4 implementation and its permanent canaries remain future work.
 
-## MCP history, authorization and Cascada follow-up (2026-10-29)
+### MCP history, authorization and Cascada follow-up (2026-10-29)
 
 This review raised provider ID reuse, embedded client decisions, provider cancellation before a new user message, and null approval selection. The user confirmed provider-only reuse after being told the probe's qualification below, and confirmed null as no decision. All four dispositions update the plan/README and future verification; no production resume implementation was added.
 
@@ -365,7 +426,7 @@ The ignored `.cache/phase4-mcp-review/probe.ts` passes **66 local cases**, run w
 
 Earlier ID evidence covered local last-write hazards, but not adapter-produced definitions under provider linkage. Transport checks stopped at sending a decision rather than consuming the resulting history. The review process now requires that complete cycle, qualifies metadata-dependent branches, and crosses signing with decisions already embedded in history. The subsequent reduced-scope pass rechecked selectors/types including null, local/provider ID admission, active/stale/split history, snapshot ownership, context/hooks, native/UI consumption, authorization/signing, cancellation recipes, persistence and verification. No unresolved decision remains from this review. Phase 4 implementation and permanent upgrade canaries remain future work.
 
-## MCP final-value correction (2026-10-29)
+### MCP final-value correction (2026-10-29)
 
 The supplied Claude probe reproduces a current Phase 3 defect: unlinked OpenAI MCP approval history leaves the placeholder call pending in Casai's `value` check after the executed call arrives under a different ID. Both the completion and a later user turn fail in generation and streaming, despite native `output: 'done'` and `finishReason: 'stop'`. Linked metadata is a passing control. The previous 66 cases verified history, transport and effects but never consumed Casai's application value; that evidence did not establish successful application completion.
 
@@ -384,7 +445,7 @@ Verification:
 
 The subsequent complete pass over the affected result surface traced ordinary/named/native entry points, tool adaptation's shared final-output consumer, default and explicit streaming delivery, pending/local/provider/deferred history, ID reuse, finish/error/parser gates and subsequent turns. It found no additional unresolved issue at that pass. The following review exposed two missing interactions and qualifies this round's statement that all unanswered approvals remain pending. Phase 4 `resume()` and its remaining canaries are still planned.
 
-## Provider wait boundaries and result ordering (2026-10-29)
+### Provider wait boundaries and result ordering (2026-10-29)
 
 The next Claude review supplied two mock-only reproductions in the shared Phase 3 `value` check. Both reproduce against the current source: an ignored MCP approval blocks a later normal answer indefinitely, and a completed deferred-capable provider call becomes pending again when generation appends an automatic approval request after its result. Native output succeeds. The user confirmed ending an older non-deferred provider approval wait at a new user/system turn; this revises the earlier unqualified unanswered-approval rule.
 
@@ -411,7 +472,7 @@ Verification:
 
 The subsequent complete pass over the affected surface rechecked ordinary/named/native dispatch and original-history ownership, generation/default/explicit streaming delivery, tool adaptation's final-output consumer, local/provider/deferred settlement, original versus hook-only boundaries, result ordering and ID reuse, retained error/parser/pause rules, provider transport and later turns, and optional-helper compatibility through source/emitted callers. It found no additional unresolved issue. These current Phase 3 corrections and their Phase 4 design carryover are complete; `resume()` itself and unrelated phase/release gates remain future work.
 
-## Provider state and native continuation settings (2026-10-29)
+### Provider state and native continuation settings (2026-10-29)
 
 This review identifies two guidance gaps. The previous result-adapter corrections remain correct; this pass changes documentation and verification, with no production runtime/type change or new design decision. Earlier fake-fetch success establishes Casai/SDK behavior against scripted responses, not live provider acceptance.
 
@@ -442,7 +503,7 @@ Verification:
 
 The subsequent affected-surface pass rechecked approval/cancellation/ignored recipes, initial and continued storage state, native versus named setting ownership, rendered preparation, inherited configuration, future resume admission, fixture evidence labels and current/future documentation boundaries. No further issue or unresolved decision was found. The stateless live-provider outcome remains explicitly unverified; it does not block correcting the guidance. Phase 4 itself remains planned.
 
-## SDK-backed resume scope revision (2026-10-30)
+### SDK-backed resume scope revision (2026-10-30)
 
 The user challenged the accumulated continuation machinery: Casai should package AI SDK capabilities, not maintain another execution protocol. After reviewing the installed SDK and the planned boundary, the user agreed to simplify Phase 4. This explicitly supersedes earlier confirmed admission restrictions, rather than adding exceptions to them.
 

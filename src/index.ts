@@ -47,6 +47,7 @@ export { ConfigError, ValidationError, TemplateError, ScriptError } from './erro
 
 // --- Public Utilities & Associated Types ---
 export { raceParent, overrideParent, type LoaderInput, type ParentLoader } from './loaders.js';
+export { denyPendingApprovals } from './runtime/approvals.js';
 
 export type { ComponentExecutionOptions } from './types/sdk.js';
 export { textStreamSchema, streamSchema, collectStream, collectTextStream, toReadableStream, makeSharedIterable } from './streams.js';

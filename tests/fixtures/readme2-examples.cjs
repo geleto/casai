@@ -48,6 +48,8 @@ const pipeline = create.Script({ inputSchema: z.object({ id: z.string() }), tool
     before: 'create.Function({ inputSchema: z.object({ id: z.string() }), context: { db },', after: '});',
   },
   approvals: { includes: ['tools'] },
+  continuation: { includes: ['approvals'] },
+  'continuation-denial': { includes: ['approvals'] },
   'template-context': {},
   filters: {},
   'loaded-agent': {},
@@ -87,30 +89,13 @@ const current = fences.filter(([, kind]) => kind === 'typecheck');
 const blocks = new Map(current.map(([, , name, source]) => [name, source]));
 assert.equal(blocks.size, current.length, 'Typecheck markers must be unique');
 assert.deepEqual([...blocks.keys()].sort(), Object.keys(fixtures).sort(), 'README2 markers must match the fixture inventory');
-// Keep promoted current-guide examples checked too. Shared markers must remain
-// identical; examples unique to the implemented API have their own setup.
+// Promoted examples use the same checked source in both guides.
 const implemented = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const implementedBlocks = [...implemented.matchAll(/<!-- typecheck: ([\w-]+) -->\s*```typescript\r?\n([\s\S]*?)\r?\n```/g)];
-const implementedFixtures = {
-  'native-approval-continuation': {
-    setup: `import type { ModelMessage } from 'ai';
-const lookup = tool({ inputSchema: z.object({ city: z.string() }), execute: ({ city }) => city });
-const agent = create.LLMAgent({ model, tools: { lookup }, toolApproval: { lookup: 'user-approval' } });
-declare const pending: { messageHistory: ModelMessage[] };
-declare const selectedApprovalId: string;
-const savedContext = {};`,
-  },
-};
 for (const [, name, code] of implementedBlocks) {
-  if (blocks.has(name)) {
-    assert.equal(code.replaceAll('\r\n', '\n'), blocks.get(name).replaceAll('\r\n', '\n'), `Shared README example changed: ${name}`);
-  } else {
-    assert.ok(Object.hasOwn(implementedFixtures, name), `Missing README example setup: ${name}`);
-    blocks.set(name, code);
-    fixtures[name] = implementedFixtures[name];
-  }
+  assert.ok(blocks.has(name), `Missing shared README example: ${name}`);
+  assert.equal(code.replaceAll('\r\n', '\n'), blocks.get(name).replaceAll('\r\n', '\n'), `Shared README example changed: ${name}`);
 }
-assert.ok(Object.keys(implementedFixtures).every(name => implementedBlocks.some(([, marker]) => marker === name)), 'Unused README example setup');
 const prelude = `import { create, z, streamSchema, textStreamSchema, collectTextStream } from 'casai';
 import { Output, tool, type LanguageModel } from 'ai';
 declare const model: LanguageModel;
@@ -124,8 +109,7 @@ function source(name, included = new Set()) {
 }
 fs.mkdirSync(destination, { recursive: true });
 for (const [name, fixture] of Object.entries(fixtures)) {
-  const sourceFile = Object.hasOwn(implementedFixtures, name) ? 'README.md' : 'README2.md';
-  fs.writeFileSync(path.join(destination, name + '.ts'), `// Generated from ${sourceFile}; do not edit.\n`
+  fs.writeFileSync(path.join(destination, name + '.ts'), `// Generated from README2.md; shared README.md examples are checked for equality.\n`
     + (fixture.prelude === false ? '' : prelude) + source(name) + '\n');
 }
 console.log(`Prepared ${current.length} README2 examples and checked ${implementedBlocks.length} promoted/current README examples; ${fences.length - current.length} future-API examples explicitly skipped.`);

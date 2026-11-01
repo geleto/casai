@@ -70,7 +70,7 @@ export type RunContext<TConfig> = CanOmitComponentInput<TConfig> extends true
 export type ComponentCaller<TConfig, TResult> = ComponentCall<ContextArguments<TConfig>, Promise<TResult>, false, TConfig>;
 
 // Capture supplied keys independently of callback inference.
-type RunArgument<Config, Settings, Run, Keys extends PropertyKey, ContextKeys extends PropertyKey> =
+export type RunArgument<Config, Settings, Run, Keys extends PropertyKey, ContextKeys extends PropertyKey> =
 	Run & NoInfer<Settings | (EmptyMap extends Settings ? undefined : never)>
 	& ([Run] extends [undefined] ? unknown : Partial<Record<Keys, unknown>>
 		& { context?: Partial<Record<ContextKeys, unknown>> | undefined }
@@ -81,7 +81,8 @@ type ComponentRunSignature<TConfig, TResult, TSettings> =
 	& (<Run extends object | undefined, Keys extends PropertyKey = never, ContextKeys extends PropertyKey = never>(
 		options: RunArgument<TConfig, TSettings, Run, Keys, ContextKeys>) => Promise<TResult>);
 
-export type ComponentRun<TConfig, TResult, TSettings = EmptyMap> = ComponentRunSignature<TConfig, TResult, TSettings & RunContext<TConfig>
-	& OptionalUndefined<Pick<ComponentExecutionOptions, 'abortSignal'>> & { toolsContext?: Partial<ToolContexts<ToolRegistryFromConfig<TConfig>>> | undefined }>;
+export type ComponentRunSettings<TConfig, TSettings> = TSettings & RunContext<TConfig>
+	& OptionalUndefined<Pick<ComponentExecutionOptions, 'abortSignal'>> & { toolsContext?: Partial<ToolContexts<ToolRegistryFromConfig<TConfig>>> | undefined };
+export type ComponentRun<TConfig, TResult, TSettings = EmptyMap> = ComponentRunSignature<TConfig, TResult, ComponentRunSettings<TConfig, TSettings>>;
 
 export type SourceSetting<TConfig, TSourceKey extends string> = TConfig extends Record<TSourceKey, string> ? Partial<Record<TSourceKey, string>> : Record<TSourceKey, string>;

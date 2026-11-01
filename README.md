@@ -20,6 +20,8 @@ Use `Config` for shared settings, `Template` for text presentation, `Script` for
   - [Steps, hooks and continuation](#steps-hooks-and-continuation)
   - [Results](#llmagent-results) and [streaming](#streaming-with-asstream)
 - [Sources, loaders and rendering](#sources-loaders-and-rendering)
+- [Conversation history](#conversational-ai-managing-message-history)
+- [Tool approvals and continuation](#tool-approvals-and-continuation)
 - [Images and files](#images-and-files-in-llmagent-messages)
 - [SDK Agent and UI integration](#sdk-agent-and-ui-integration)
 - [Using components as tools](#using-components-as-tools)
@@ -326,7 +328,7 @@ const assistant = create.LLMAgent.withTemplate({
 });
 ```
 
-`prepareCall(request, config, context)` runs once after prompt rendering and input parsing. `request.messages` contains the assembled conversation, including the rendered prompt. Return the **complete replacement request**; spread `request` to retain settings. The result wins over configuration and `.run()` overrides. Callers can replace the hook through `.run({ prepareCall })`.
+`prepareCall(request, config, context)` runs once after input parsing and any prompt preparation. Resume and native SDK calls skip prompt preparation. `request.messages` contains the assembled conversation, including the rendered prompt. Return the **complete replacement request**; spread `request` to retain settings. The result wins over configuration and per-call overrides. Callers can replace the hook through `.run({ prepareCall })` or `.resume(history, { prepareCall })`.
 
 On native `.generate()`/`.stream()` calls, pass `messages: []` when the hook supplies the entire conversation. JavaScript calls that omit both `prompt` and `messages` also reach the hook with an empty conversation. These calls skip configured prompt rendering; context validation still applies, and the SDK rejects an empty final request. Result history retains the original input plus response messages, so it does not include a conversation created only by the hook.
 
@@ -340,16 +342,25 @@ Lifecycle observers from config and the call both run; observer failures do not 
 
 ### Steps, hooks and continuation
 
+An LLMAgent can execute tools during a model step, then use their results in later steps. For example, this agent allows up to five model steps:
+
+<!-- typecheck: tools -->
 ```typescript
 import { isStepCount } from 'ai';
 
-const lookup = create.Function.asTool({
-  description: 'Look up a city temperature.',
-  inputSchema: z.object({ city: z.string() }),
-  execute: async ({ city }) => weatherService.temperature(city),
+const multiply = create.Function.asTool({
+  description: 'Multiply two numbers.',
+  inputSchema: z.object({ a: z.number(), b: z.number() }),
+  execute: ({ a, b }) => a * b,
 });
-const assistant = create.LLMAgent({ model, tools: { lookup }, stopWhen: isStepCount(5) });
-const answer = await assistant('What is the temperature in London?');
+
+const calculator = create.LLMAgent({
+  model,
+  tools: { multiply },
+  stopWhen: isStepCount(5),
+});
+
+console.log((await calculator('Use the tool to multiply 37 by 29.')).output);
 ```
 
 #### Calls and automatic steps
@@ -374,15 +385,13 @@ These callbacks do not restart execution or reset step counts. To continue with 
 
 #### Continuing with saved history
 
-Continue by calling `component.generate({ messages: history, options: rawContext })` or `component.stream({ messages: history, options: rawContext })`:
+`component.resume(history, options)` starts a fresh invocation without loading or rendering another prompt:
 
-- These SDK methods send the conversation literally, skipping configured prompt loading/rendering.
-- They start a fresh invocation with fresh SDK step counts, using tool replies already in history.
-- Record approval decisions as native `tool-approval-response` parts; the SDK handles them before the new model step.
-- With settled history and no tools available, continuation still makes one new model step. It is not a no-op when nothing is pending.
-- Recorded replies do not require rerunning their tools. An approved local call awaiting execution still needs its corresponding tool and executor.
-
-The native methods accept application context as `options`, plus their supported cancellation, timeout and observer settings. They do not accept all `.run()` overrides. To change the model, `stopWhen`, `toolsContext` or provider settings for a literal continuation, derive a component with those settings, then call its native method. Required application fields remain required even when rendering is skipped. See [approval decisions](#approval-decisions-and-literal-continuation).
+- It uses tool replies already in history and can add approval decisions for pending tools.
+- The model can use those results, answer, or request more tools.
+- SDK step counts start afresh. There is no separate `prompt` argument; the supplied history is the conversation.
+- With settled history and no tools available, resume still makes one new model step. It is not a no-op when nothing is pending.
+- Recorded replies can be read without executing their tools again. An approved local call awaiting execution still needs its corresponding tool and executor.
 
 #### Configuration and per-call overrides
 
@@ -394,11 +403,11 @@ The native methods accept application context as `options`, plus their supported
 
 #### New prompt or continuation
 
-`component(...)` and `component.run(...)` prepare and append their configured or supplied prompt. The native `.generate()` and `.stream()` methods accept a literal conversation and skip prompt preparation. All use earlier tool replies when their history is supplied.
+`component(...)` and `component.run(...)` prepare and append their configured or supplied prompt. `component.resume(...)` skips that preparation. All use earlier tool replies when their history is supplied.
 
-Without an effective prompt, `.run({ messageHistory })` already sends history alone. With a configured template, use a literal SDK call to continue without rendering it again. An unchanged template can render different messages from new context.
+Without an effective prompt, `.run({ messageHistory })` already sends history alone. An unchanged prompt source does not select continuation automatically: the same template can render a different message from new context.
 
-Starting a new turn does not automatically deny pending tools. Denying an approval refuses that execution; it does not discard replies or undo completed work. Starting a separate conversation without old history does not stop external work already running.
+Neither an ordinary call nor resume automatically denies pending tools. Denying a pending approval refuses that execution; it does not discard replies or undo completed work. Starting a separate conversation without old history does not stop external work already running. See [tool approvals and continuation](#tool-approvals-and-continuation) for recording decisions before a new turn.
 
 #### LLMAgents used as tools
 
@@ -421,6 +430,13 @@ Casai returns the native SDK result and adds only `messageHistory`. There is no 
 An optional output specification includes the native text fallback in its result type. Custom parsed iterables remain application-owned values; Casai does not consume or replay them.
 
 Native output availability and schema validity do not prove workflow completion. The SDK can return text or schema-valid output while tool work is unresolved, or after an error finish reason. Applications inspect native finish reasons, raw provider reasons, tool/approval events and errors according to their workflow. A promise waits for the current invocation; a paused invocation needs a new continuation call and cannot finish by leaving its old promise pending.
+
+`messageHistory` contains the original conversation and native response messages: an array after generation or a promise in streaming mode. Hooks may change the request sent to the provider without rewriting this retained conversation. History resolution does not establish success. Native structured generation may fail during parsing before returning a result; streaming can retain history after final parsing fails.
+
+A provider can pause even when native output contains text. For example, Anthropic's raw `pause_turn` can be normalized to `stop`. Inspect both raw and normalized finish reasons, then [continue the conversation](#tool-approvals-and-continuation). An OpenAI Chat refusal can instead appear as empty `stop` text; an empty result is not proof that the requested task succeeded.
+
+Continue with `agent.resume(history, { context: rawContext, ...overrides })`. Component configuration supplies the model, tools and other settings; supply again any per-call overrides needed from the paused invocation. Keep provider state, such as an `anthropic.container.id`, when the provider requires it. Resume uses the component's generation or streaming mode.
+
 
 LLMAgent tools are generation-only. Combining `.asStream` and `.asTool`, including through inherited configuration, is rejected rather than silently changing execution mode. Ordinary calls and `.run()` on a tool component still return the native generation result with history. SDK descriptor execution and injected tool calls await that invocation, check completion, and return its native parsed `output`.
 
@@ -707,6 +723,89 @@ console.log(await page({ title: 'Research & development' }));
 
 Standalone templates default `autoescape` to `false`; language-model prompt renderers disable HTML escaping. Renderer options, filters, and loaders are creation-time settings. Source caches respect loader updates and `noCache`.
 
+## Conversational AI: Managing Message History
+
+Each call carries the conversation so far as its `messageHistory`. The ordinary call takes the new prompt or context first and the message history last, and the result's `messageHistory` holds that history, the new turn, and the reply. Store it and pass it to the next call. A component holds no conversation of its own, so one component serves many users.
+
+Casai history inputs accept `readonly ModelMessage[]`, including frozen arrays: shorthand history, `.run({ messageHistory })` and `.resume(history)`. Casai copies the outer array and borrows its messages; keep those messages unchanged while the call or stream is running. Native `.generate()`/`.stream()` parameters retain the SDK's own types.
+
+<!-- typecheck: history -->
+```typescript
+import type { ModelMessage } from 'ai';
+
+const chat = create.LLMAgent({
+  model,
+  instructions: 'Answer clearly and concisely.',
+});
+
+let messageHistory: ModelMessage[] = [];
+
+const first = await chat('My project is called Orchard.', messageHistory);
+console.log(first.output); // Check final output before saving an ordinary answer.
+messageHistory = first.messageHistory;
+
+const second = await chat('What is my project called?', messageHistory);
+console.log(second.output);
+messageHistory = second.messageHistory;
+```
+
+`.run({ prompt, messageHistory, ...settings })` takes the same input with settings; rendered forms use `.run({ context, messageHistory })`.
+
+To continue with history alone:
+
+<!-- typecheck: history-run -->
+```typescript
+const continued = await chat.run({ messageHistory });
+```
+
+This example's `chat` has no configured prompt, so the call adds no new turn. If a prompt is configured, the same call prepares and appends it as usual. Execution settings and the presence of an empty `context` do not change prompt resolution. A positional array on a plain agent is always new prompt messages; two arrays mean `agent(newMessages, messageHistory)`.
+
+| Result field | Contents |
+| :--- | :--- |
+| `messageHistory` | The supplied `messageHistory`, the new turn, and all generated messages |
+| SDK `responseMessages` | Generated messages across all model steps, without input history |
+| SDK `response.messages` / `finalStep.response.messages` | The SDK's generated response messages for the final step |
+
+Use `result.messageHistory` as the conversation state for the next turn. For streaming, use `await result.messageHistory` after consuming the stream.
+
+`messageHistory` is Casai's field; SDK results have no field holding the whole conversation. An SDK application keeps its input messages and appends `responseMessages`, but a rendered agent prepares the new turn itself, so the application never sees it. Casai adds the field without changing SDK response fields or callback payloads. Wherever Casai stores or passes a conversation, it uses the name `messageHistory`; `messages` remains only in the SDK's own APIs.
+
+When appending to an existing SDK conversation, use SDK `responseMessages`. It remains generated messages only, so `[...inputMessages, ...result.responseMessages]` does not duplicate the input. When the [SDK methods](#sdk-agent-and-ui-integration) receive a complete conversation in `prompt` or `messages`, `messageHistory` includes it once; Casai does not guess where the new turn begins.
+
+Fixed guidance belongs in `instructions`, which apply to every call. Messages returned by a script or function prompt are appended after the history. `messageHistory` records the conversation, not the request: if a `prepareCall` hook adds example turns or trims old history before sending, the stored history still holds the whole conversation.
+
+History follows native `responseMessages` availability and rejection, without a separate execution-success check. It may retain partial or earlier messages after a provider failure or an error finish reason. Output parsing failure also does not erase available messages. Inspect native finish reasons and tool/approval events before deciding how to continue; resolved history is not proof of success or safe resumability. A generation call that rejects does not return a separate history handle.
+
+For an ordinary answer, consume native output and inspect finish reasons and errors before saving history according to application policy. Schema validity alone does not certify completed tool work. For tool/approval pauses, save pending history deliberately and continue with a new invocation. Observe native error callbacks/events too; SDK limitations can retain earlier completed steps after later failure.
+
+Casai does not persist, summarize, or truncate history automatically. Store it per conversation and manage its size in your application. Preserve tool calls with their corresponding results and approval messages when selecting history for another turn.
+
+### Render Only the New Message
+
+Pass a new message as data in rendering context, alongside previously prepared history. Casai renders the configured template for this call and keeps the rendered prompt in the returned history:
+
+<!-- typecheck: rendered-history -->
+```typescript
+const templatedChat = create.LLMAgent.withTemplate({
+  model,
+  prompt: 'Help with this request:\n{{ message }}',
+  inputSchema: z.object({ message: z.string() }),
+});
+
+let messageHistory: ModelMessage[] = [];
+for (const message of ['My project is called Orchard.', 'What is my project called?']) {
+  const result = await templatedChat({ message }, messageHistory);
+  messageHistory = result.messageHistory;
+  console.log(result.output);
+}
+```
+
+`message` is an application-chosen template variable, not a reserved argument. Its contents are data, so text containing `{{ ... }}` is not evaluated again as template source. Only the current context is validated and prepared; earlier rendered messages pass through unchanged. Create the agent with `.asStream` for the same preparation with incremental generation, then obtain history from `await result.messageHistory`.
+
+If a rendered turn pauses for approval, retain its raw `{ message }` with the pending history. The later call is `templatedChat.resume(saved.history, { context: saved.context, approve: selectedIds })`; the required field comes from the actual paused turn. Retain per-call `toolsContext` inputs too when used, and reconstruct compatible public defaults and trusted bindings. Hooks see that turn's newly prepared context without rendering it again.
+
+For application-managed rendered conversations, store the prepared `messageHistory` and have the client send only the new turn's data. The SDK's complete conversation doesn't identify a new turn to render, so don't feed it through the rendered Casai call as fresh input. Native `.generate()`/`.stream()` accept that conversation literally, skip rendering and still require the agent's application context contract. To regenerate a reply, call again with the same input and the history before that turn. To continue after tool approvals, use [`resume()`](#tool-approvals-and-continuation), which adds no turn. Native UI-stream consumers additionally retain their UI messages; prepared model history and original text alone do not provide the tool-part state needed to continue a UI message.
+
 ## Images and Files in LLMAgent Messages
 
 For image understanding, pass an image content part to a capable language model:
@@ -766,44 +865,131 @@ const summarize = create.LLMAgent.withFunction.asTool({
 
 Literal/fixed-resource LLMAgent tools require a configured prompt. Use empty public input when no context is needed, or declared fields for hooks. Named inputs that affect prompt text require a template, script, or function preparer. A model-supplied property called `prompt` never automatically replaces executable/configured source.
 
-### Approval decisions and literal continuation
+### Tool Approvals and Continuation
 
-Set `toolApproval` on an LLMAgent to approve, deny or request human approval for tools. For example, `toolApproval: { lookup: 'user-approval' }` returns an approval request instead of executing `lookup`. Save the complete `messageHistory`, the paused call's raw context and any per-call overrides needed later.
+Use `resume(history, options?)` to continue a conversation without loading or rendering another prompt. Supply approval decisions through `approve`; use the other options for context and supported execution settings. It returns the same SDK result as an ordinary call, including `messageHistory`.
 
-For a local tool, add the selected approval response to the final tool message, preserving any existing results or decisions, then continue:
+`resume()` belongs to non-tool LLMAgents, including `.asStream`. `.asTool` components do not expose it; they complete their tool execution and return a value.
 
-<!-- typecheck: native-approval-continuation -->
+An LLMAgent can return control when a tool needs approval or an external result. A larger `stopWhen` limit does not resolve that pending input. With SDK 7, use `toolApproval` for an approval policy:
+
+<!-- typecheck: approvals -->
 ```typescript
-const history = [...pending.messageHistory];
-const decision = {
-  type: 'tool-approval-response' as const,
-  approvalId: selectedApprovalId,
-  approved: true,
-};
-const last = history.at(-1);
-if (last?.role === 'tool') {
-  history[history.length - 1] = {
-    ...last,
-    content: [...last.content, decision],
-  };
-} else {
-  history.push({ role: 'tool', content: [decision] });
-}
-const continued = await agent.generate({
-  messages: history,
-  options: savedContext,
+const reviewCalculator = create.LLMAgent({
+  model,
+  tools: { multiply }, // The Function tool from the LLMAgent example.
+  toolApproval: { multiply: 'user-approval' },
+  stopWhen: isStepCount(5),
 });
+
+const pending = await reviewCalculator('Use multiply to calculate 37 times 29.');
+const decided = new Set(pending.content.flatMap(
+  part => part.type === 'tool-approval-response' ? [part.approvalId] : [],
+));
+const settled = new Set(pending.content.flatMap(
+  part => part.type === 'tool-result' || part.type === 'tool-error' ? [part.toolCallId] : [],
+));
+const requests = pending.content.flatMap(
+  part => part.type === 'tool-approval-request'
+    && !decided.has(part.approvalId) && !settled.has(part.toolCall.toolCallId) ? [part] : [],
+);
 ```
 
-Here `agent` is the configured non-tool LLMAgent, `pending` is its paused result, and `selectedApprovalId` identifies the request the application authorized. Use `approved: false` to deny it. Provider-executed approvals additionally require their native `providerExecuted` transport flag. Use `.stream()` instead of `.generate()` for streaming continuation; both skip prompt rendering.
+The call returns these requests; it does not remain open waiting for a person. Save this fresh paused step's request list together with its complete `messageHistory` and raw context/tool-context inputs as one conversation revision. Restore that record to show the requests after a reload or restart. Update the saved list with the history when recording decisions, external results or a later pause: display requests without a recorded decision or result, matching approval selection. Automatic requests normally have decisions; an automatic request missing its decision and result remains selectable. When rebuilding from history, use the active segment and last-write ID lookup described below rather than treating old step content as current state. Collect decisions against the displayed revision. If the user approves all displayed requests, pass their IDs explicitly:
 
-Keep approved public arguments/defaults stable across the pause. The SDK rechecks local inputs and policy; changing them can prevent execution. Existing affirmative decisions remain effective, so authorize client-supplied history rather than treating a new selection as revocation. Signed operation data does not authenticate a human decision or prevent replay. Coordinate updates against server-held conversation state; repeating a pending history can repeat effects.
+<!-- typecheck: continuation -->
+```typescript
+const result = await reviewCalculator.resume(pending.messageHistory, {
+  approve: requests.map(request => request.approvalId),
+});
+console.log(result.output);
+```
 
-Approved incoming tools run before model step zero. Inspect `responseMessages` or `messageHistory` for their outcomes, including input errors and denials; step-derived `toolResults` does not include that earlier work. Save the complete new history. Tool effects can occur before a later SDK history/protocol error.
+Before applying a human decision, check the displayed revision against the application's authoritative conversation and coordinate concurrent updates. A stale tab's `approve: true` can approve new requests the person never saw. Explicit IDs reject resolved/unknown selections, but if the displayed IDs remain pending alongside a new request, the array denies that unseen request. IDs therefore do not replace a revision check. This persistence/concurrency check belongs to the application; `resume()` adds no revision option or pending-list service.
 
-To send a new user turn instead of continuing a pending local approval, first record the negative approval response and its matching `execution-denied` tool result. Adding a user message does not itself deny the call or make missing results valid.
+`resume(history, options?)` accepts `readonly ModelMessage[]` and starts a new invocation from saved history without rendering a prompt or adding a user turn. It does not reconnect to a live stream like the SDK UI client's `resumeStream()`. Its options are:
 
-SDK chat clients can handle approval messages through their normal Agent/UI protocol. When continuing a UI stream, retain the paused assistant UI message with its tool-call parts and pass the matching `originalMessages` to UI-stream finish helpers. Model history alone cannot reconstruct that UI state. A repeated `tool-output-denied` event can describe an already-settled denial; reconcile events by tool-call ID.
+| Field | Contents |
+| :--- | :--- |
+| `context` | Application input, merged with configured defaults and validated as usual; required when configuration does not supply the necessary values |
+| `approve` | `true` approves all remaining requests; `false` or `[]` denies all; a readonly ID array approves listed requests and denies the rest; omission, `undefined` or `null` supplies no decision |
+| Execution settings | Applicable per-call settings such as `abortSignal`, `timeout`, tool settings and hooks |
+
+To continue the **same paused turn**, retain its raw application `context` and any per-call `toolsContext` inputs alongside the history, then reuse or reconstruct them for resume. Required renderer fields still need their original values even though rendering is skipped: supply the actual earlier `message`, not a placeholder that changes what hooks see. Store raw schema input, not parsed hook output, and keep configured public defaults compatible. The application owns this record; Casai does not recover it from history. Reconstruct nonserializable trusted services as needed. Keep approved public arguments and defaults stable; private dependencies may change between requests.
+
+Retain or deliberately reconstruct policy-dependent per-call settings too, such as `runtimeContext`, `toolApproval` and tool overrides. For local execution, the SDK re-evaluates policy using the continuation's inputs and messages; its last message may be a tool approval response. Current policy can deny a person's approval and skip local execution while the model still answers. Reconstruct current trusted authorization deliberately; do not treat an old runtime context as proof of continuing permission. Provider decisions need application authorization before forwarding.
+
+Omitting `approve`, or explicitly passing `undefined` or `null`, supplies no new decisions and leaves approval handling to the SDK. Unanswered local approvals normally fail natively; a provider approval can be ignored without sending a decision. Cascada `none` and an unset decision variable produce null, so an unset variable does not catch a forgotten provider decision. Null never means denial or approval. IDs are `approvalId` values, not message or tool-call IDs. Repeated selector entries count once; unknown and already-resolved selections reject. These checks interpret the shorthand; they do not validate existing history or guarantee SDK execution. Supplying context or history with results never implicitly approves unrelated work. Per-request reasons can use native SDK messages.
+
+When nothing is undecided, `approve: true`, `false` and `[]` add no decisions and still continue the conversation normally, including any already-approved work awaiting execution. They do not skip the next model step or make duplicate submissions idempotent. A nonempty list containing resolved IDs still rejects.
+
+For results produced by a client or background worker, put native encoded `tool-result` parts in the final tool message alongside any matching approval responses. Preserve call IDs, tool names and provider metadata. Calls with recorded results need no new approval decision, and Casai does not reformat those results. Supply any tools still needing execution through configuration, supported call overrides or `prepareCall`.
+
+Cascada keywords supply the options object: `agent.resume(history, approve=true, context={ topic: 'x' })`. Unlike ordinary shorthand calls, application data must be nested in `context`: writing `topic='x'` here makes it a setting and may silently leave the configured topic in use. JavaScript options variables can carry the same mistake. History stays positional; do not combine a positional options object with keywords. Resume options reject `prompt`, `messageHistory`, native `messages` and native `options`. For a new user message, use the source-appropriate data path described below; rendered agents receive user text through their configured context field.
+
+Resume copies the history array and, when adding decisions, the final tool message and its content array. Other messages, parts, inputs, outputs and metadata remain borrowed: leave them unchanged until the invocation finishes, including stream consumption. Approval selections are consumed synchronously before asynchronous preparation. Casai does not deep-clone or freeze history.
+
+New approval decisions apply to the segment after the last user/system message and exclude already-decided or result-bearing requests. Automatic requests normally have recorded decisions, which exclude them too; an automatic request without a decision or result remains selectable. Casai extends the final tool message when adding decisions, preserving native transport fields, and adds no empty message. It leaves existing message placement and decisions unchanged. Resume adds approval responses; the SDK creates any needed denial results in `responseMessages`. Empty history alone does not reject: `resume([])` still validates context and lets `prepareCall` supply messages; the SDK rejects if the final conversation remains empty. Hooks can replace messages and tools through their existing contract.
+
+Supplied history follows the SDK's approval and tool-result protocol. Casai adds the requested decisions without repairing existing messages. If definitions reuse an ID, the last request/call definition in the supplied history is used, matching SDK lookup. Missing call definitions follow native validation after hooks, just like other history errors.
+
+`resume()` generates, or streams on an `.asStream` component. When saving a continuation, **replace stored history with its complete `messageHistory`**, awaiting that property for streaming. Appending only `responseMessages` loses approval responses and external results supplied as input, including changes to an existing final tool message. The component retains no conversation state. Follow the [history and failure guidance](#conversational-ai-managing-message-history) when deciding what to save.
+
+A tool may execute before the SDK discovers another missing result or protocol error. Duplicate existing responses or results outside the SDK's lookup window can also lead to repeated execution. Resume supplies no early-rejection or transaction guarantee; the application owns authoritative history, authorization, effect reconciliation and idempotency. Retrying the same pending snapshot can execute again. Reconstruct the approved call's public defaults for later requests; changed effective input can fail SDK revalidation. Private dependencies may change.
+
+JSON storage must preserve the approved parsed input as well as recorded raw input. For example, a parsed `Date` becomes a string through JSON: unsigned revalidation then returns an input-error result without executing, while signed continuation rejects the changed signature. Prefer JSON-compatible parsed arguments such as ISO strings, converting inside `execute`, or a verified application-owned type-preserving format. Rich values have different serialization/signing limits; Casai adds no serializer or schema ban.
+
+Inspect `responseMessages`/`messageHistory` for incoming approval outcomes. These tools run before the first model step, so step-derived `content`, `toolResults` and `steps` omit their successes, denials and input-revalidation errors. Streaming also exposes full-stream events. A successful native `output` does not prove the approved operation executed; the model can answer after a handled tool error.
+
+Streaming can repeat `tool-output-denied` for an already-settled call whose negative response and `execution-denied` result remain in the final tool message, for example an automatic denial alongside another pending approval. This native event does not mean another execution or a new result. UI/full-stream consumers should reconcile it with existing state by tool-call ID; Casai does not suppress it.
+
+UI stream consumers also need the paused assistant **UI message** containing those tool-call parts. For server completion callbacks, pass it last in `originalMessages` to the native UI stream helper; the browser must retain that message too (`readUIMessageStream` accepts it as `message`). Server `originalMessages` does not replay missing parts to an empty client. Without the matching UI state, processing incoming approval outcomes raises `UIMessageStreamError: No tool invocation found`, even though constructing/serializing a response without callbacks can succeed. If only model-message history is retained, use native stream/text/`output` consumption. Casai does not reconstruct UI messages from model history.
+
+Every resume starts `stepNumber` at zero with empty `steps`; incoming approval results are in `prepareStep`'s `messages`/`responseMessages`. A hook forcing a tool on step zero will force it again. `isStepCount(n)` limits each invocation separately; applications own a budget across continuations.
+
+`stopWhen: hasToolCall('submit')` cannot end resume immediately after an incoming approved `submit`: successful continuation still asks the model for a new step, and stop conditions see only the new model steps. An authored step-zero hook can request `toolChoice: 'none'` when the terminal result is already in messages, asking for a final answer; it still makes a model call. `activeTools`, `toolChoice` and tool-caller routing do not revoke already-approved incoming work, and `prepareStep` runs after it. Current approval policy and service authorization control execution.
+
+Incoming approved tools receive the caller's cancellation signal and SDK total/tool timeouts (`totalMs`, `toolMs` and per-tool overrides). `stepMs` and streaming `firstChunkMs`/`chunkMs` start later and do not cover that work. Use tool/total timeouts with executors that honor cancellation; these do not forcibly interrupt tool code, and a handled tool timeout may still let the model answer. Narrowing `activeTools` does not withdraw approval; denying an undecided request or current policy can prevent execution. Missing executors retain native handling.
+
+#### Starting a new message while approvals are pending
+
+Call `denyPendingApprovals(history, reason?)` before adding a replacement user message. This synchronous helper returns a new history array. For each undecided local approval, it adds a negative approval response and a matching `execution-denied` tool result. For provider-executed approvals, it adds only a negative response with `providerExecuted: true`. It uses the same active-segment selection as resume. A local denial already recorded in that segment without its result also receives the `execution-denied` result, keeping the recorded reason, as the SDK's UI message conversion does. Other existing decisions and results are unchanged. It does not execute tools or contact a provider.
+
+The helper accepts `readonly ModelMessage[]` and an optional string reason for the denials it adds. It copies only the outer array and a final tool message/content array it extends; other objects remain borrowed. Every request it denies or settles needs a matching tool-call definition so the helper can determine the tool name and execution kind; a missing definition raises `ValidationError`. With nothing to deny or settle, it returns a new outer array without adding any parts.
+
+Other unfinished work still needs to be settled, including external results, already-approved calls awaiting execution and anything left unsettled in an older turn. The helper does not certify that history is ready for a new message, undo effects or stop work already running.
+
+SDK chat UIs that build model messages with `convertToModelMessages` do not need the helper: that conversion already drops unanswered approval requests before a newer user message and adds denial results for recorded denials. Dropping a request sends no provider denial; see the MCP note below.
+
+For the paused calculator above, when its unanswered approvals are the only unfinished work:
+
+<!-- typecheck: continuation-denial -->
+```typescript
+import { denyPendingApprovals } from 'casai';
+
+const settledHistory = denyPendingApprovals(
+  pending.messageHistory,
+  'The user sent a different request.',
+);
+const nextText = 'Explain multiplication without using a calculator.';
+const nextResult = await reviewCalculator(nextText, settledHistory);
+```
+
+On a plain text agent, the ordinary call adds the new user message, replacing any configured text. Any non-tool form, including `.loadsText`, can instead append the message itself: `agent.resume([...settledHistory, { role: 'user', content: nextText }], { context: newTurnContext })`. This skips rendering and uses the component's generation/streaming mode. Supply the new turn's raw context, including required renderer fields.
+
+When the new message needs configured template/script/function preparation, including loaded templates/scripts, use `.run({ messageHistory: settledHistory, context: { ...context, message: nextText } })`, with the application's declared field consumed by its preparer. Never pass end-user text as a rendered agent's `prompt`: that selects executable source, a resource name or a function. These recipes rely on the application to establish the earlier settlement. With a new user message last, the SDK does not synthesize earlier missing denial results, and an incomplete denial can reach the provider without a local error. See [rendering only the new message](#render-only-the-new-message).
+
+For a pending OpenAI MCP approval, the helper's negative provider response is sent by the subsequent literal or rendered call. Retain provider history/metadata and the provider options used for continuation. The adapter forwards the response as an MCP denial even though the tool message is no longer last. Starting a new user/system turn without a negative response sends no denial and does not establish provider cancellation. Provider acceptance still depends on the saved conversation and available provider state.
+
+**OpenAI MCP storage limitation:** approval and denial recipes assume the earlier response is available through default/enabled storage, or through `previousResponseId` referring to an available earlier response. In the installed adapter, a fully stateless `store: false` continuation sends the decision without the original approval-request item, an item reference or a response-chain ID. This does not reconstruct the prior request as described in [OpenAI's MCP guide](https://developers.openai.com/api/docs/guides/tools-connectors-mcp); provider acceptance of that stateless request is not guaranteed. Do not rely on these recipes for stateless approvals or cancellations. `previousResponseId` is not a workaround for an unavailable prior response, and [ZDR treats storage as disabled](https://developers.openai.com/api/docs/guides/your-data). Ignoring an approval sends no decision and is a separate case. Casai adds no provider-specific history reconstruction.
+
+#### Protecting approval decisions
+
+If approval history passes through a client, configure native `experimental_toolApprovalSecret` on the originating and resumed calls, or recover authoritative server-held history. For JSON-compatible parsed input, signing protects the recorded operation from forgery; it does not authenticate the human decision or external results, authorize the user/tenant, or prevent replay. Rich parsed values inherit the SDK's hashing and serialization limitations; type-preserving storage does not repair them.
+
+Filtering `approve` on the server does not restrict affirmative responses already supplied in client history: even `approve: []` or `false` leaves those recorded decisions in effect. For local tools, enforce per-decision authorization in the SDK-rechecked `toolApproval` policy or the service executing the action. Alternatively, use authoritative server history and accept only authorized new selections. Provider decisions must be authorized before forwarding; the SDK's local policy recheck does not cover provider execution. Signing an operation does not authorize an embedded response.
+
+`.run()` remains for ordinary calls. During an active invocation, use native async `toolApproval`/`execute` callbacks. SDK chat UIs already send complete approval conversations through native Agent methods and do not need `resume()`; see the [SDK approval guide](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#tool-execution-approval).
 
 ### Trusted tool context
 

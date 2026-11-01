@@ -8,7 +8,7 @@ import type { PromptSource } from './factory-config.js';
 import type { ExecutionContext, ToolExecutionContext } from './execution.js';
 import type { MergedProperties, ProcessedConfig } from './merge.js';
 import type { SchemaInputObject } from './schema-shape.js';
-import type { ComponentCall, ComponentRun, ContextArguments } from './input.js';
+import type { ComponentCall, ComponentRun, ComponentRunSettings, ContextArguments, RunArgument } from './input.js';
 import type { ComponentInputShape, CanOmitComponentInput, PrivateInputNames, ValidateComponentInput } from './component-input.js';
 import type { ComponentToolFromConfig, ToolContexts } from './tool-binding.js';
 import type { CompletedOutput, GenerateTextResultAugmented, StreamTextResultAugmented } from './result.js';
@@ -104,8 +104,15 @@ type Generated<T> = GenerateTextResultAugmented<ToolsFromConfig<T>, AgentOutput<
 type Streamed<T> = StreamTextResultAugmented<ToolsFromConfig<T>, AgentOutput<T>, RuntimeContextFromConfig<T>>;
 type AgentResult<T> = [T] extends [{ streaming: true }] ? Streamed<T> : true extends ConfigValue<T, 'streaming'> ? Generated<T> | Streamed<T> : Generated<T>;
 
+type ResumeSettings<T> = ComponentRunSettings<T, Omit<AgentRunSettings<T, 'text', false>, 'prompt' | 'messageHistory'>
+	& { approve?: boolean | readonly string[] | null | undefined }>;
+type Resume<T> = (EmptyMap extends ResumeSettings<T> ? (history: readonly ModelMessage[]) => Promise<AgentResult<T>> : unknown)
+	& (<Run extends object | undefined, Keys extends PropertyKey = never, ContextKeys extends PropertyKey = never>(
+		history: readonly ModelMessage[], options: RunArgument<T, ResumeSettings<T>, Run, Keys, ContextKeys>) => Promise<AgentResult<T>>);
+
 type AgentMethods<T> = Omit<Agent<ComponentInputShape<T> | (CanOmitComponentInput<T> extends true ? undefined : never),
 	ToolsFromConfig<T>, RuntimeContextFromConfig<T>, import('./sdk.js').ResolvedOutput<AgentOutput<T>>>, 'generate' | 'stream'> & {
+	resume: Resume<T>;
 	generate<Args extends NativeArguments<AgentCallParameters<ComponentInputShape<T>, ToolsFromConfig<T>, RuntimeContextFromConfig<T>>, T>>(
 		args: Args & NativeValidation<Args, T, AgentCallParameters<unknown>>): Promise<Generated<T>>;
 	stream<Args extends NativeArguments<AgentStreamParameters<ComponentInputShape<T>, ToolsFromConfig<T>, RuntimeContextFromConfig<T>>, T>>(

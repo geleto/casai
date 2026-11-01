@@ -3,6 +3,9 @@
 		"ts"
 	],
 	"spec": [
+		"tests/Approvals.unit.test.ts",
+		"tests/Resume.unit.test.ts",
+		"tests/NativeContinuation.unit.test.ts",
 		"tests/CascadaIntegration.unit.test.ts",
 		"tests/ComponentContracts.unit.test.ts",
 		"tests/ComponentInterop.unit.test.ts",

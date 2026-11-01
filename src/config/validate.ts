@@ -47,6 +47,7 @@ export function validateConfigBasics(config?: unknown, ErrorClass: typeof Config
 		throw new ErrorClass("Configuration cannot have both 'template' and 'script' properties.");
 	}
 	if ('messages' in config) throw new ErrorClass("Use 'prompt' for configured messages and 'messageHistory' for invocation history.");
+	if (Object.hasOwn(config, 'approve')) throw new ErrorClass("'approve' is a resume() option, not a configuration or run() setting.");
 	const invalid = retiredSettings.filter(key => Object.hasOwn(config, key));
 	if (invalid.length) throw new ErrorClass(`Unsupported configuration properties: ${invalid.join(', ')}.`);
 }
