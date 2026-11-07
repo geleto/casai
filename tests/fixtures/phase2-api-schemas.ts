@@ -13,5 +13,5 @@ export function explicitMetadata<S extends FlexibleSchema<unknown>>(schema: S, i
 			return result.success ? { value: result.value } : { issues: [{ message: result.error.message }] };
 		} },
 	};
-	return { '~standard': { ...standard['~standard'], jsonSchema: { input: () => ({ ...input }), output: () => ({}) } } };
+	return { '~standard': { ...standard['~standard'], jsonSchema: { input: (): JSONSchema7 & Record<string, unknown> => ({ ...input }), output: () => ({}) } } };
 }

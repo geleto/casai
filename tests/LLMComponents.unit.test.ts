@@ -457,7 +457,7 @@ describe('LLM component contracts without providers', () => {
 			const component = create.LLMAgent.loadsText({ model, prompt: 'missing', loader: async name => name === 'valid' ? 'Loaded prompt.' : null });
 			await component('valid');
 			await new Promise(resolve => setImmediate(resolve));
-			await rejects(() => component(), /Failed to load prompt/);
+			await rejects(() => component(), /Failed to load source/);
 		`;
 		await promisify(execFile)(process.execPath, ['--unhandled-rejections=strict', '--import', 'tsx', '--conditions=casai-source', '--input-type=module', '--eval', code]);
 	});

@@ -28,6 +28,7 @@
 	],
 	"files": [
 		"dist",
+		"src",
 		"!dist/.tsbuildinfo",
 		"README.md",
 		"LICENSE"
@@ -42,6 +43,9 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"require": "./dist/index.js"
+		},
+		"./dist/*": {
+			"types": "./dist/*"
 		}
 	},
 	"scripts": {
@@ -55,15 +59,15 @@
 		"typecheck:exact": "tsc -p tests/type-safety --incremental --tsBuildInfoFile node_modules/.cache/casai/safety-exact.tsbuildinfo",
 		"test": "npm run test:local",
 		"test:live": "npm run test:file -- tests/Loaders.test.ts tests/Messages.test.ts tests/LLMAgentOutput.live.test.ts tests/LLMAgentOutputStream.live.test.ts tests/Script.test.ts tests/LLMAgent.live.test.ts tests/LLMAgentStream.live.test.ts tests/Tools.test.ts",
-		"test:types": "node tests/fixtures/readme2-examples.cjs && npm run typecheck:src && npm run build && npm run typecheck && npm run typecheck:exact",
+		"test:types": "node tests/fixtures/readme2-examples.cjs && npm run typecheck:src && npm run build && node tests/fixtures/component-declarations.cjs && npm run typecheck && npm run typecheck:exact",
 		"test:local": "mocha",
+		"test:component-mutations": "node tests/fixtures/component-review-mutations.cjs",
 		"test:file": "mocha --no-config --node-option import=tsx/esm --node-option conditions=casai-source --require dotenv/config",
 		"test:coverage": "c8 npm run test:local -- --timeout 10000 --reporter dot && c8 check-coverage --include src/runtime/augment-result.ts --per-file --lines 100 --statements 100 --functions 100 --branches 98",
 		"test:phase2-production": "node tests/fixtures/phase2-factory-cost.cjs && node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
 		"test:package": "npm run build && node tests/fixtures/phase2-package-consumer.cjs",
 		"test:watch": "npm run test:local -- --watch",
-		"check": "npm run test:types && npm run lint && npm run test:coverage",
-		"start": "tsx examples/story.ts"
+		"check": "npm run test:types && npm run lint && npm run test:coverage"
 	},
 	"c8": {
 		"all": true,
@@ -89,7 +93,7 @@
 	},
 	"devDependencies": {
 		"@ai-sdk/anthropic": "^4.0.74",
-		"@ai-sdk/openai": "^4.0.86",
+		"@ai-sdk/openai": "^4.0.108",
 		"@babel/core": "^8.0.7",
 		"@babel/preset-env": "^8.0.7",
 		"@eslint/js": "^10.0.1",
@@ -100,7 +104,7 @@
 		"@typescript-eslint/eslint-plugin": "^8.71.1",
 		"@typescript-eslint/parser": "^8.71.1",
 		"@typescript/native": "npm:typescript@^7.0.2",
-		"ai": "^7.0.130",
+		"ai": "^7.0.162",
 		"c8": "^12.0.0",
 		"chai": "^6.3.0",
 		"chai-as-promised": "^8.0.2",
@@ -119,11 +123,11 @@
 		"npm": ">=9.0.0"
 	},
 	"dependencies": {
-		"@ai-sdk/provider-utils": "^5.0.56",
+		"@ai-sdk/provider-utils": "^5.0.74",
 		"cascada-engine": "^0.6.2"
 	},
 	"peerDependencies": {
-		"ai": "^7.0.130",
+		"ai": "^7.0.162",
 		"zod": "^4.6.5"
 	},
 	"overrides": {

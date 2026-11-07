@@ -7,7 +7,7 @@
 
 Status: the isolated proof is complete for the bounded preparation/binding design. It uses the installed AI SDK 7.0.130, provider-utils 5.0.56, Zod 4.6.5 (including Zod 3), TypeScript 7.0.2 and TypeScript 6.0.2. No production factory, runtime, or exported package type was changed. This discharges the pre-integration feasibility gate, not Phase 2's implementation or full consumer acceptance tests.
 
-The candidate is [phase2-public-api.ts](../tests/fixtures/phase2-public-api.ts), an executable Function-like tool component with ordinary calls, `.run`, configuration inheritance, parsed callbacks/results, and immutable tool binding. Its declaration exports are compiled independently before consumer checks. The [shared schemas](../tests/fixtures/phase2-api-schemas.ts) are used by both [runtime cases](../tests/Phase2PublicAPI.unit.test.ts) and [type cases](../tests/type-safety/phase2-public-api.ts).
+The candidate is `tests/fixtures/phase2-public-api.ts` (retired prototype), an executable Function-like tool component with ordinary calls, `.run`, configuration inheritance, parsed callbacks/results, and immutable tool binding. Its declaration exports are compiled independently before consumer checks. The [shared schemas](../tests/fixtures/phase2-api-schemas.ts) are used by both `tests/Phase2PublicAPI.unit.test.ts` (retired prototype) and `tests/type-safety/phase2-public-api.ts` (retired prototype).
 
 ## What the public call types establish
 
@@ -34,7 +34,7 @@ For closed unions, check each possible effective merged branch, not just the uni
 
 ## Schema capability matrix
 
-“Sources” means nonempty configured or bound context, including unrelated private dependencies. Source partitioning needs declarations even if the actual values ultimately prove private.
+вЂњSourcesвЂќ means nonempty configured or bound context, including unrelated private dependencies. Source partitioning needs declarations even if the actual values ultimately prove private.
 
 | Schema instance | No sources, local parsing | With sources | Public admission |
 | --- | --- | --- | --- |

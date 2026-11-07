@@ -36,12 +36,12 @@ create.LLMAgent({ model, prompt: 'Answer' }, functionParent);
 create.LLMAgent({ model, prompt: 'Answer', context: { value: 1 } });
 create.LLMAgent({ model, prompt: 'Answer', inputSchema });
 create.LLMAgent({ model, prompt: 'Answer', filters, output: Output.object({ schema: schema }) });
-// @ts-expect-error Plain object generation does not create renderer options.
+// @ts-expect-error The retired options spelling is rejected; renderer defaults use renderOptions.
 create.LLMAgent({ model, prompt: 'Answer', options: renderOptions, output: Output.object({ schema: schema }) });
 create.LLMAgent({ model, prompt: 'Answer', context: { value: 1 }, output: Output.object({ schema: schema }) });
 create.LLMAgent({ model, prompt: 'Answer', inputSchema, output: Output.object({ schema: schema }) });
 create.LLMAgent.withFunction({ model, prompt: () => 'Answer', filters });
-// @ts-expect-error JavaScript object prompt functions do not use Cascada options.
+// @ts-expect-error The retired options spelling is also rejected on function sources.
 create.LLMAgent.withFunction({ model, prompt: () => 'Answer', options: renderOptions, output: Output.object({ schema: schema }) });
 
 // @ts-expect-error Filter map values must be callable.
@@ -71,7 +71,7 @@ create.Function({ execute }, create.Config({ model }));
 create.Function({ execute }, create.Config({ loader }));
 // Registry inheritance applies to Functions too.
 create.Function({ execute }, create.Config({ tools: {} }));
-// @ts-expect-error Messages remain invalid when inherited by a Function.
+// @ts-expect-error Reusable fragments reject the retired messages setting before inheritance.
 create.Function({ execute }, create.Config({ messages: [{ role: 'user', content: 'Answer' }] }));
 // @ts-expect-error Prompts remain invalid when inherited by a Function.
 create.Function({ execute }, create.Config({ prompt: 'Answer' }));

@@ -1,17 +1,17 @@
-import type { AgentCallbacks } from './agent.js';
-import type { EmptyMap, StrictUnionSubtype, UnionKeys } from './utils.js';
+import type { EmptyMap, UnionKeys } from './utils.js';
 import type { InferSchema } from './schema.js';
-import type { generateText, streamText, ToolSet, GenericToolApprovalFunction, SingleToolApprovalFunction, ToolApprovalStatus } from 'ai';
+import type { generateText, streamText, embedMany, rerank, ToolSet } from 'ai';
 import type { ConfigValue, RuntimeContextFromConfig, ToolsFromConfig, ToolProperties, ToolContextFromConfig } from './config.js';
 import type { CollectedResult } from './result.js';
 import type { MergedConfig } from './merge.js';
 import type { ValidateResolved } from './provisional.js';
 
 type Callback = (...args: any[]) => any;
-type CallbackKeys<T> = { [K in keyof T]-?: Extract<NonNullable<T[K]>, Callback | readonly Callback[]> extends never ? never : K }[keyof T];
+export type CallbackKeys<T> = T extends unknown ? { [K in keyof T]-?: Extract<NonNullable<T[K]>, Callback | readonly Callback[]> extends never ? never : K }[keyof T] : never;
 type DescriptorCallbackKeys = 'needsApproval' | 'onInputStart' | 'onInputDelta' | 'onInputAvailable' | 'toModelOutput';
 
-export type ConfigCallbackKeys = CallbackKeys<Parameters<typeof generateText<ToolSet>>[0]> | CallbackKeys<Parameters<typeof streamText<ToolSet>>[0]> | 'experimental_refineToolInput' | 'toolApproval' | 'prepareCall';
+export type ConfigCallbackKeys = CallbackKeys<Parameters<typeof generateText<ToolSet>>[0] | Parameters<typeof streamText<ToolSet>>[0]
+	| Parameters<typeof embedMany>[0] | Parameters<typeof rerank>[0]> | 'experimental_refineToolInput' | 'toolApproval' | 'prepareCall';
 
 // Infer config data before checking callbacks that depend on that data.
 export type CallbackConfigShape<T> = T extends unknown ? {
@@ -45,6 +45,8 @@ export type ToolSettingsInput<Parent, Tools, Runtime> = Pick<Parameters<typeof g
 	RuntimeContextFromConfig<MergedConfig<Parent, Setting<'runtimeContext', Runtime>>>>>[0], ToolSelectionKeys | 'toolApproval'>;
 export type ParentToolSelectionInput<P, C> = NoInfer<P extends unknown
 	? ToolSelections<ToolsFromConfig<MergedConfig<P, Setting<'tools', C>>>> : never>;
+export type FragmentToolSelections<Parent, Tools, Final = MergedConfig<Parent, Setting<'tools', Tools>>> =
+	NoInfer<ToolSelections<'tools' extends keyof Final ? ToolsFromConfig<Final> : ToolSet>>;
 type InvalidToolSelections<TConfig, Expected> = {
 	[K in ToolSelectionKeys & keyof TConfig]-?: K extends keyof Expected ? Pick<TConfig, K> extends Pick<Expected, K> ? never : K : K;
 }[ToolSelectionKeys & keyof TConfig];
@@ -73,36 +75,3 @@ type UnknownToolCallbackNames<T, PartialConfig extends boolean> = T extends unkn
 export type ValidateToolCallbackNames<T, PartialConfig extends boolean = false> =
 	[UnknownToolCallbackNames<T, PartialConfig>] extends [never]
 	? unknown : `Config Error: Unknown tool callback '${UnknownToolCallbackNames<T, PartialConfig> & string}'.`;
-
-type ToolApprovalReturn = ReturnType<GenericToolApprovalFunction<ToolSet, any, any>>;
-type InvalidApprovalEntry<T, K> = T extends Callback ? ReturnType<T> extends ToolApprovalReturn ? never : K
-	: T extends ToolApprovalStatus ? never : K;
-type InvalidApprovalConfig<T> = T extends Callback ? InvalidApprovalEntry<T, 'toolApproval'>
-	: T extends object ? { [K in keyof T]-?: InvalidApprovalEntry<T[K], K> }[keyof T] : 'toolApproval';
-type ValidateApprovalContracts<TConfig> = 'toolApproval' extends keyof TConfig
-	? [InvalidApprovalConfig<NonNullable<TConfig['toolApproval']>>] extends [never] ? unknown
-	: 'Config Error: Tool approval callbacks and statuses must follow the AI SDK approval contract.' : unknown;
-
-type MemberCallbacks<T, K extends PropertyKey> = T extends unknown ? K extends keyof T ? Extract<NonNullable<T[K]>, Callback> : never : never;
-type MemberNonCallbacks<T, K extends PropertyKey> = T extends unknown ? K extends keyof T ? Exclude<T[K], Callback> : never : never;
-type CombinedCallback<F extends Callback> = { callback(...args: Parameters<F>): ReturnType<F> }['callback'];
-type DeferredApprovalMap<T> = Record<string, ToolApprovalStatus | CombinedCallback<SingleToolApprovalFunction<unknown, unknown, RuntimeContextFromConfig<T>>>>;
-type ConfigCallbackValue<Shapes, K extends PropertyKey> = [MemberCallbacks<Shapes, K>] extends [never]
-	? Shapes extends unknown ? K extends keyof Shapes ? Shapes[K] : never : never
-	: MemberNonCallbacks<Shapes, K> | CombinedCallback<MemberCallbacks<Shapes, K>>;
-
-// A fragment without output selection can later serve either text or structured output.
-type FragmentCallbacks<T> = AgentCallbacks<'output' extends keyof T ? T
-	: T & { output: import('ai').OutputInterface<unknown, unknown, unknown> }>;
-
-type AnyConfigCallbacks<T, Shapes = FragmentCallbacks<T>> = {
-	[K in UnionKeys<Shapes>]?: K extends 'toolApproval' ? 'tools' extends keyof T ? ConfigCallbackValue<Shapes, K>
-	: DeferredApprovalMap<T> | CombinedCallback<MemberCallbacks<Shapes, K>> : ConfigCallbackValue<Shapes, K>;
-};
-
-export type AnyConfigCallbackInput<Config, Parent, Data, Tools, RuntimeContext, Output,
-	Context = MergedConfig<Parent, Data & Setting<'tools', Tools> & Setting<'runtimeContext', RuntimeContext> & Setting<'output', Output>>,
-	Final = MergedConfig<Parent, Config>> =
-	{ tools?: Tools; runtimeContext?: RuntimeContext; output?: Output } & NoInfer<AnyConfigCallbacks<Context> & ToolSelections<'tools' extends keyof Context ? ToolsFromConfig<Context> : ToolSet>> &
-	ValidateResolved<Config, ValidateApprovalContracts<Final> & ValidateToolCallbackNames<Final, true> & ValidateToolSelectionNames<Final, true> & ([StrictUnionSubtype<Pick<Final, ConfigCallbackKeys & keyof Final>, FragmentCallbacks<Final>>] extends [never]
-	? 'Config Error: Callbacks do not match the final configuration.' : unknown)>;

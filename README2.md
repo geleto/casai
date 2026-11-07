@@ -34,11 +34,13 @@ Use JavaScript for application logic, Cascada templates for text, and Cascada sc
 
 ## Installation
 
-Use Node.js 24 or later and AI SDK 7.0.161 or later, with a compatible provider package for the models you want to call. For the OpenAI examples in this README:
+Use Node.js 24 or later and AI SDK 7.0.162 or later, with a compatible provider package for the models you want to call. For the OpenAI examples in this README:
 
 ```bash
-npm install casai ai@^7.0.161 @ai-sdk/openai@^4.0.107 zod
+npm install casai ai@^7.0.162 @ai-sdk/openai@^4.0.108 zod
 ```
+
+Use TypeScript 7.0.2 or newer with `strictNullChecks` enabled (normally through `strict: true`). Casai currently targets Node.js; the Cascada dependency prevents browser/edge bundling. Browser chat and voice clients use the AI SDK and call your Casai server.
 
 Use ESM imports in your JavaScript or TypeScript application (`"type": "module"` in `package.json`). Run provider calls in your server or Node.js process, with credentials in its environment. For a local example, create `.env`:
 
@@ -78,7 +80,7 @@ const result = await explain({ topic: 'solar panels' });
 console.log(result.output);
 ```
 
-The `.withTemplate` modifier renders the prompt using the call's input and configured context. `inputSchema` validates caller data merged over schema-declared configured defaults. Undeclared configured bindings, such as `audience` here, remain available to the template but stay outside that parser and cannot be overridden by callers. `.output` contains the generated text. The result also includes the SDK's usage, steps, and metadata.
+The `.withTemplate` modifier renders the prompt using the call's input and configured context. `inputSchema` validates caller data merged over schema-declared configured defaults. The declared `audience` field defaults to `'a beginner'` and can be overridden by callers. Undeclared configured bindings remain available to the template but stay outside that parser and cannot be overridden by callers. `.output` contains the generated text. The result also includes the SDK's usage, steps, and metadata.
 
 Select an output schema when you need typed data:
 
@@ -126,25 +128,25 @@ Factories such as `create.LLMAgent` and `create.Script` create callable componen
 
 Choose a component by the operation you need. `Config` supplies shared settings and is not callable. Component names link to usage examples; reference links cover Cascada syntax and AI SDK contracts. The table describes ordinary calls. Components share configuration and composition conventions; their results reflect the operation they perform. Model results retain SDK usage, warnings, and metadata.
 
-| Component | What it does | Main inputs → result | Reference |
+| Component | What it does | Main inputs РІвЂ вЂ™ result | Reference |
 | :--- | :--- | :--- | :--- |
-| [Config](#config) | Shared configuration | Settings and optional parent → `.config` | — |
-| [Template](#template) | Render a Cascada template | Template and context → rendered text, or a text stream | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
-| [Script](#script) | Execute a Cascada workflow | Script and context → returned value, or a stream | [Cascada scripts](https://github.com/geleto/cascada) |
-| [Function](#function) | Wrap JavaScript logic | Arguments/context → returned value, or the callback's stream | — |
-| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages and application context → the full SDK result, with `.output` for [final application output](#llmagent-results) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
-| [Decision](#decision) | Answer choice, boolean, and score questions | `state`, configured `questions` → [.answers](https://ai-sdk.dev/docs/ai-sdk-core/decisions#question-types) | [Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) |
-| [Embedder](#embedder) | Embed one or many texts | String or string array → [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
-| [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` → [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
-| [ImageGenerator](#imagegenerator) | Generate or edit images | `prompt` and optional editing inputs → [.images](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#returns) | [Images](https://ai-sdk.dev/docs/ai-sdk-core/image-generation) |
-| [Transcriber](#transcriber) | Transcribe a recording | `audio` → [.text, .segments](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) | [Transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription) |
-| [StreamingTranscriber](#streamingtranscriber) | Transcribe live audio | Audio stream and format → [.fullStream, final .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-transcribe#returns) | [Streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription) |
-| [SpeechGenerator](#speechgenerator) | Generate spoken audio | `text` → [.audio](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech#returns) | [Speech](https://ai-sdk.dev/docs/ai-sdk-core/speech) |
-| [StreamingSpeechGenerator](#streamingspeechgenerator) | Stream spoken audio from text | String/text stream → native `.audioStream` or `.fullStream` | [Streaming speech](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) |
-| [StreamingTranslator](#streamingtranslator) | Translate live speech | Raw audio, format and target language → `.fullStream`, final `.translationText` | [Streaming translation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate) |
-| [VoiceSessionSetup](#voicesessionsetup) | Prepare a browser voice session and execute server tools | Instructions/context → session setup; separate `executeTool()` calls | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
+| [Config](#config) | Shared configuration | Settings and optional parent РІвЂ вЂ™ `.config` | РІР‚вЂќ |
+| [Template](#template) | Render a Cascada template | Template and context РІвЂ вЂ™ rendered text, or a text stream | [Cascada templates](https://github.com/geleto/cascada/blob/master/docs/cascada/template.md) |
+| [Script](#script) | Execute a Cascada workflow | Script and context РІвЂ вЂ™ returned value, or a stream | [Cascada scripts](https://github.com/geleto/cascada) |
+| [Function](#function) | Wrap JavaScript logic | Arguments/context РІвЂ вЂ™ returned value, or the callback's stream | РІР‚вЂќ |
+| [LLMAgent](#llmagent) | Generate or stream text/data; optionally loop with tools | Prompt/messages and application context РІвЂ вЂ™ the full SDK result, with `.output` for [final application output](#llmagent-results) | [generateText](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text), [streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text) |
+| [Decision](#decision) | Answer choice, boolean, score, and bounding-box questions | `state`, configured `questions` РІвЂ вЂ™ [.answers](https://ai-sdk.dev/docs/ai-sdk-core/decisions#question-types) | [Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) |
+| [Embedder](#embedder) | Embed one or many texts | String or string array РІвЂ вЂ™ [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
+| [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` РІвЂ вЂ™ [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
+| [ImageGenerator](#imagegenerator) | Generate or edit images | `prompt` and optional editing inputs РІвЂ вЂ™ [.images](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#returns) | [Images](https://ai-sdk.dev/docs/ai-sdk-core/image-generation) |
+| [Transcriber](#transcriber) | Transcribe a recording | `audio` РІвЂ вЂ™ [.text, .segments](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) | [Transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription) |
+| [StreamingTranscriber](#streamingtranscriber) | Transcribe live audio | Audio stream and format РІвЂ вЂ™ [.fullStream, final .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-transcribe#returns) | [Streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription) |
+| [SpeechGenerator](#speechgenerator) | Generate spoken audio | `text` РІвЂ вЂ™ [.audio](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech#returns) | [Speech](https://ai-sdk.dev/docs/ai-sdk-core/speech) |
+| [StreamingSpeechGenerator](#streamingspeechgenerator) | Stream spoken audio from text | String/text stream РІвЂ вЂ™ native `.audioStream` or `.fullStream` | [Streaming speech](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) |
+| [StreamingTranslator](#streamingtranslator) | Translate live speech | Raw audio, format and target language РІвЂ вЂ™ `.fullStream`, final `.translationText` | [Streaming translation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate) |
+| [VoiceSessionSetup](#voicesessionsetup) | Prepare a browser voice session and execute server tools | Instructions/context РІвЂ вЂ™ session setup; separate `executeTool()` calls | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
 
-Decision, StreamingTranscriber, StreamingSpeechGenerator, StreamingTranslator and VoiceSessionSetup wrap experimental SDK features. Their exports are `Experimental_Decision`, `Experimental_StreamingTranscriber`, `Experimental_StreamingSpeechGenerator`, `Experimental_StreamingTranslator` and `Experimental_VoiceSessionSetup` until those features are stable.
+Decision, StreamingTranscriber, StreamingSpeechGenerator, StreamingTranslator and VoiceSessionSetup depend on experimental AI SDK contracts. They use the same plain names in named imports and on `create`; their documentation identifies the experimental dependency.
 
 ### Common Component Contracts
 
@@ -191,6 +193,7 @@ To interchange model and coded implementations in a workflow, have a small adapt
 - **Invocation isolation:** Casai's merging, preparation and execution leave shared configuration and caller data intact. Derive a component or use call overrides to select different settings.
 - **Effects:** Schema callbacks stay pure. Component bodies may operate on authorized application state or perform external effects; sequence effectful Cascada calls with `!`. Independent invocations need application-level coordination for shared state.
 - **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. An explicit source modifier replaces the inherited source mode; a base factory preserves it. Use `.withText`, `.withTemplate` or `.withScript` to return to inline source. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded.
+- **Configuration unions:** A call must work in every possible source mode. An Embedder with configured text/function alternatives supports `embedder()` and `.run({ headers })`; text/template alternatives also accept shared string replacements. You do not need to narrow the configuration before constructing the component.
 - **Streaming:** LLMAgent and Template inherit streaming mode, and `.asStream` enables it. Script/Function declare stream output through `schema`; independently invoked components keep their own modes. See [streaming](#streaming).
 - **Tool adaptation:** `.asTool` exposes completed application output to a model, collecting declared finite streams where necessary. Direct calls retain their normal result and mode. See [using components as tools](#using-components-as-tools).
 
@@ -211,7 +214,7 @@ const invitation = await writer('Write a short invitation to a community dinner.
 
 Each component has a **main property**, the input its operation works on, such as an LLMAgent's `prompt` or a Template's `template`. You set it when creating the component, and a call can replace it for one invocation. The component's [input modifier](#adding-capabilities-with-modifiers) sets its type, never its name: on a plain LLMAgent, `prompt` is literal text or model messages; with `.withTemplate`, it is a template; with `.loadsTemplate`, a template's name. Replacements follow the selected source mode. ImageGenerator also supports replacing text while retaining configured reference images and mask.
 
-The ordinary call, `component(...)`, takes the main input first, including object or array inputs, followed by the operation's common parameters. A plain LLMAgent takes `(prompt, context?, messageHistory?)`, with context omitted before history when no call data is required; the prompt can be a string or message array. Prepared/loaded forms take source, context, and secondary parameters in that order, omitting source to use the configured one. Image media follow context, just like reranker documents. Every callable component has `.run({ ... })` for the same named inputs and additional execution settings. Native SDK abort/timeout controls and explicit cooperative signals on coded-component `.run()` remain available. See [cancellation and timeouts](#cancellation-timeouts-and-usage).
+The ordinary call, `component(...)`, takes the main input first, including object or array inputs, followed by the operation's common parameters. A plain LLMAgent takes `(prompt, context?, messageHistory?)`, with context omitted before history when no call data is required; positional prompt overrides are strings, while message arrays always supply history. New message arrays use the named `prompt` field. Prepared/loaded forms take source, context, and secondary parameters in that order, omitting source to use the configured one. Image media follow context, just like reranker documents. Every callable component has `.run({ ... })` for the same named inputs and additional execution settings. Native SDK abort/timeout controls and explicit cooperative signals on coded-component `.run()` remain available. See [cancellation and timeouts](#cancellation-timeouts-and-usage).
 
 | Component | Main property | Secondary positional inputs, in order |
 | :--- | :--- | :--- |
@@ -295,7 +298,7 @@ console.log((await translate({ text: 'Good morning' })).output);
 
 Inline multimodal templates use the SDK's own prompt shapes. Casai renders their text fields and retains image/file parts, masks, roles, order and metadata. For an LLMAgent, put the new message in `prompt`:
 
-<!-- typecheck-skip: structured-template -->
+<!-- typecheck: multimodal-template -->
 ```typescript
 const inspectPhoto = create.LLMAgent.withTemplate({
   model: visionModel,
@@ -329,7 +332,7 @@ const summarize = create.LLMAgent.withFunction({
 const summary = await summarize({ paragraphs: ['First paragraph.', 'Second paragraph.'] });
 ```
 
-For an LLMAgent, scripts and functions can return text or model-message arrays that retain roles, tool messages, and media parts. Their returned text is not templated again. Inline templates can render text within a native message array; standalone Template produces text.
+For an LLMAgent, scripts and functions can return text, a single model message, or message arrays that retain roles, tool messages, and media parts. Their returned text is not templated again. Inline templates can render text within one or more native messages; standalone Template produces text.
 
 Forward the preparer's signal when fetching input:
 
@@ -366,25 +369,25 @@ Unsupported combinations have no corresponding factory property; TypeScript repo
 
 #### Modifier Support
 
-Choose a modifier supported by the component: ✅ = supported; ❌ = not applicable or not exposed.
+Choose a modifier supported by the component: РІСљвЂ¦ = supported; РІСњРЉ = not applicable or not exposed.
 
 | Component | [.withText](#text-and-template-modifiers) | [.withTemplate](#text-and-template-modifiers) | [.withScript](#script-and-function-modifiers) | [.withFunction](#script-and-function-modifiers) | [.loadsText](#text-and-template-modifiers) | [.loadsTemplate](#text-and-template-modifiers) | [.loadsScript](#script-and-function-modifiers) | [.asStream](#streaming) | [.asTool](#using-components-as-tools) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| [Config](#config) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| [Template](#template) | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
-| [Script](#script) | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| [Function](#function) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| [LLMAgent](#llmagent) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| [Decision](#decision) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [Embedder](#embedder) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [Reranker](#reranker) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [ImageGenerator](#imagegenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [Transcriber](#transcriber) | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| [StreamingTranscriber](#streamingtranscriber) | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ✅* |
-| [SpeechGenerator](#speechgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| [StreamingSpeechGenerator](#streamingspeechgenerator) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| [StreamingTranslator](#streamingtranslator) | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| [VoiceSessionSetup](#voicesessionsetup) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| [Config](#config) | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ |
+| [Template](#template) | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ |
+| [Script](#script) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
+| [Function](#function) | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ |
+| [LLMAgent](#llmagent) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ |
+| [Decision](#decision) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
+| [Embedder](#embedder) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
+| [Reranker](#reranker) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
+| [ImageGenerator](#imagegenerator) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
+| [Transcriber](#transcriber) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
+| [StreamingTranscriber](#streamingtranscriber) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦* |
+| [SpeechGenerator](#speechgenerator) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
+| [StreamingSpeechGenerator](#streamingspeechgenerator) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ |
+| [StreamingTranslator](#streamingtranslator) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ |
+| [VoiceSessionSetup](#voicesessionsetup) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ |
 
 \* StreamingTranscriber supports `.asTool` only after `.withScript`, `.withFunction`, or `.loadsScript`; its preparer must open a bounded audio stream from named tool arguments.
 
@@ -418,15 +421,13 @@ Modifiers apply only where their output fits the input. Text loaders and string 
 
 ### LLMAgent Call Reference
 
-Use the order source, context, history, omitting configured sources and unneeded context. A first-position string or model-message array on a plain agent is always a new prompt. These forms apply with or without streaming mode; required context fields must be supplied unless defaults satisfy them.
+Use the order source, context, history, omitting configured sources and unneeded context. A first-position string supplies new source; a positional message array always supplies literal history, on every agent. These forms apply with or without streaming mode; required context fields must be supplied unless defaults satisfy them.
 
 | Component form | Ordinary call | Meaning |
 | :--- | :--- | :--- |
 | Plain | `agent()` | Use the configured prompt |
 | Plain | `agent('New prompt')` | Supply new prompt text |
-| Plain | `agent(newMessages)` | Supply one or more new prompt messages |
 | Plain | `agent('New prompt', messageHistory)` | Append prompt text after history |
-| Plain | `agent(newMessages, messageHistory)` | Append new messages after history |
 | Plain | `agent(prompt, context, messageHistory?)` | Supply a literal prompt and application data |
 | Plain or loaded text | `agent(context, messageHistory?)` | Use the configured prompt/resource with application data |
 | Loaded text | `agent()` | Load the configured resource name as literal text |
@@ -436,20 +437,21 @@ Use the order source, context, history, omitting configured sources and unneeded
 | Template/script, including loaded forms | `agent(source, context, messageHistory?)` | Prepare a one-off source |
 | Function prompt | `agent(context, messageHistory?)` | Call the configured prompt function |
 | Function prompt | `agent(promptFunction, context, messageHistory?)` | Call a one-off prompt function |
+| Any agent with no required payload | `agent(messageHistory)` | Preserve history and append the configured prompt, if any |
 
-There is no positional history-only form. Message arrays carry no marker that distinguishes history from new messages: even a variable named `messageHistory` is interpreted as prompt messages when passed first to a plain agent. `agent.run({ messageHistory })` uses the configured prompt when one exists, including preparation and input validation; only an agent without an effective prompt sends history without adding a new turn. Fixed instructions, context validation, and request hooks still apply.
+On every agent, a positional array is literal history. `agent(messageHistory)` prepares and appends the configured prompt, if one exists; without an effective prompt it sends history alone. Supply new message arrays with `agent.run({ prompt: newMessages, messageHistory })`. Required application payload still needs its context slot. Fixed instructions, context validation, and request hooks apply in either case.
 
-Literal and loaded-text agents accept context even without preparation hooks. Their text stays literal; context supplies hook data and follows the same input validation as rendered forms. On `.loadsText`, a lone array is invalid; use `.run({ messageHistory })` with a configured resource, optionally supplying `context` or a replacement `prompt: resourceName`.
+Literal and loaded-text agents accept context even without preparation hooks. Their text stays literal; context supplies hook data and follows the same input validation as rendered forms.
 
 Ordinary calls and `.run()` resolve inputs in the same way: supplied values override configuration, and an omitted or undefined prompt retains the configured prompt. Adding history, execution settings, or an empty `context` does not select a different operation. `messageHistory: []` means no earlier messages and still runs a configured prompt. Every effective prompt string, including `''`, adds a user message regardless of history; an absent prompt adds none. Empty text is not a portable history-only sentinel: [Anthropic text blocks require nonempty text](https://platform.claude.com/docs/en/api/messages/create). For history-only continuation, use no effective prompt, or have a script/function preparer return an empty message array (`[]`), rather than an empty string. The SDK rejects the call if its final conversation is still empty after `prepareCall`.
 
-From Cascada, keyword arguments supply the named input/context object; a rendered `agent(messageHistory, topic='recycling')` normalizes to JavaScript `agent({ topic: 'recycling' }, messageHistory)`. Keywords must come last in Cascada, so this marked form is an explicit exception to positional ordering. On rendered/loaded forms, JavaScript `agent(messageHistory, context)` and the equivalent unmarked Cascada call are invalid; use context before history. On a plain agent, that first array is new prompt messages. A lone array is never inferred to be history.
+From Cascada, keyword arguments supply the named input/context object; `agent(messageHistory, topic='recycling')` normalizes to JavaScript `agent({ topic: 'recycling' }, messageHistory)`. Keywords must come last in Cascada, so this marked form is an explicit exception to positional ordering. JavaScript `agent(messageHistory, context)` and the equivalent unmarked Cascada call are invalid; use context before history. Positional arrays always mean literal history. New message arrays, including authored templates, belong in configuration or named `.run({ prompt })`.
 
 ### Named Arguments and Per-Call Overrides
 
-The shorthand caller is the primary API and retains its input forms. Every callable component also has `.run({ ... })` for named inputs and permitted per-call settings, returning the same result in the same mode as the ordinary call. It returns a promise; for streaming, awaiting it obtains the live handle without waiting for completion.
+The shorthand caller is the primary API and retains its input forms. Every callable component also has `.run({ ... })` for named inputs and permitted per-call settings, returning the same result in the same mode as the ordinary call. Calls and `.run()` return promises and reject on invocation errors; invalid configuration throws when the component is created. For streaming, awaiting the call obtains the live handle without waiting for completion.
 
-Anything required that the shorthand cannot supply must be satisfied by resolved configuration, including inherited values. For example, registered tools with required trusted context need configured `toolsContext` entries. `.run()` can override that context for one call; it does not make an incomplete finished component usable. Reusable `Config` fragments may remain incomplete.
+Anything required that the shorthand cannot supply must be satisfied by resolved configuration, including inherited values. For example, registered tools with required trusted context need configured `toolsContext` entries. `.run()` can override that context for one call; it does not make an incomplete finished component usable. Reusable `Config` fragments may remain incomplete. Their runtime checks cover common configuration structure; the completed component validates its supported settings. TypeScript also checks known fragment incompatibilities during authoring.
 
 StreamingTranscriber accepts `(audio, inputAudioFormat)`. Either input can be configured, including through inheritance; both shorthand and `.run()` require whatever is still missing. If only format is missing, `(undefined, inputAudioFormat)` retains configured audio. Format is never guessed.
 
@@ -541,6 +543,12 @@ Ordinary Function/Script calls and `.run()` may also return plain JavaScript asy
 
 LLMAgent uses SDK `Output.text()` or `Output.array({ element })`, with its SDK validation and result semantics. Its `partialOutputStream` remains available for compatibility.
 
+When calling `.run()` or reading `.config` from Cascada, expose the component directly as a context binding. The current engine preserves `component.run(...)`, but nested function lookup such as `services.component` loses the function's attached properties; `services.component(...)` itself still works.
+
+Template and script sources execute application code with access to their configured context. They are not a sandbox: even a template expression can execute arbitrary JavaScript. Use trusted authored sources, including stored/loaded templates, and pass end-user or model text as context data. Error messages can include values used by a failing expression; sanitize errors before exposing them to a model or browser.
+
+`debug: true` logs configuration and invocation data without redaction, including headers and private context. Enable it only where those logs are appropriate.
+
 ## Configuration Management
 
 ### Config
@@ -583,6 +591,8 @@ Omitting a property inherits it. Explicit `undefined` clears ordinary replacemen
 Tool definitions merge only by tool name: a supplied definition replaces the whole inherited definition, never its individual fields. A tool entry set to `undefined` or `null` removes that tool after resolution. For example, `tools: { search: undefined }` removes inherited `search` while retaining other tools. Remove cleared entries before exposing the effective SDK tool registry or passing it to the SDK; infer tool names and required tool context from that same effective registry. This is a tool-registry rule, not a reason to remove ordinary null/undefined application data.
 
 Keep shared fragments compatible with their consumers. A context-only Config can be shared by a Script and an LLMAgent; language-model settings require an appropriate model component. Source/implementation and output settings follow the [shared configuration and return contracts](#common-component-contracts). Incompatible inherited properties are rejected along with incompatible local ones.
+
+SDK callbacks stored in `Config` need explicit parameter or function types: a fragment does not select the component that owns events such as `onEnd`. The completed component validates inherited callbacks and infers callbacks supplied as overrides. For example, an Embedder's `onEnd: event => ...` override receives the native embedding event, including its configured `runtimeContext` type. Schema-driven `execute` callbacks and function-mode source preparers still infer application context from the fragment's schemas and context.
 
 ### Inspecting Configuration
 
@@ -684,7 +694,7 @@ console.log(await totals({ price: 12, quantity: 3 })); // { subtotal: 36 }
 
 The main property is `script`. Call with context, or with a one-off script followed by context. Use `return` for strings, numbers, objects, arrays, or other supported workflow results. Output validation follows the shared [returned-value rules](#returned-values).
 
-`.loadsScript` loads a named script through a configured loader. `.asTool` and `.loadsScript.asTool` expose the workflow as a tool; `Script.loadsScriptAsTool` is an alias for `Script.loadsScript.asTool`. Both inline and loaded scripts can call helpers or components from context.
+`.loadsScript` loads a named script through a configured loader. `.asTool` and `.loadsScript.asTool` expose the workflow as a tool. Both inline and loaded scripts can call helpers or components from context.
 
 A Script streams by returning a `stream` or `tstream` channel. This example declares an element stream with a [stream schema](#stream-schemas):
 
@@ -1048,11 +1058,11 @@ for await (const chunk of answer.textStream) {
 
 ### Decision
 
-`Decision` answers named choice, boolean, or score questions against shared state. Use it to route requests, apply a rubric, or evaluate several related questions. It is exported as `Experimental_Decision` while the SDK's `experimental_decide` is experimental.
+`Decision` answers named choice, boolean, score, or bounding-box questions against shared state. Use it to route requests, apply a rubric, or evaluate several related questions. It uses the AI SDK's experimental `experimental_decide` API.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: decision -->
 ```typescript
-const route = create.Experimental_Decision({
+const route = create.Decision({
   model: decisionModel,
   questions: {
     department: {
@@ -1071,7 +1081,7 @@ console.log(decision.answers.department.choice);
 console.log(decision.answers.department.probabilities); // When supplied by the provider.
 ```
 
-Configure the model and question definitions, then pass the `state` to each call; `.run({ state, ...settings })` adds per-call settings. Native state can be text, a JSON object, or an ordered array of text/file/JSON parts. Inline templates render explicit text parts and preserve the other parts; arbitrary JSON stays literal. Script/function preparers can produce any native state. The result retains typed answers, any distributions, usage, metadata, and SDK refusal/error behavior.
+Configure the model and question definitions, then pass the `state` to each call; `.run({ state, ...settings })` adds per-call settings. Native state can be text, a JSON object, or an ordered array of text/file/JSON parts. Inline templates render explicit text parts and preserve the other parts; JSON parts stay literal. Script/function preparers can produce any native state. The result retains typed answers, any distributions, usage, metadata, and SDK refusal/error behavior.
 
 Decision performs a decision request and does not run a tool loop. It can itself be exposed as a tool with `.asTool`. For choosing a value as part of a language-generation workflow, an `LLMAgent` can instead use `Output.choice()`; that uses the generation operation.
 
@@ -1081,7 +1091,7 @@ See [SDK Decisions](https://ai-sdk.dev/docs/ai-sdk-core/decisions) for question 
 
 `Embedder` converts text into vectors for semantic search, similarity, clustering, and retrieval. Pass one string or an array directly:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: embedder -->
 ```typescript
 const embedder = create.Embedder({ model: embeddingModel });
 
@@ -1096,7 +1106,7 @@ An array always represents a batch, with one output vector per input. The SDK ha
 
 Use `input` for either one string or an array in configuration and `.run()`. Per-call settings go through `.run()`:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: embedding-settings -->
 ```typescript
 await embedder.run({ input: ['First document', 'Second document'], maxParallelCalls: 2 });
 await embedder.run({ input: 'Another document', abortSignal: AbortSignal.timeout(5_000) });
@@ -1114,7 +1124,7 @@ See [single-input results](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#r
 
 `Reranker` orders candidate documents by relevance to a query. Use it after keyword, vector, or hybrid retrieval to select useful context for an LLMAgent or improve search results.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: reranker -->
 ```typescript
 const reranker = create.Reranker({ model: rerankingModel });
 const ranked = await reranker.run({
@@ -1131,13 +1141,13 @@ console.log(ranked.rerankedDocuments);
 console.log(ranked.ranking); // Original indices and relevance scores.
 ```
 
-Supply `(query, documents, topN?)` by position, or the same fields in `.run()`. Configured documents permit `reranker(question)` or `reranker(question, undefined, 5)`. Text and template modifiers prepare the query; script/function modifiers can return a query or a complete `{ query, documents }` input. With a configured renderer/source and no required call context, a rendered reranker can take the candidate array alone, `reranker(candidates)`; the plain form still takes query first. A preparer supplying the complete pair rejects competing call-time documents; a `topN` override remains available in its own slot.
+Supply `(query, documents, topN?)` by position, or the same fields in `.run()`. Configured documents permit `reranker(question)` or `reranker(question, undefined, 5)`. Text and template modifiers prepare the query; script/function modifiers can return a query or a complete `{ query, documents }` input. With a configured query/source and no required call context, a reranker can take the candidate array alone, `reranker(candidates)`. Otherwise, supply the query/source first. Explicit call-time documents override documents returned by a preparer; a `topN` override remains available in its own slot.
 
-When a preparer returns the complete pair, it selects both values together. Do not also supply documents on that call: competing positional or `.run()` documents are rejected. Configured documents serve as a fallback for a query-only result; the complete pair uses its own documents.
+When a preparer returns the complete pair, its documents take precedence over configured defaults. Explicit positional or `.run({ documents })` values take precedence over the prepared pair. Configured documents serve as a fallback for a query-only result.
 
 As a tool, the model supplies only the query. Candidates come from configured `documents` or from a preparer, so the model never copies documents into its tool arguments. A function preparer can fetch candidates for each query, making one component a retrieve-and-rerank tool:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: retrieval-tool -->
 ```typescript
 const findPolicy = create.Reranker.withFunction.asTool({
   model: rerankingModel,
@@ -1156,7 +1166,7 @@ The result preserves the SDK ranking and document mapping. Reranker operates on 
 
 `ImageGenerator` generates images from a prompt and supports editing when the model provides it.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: image-generator -->
 ```typescript
 const illustrator = create.ImageGenerator({ model: imageModel });
 const pictures = await illustrator.run({
@@ -1173,23 +1183,24 @@ All input modifiers and `.asTool` are supported. An inline template can be a str
 
 Configured images can provide a reusable visual style while each call describes a new subject:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: image-style-tool -->
 ```typescript
-const drawInStyle = create.ImageGenerator.asTool({
+const drawInStyle = create.ImageGenerator.withFunction.asTool({
   model: imageModel,
   description: 'Draw the requested subject using the reference style.',
-  prompt: { images: styleReferences },
+  images: styleReferences,
+  prompt: ({ prompt }) => prompt,
   inputSchema: z.object({ prompt: z.string() }),
 });
 
-const cabin = await drawInStyle('A mountain cabin at sunset.');
+const cabin = await drawInStyle({ prompt: 'A mountain cabin at sunset.' });
 ```
 
-The call supplies text while retaining `styleReferences`; model tool execution with `{ prompt: 'A mountain cabin at sunset.' }` does the same. `.run({ prompt: 'New subject' })` also retains configured images and mask. Positional or named media inputs override supplied fields and retain omitted defaults, with the image/mask coupling below. Image arrays replace rather than concatenate. In split/field overrides, an empty resolved array selects text-only generation; a mask without images is rejected, and a text value must be available. Complete native objects are passed through with native semantics. Supplying new images, including `[]`, drops the configured mask unless that call also supplies a mask. Text-only changes and omitted/undefined images retain the configured images and mask.
+The preparer explicitly selects the validated payload text and retains `styleReferences`; model tool execution with the same payload does the same. For plain components, `.run({ prompt: 'New subject' })` retains configured images and mask. Positional or named media inputs override supplied fields and retain omitted defaults, with the image/mask coupling below. Image arrays replace rather than concatenate. In split/field overrides, an empty resolved array selects text-only generation; a mask without images is rejected, and a text value must be available. Complete native objects are passed through with native semantics. Supplying new images, including `[]`, drops the configured mask unless that call also supplies a mask. Text-only changes and omitted/undefined images retain the configured images and mask.
 
 You can also configure `images` and `mask` separately from the source. This is useful when `prompt` holds a function, script or loaded resource rather than a native image-prompt object:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: image-preparer -->
 ```typescript
 const drawSubject = create.ImageGenerator.withFunction({
   model: imageModel,
@@ -1204,15 +1215,15 @@ await drawSubject({ subject: 'a mountain cabin' }, otherReferences);
 
 The same defaults work with text, template and loaded sources, including prepared tools; they are not published as model arguments. Call-time media override these defaults. Separate media defaults survive source-mode changes through ordinary configuration inheritance: replacing only configured `images` retains an inherited separate `mask`. To replace the images and remove that mask, use `{ images: newReferences, mask: undefined }` in child configuration. A mask-only update retains inherited images. Own undefined clears a configuration field, while invocation undefined retains its default. At call time, supplying new images still drops the configured mask unless that call also supplies a defined mask.
 
-A configured native prompt object, including a structured template, supplies its own media bundle instead of borrowing separate configured defaults. Complete explicit prompt objects and complete function/script results likewise select their own media and ignore all configured media defaults. This keeps bundle ownership distinct from text preparation with independently overrideable media.
+A configured native prompt object, including a structured template, supplies its own media bundle instead of borrowing separate configured defaults. Complete explicit prompt objects and complete function/script results likewise select their own media and ignore all configured media defaults. Separate invocation fields can override the selected bundle's images or mask.
 
-An explicit native image-prompt source replaces the whole bundle and follows native source validation. A separate application-context schema does not validate that authored source or a preparer result. When an object is supplied inside a public model/tool `prompt` argument, that argument schema must permit it; a string-only tool argument rejects it. `.run({ prompt: { images: [newPhoto], text: 'New instructions' } })` selects those images and removes any configured mask. To remove references, use `.run({ prompt: 'New subject', images: [] })`; that field-override form sends text-only generation. An explicit native `{ images: [], text }` keeps native edit semantics and is not a clearing shortcut. Do not combine a complete explicit/prepared prompt object with separate invocation `images` or `mask`; choose the bundle or the individual input fields. A script/function's complete prompt object owns its media, while a text result can be combined with separately supplied media. Native bytes and input arrays are preserved without mutation.
+An explicit native image-prompt source replaces the whole bundle and follows native source validation. A separate application-context schema does not validate that authored source or a preparer result. When an object is supplied inside a public model/tool `prompt` argument, that argument schema must permit it; a string-only tool argument rejects it. `.run({ prompt: { images: [newPhoto], text: 'New instructions' } })` selects those images and removes any configured mask. To remove references, use `.run({ prompt: 'New subject', images: [] })`; that field-override form sends text-only generation. An explicit native `{ images: [], text }` keeps native edit semantics and is not a clearing shortcut. Separate invocation `images` and `mask` override the corresponding fields of any complete prompt object, including function/script results. Replacing images drops the old mask unless the call supplies a defined mask; replacing only the mask keeps the images. For example, `image.run({ mask: newMask })` changes only the mask, and `image.run({ images: [newPhoto] })` replaces the images and drops the old mask. Text-only source updates retain configured media. Native bytes and input arrays are preserved without mutation.
 
 The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#returns) includes generated images with their media data, warnings, and metadata. To understand an existing image with a language model, use [LLMAgent image messages](#images-and-files-in-llmagent-messages). See [SDK image generation](https://ai-sdk.dev/docs/ai-sdk-core/image-generation) for editing formats and provider options.
 
 An image exposes `.uint8Array`, `.base64`, and `.mediaType`. For editing, supply the source bytes in a prompt object:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: image-edit -->
 ```typescript
 import { readFile } from 'node:fs/promises';
 
@@ -1229,7 +1240,7 @@ This requires an editing-capable model. Serve image bytes with their reported me
 
 Use the same native shape for an editing template:
 
-<!-- typecheck-skip: structured-template -->
+<!-- typecheck: image-template -->
 ```typescript
 const repaint = create.ImageGenerator.withTemplate({
   model: imageModel,
@@ -1247,7 +1258,7 @@ const blueWorkshop = await repaint({ color: 'light blue' });
 
 `Transcriber` turns a recording into a completed transcript.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: transcriber -->
 ```typescript
 import { readFile } from 'node:fs/promises';
 
@@ -1265,7 +1276,7 @@ Use `.withScript`, `.withFunction`, or `.loadsScript` to obtain audio before tra
 
 Native audio strings contain encoded audio; downloading requires a `URL` instance. A tool receiving a URL string can use its application schema to produce that native value:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: transcriber-url -->
 ```typescript
 const transcribeUrl = create.Transcriber.asTool({
   model: transcriptionModel,
@@ -1278,7 +1289,7 @@ const transcribeUrl = create.Transcriber.asTool({
 
 The SDK handles the download and transcription. Casai does not guess whether a string is a URL or encoded audio. For model-selected URLs, set an application-appropriate limit with the native downloader:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: audio-download -->
 ```typescript
 import { createDownload } from 'ai';
 
@@ -1290,11 +1301,11 @@ The native download path applies target/redirect checks and, on Node, resolved-a
 
 ### StreamingTranscriber
 
-`StreamingTranscriber` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It is exported as `Experimental_StreamingTranscriber` while the SDK's `experimental_streamTranscribe` is experimental.
+`StreamingTranscriber` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It uses the AI SDK's experimental `experimental_streamTranscribe` API.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: streaming-transcriber -->
 ```typescript
-const transcriberStream = create.Experimental_StreamingTranscriber({
+const transcriberStream = create.StreamingTranscriber({
   model: streamingTranscriptionModel,
 });
 
@@ -1318,9 +1329,9 @@ Use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configur
 
 A request-specific component can configure its one-shot audio and be called without arguments:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: configured-live-input -->
 ```typescript
-const transcribeThisRequest = create.Experimental_StreamingTranscriber({
+const transcribeThisRequest = create.StreamingTranscriber({
   model: streamingTranscriptionModel,
   audio: requestAudio,
   inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
@@ -1333,11 +1344,13 @@ The same rule applies to configured StreamingTranslator audio and StreamingSpeec
 
 For repeatable operations, a configured function/script preparer can open a fresh stream each time. Normal native LLMAgent results also provide independent textStream projections from the same execution: a preparer can obtain a new view per invocation. Capturing one view in configuration does not make that view reusable. Explicit `makeSharedIterable` sharing retains history; its owner controls disposal. Audio still needs a new `toReadableStream(sharedAudio)` bridge per call, while streaming speech can accept a replayable iterable directly. Casai does not enable replay automatically for live input.
 
+On prepared components, one object is application context. To supply an audio format when context is optional, use `transcribe({}, format)`, `transcribe(undefined, undefined, format)`, or `.run({ inputAudioFormat: format })`. The format object cannot occupy the context slot.
+
 Script/function modifiers can obtain raw audio; supply format after their context or through `.run()`. `.asTool` is available only after `.withScript`, `.withFunction`, or `.loadsScript`. Its model-facing arguments are the preparer's named input fields, not a raw stream:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: transcription-tool -->
 ```typescript
-const transcribeRecording = create.Experimental_StreamingTranscriber.withFunction.asTool({
+const transcribeRecording = create.StreamingTranscriber.withFunction.asTool({
   model: streamingTranscriptionModel,
   description: 'Transcribe a stored recording.',
   inputSchema: z.object({ recordingId: z.string() }),
@@ -1347,13 +1360,13 @@ const transcribeRecording = create.Experimental_StreamingTranscriber.withFunctio
 });
 ```
 
-Here `openRecordingAsPcmStream` is an application helper that opens a fresh, finite raw PCM stream in the configured format for each execution. A preparer may also provide an explicit normal completion boundary. The tool builds its completed transcript with segments and SDK metadata from that execution's native final-result promises; the model receives transcript text by default. The SDK consumes the stream, and native promise rejection or success is preserved. Casai does not concatenate events, add another reader or share an already-consumed source between calls. An indefinitely open source is not a valid tool input. Direct component calls still return the live SDK result. See [SDK streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription).
+Here `openRecordingAsPcmStream` is an application helper that opens a fresh, finite raw PCM stream in the configured format for each execution. A preparer may also provide an explicit normal completion boundary. The tool selects `text`, `segments`, `language` and `durationInSeconds` from that execution's native final-result promises; the model receives transcript text by default. The SDK consumes the stream, and native promise rejection or success is preserved. Casai does not concatenate events, add another reader or share an already-consumed source between calls. An indefinitely open source is not a valid tool input. Direct component calls still return the live SDK result. See [SDK streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription).
 
 ### SpeechGenerator
 
 `SpeechGenerator` converts text into spoken audio.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: speech -->
 ```typescript
 const speaker = create.SpeechGenerator({ model: speechModel });
 const spoken = await speaker('Your replacement is on its way.');
@@ -1367,7 +1380,7 @@ The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech#retur
 
 `spoken.audio` exposes `.uint8Array`, `.base64`, and `.mediaType`. To return playable audio from a server handler:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: speech-response -->
 ```typescript
 const audioResponse = new Response(Uint8Array.from(spoken.audio.uint8Array), {
   headers: { 'Content-Type': spoken.audio.mediaType },
@@ -1378,12 +1391,12 @@ When saving to a file, choose an extension matching the actual media type or con
 
 ### StreamingSpeechGenerator
 
-`Experimental_StreamingSpeechGenerator` speaks a complete string or a native stream of text deltas/parts. Use a streaming-capable speech model; the SDK reports unsupported models. The current OpenAI speech adapter generates complete audio, while the SDK's [streaming speech example](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) uses ElevenLabs.
+`StreamingSpeechGenerator` speaks a complete string or a native stream of text deltas/parts. Use a streaming-capable speech model; the SDK reports unsupported models. The current OpenAI speech adapter generates complete audio, while the SDK's [streaming speech example](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) uses ElevenLabs.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: streaming-speech -->
 ```typescript
 const answerer = create.LLMAgent.asStream({ model });
-const say = create.Experimental_StreamingSpeechGenerator({
+const say = create.StreamingSpeechGenerator({
   model: streamingSpeechModel,
 });
 
@@ -1404,11 +1417,11 @@ Select either `audioStream` for bytes or `fullStream` for audio format, raw and 
 
 ### StreamingTranslator
 
-`Experimental_StreamingTranslator` translates live raw speech into target-language audio and text through the SDK's [streaming translation operation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate). A supporting provider model is required; OpenAI exposes `translation('gpt-realtime-translate')`.
+`StreamingTranslator` translates live raw speech into target-language audio and text through the SDK's [streaming translation operation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate). A supporting provider model is required; OpenAI exposes `translation('gpt-realtime-translate')`.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: streaming-translation -->
 ```typescript
-const translate = create.Experimental_StreamingTranslator({
+const translate = create.StreamingTranslator({
   model: translationModel,
   inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
   targetLanguage: 'fr',
@@ -1427,13 +1440,13 @@ Consume the single `fullStream` before final text/metadata promises when both ar
 
 ### VoiceSessionSetup
 
-`VoiceSessionSetup` prepares browser voice connections with a realtime model. It is exported as `Experimental_VoiceSessionSetup` while the SDK's realtime API is experimental. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
+`VoiceSessionSetup` prepares browser voice connections with a realtime model. It uses the AI SDK's experimental realtime API. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
 
 In token-based turn-based sessions, the browser runs capture/playback, text input and supported interruption controls, and receives tool calls. The server creates a short-lived token with initial instructions/voice and runs tools that need server-side data or secrets. This setup form is:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: voice-token -->
 ```typescript
-const support = create.Experimental_VoiceSessionSetup.withTemplate({
+const support = create.VoiceSessionSetup.withTemplate({
   model: realtimeModel,
   instructions: 'You are the support agent for {{ company }}. Keep answers short.',
   inputSchema: z.object({ company: z.string() }),
@@ -1476,13 +1489,15 @@ The SDK browser sends `{ sessionConfig }` to the token route. Select the prefere
 
 The ordinary call prepares instructions and returns SDK session setup; `.run()` is its named form. The component holds no mutable session state. The browser owns the live connection. `executeTool(call, executionOptions)` selects an available registered tool, validates its arguments/context through the same runner as other Casai tool calls, and executes once, forwarding the supplied call ID and cancellation. Unknown or unavailable tools are rejected. Model arguments remain separate from server-supplied trusted context.
 
+`executeTool()` is a direct executor, like a native tool's `execute()`: it does not evaluate `needsApproval` or run the LLMAgent approval loop. The application must authorize the call and obtain any required user approval before invoking it.
+
 This method returns the tool's execution result. The realtime browser sends that result as native function-output JSON; it does not apply the language-generation tool's `toModelOutput` formatter. Returning encoded audio or images therefore sends tool data rather than playing audio or creating a rich media tool message. Use the native session's speech response or application playback for audio delivery.
 
 Convert a completed `undefined` result to JSON `null` at the HTTP boundary, as above. Native `onToolCall` treats an `undefined` return as no automatic submission, so returning it directly leaves the call pending. `Response.json(undefined)` also fails. The helper preserves the original execution result; this conversion belongs to the application's transport response.
 
 A rejected `onToolCall` callback only notifies native `onError`; it does not submit a function output. The browser relay must therefore choose how to settle HTTP, validation and transport failures. For an application that wants the conversation to continue with a bounded failure message:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: voice-relay-errors -->
 ```typescript
 import type { Experimental_RealtimeSessionOptions } from 'ai';
 
@@ -1512,11 +1527,11 @@ For Live, use the SDK's WebRTC SDP setup or server WebSocket relay capability. L
 
 With no tool definitions, prepared session configuration omits the `tools` property entirely. OpenAI Live rejects that property even when undefined; configuring function tools on Live preserves the native setup/startup error. Use its native delegation protocol rather than advertising turn-based function tools. The documented `executeTool` route serves turn-based sessions; Live applications call selected components directly and send native context/delegation events. The helper does not add Live function-tool support.
 
-One `Experimental_VoiceSessionSetup` accepts a native realtime model instance. Ordinary calls and `.run()` perform token setup; `createWebRTCSession` performs native SDP setup and returns `{ sdp, sessionId }`. `prepareSessionConfig` supplies prepared configuration for relay/browser startup, and `executeTool` runs allowed server tools. Use the existing model directly for server WebSocket connection information. Unsupported capabilities report their native limitation; the component does not silently choose another transport.
+One `VoiceSessionSetup` accepts a native realtime model instance. Ordinary calls and `.run()` perform token setup; `createWebRTCSession` performs native SDP setup and returns `{ sdp, sessionId }`. `prepareSessionConfig` supplies prepared configuration for relay/browser startup, and `executeTool` runs allowed server tools. Use the existing model directly for server WebSocket connection information. Unsupported capabilities report their native limitation; the component does not silently choose another transport.
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: voice-live -->
 ```typescript
-const liveSupport = create.Experimental_VoiceSessionSetup.withTemplate({
+const liveSupport = create.VoiceSessionSetup.withTemplate({
   model: liveModel,
   instructions: 'Help customers of {{ company }}. Keep answers concise.',
   inputSchema: z.object({ company: z.string() }),
@@ -1533,7 +1548,7 @@ const answer = await liveSupport.createWebRTCSession({
 
 `liveModel` is a provider model with the native Live WebRTC capability. The server selects its allowed native delegation/event policy; do not replace it with policy submitted by the browser. For an application-owned WebSocket relay, obtain native connection information and prepared session configuration separately:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: voice-relay -->
 ```typescript
 const connection = await liveModel.getServerWebSocketConfig!();
 const sessionConfig = await liveSupport.prepareSessionConfig({
@@ -1588,6 +1603,10 @@ When invoked as a tool, an LLMAgent runs generation, checks completion and retur
 
 ### Specialized Components as Tools
 
+Configuration and payload are separate. Only schema-declared fields from `config.context` provide public defaults; bound `toolsContext[toolName]` defaults override them, and supplied payload fields override both. This shallow merge is parsed by `inputSchema`. Undeclared context bindings remain private dependencies and cannot be replaced by payload fields. No other configuration fields enter the payload, and payload properties are never merged into configuration. Names such as `prompt` and `model` can be application fields without becoming configuration settings. Authored sources and prepared operation inputs are outside this schema boundary.
+
+Every specialized `.run()` accepts a separate `context` payload. Plain non-tool shorthand supplies the native source and operation tail; any required payload must already be satisfied by `config.context`, or supplied through `.run({ context, ...settings })`. Plain `.asTool` components also accept their payload directly: `embedTool({ input: "hello" })`, or `embedTool(input="hello")` in Cascada. Both forms parse the payload and select its declared native input field. The priority is an explicit invocation source, then the parsed payload field, then the configured source. An object passed to a plain tool is payload; use `.run({ prompt: nativeBundle, context })` for a structured authored source. Ordinary calls return native results; registered tool helpers return the tool projection shown below.
+
 In a specialized tool's plain literal form, including explicit `.withText`, its arguments are the operation input. Template/script/function and loaded-source forms take preparation context and keep their configured source/resource. `.withText` also selects literal input when deriving from a rendered parent; writing it explicitly does not discard the model's operation arguments. The tool result goes to your application and the chat UI, and the model can receive a different, smaller form:
 
 | Component | Tool arguments without a modifier | The model receives | The application and UI receive |
@@ -1596,13 +1615,13 @@ In a specialized tool's plain literal form, including explicit `.withText`, its 
 | Embedder | `{ input }`, a string or string array | Vectors | Vectors |
 | Reranker | `{ query }`; candidates come from `documents` or a preparer | Native `{ originalIndex, document, score }` ranking entries | The same entries |
 | ImageGenerator | `{ prompt }` | The generated images, as image content | Images as `{ mediaType, base64 }` |
-| Transcriber | `{ audio }`; a URL-string schema can transform it to native `URL` | Transcript text | Transcript text, segments, and metadata |
-| StreamingTranscriber | No plain tool; named preparer context | Final transcript text | Final transcript text, segments, and metadata |
+| Transcriber | `{ audio }`; a URL-string schema can transform it to native `URL` | Transcript text | Transcript text, segments, language, and duration |
+| StreamingTranscriber | No plain tool; named preparer context | Final transcript text | Final transcript text, segments, language, and duration |
 | SpeechGenerator | `{ text }` | A short confirmation | Audio as `{ mediaType, base64 }` |
 
-Model arguments supply operation input or preparation data, rather than an SDK settings envelope. A plain specialized tool's schema declares only its documented operation input fields, such as `prompt`, `audio`, `query`, or Embedder's `input`. Field-value transforms remain available, such as trimming `prompt` or converting a URL string in `audio` to `URL`. Custom argument names use an explicit preparer:
+Model arguments supply operation input or preparation data, rather than an SDK settings envelope. A plain specialized tool's schema declares only its documented operation input fields, such as `prompt`, `audio`, `query`, or Embedder's `input`. The parsed field must supply the native input, or the component must configure a fallback source. For example, optional `{ input }` needs a configured Embedder `input` or a schema default; an ImageGenerator can use configured images without a prompt. A transform that removes the field needs a fallback too. Field-value transforms remain available, such as trimming `prompt` or converting a URL string in `audio` to `URL`. Custom argument names use an explicit preparer:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: image-tool-preparer -->
 ```typescript
 const draw = create.ImageGenerator.withFunction.asTool({
   model: imageModel,
@@ -1618,9 +1637,11 @@ Plain schemas cannot declare settings such as `n`, `size`, `topN`, `model` or `p
 
 The model receives images as image content in the tool result, so no prompt rewriting is needed. Anthropic models and OpenAI's Responses API read such images; providers that can't read images in tool results reject or flatten them, and the SDK has no capability flag Casai could check in advance. For those models, set the SDK tool option `toModelOutput`, which `.asTool` accepts, to return text instead.
 
+Transcription tool results contain only `text`, `segments`, `language`, and `durationInSeconds`. Provider responses, headers, warnings, and provider metadata remain available on ordinary native results, but are excluded from tool results and their UI history.
+
 Base64 image/audio results can make saved and replayed UI history large. Image content may also be sent to the model again when that history is replayed. `toModelOutput` changes the model-facing form, not the execution result stored in the UI. For media storage or delivery, an application Function tool can store native generated bytes and return a reference or URL instead:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: image-storage-tool -->
 ```typescript
 const makeIllustration = create.Function.asTool({
   description: 'Create an illustration and return its stored URL.',
@@ -1716,7 +1737,7 @@ Putting a component in `context` instead calls the component itself, with its ow
 
 **Casai tools have closed top-level public input.** Every public parameter must be explicitly declared in `inputSchema`. Unknown raw arguments fail before application parsing/preprocessing, including with a stripping `z.object`. Open-root/catchall tool schemas are rejected, including root `z.record` schemas; use a named object shape at the root. Dynamic keys belong inside a declared field such as `attributes: z.record(z.string(), z.string())`. This applies to direct/named calls on the tool component, SDK registration/binding and injected helpers. SDK/Standard schemas need explicit closed object input metadata, with local enforcement independent of provider strict mode. Ordinary non-tool components and native third-party tools retain their schema behavior; `toolContextSchema` need not be closed.
 
-Use one application `inputSchema` to declare public arguments. Casai combines their parsed values with configured defaults and checks for private-name collisions before execution. The closed raw boundary blocks arbitrary top-level injection, including absent private names. Trusted code must still keep nested public data separate from trusted identity and must not deliberately publish private dependencies through prompts/results or public declarations.
+Use one application `inputSchema` to declare public arguments. Casai selects declared defaults, merges raw arguments over them, and parses the complete input once. It then combines parsed public values with private bindings and checks for private-name collisions before execution. The closed raw boundary blocks arbitrary top-level injection, including absent private names. Trusted code must still keep nested public data separate from trusted identity and must not deliberately publish private dependencies through prompts/results or public declarations.
 
 Configured values need no separate schema merely to be available to an implementation:
 
@@ -1799,7 +1820,7 @@ const agent = new ToolLoopAgent({
 });
 ```
 
-`bindToolContext(rawContext)` returns a fresh readonly `{ tool, context }` pair and leaves the component unchanged; another pair can bind a different value concurrently. Register both values together and keep the pair fixed for the whole run, including in `prepareStep`. This example supplies a public `factor` default, so it requires binding. A bare descriptor may instead accept private-only native context; it cannot use incoming context to revise already validated public arguments. `context` keeps the raw input type. When `toolContextSchema` transforms its input, the SDK's `toolsContext` type expects the parsed type, as it does for native transforming tools, so that registration needs a type assertion. The bound `tool` is a plain native descriptor: a Casai owner receiving it in `tools` treats it as a native tool and needs the pair's `context` as its `toolsContext` entry. Use the component itself, not its bound descriptor, as a configuration parent.
+`bindToolContext(rawContext)` returns a fresh readonly `{ tool, context }` pair and leaves the component unchanged; another pair can bind a different value concurrently. Register both values together and keep the pair fixed for the whole run, including in `prepareStep`. Here `factor` is private because it is absent from `inputSchema`, so a bare descriptor can also accept it through native context. Binding is required when incoming context supplies public defaults; a bare descriptor cannot use incoming context to revise already validated public arguments. `context` keeps the raw input type. When `toolContextSchema` transforms its input, the SDK's `toolsContext` type expects the parsed type, as it does for native transforming tools, so that registration needs a type assertion. A Casai owner receiving the bound descriptor in `tools` reuses its existing binding and requires the matching pair's `context` as its `toolsContext` entry. Use the component itself, not its bound descriptor, as a configuration parent.
 
 **Testing tools:** to test configured defaults, incoming tool context and validation together, call the tool through an owning Casai component or a mock-model `ToolLoopAgent` using the matching pair above. Calling `tool.execute(input, options)` directly follows native SDK executor semantics: it expects already parsed arguments/context and skips argument preparation. Ordinary component calls test ordinary semantics; they do not exercise incoming tool context. No separate public execution helper is needed.
 
@@ -1960,7 +1981,7 @@ const nextResult = await reviewCalculator(nextText, settledHistory);
 
 On a plain text agent, the ordinary call adds the new user message, replacing any configured text. Any non-tool form, including `.loadsText`, can instead append the message itself: `agent.resume([...settledHistory, { role: 'user', content: nextText }], { context: newTurnContext })`. This skips rendering and uses the component's generation/streaming mode. Supply the new turn's raw context, including required renderer fields.
 
-When the new message needs configured template/script/function preparation, including loaded templates/scripts, use `.run({ messageHistory: settledHistory, context: { ...context, message: nextText } })`, with the application's declared field consumed by its preparer. Never pass end-user text as a rendered agent's `prompt`: that selects executable source, a resource name or a function. These recipes rely on the application to establish the earlier settlement. With a new user message last, the SDK does not synthesize earlier missing denial results, and an incomplete denial can reach the provider without a local error. See [rendering only the new message](#render-only-the-new-message).
+When the new message needs configured template/script/function preparation, including loaded templates/scripts, use `.run({ messageHistory: settledHistory, context: { ...context, message: nextText } })`, with the application's declared field consumed by its preparer. Never pass end-user text as a rendered agent's `prompt`: that selects executable source, a resource name or a function. These recipes rely on the application to establish the earlier settlement. With a new user message last, the SDK does not synthesize earlier missing denial results, and missing local results are rejected before provider dispatch. See [rendering only the new message](#render-only-the-new-message).
 
 For a pending OpenAI MCP approval, the helper's negative provider response is sent by the subsequent literal or rendered call. Retain provider history/metadata and the provider options used for continuation. The adapter forwards the response as an MCP denial even though the tool message is no longer last. Starting a new user/system turn without a negative response sends no denial and does not establish provider cancellation. Provider acceptance still depends on the saved conversation and available provider state.
 
@@ -2039,7 +2060,7 @@ Put a template such as `Summarize this document: {{ text }}` in `./prompts/summa
 | Loader | Use |
 | :--- | :--- |
 | `FileSystemLoader` | Read local files in Node.js; relative imports resolve from the containing file |
-| `WebLoader` | Load sources from a base URL in a browser |
+| `WebLoader` | Load sources from a base URL |
 | `PrecompiledLoader` | Load sources precompiled with Cascada |
 
 Custom loaders have two forms, both supported directly by Cascada:
@@ -2130,7 +2151,7 @@ const page = create.Template({
 console.log(await page({ title: 'Research & development' }));
 ```
 
-Standalone templates default `autoescape` to `false`; language-model prompt renderers disable HTML escaping. Renderer options, filters, and loaders are creation-time settings. Source caches respect loader updates and `noCache`.
+Standalone templates default `autoescape` to `false`. All AI component source preparers disable HTML escaping, including image prompts and speech text, even when `renderOptions.autoescape` is true; use an explicit filter or function when your application needs escaping. Renderer options, filters, and loaders are creation-time settings. Source caches respect loader updates and `noCache`.
 
 ## AI SDK Properties
 
@@ -2448,7 +2469,7 @@ To continue with history alone:
 const continued = await chat.run({ messageHistory });
 ```
 
-This example's `chat` has no configured prompt, so the call adds no new turn. If a prompt is configured, the same call prepares and appends it as usual. Execution settings and the presence of an empty `context` do not change prompt resolution. A positional array on a plain agent is always new prompt messages; two arrays mean `agent(newMessages, messageHistory)`.
+This example's `chat` has no configured prompt, so the call adds no new turn. If a prompt is configured, the same call prepares and appends it as usual. Execution settings and the presence of an empty `context` do not change prompt resolution. A positional array always means history. Supply new messages explicitly with `agent.run({ prompt: newMessages, messageHistory })`.
 
 | Result field | Contents |
 | :--- | :--- |
@@ -2457,6 +2478,10 @@ This example's `chat` has no configured prompt, so the call adds no new turn. If
 | SDK `response.messages` / `finalStep.response.messages` | The SDK's generated response messages for the final step |
 
 Use `result.messageHistory` as the conversation state for the next turn. For streaming, use `await result.messageHistory` after consuming the stream.
+
+All agents accept `agent(messageHistory)` when no payload is required, or `agent(context, messageHistory)` when it is. History is never rendered. The configured prompt is prepared and appended as a new turn; a string source override such as `agent("Explain {{ topic }}", { topic: "embeddings" }, messageHistory)` renders only that new prompt. For an authored message-array template, use configuration or `.run({ prompt: templateMessages, context, messageHistory })`. Do not put already rendered history into a prompt slot. Native message objects have no rendered/executed marker; the explicit source/history boundary supplies that distinction.
+
+Configured and named prompts also accept a single native message: `agent.run({ prompt: { role: 'user', content: 'Hello' } })` is equivalent to supplying a one-element prompt array. Inline templates render that message's text slots; script/function preparers may also return a single message. A bare positional object remains application context. Native `.generate()`/`.stream()` parameters retain the SDK's own types.
 
 `messageHistory` is Casai's field; SDK results have no field holding the whole conversation. An SDK application keeps its input messages and appends `responseMessages`, but a rendered agent prepares the new turn itself, so the application never sees it. Casai adds the field without changing SDK response fields or callback payloads. Wherever Casai stores or passes a conversation, it uses the name `messageHistory`; `messages` remains only in the SDK's own APIs.
 
@@ -2741,14 +2766,14 @@ These can be combined. A Script can call an LLMAgent that uses tools; an LLMAgen
 Retrieval-augmented generation (RAG) supplies relevant documents to an LLMAgent before it answers. A typical flow is:
 
 ```text
-question → embedding/search → candidate documents → reranking → LLMAgent answer
+question РІвЂ вЂ™ embedding/search РІвЂ вЂ™ candidate documents РІвЂ вЂ™ reranking РІвЂ вЂ™ LLMAgent answer
 ```
 
 Use Embedder to index document text and embed search queries. Your vector store or search service stores and retrieves the documents. Reranker can improve the order of retrieved candidates before they enter the prompt.
 
 The following example assumes your application provides `searchIndex(vector)`, which returns document strings from an index built with the same embedding model:
 
-<!-- typecheck-skip: specialized-component -->
+<!-- typecheck: rag -->
 ```typescript
 const embedder = create.Embedder({ model: embeddingModel });
 const reranker = create.Reranker({ model: rerankingModel });
@@ -2947,6 +2972,8 @@ For cancellation setup and nested deadlines, see [Cancellation, Timeouts, and Us
 
 Casai infers input types from schemas, context, and function signatures. Output specifications determine the type of generated values; tool maps retain typed arguments and results. Use `import type` for SDK types such as `ModelMessage` and `ToolExecutionOptions`.
 
+Use `ComponentConfig<'Embedder'>` to annotate an ordinary Embedder configuration. Use `satisfies` when you want to preserve specific schema types and configured defaults; tool factories infer their configuration through `.asTool`.
+
 <!-- typecheck: type-checking -->
 ```typescript
 const classify = create.LLMAgent.withTemplate({
@@ -2978,7 +3005,7 @@ const workflow = create.Script({
   schema: z.object({ summary: z.string() }),
   context: {
     summarize: async ({ topic }: { topic: string }) => ({
-      value: `Summary of ${topic}`,
+      output: `Summary of ${topic}`,
     }),
   },
   script: `

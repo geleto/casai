@@ -7,7 +7,7 @@
 
 Status: isolated prototypes completed against `ai@7.0.130`, `@ai-sdk/provider-utils@5.0.56`, and `zod@4.6.5` (including `zod/v3`). No production factory was changed. The original fixed standalone descriptor cannot meet the combined requirements. The user selected per-run binding for exploration and confirmed that the entire bound context must stay fixed. The replacement prototype demonstrates that design at the native SDK boundary; the [subsequent default-resolution proof](phase2-default-resolution-proof.md) demonstrates bounded declaration discovery and the core type merge check. Full factory/type integration remains work.
 
-Executable evidence: [Phase2InputAdapter.unit.test.ts](../tests/Phase2InputAdapter.unit.test.ts). The tests assert actual native behavior, including counterexamples; passing them does **not** mean the rejected candidates satisfy Phase 2. The metadata projection helper is deliberately limited to the simple independent object fields in these fixtures, not a production schema rewriter.
+Executable evidence: `tests/Phase2InputAdapter.unit.test.ts` (retired prototype). The tests assert actual native behavior, including counterexamples; passing them does **not** mean the rejected candidates satisfy Phase 2. The metadata projection helper is deliberately limited to the simple independent object fields in these fixtures, not a production schema rewriter.
 
 ## What succeeds
 

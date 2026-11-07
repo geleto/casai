@@ -4,7 +4,7 @@ import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { z } from 'zod';
-import { create, ValidationError } from './cascada';
+import { create } from './cascada';
 import { model, commonConfig, timeout } from './common';
 import { stepCountIs } from 'ai';
 import type { ModelMessage } from 'ai';
@@ -83,12 +83,10 @@ describe('Messages, Conversation & Integration', function () {
 				expect((await promise).text).to.equal('Acknowledged');
 			});
 
-			it('should fail in template mode with only messages and no configured prompt', async () => {
+			it('should render native message templates without a configured prompt', async () => {
 				const generator = create.LLMAgent.withTemplate({ model, ...commonConfig });
-				// The call is invalid because a prompt string is required for rendering
-				// @ts-expect-error - we want to test the error
-				const promise = generator(simpleUserMessage);
-				await expect(promise).to.be.rejectedWith(ValidationError, /source or context/);
+				const promise = generator.run({ prompt: simpleUserMessage });
+				await expect(promise).to.not.be.rejected;
 			});
 
 			it('should use a one-off template string over a configured prompt', async () => {

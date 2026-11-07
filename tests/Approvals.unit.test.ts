@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import type { ModelMessage, ToolContent } from 'ai';
-import { denyPendingApprovals, ValidationError } from './cascada';
+import { generateText, streamText, tool } from 'ai';
+import { denyPendingApprovals, ValidationError, z } from './cascada';
 import { applyApprovalSelection } from '../src/runtime/approvals.js';
 import { pendingHistory, decision, recordedResult, parts, callDefinition } from './fixtures/approval-history.js';
+import { modelFor } from './fixtures/phase2-security-sdk.js';
 
 describe('Approval history construction', () => {
 	for (const approve of [undefined, null, true, false, [], ['approve-a'], ['approve-a', 'approve-a']] as const) {
@@ -87,6 +89,37 @@ describe('Approval history construction', () => {
 		assert.deepEqual(parts(applyApprovalSelection(crossTurn, true)).at(-1), { type: 'tool-approval-response', approvalId: 'fresh', approved: true, providerExecuted: true });
 	});
 
+	for (const reuse of ['call', 'approval', 'both'] as const) {
+		for (const oldDecision of [false, true]) it(`selects fresh work after settled ${reuse} ID reuse, old decision=${oldDecision}`, async () => {
+			const callId = reuse === 'approval' ? 'new' : 'old';
+			const approvalId = reuse === 'call' ? 'approve-new' : 'approve-old';
+			const history: ModelMessage[] = [...pendingHistory('old'),
+				{ role: 'tool', content: [...oldDecision ? [decision('old', true)] : [], recordedResult('old')] },
+				{ role: 'assistant', content: [
+					{ type: 'tool-call', toolCallId: callId, toolName: 'lookup', input: { key: 'new' } },
+					{ type: 'tool-approval-request', approvalId, toolCallId: callId },
+				] },
+			];
+			const approved = applyApprovalSelection(history, [approvalId]);
+			assert.deepEqual(approved.at(-1), { role: 'tool', content: [{ type: 'tool-approval-response', approvalId, approved: true }] });
+			const denied = denyPendingApprovals(history, 'New decision.');
+			assert.deepEqual(denied.at(-1), { role: 'tool', content: [
+				{ type: 'tool-approval-response', approvalId, approved: false, reason: 'New decision.' },
+				{ type: 'tool-result', toolCallId: callId, toolName: 'lookup', output: { type: 'execution-denied', reason: 'New decision.' } },
+			] });
+			assert.deepEqual(denyPendingApprovals(denied), denied);
+			assert.throws(() => applyApprovalSelection(denied, [approvalId]), /resolved/);
+			for (const streaming of [false, true]) {
+				const effects: string[] = [];
+				const settings = { model: modelFor(undefined), messages: approved,
+					tools: { lookup: tool({ inputSchema: z.object({ key: z.string() }), execute: ({ key }) => { effects.push(key); return key; } }) } };
+				const result = streaming ? streamText(settings) : await generateText(settings);
+				assert.equal(await result.output, 'done');
+				assert.deepEqual(effects, ['new']);
+			}
+		});
+	}
+
 	it('uses own-key lookup for prototype-shaped IDs', () => {
 		const history = pendingHistory('__proto__', 'constructor', 'toString');
 		for (const part of parts(history)) if (part.type === 'tool-approval-request') part.approvalId = part.toolCallId;
@@ -125,7 +158,7 @@ describe('Approval history construction', () => {
 		assert.deepEqual(denyPendingApprovals(result), result);
 	});
 
-	for (const history of [[], [{ role: 'user', content: 'Hello.' }], [{ role: 'assistant', content: 'Text.' }]] satisfies ModelMessage[][]) it('copies empty/no-pending history without adding a tool message', () => {
+	for (const history of [[], [{ role: 'user', content: 'Hello.' }], [{ role: 'assistant', content: 'Text.' }]] satisfies ModelMessage[][]) it(`copies empty/no-pending history without adding a tool message: ${history[0]?.role ?? 'empty'}`, () => {
 		for (const approve of [true, false, []]) {
 			const result = applyApprovalSelection(history, approve);
 			assert.deepEqual(result, history); assert.notEqual(result, history);

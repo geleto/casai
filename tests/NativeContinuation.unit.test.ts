@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { generateText, streamText, tool, readUIMessageStream, convertToModelMessages } from 'ai';
+import { generateText, streamText, tool, readUIMessageStream, convertToModelMessages, MissingToolResultsError, NoOutputGeneratedError } from 'ai';
 import type { ModelMessage, UIMessage } from 'ai';
 import { z } from 'zod';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
@@ -21,15 +21,17 @@ describe('Native continuation boundaries', () => {
 			}
 		});
 
-		it(`does not synthesize a denial result before a new user message, streaming=${streaming}`, async () => {
+		it(`requires a denial result before a new user message, streaming=${streaming}`, async () => {
 			const model = modelFor(undefined);
 			const messages: ModelMessage[] = [...pendingHistory('a'), { role: 'tool', content: [decision('a', false)] }, { role: 'user', content: 'New request.' }];
 			const settings = { model, messages };
-			const result = streaming ? streamText(settings) : await generateText(settings);
-			assert.equal(await result.output, 'done');
-			assert.equal(parts(await result.responseMessages).filter(part => part.type === 'tool-result').length, 0);
-			const sent = streaming ? model.doStreamCalls[0].prompt : model.doGenerateCalls[0].prompt;
-			assert.equal(sent.some(message => typeof message.content !== 'string' && message.content.some(part => part.type === 'tool-result')), false);
+			if (streaming) {
+				const errors: unknown[] = [];
+				const result = streamText({ ...settings, onError: ({ error }) => { errors.push(error); } });
+				await assert.rejects(Promise.resolve(result.output), NoOutputGeneratedError);
+				assert.ok(errors[0] instanceof MissingToolResultsError);
+			} else await assert.rejects(generateText(settings), MissingToolResultsError);
+			assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 0);
 		});
 
 		it(`settles incoming approvals before step zero and keeps results out of step aggregates, streaming=${streaming}`, async () => {

@@ -13,9 +13,8 @@ describe('LLMAgent positional conversation arguments', () => {
 		['context', [{ name: 'Ada' }], [{ role: 'user', content: 'configured' }]],
 		['text', ['new'], [{ role: 'user', content: 'new' }]],
 		['empty text', ['', {}], [{ role: 'user', content: '' }]],
-		['new messages', [prompt], prompt],
-		['new messages and context', [prompt, { name: 'Ada' }], prompt],
-		['new messages and history', [prompt, history], [...history, ...prompt]],
+		['history', [history], [...history, { role: 'user', content: 'configured' }]],
+		['empty history', [[]], [{ role: 'user', content: 'configured' }]],
 		['text and history', ['new', history], [...history, { role: 'user', content: 'new' }]],
 		['context and history', [{ name: 'Ada' }, history], [...history, { role: 'user', content: 'configured' }]],
 		['all arguments', ['new', { name: 'Ada' }, history], [...history, { role: 'user', content: 'new' }]],
@@ -27,7 +26,7 @@ describe('LLMAgent positional conversation arguments', () => {
 		await (agent as (...args: unknown[]) => Promise<unknown>)(...args);
 	});
 
-	for (const args of [[42], [null], [{}, {}], ['new', {}, {}], ['new', history, {}], ['new', {}, history, {}]]) {
+	for (const args of [[42], [null], [{}, {}], [prompt, history], [history, { name: 'Ada' }], ['new', {}, {}], ['new', history, {}], ['new', {}, history, {}]]) {
 		it(`rejects invalid or old argument order ${JSON.stringify(args)}`, async () => {
 			const agent = create.LLMAgent({ model: modelFor(undefined), prompt: 'configured' });
 			await assert.rejects((agent as (...args: unknown[]) => Promise<unknown>)(...args), ValidationError);
@@ -46,7 +45,7 @@ describe('LLMAgent positional conversation arguments', () => {
 		let release: (() => void) | undefined;
 		const gate = new Promise<void>(resolve => { release = resolve; });
 		const agent = create.LLMAgent({ model: modelFor(undefined), prepareCall: async request => { await gate; return request; } });
-		const pending = agent(messages, history);
+		const pending = agent.run({ prompt: messages, messageHistory: history });
 		messages.push({ role: 'user', content: 'later' });
 		release!();
 		const result = await pending;

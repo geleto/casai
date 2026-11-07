@@ -18,8 +18,18 @@ function unsettledApprovals(history: readonly ModelMessage[]) {
 		if (typeof message.content === 'string') continue;
 		for (const part of message.content) {
 			switch (part.type) {
-				case 'tool-call': calls.set(part.toolCallId, part); break;
-				case 'tool-approval-request': requests.set(part.approvalId, part); break;
+				case 'tool-call':
+					// A result belongs to the preceding definition, not a later call
+					// reusing its ID. Keep those settled requests out of the new work.
+					if (settled.delete(part.toolCallId)) {
+						for (const [id, request] of requests) if (request.toolCallId === part.toolCallId) requests.delete(id);
+					}
+					calls.set(part.toolCallId, part);
+					break;
+				case 'tool-approval-request':
+					requests.set(part.approvalId, part);
+					decisions.delete(part.approvalId);
+					break;
 				case 'tool-approval-response': decisions.set(part.approvalId, part); break;
 				case 'tool-result': settled.add(part.toolCallId); break;
 			}

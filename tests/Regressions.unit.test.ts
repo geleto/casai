@@ -136,7 +136,7 @@ describe('Regressions across component boundaries', () => {
 					() => create.LLMAgent.withTemplate.asTool({ prompt: source, inputSchema, model: model() } as never),
 					() => create.LLMAgent.withTemplate.asTool({ prompt: source, inputSchema, model: model(), output: Output.object({ schema: z.object({}) }) } as never),
 				];
-				for (const build of builds) expect(build).to.throw(ConfigError, /required property|configured prompt|source must be a string/);
+				for (const build of builds) expect(build).to.throw(ConfigError, /requires '(template|script|prompt)'|source must be a string/);
 			}
 		});
 	});

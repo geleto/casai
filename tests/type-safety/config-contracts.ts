@@ -1,6 +1,7 @@
 import { Output } from 'ai';
 // Compile-only consumer checks: accepted fragments stay reusable; incompatible settings stay rejected.
 import { create, z } from 'casai';
+import type { StreamTextOnFinishEvent } from 'casai';
 import type { ILoaderAny, LoaderGroup } from 'cascada-engine';
 import type { LanguageModel, ModelMessage } from 'ai';
 import { tool } from 'ai';
@@ -47,7 +48,7 @@ create.Config({ output: Output.json() });
 create.Config({ model, output: undefined });
 create.Config({ model, output: Output.array({ element: schema, name: 'Answer', description: 'The answer' }) });
 const choice = Output.choice({ options: ['YES', 'NO'] });
-const choiceFragment = create.Config({ output: choice, onEnd: _event => {
+const choiceFragment = create.Config({ output: choice, onEnd: (_event: StreamTextOnFinishEvent<Record<string, never>, typeof choice>) => {
 	expectEqual<typeof _event.output, 'YES' | 'NO' | undefined>();
 } });
 expectEqual<typeof choiceFragment.config.output, typeof choice>();
@@ -56,7 +57,7 @@ expectEqual<Awaited<ReturnType<typeof choiceConsumer>>['output'], 'YES' | 'NO'>(
 const lookup = tool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query.length });
 const _registryFragment = create.Config({
 	tools: { lookup }, activeTools: ['lookup'], toolChoice: { type: 'tool', toolName: 'lookup' }, toolOrder: ['lookup'],
-	onEnd: _event => {
+	onEnd: (_event: StreamTextOnFinishEvent<{ lookup: typeof lookup }>) => {
 		expectEqual<(typeof _event.staticToolCalls)[number]['input'], { query: string }>();
 		expectEqual<(typeof _event.staticToolResults)[number]['output'], number>();
 	},
@@ -68,16 +69,14 @@ create.Config({ tools: { lookup }, activeTools: ['missing'] });
 create.Config({ tools: { lookup }, toolChoice: { type: 'tool', toolName: 'missing' } });
 // @ts-expect-error A known standalone registry cannot order an unknown tool.
 create.Config({ tools: { lookup }, toolOrder: ['missing'] });
-// @ts-expect-error Enum fragments cannot declare an object schema.
-create.Config({ output: 'enum', enum: ['YES'], schema });
-// @ts-expect-error Schemaless fragments cannot declare an object schema.
-create.Config({ output: 'no-schema', schema });
+// @ts-expect-error Legacy output mode strings are no longer configuration contracts.
+create.Config({ output: 'enum' });
+// @ts-expect-error Native choice outputs own their options; the old enum key is retired.
+create.Config({ output: Output.choice({ options: ['YES'] }), enum: ['YES'] });
 // @ts-expect-error Fragments cannot configure the removed mode setting.
-create.Config({ output: 'no-schema', mode: 'tool' });
-// @ts-expect-error Array fragments cannot declare enum alternatives.
-create.Config({ output: 'array', enum: ['YES'] });
-// @ts-expect-error Enum fragments cannot declare schema metadata.
-create.Config({ output: 'enum', enum: ['YES'], schemaName: 'Answer' });
+create.Config({ output: Output.json(), mode: 'tool' });
+// @ts-expect-error Native outputs own schema metadata; the old top-level key is retired.
+create.Config({ output: Output.object({ schema }), schemaName: 'Answer' });
 
 // Standalone and inherited fragments must fit one component family.
 // @ts-expect-error No configuration accepts template and script together.
@@ -89,9 +88,9 @@ create.Config({ template: 'Hello', schema });
 // @ts-expect-error Script configurations do not accept a model.
 create.Config({ script: 'return 1', model });
 // @ts-expect-error Script configurations do not accept an object output mode.
-create.Config({ script: 'return 1', output: 'array' });
-// @ts-expect-error Object configurations do not accept text-generation tools.
-create.Config({ output: 'array', tools: {} });
+create.Config({ script: 'return 1', output: Output.array({ element: schema }) });
+// Native structured generation supports tools.
+create.Config({ output: Output.array({ element: schema }), tools: { lookup } });
 // @ts-expect-error An object schema and text-generation tools fit no single component.
 create.Config({ model, schema, tools: {} });
 // Coded components may combine output schemas with tools.
@@ -122,7 +121,6 @@ create.Config({}, { config: parentWithInvalidAlternative });
 
 // Basic values are checked before a fragment is used by a factory.
 create.Config({ prompt: [{ role: 'user', content: 'Hello' }] });
-create.Config({ prompt: [{ role: 'user', content: 'Hello' }] });
 create.Config({ output: Output.choice({ options: ['YES', 'NO'] }) });
 // @ts-expect-error Config requires an object.
 create.Config(undefined);
@@ -136,10 +134,8 @@ create.Config('config');
 create.Config(42);
 // @ts-expect-error Only supported output modes may be declared.
 create.Config({ output: 'invalid' });
-// @ts-expect-error Enum choices must be an array.
+// @ts-expect-error The legacy enum setting is rejected independently of output.
 create.Config({ enum: 'YES' });
-// @ts-expect-error Enum choices must all be strings.
-create.Config({ output: 'enum', enum: ['YES', 42] });
 // A configured prompt also accepts literal text.
 create.Config({ prompt: 'Hello' });
 // @ts-expect-error Messages cannot be null.
@@ -147,8 +143,6 @@ create.Config({ prompt: null });
 // @ts-expect-error Message roles must belong to the SDK message union.
 create.Config({ prompt: [{ role: 'unknown', content: 'Hello' }] });
 // @ts-expect-error Message content cannot be numeric.
-create.Config({ prompt: [{ role: 'user', content: 42 }] });
-// @ts-expect-error Message-array prompts must contain valid SDK messages.
 create.Config({ prompt: [{ role: 'user', content: 42 }] });
 // @ts-expect-error Malformed child messages cannot be concealed by valid parent messages.
 create.Config({ prompt: false }, create.Config({ prompt: [{ role: 'user', content: 'Previous' }] }));
@@ -360,26 +354,26 @@ create.LLMAgent.withFunction.asTool({}, inputParent);
 // Omitted output selects text.
 create.LLMAgent({}, modelOnly);
 // @ts-expect-error Object streamers require a model.
-create.LLMAgent.asStream({}, schemaOnly);
+create.LLMAgent.asStream({}, outputOnly);
 // @ts-expect-error Template tools require an input schema.
 create.Template.asTool({}, create.Config({ template: 'Hello' }));
 // @ts-expect-error Object tools require an input schema.
-create.LLMAgent.asTool({}, create.Config({ model, schema, prompt: 'Answer.' }));
+create.LLMAgent.asTool({}, create.Config({ model, output: Output.object({ schema }), prompt: 'Answer.' }));
 // @ts-expect-error Loaded object generators require a loader.
-create.LLMAgent.loadsText({}, create.Config({ model, schema, prompt: 'answer' }));
+create.LLMAgent.loadsText({}, create.Config({ model, output: Output.object({ schema }), prompt: 'answer' }));
 // @ts-expect-error Loaded templates require a loader.
 create.Template.loadsTemplate({}, create.Config({ template: 'answer' }));
 // @ts-expect-error Loaded scripts require a loader.
 create.Script.loadsScript({}, create.Config({ script: 'answer' }));
 // @ts-expect-error Object tools require a prompt.
-create.LLMAgent.asTool({}, create.Config({ model, schema, inputSchema }));
+create.LLMAgent.asTool({}, create.Config({ model, output: Output.object({ schema }), inputSchema }));
 // @ts-expect-error Template tools require a template.
 create.Template.asTool({}, create.Config({ inputSchema }));
 // @ts-expect-error Script tools require a script.
 create.Script.asTool({}, create.Config({ inputSchema }));
 // @ts-expect-error Text generators do not use legacy object output modes.
 create.LLMAgent({ model, output: 'object' });
-// @ts-expect-error Text streamers cannot declare an object schema.
+// @ts-expect-error Native output owns its schema; the coded-component schema key is not an LLMAgent setting.
 create.LLMAgent.asStream({ model, schema });
 // @ts-expect-error Text generators cannot declare enum choices.
 create.LLMAgent({ model, enum: ['YES'] });
@@ -391,7 +385,7 @@ create.LLMAgent({ model, template: 'Hello' });
 create.LLMAgent.asStream({ model, script: 'return "Hello"' });
 // @ts-expect-error Factory keys are checked even for a previously bound object.
 create.LLMAgent({ model, ...{ unknownSetting: true } });
-// @ts-expect-error Inherited object-only settings are still forbidden for text.
+// @ts-expect-error An inherited coded-component schema is not an LLMAgent output specification.
 create.LLMAgent({ model }, schemaOnly);
 // @ts-expect-error Inherited template-only settings are still forbidden for text.
 create.LLMAgent.asStream({ model }, create.Config({ template: 'Hello' }));
@@ -401,10 +395,10 @@ const stream = create.LLMAgent.asStream({ model, prompt: 'Hello' });
 void text.run({});
 void text.run({ model: replacementModel, prompt: 'Changed', maxOutputTokens: 20 });
 void stream.run({ prompt: [{ role: 'user', content: 'Changed' }] });
-// @ts-expect-error A run cannot change the output schema.
+// @ts-expect-error The coded-component schema setting is not a run option.
 void text.run({ schema });
-// @ts-expect-error A run cannot change the output mode.
-void stream.run({ output: 'no-schema' });
+// @ts-expect-error A run cannot replace the fixed native output contract.
+void stream.run({ output: Output.json() });
 // @ts-expect-error A run cannot change enum choices.
 void text.run({ enum: ['YES'] });
 // @ts-expect-error A run cannot change the input schema.

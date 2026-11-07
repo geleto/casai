@@ -3,6 +3,17 @@ import type { EmptyMap } from './assert.js';
 import { Output, type generateText, type streamText, type ToolExecuteFunction, type ToolExecutionOptions } from 'ai';
 import type { LLMAgentConfig, PrepareCallRequest, PrepareStep, ComponentTool, ComponentExecutionOptions, GenerateTextResult, StreamTextResult } from 'casai';
 import { expectEqual, expectType } from './assert.js';
+import type { ComponentKind, ComponentSettings } from '../../dist/types/component.js';
+import type { Configs, ConfigShapes, Components, Results, ToolResults } from '../../dist/types/component-map.js';
+
+type CallableNames = Exclude<keyof typeof import('casai').create, 'Config'>;
+expectEqual<ComponentKind, CallableNames>();
+expectEqual<keyof ComponentSettings, CallableNames>();
+expectEqual<keyof Configs<'text'>, CallableNames>();
+expectEqual<keyof ConfigShapes<EmptyMap, EmptyMap, unknown>, CallableNames>();
+expectEqual<keyof Components<'text', EmptyMap, false>, CallableNames>();
+expectEqual<keyof Results<EmptyMap, unknown>, CallableNames>();
+expectEqual<keyof ToolResults<EmptyMap, unknown>, CallableNames>();
 
 const output = Output.text();
 type Native = Parameters<typeof streamText<EmptyMap, { requestId: string }, typeof output>>[0];
@@ -20,16 +31,20 @@ interface Definition { tools: EmptyMap; runtimeContext: { requestId: string }; o
 type Request = PrepareCallRequest<Definition>;
 type Protected = 'output' | 'abortSignal' | 'toolApproval' | 'experimental_toolApprovalSecret' | 'telemetry'
 	| 'onStart' | 'onStepStart' | 'onLanguageModelCallStart' | 'onLanguageModelCallEnd' | 'onToolExecutionStart'
-	| 'onToolExecutionEnd' | 'onStepEnd' | 'onEnd' | 'onChunk' | 'onAbort';
+	| 'onToolExecutionEnd' | 'onStepEnd' | 'onStepError' | 'onEnd' | 'onChunk' | 'onAbort';
 expectEqual<Extract<keyof Request, Protected | Removed | 'prompt' | 'options' | 'context'>, never>();
 type Editable = Exclude<keyof Native & keyof Request, 'messages' | 'toolsContext' | 'prepareStep'>;
 expectEqual<Pick<Request, Editable>, Pick<Native, Editable>>();
 expectEqual<Parameters<PrepareStep<Definition>>[0], Parameters<NonNullable<Native['prepareStep']>>[0]>();
-expectEqual<ReturnType<PrepareStep<Definition>>, ReturnType<NonNullable<Native['prepareStep']>>>();
+// Model completion literals are collapsed at generic intersections; accepted values stay native.
+declare const prepared: ReturnType<PrepareStep<Definition>>;
+declare const nativePrepared: ReturnType<NonNullable<Native['prepareStep']>>;
+expectType<typeof nativePrepared>(prepared);
+expectType<typeof prepared>(nativePrepared);
 
-expectEqual<Omit<GenerateTextResult<EmptyMap, typeof output, { requestId: string }>, 'value' | 'messageHistory'>,
+expectEqual<Omit<GenerateTextResult<EmptyMap, typeof output, { requestId: string }>, 'messageHistory'>,
 	Awaited<ReturnType<typeof generateText<EmptyMap, { requestId: string }, typeof output>>>>();
-expectEqual<Omit<StreamTextResult<EmptyMap, typeof output, { requestId: string }>, 'value' | 'messageHistory'>,
+expectEqual<Omit<StreamTextResult<EmptyMap, typeof output, { requestId: string }>, 'messageHistory'>,
 	ReturnType<typeof streamText<EmptyMap, { requestId: string }, typeof output>>>();
 
 interface Answer { answer: number }

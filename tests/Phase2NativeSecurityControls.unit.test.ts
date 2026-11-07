@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { ToolLoopAgent, isStepCount, tool, createAgentUIStream, validateUIMessages } from 'ai';
+import { ToolLoopAgent, isStepCount, tool, createAgentUIStream, validateUIMessages, ToolChoiceViolationError, MissingToolResultsError, NoOutputGeneratedError } from 'ai';
 import type { ModelMessage, Tool, UIMessage } from 'ai';
 import { z } from 'zod/v4';
 import { create } from './cascada';
@@ -20,20 +20,31 @@ describe('Phase 2 native security control boundaries', () => {
 			for (const policy of ['active-none', 'choice-none', 'callers-none', 'denied', 'allowed'] as const) {
 				let effects = 0;
 				const model = modelFor({});
+				const errors: unknown[] = [];
 				const agent = new ToolLoopAgent({
 					model, tools: { probe: operation(() => ++effects) }, stopWhen: isStepCount(2),
+					onError: ({ error }) => { errors.push(error); },
 					...(policy === 'active-none' ? { activeTools: [] } : {}),
 					...(policy === 'choice-none' ? { toolChoice: 'none' as const } : {}),
 					...(policy === 'callers-none' ? { experimental_toolCallers: { probe: [] } } : {}),
 					...(policy === 'denied' ? { toolApproval: { probe: 'denied' as const } } : {}),
 				});
+				if (policy === 'choice-none') {
+					if (mode === 'generate') await assert.rejects(agent.generate({ prompt: 'run' }), ToolChoiceViolationError);
+					else {
+						const result = await agent.stream({ prompt: 'run' });
+						await result.steps;
+						assert.ok(errors[0] instanceof ToolChoiceViolationError);
+					}
+					assert.equal(effects, 0);
+					continue;
+				}
 				const result = mode === 'generate' ? await agent.generate({ prompt: 'run' }) : await agent.stream({ prompt: 'run' });
 				await result.steps;
 				const calls = mode === 'generate' ? model.doGenerateCalls : model.doStreamCalls;
 				assert.equal(calls.length, 2, `${label}/${policy}: continuation was not exercised`);
 				const advertised = calls[0].tools?.some(entry => entry.name === 'probe') ?? false;
 				assert.equal(advertised, !['active-none', 'callers-none'].includes(policy));
-				if (policy === 'choice-none') assert.deepEqual(calls[0].toolChoice, { type: 'none' });
 				// Both native modes parse fresh calls against the model-facing
 				// subset. Continuation below uses a different registry boundary.
 				const expected = policy === 'active-none' || policy === 'denied'
@@ -58,16 +69,28 @@ describe('Phase 2 native security control boundaries', () => {
 			for (const policy of ['active-none', 'choice-none', 'callers-none', 'denied', 'removed'] as const) {
 				effects = 0;
 				const tools: Record<string, Tool> = policy === 'removed' ? {} : { probe: descriptor };
+				const errors: unknown[] = [];
 				const resumed = new ToolLoopAgent({
 					...signing, model: modelFor(undefined), tools, stopWhen: isStepCount(2),
+					onError: ({ error }) => { errors.push(error); },
 					...(policy === 'active-none' ? { activeTools: [] } : {}),
 					...(policy === 'choice-none' ? { toolChoice: 'none' as const } : {}),
 					...(policy === 'callers-none' ? { experimental_toolCallers: { probe: [] } } : {}),
 					...(policy === 'denied' ? { toolApproval: { probe: 'denied' as const } } : {}),
 				});
+				if (policy === 'removed') {
+					if (mode === 'generate') await assert.rejects(resumed.generate({ messages }), MissingToolResultsError);
+					else {
+						const result = await resumed.stream({ messages });
+						await assert.rejects(Promise.resolve(result.output), NoOutputGeneratedError);
+						assert.ok(errors[0] instanceof MissingToolResultsError);
+					}
+					assert.equal(effects, 0);
+					continue;
+				}
 				const result = mode === 'generate' ? await resumed.generate({ messages }) : await resumed.stream({ messages });
 				await result.steps;
-				assert.equal(effects, policy === 'denied' || policy === 'removed' ? 0 : 1, `${label}/${policy}`);
+				assert.equal(effects, policy === 'denied' ? 0 : 1, `${label}/${policy}`);
 			}
 		});
 

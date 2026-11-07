@@ -490,7 +490,7 @@ describe('SDK result augmentation', () => {
 				const result = await pending;
 				assert.equal(result.finishReason, 'tool-calls');
 				assert.equal(result.steps[0].content.some(part => part.type === (cooperative ? 'tool-error' : 'tool-result')), true);
-				if ('value' in result) assert.throws(() => result.output, NoOutputGeneratedError);
+				assert.throws(() => result.output, NoOutputGeneratedError);
 				if ('messageHistory' in result) assert.deepEqual(result.messageHistory, [{ role: 'user', content: 'test' }, ...result.responseMessages]);
 				assert.equal(model.doGenerateCalls.length, 1);
 			}

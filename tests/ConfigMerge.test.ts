@@ -7,6 +7,15 @@ import type { FunctionToolConfig } from './cascada';
 import { MockLanguageModelV3 } from 'ai/test';
 
 describe('Config merging', () => {
+	it('retains possibly enabled modes when a child supplies undefined', () => {
+		for (const enabled of [undefined, true] as const) {
+			const tool = create.Config({ asTool: undefined }, create.Config({ asTool: enabled }));
+			const stream = create.Config({ streaming: undefined }, create.Config({ streaming: enabled }));
+			expect(tool.config.asTool).to.equal(enabled);
+			expect(stream.config.streaming).to.equal(enabled);
+		}
+	});
+
 	it('preserves correlated alternatives when a union overrides different fields', () => {
 		const parent = { a: 1 as const, b: 1 as const };
 		const alternatives: ({ a: 2 } | { b: 2 })[] = [{ a: 2 }, { b: 2 }];
@@ -39,6 +48,40 @@ describe('Config merging', () => {
 		}
 	});
 
+	it('distinguishes absent registry containers from own undefined entries through helper injection', async () => {
+		const helper = create.Function.asTool({ inputSchema: z.object({}), execute: () => 1 });
+		const retained = create.Config({ tools: { always: helper } });
+		const removable = create.Config({ tools: { helper } });
+		for (const present of [false, true]) {
+			const added = create.Function({
+				inputSchema: z.object({}), tools: present ? { helper } : undefined,
+				execute: async ({ always, helper }) => await always({}) + (await helper?.({}) ?? 0),
+			}, retained);
+			expect(await added()).to.equal(present ? 2 : 1);
+			const removed = create.Function({
+				inputSchema: z.object({}), tools: present ? { helper: undefined } : undefined,
+				execute: async ({ helper }) => await helper?.({}) ?? 0,
+			}, removable);
+			expect(await removed()).to.equal(present ? 0 : 1);
+		}
+	});
+
+	it('retains bound defaults for an absent child map and clears an own undefined binding', async () => {
+		const lookup = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), execute: ({ value }) => value });
+		const parent = create.Config({ tools: { lookup }, toolsContext: { lookup: { value: 2 } } });
+		for (const present of [false, true]) {
+			const inherited = create.Function({
+				inputSchema: z.object({}), toolsContext: present ? { lookup: { value: 3 } } : undefined,
+				execute: ({ lookup }) => lookup(),
+			}, parent);
+			expect(await inherited()).to.equal(present ? 3 : 2);
+		}
+		const cleared = create.Function({
+			inputSchema: z.object({}), toolsContext: { lookup: undefined }, execute: ({ lookup }) => lookup({ value: 4 }),
+		}, parent);
+		expect(await cleared()).to.equal(4);
+	});
+
 	it('should allow partial schema settings with and without a parent', async () => {
 		const schema = z.object({ answer: z.number() });
 		const standalone = create.Config({ schema });
@@ -48,13 +91,13 @@ describe('Config merging', () => {
 		const calculate = create.Function({ execute: ({ offset }) => ({ answer: offset + 2 }) }, inherited);
 		expect(await calculate({})).to.deep.equal({ answer: 6 });
 		// A partial Config defers required properties to the component factory.
-		expect(() => create.Function({} as never, inherited)).to.throw(/'execute'.*must be a function/);
+		expect(() => create.Function({} as never, inherited)).to.throw(/requires 'execute'/);
 	});
 
-	it('should validate malformed prompt in both standalone and inherited fragments', () => {
+	it('validates a fragment prompt when constructing the agent', () => {
 		const invalid = { prompt: [{ role: 'user' as const, content: 42 as unknown as string }] };
-		expect(() => create.Config(invalid)).to.throw(/invalid message objects/);
-		expect(() => create.Config(invalid, create.Config({ context: { offset: 4 } }))).to.throw(/invalid message objects/);
+		expect(() => create.LLMAgent({ model: new MockLanguageModelV3() }, create.Config(invalid))).to.throw(/invalid message objects/);
+		expect(() => create.LLMAgent({ model: new MockLanguageModelV3() }, create.Config(invalid, create.Config({ context: { offset: 4 } })))).to.throw(/invalid message objects/);
 	});
 
 	it('should merge maps by key, replace map values and replace prompts', () => {

@@ -1,20 +1,27 @@
 import { createCodedComponent } from '../runtime/coded-component.js';
+import { createComponentFactory } from './component-factory.js';
+import { ConfigError } from '../errors.js';
 import type { ComponentToolFromConfig } from '../types/tool-binding.js';
 import type { EmptyMap, UnionKeys } from '../types/utils.js';
-import type { SchemaConfigInferShape, ConfigSchemas, FinalConfig, CallbackParent, ToolMode, ToolModeConfig } from '../types/factory-config.js';
+import type { ConfigDataInferShape, ConfigData, FinalConfig, CallbackParent, ToolMode, ToolModeConfig, ConfigForToolMode } from '../types/factory-config.js';
 import type { ComponentCaller, ComponentRun } from '../types/input.js';
 import type { ComponentResult, CollectedResult } from '../types/result.js';
-import type { ComponentAdmission, ToolOutputAdmission, ValidateFinalConfig, ValidateToolsContext } from '../types/config-validation.js';
+import type { ComponentAdmission, ValidateFinalConfig, ValidateToolsContext } from '../types/config-validation.js';
 import type { Provisional, ValidateResolved } from '../types/provisional.js';
 import type { ConfigInferDefinition, FunctionExecuteContext, ToolExecuteContext } from '../types/function-config.js';
 import type * as configs from '../types/config.js';
 
-type FunctionComponent<TConfig> = ComponentCaller<TConfig, ComponentResult<TConfig>> & {
+export const definition = {
+	name: 'Function', main: 'execute', defaultMode: undefined, modifiers: {}, toolModes: [undefined], required: ['execute'], fixedSettings: ['execute', 'schema'], keys: ['execute', 'schema'],
+} as const satisfies import('./component-factory.js').ComponentDefinition<Settings>;
+type Settings = configs.FunctionConfig<any, any, any>;
+type ConfigShape = configs.FunctionConfigShape;
+
+export type FunctionCallSignature<TConfig> = ComponentCaller<TConfig, ComponentResult<TConfig>> & {
 	readonly config: TConfig;
 	readonly run: ComponentRun<TConfig, ComponentResult<TConfig>>;
 };
-export type FunctionCallSignature<TConfig> = FunctionComponent<TConfig> & { readonly type: 'FunctionCall' };
-export type ToolCallSignature<TConfig> = FunctionComponent<TConfig> & ComponentToolFromConfig<unknown, CollectedResult<TConfig>, TConfig>;
+export type ToolCallSignature<TConfig, TToolConfig = TConfig> = FunctionCallSignature<TConfig> & ComponentToolFromConfig<unknown, CollectedResult<TToolConfig>, TToolConfig>;
 
 type FactoryConfig = Partial<configs.FunctionConfigShape>;
 // Capture known keys without repeatedly comparing concrete schemas during inference.
@@ -33,28 +40,39 @@ type FunctionSignature<AsTool extends boolean, RequiredContext extends boolean> 
 	TSchemaOutput = never,
 	TSchemaContext = never,
 
-	TTools extends object = EmptyMap,
-	TToolsContext extends object = EmptyMap,
+	TTools extends object | undefined = EmptyMap,
+	TToolsContext extends object | undefined = EmptyMap,
 	CONTEXT extends Record<string, any> | undefined = undefined,
+	Inferred = ConfigInferDefinition<CallbackParent<TParentConfig>, ConfigData<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext, TTools, TToolsContext>, RequiredContext extends true ? CONTEXT : CONTEXT | undefined>,
 	Final = ToolModeConfig<FinalConfig<TParentConfig, TConfig>, AsTool>,
 	EffectiveTool extends boolean = ToolMode<Final, AsTool>,
+	ToolConfig = ConfigForToolMode<Final, true, EffectiveTool>,
 >(
-	config: SchemaConfigInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext> & TConfig
+	config: ConfigDataInferShape<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext, TTools, TToolsContext> & TConfig
+		& { tools?: configs.ToolRegistry | undefined }
 		& (RequiredContext extends true ? { context: CONTEXT } : { context?: CONTEXT | undefined })
-		& { tools?: TTools & NoInfer<configs.ToolRegistry>; toolsContext?: TToolsContext }
 		& NoInfer<true extends EffectiveTool
-			? ToolExecuteContext<ConfigInferDefinition<CallbackParent<TParentConfig>, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, RequiredContext extends true ? CONTEXT : CONTEXT | undefined, TTools, TToolsContext>>
-			: FunctionExecuteContext<ConfigInferDefinition<CallbackParent<TParentConfig>, ConfigSchemas<TSchemaPresence, TSchemaInput, TSchemaOutput, TSchemaContext>, RequiredContext extends true ? CONTEXT : CONTEXT | undefined, TTools, TToolsContext>, TConfig>>
+			? ToolExecuteContext<Inferred>
+			: FunctionExecuteContext<Inferred, TConfig>>
 		& ValidateResolved<TConfig, ComponentAdmission<Final>>
 		& ([Extract<UnionKeys<Final>, 'tools' | 'toolsContext'>] extends [never] ? unknown : ValidateToolsContext<TConfig, Final>)
-		& ValidateFinalConfig<TConfig, CallbackParent<TParentConfig>, Final, true extends EffectiveTool ? true : false>
-		& ValidateResolved<TConfig, true extends EffectiveTool ? ToolOutputAdmission<Final> : unknown>,
+		& ValidateFinalConfig<TConfig, Final, AsTool>,
 	...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig>]
-) => NoInfer<EffectiveTool extends true ? ToolCallSignature<Final> : FunctionCallSignature<Final>>;
+) => NoInfer<EffectiveTool extends true ? ToolCallSignature<Final, ToolConfig> : FunctionCallSignature<Final>>;
 
 type FunctionFactory<AsTool extends boolean = false> = FunctionSignature<AsTool, true> & FunctionSignature<AsTool, false>;
 
-export const Function = Object.assign(
-	((config: configs.FunctionConfig<any, any, any, any>, parent?: configs.ConfigProvider<any>) => createCodedComponent('Function', config, parent)) as FunctionFactory,
-	{ asTool: ((config: configs.FunctionConfig<any, any, any, any>, parent?: configs.ConfigProvider<any>) => createCodedComponent('Function', config, parent, undefined, true)) as FunctionFactory<true> },
-);
+type Factory = FunctionFactory & { asTool: FunctionFactory<true> };
+export const Function = createComponentFactory(definition, createCodedComponent, config => {
+	if (typeof config.execute !== 'function') throw new ConfigError("The 'execute' property in a Function config must be a function.");
+}) as Factory;
+
+export interface Types<T, A extends boolean, ToolConfig = ConfigForToolMode<T, true, A>> {
+	definition: typeof definition;
+	settings: Settings;
+	component: A extends true ? ToolCallSignature<T, ToolConfig> : FunctionCallSignature<T>;
+	config: Settings;
+	configShape: ConfigShape;
+	result: ComponentResult<T>;
+	toolResult: CollectedResult<T>;
+}

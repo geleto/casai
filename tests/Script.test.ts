@@ -102,20 +102,6 @@ describe('create.Script', function () {
 			expect(result).to.deep.equal({ name: 'Carol', permissions: ['read', 'write'] });
 		});
 
-		it('should have correct type property', () => {
-			const scriptRunner = create.Script({
-				script: 'return "Hello"'
-			});
-
-			const scriptWithContext = create.Script({
-				context: { name: 'World' },
-				script: 'return "Hello " + name'
-			});
-
-			// Check that Script instances have the correct type
-			expect(scriptRunner.type).to.equal('Script');
-			expect(scriptWithContext.type).to.equal('Script');
-		});
 	});
 
 	describe('Vanilla Vercel AI Stream Consumer', () => {
@@ -250,25 +236,6 @@ describe('create.Script', function () {
 			});
 			const result = await scriptRunner();
 			expect(result).to.deep.equal({ original: 42, doubled: 84 });
-		});
-
-		it('stream error disables result, error test is only that result is empty', async () => {
-			// Streamer configured to fail (simulate with bad model/config or empty result)
-			const badStreamer = create.LLMAgent.asStream({ model, ...temperatureConfig, prompt: "INVALID" });
-			const scriptRunner = create.Script({
-				schema: z.object({ text: z.string() }),
-				context: { streamReader: badStreamer },
-				script: `
-          text output
-          var stream = (streamReader()).textStream
-          for chunk in stream
-            output(chunk)
-          endfor
-          return { text: output.snapshot() }
-        `,
-			});
-			const result = await scriptRunner();// as { text: string };
-			expect((result as any).text).to.be.a('string');
 		});
 
 		it('reads from object array stream', async () => {

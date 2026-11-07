@@ -57,6 +57,23 @@ const answer = '{"answer":4}';
 const factoryNames = ['generate', 'stream', 'generate-structured', 'stream-structured'] as const;
 
 describe('LLM call contracts without providers', () => {
+	it('retains configured prompts and history across mixed source modes', async () => {
+		const model = mockModel('answer');
+		const history: ModelMessage[] = [{ role: 'user', content: 'earlier' }];
+		for (const prepared of [false, true]) {
+			const config = prepared ? { model, promptType: 'function' as const, prompt: () => 'ready' }
+				: { model, promptType: 'text' as const, prompt: 'ready' };
+			const agent = create.LLMAgent(config);
+			for (const result of [await agent(), await agent({}, history), await agent.run({ messageHistory: history })]) {
+				expect(result.text).to.equal('answer');
+			}
+			const last = model.doGenerateCalls.at(-1)!;
+			expect(last.prompt.map(message => message.content)).to.deep.equal([
+				[{ type: 'text', text: 'earlier' }], [{ type: 'text', text: 'ready' }],
+			]);
+		}
+	});
+
 	describe('inherited factory settings', () => {
 		for (const transformed of [false, true]) it(`keeps each prompt paired with its parser, transformed=${transformed}`, async () => {
 			const model = mockModel(answer);
@@ -259,9 +276,9 @@ describe('LLM call contracts without providers', () => {
 		expect(calls).to.have.length(1);
 	});
 
-	it('classifies malformed call envelopes as configuration errors', async () => {
+	it('classifies malformed call envelopes as invocation validation errors', async () => {
 		const component = create.LLMAgent.withTemplate({ model: mockModel(answer), prompt: 'hello' }) as (...args: unknown[]) => Promise<unknown>;
-		for (const args of [[42], [null], [{}, {}], [[], []], ['source', {}, {}], ['source', [], []]]) {
+		for (const args of [[42], [null], [{}, {}], ['source', {}, {}], ['source', [], []]]) {
 			await rejects(component(...args), ValidationError);
 		}
 	});
@@ -422,7 +439,7 @@ describe('LLM call contracts without providers', () => {
 			expect(promptTexts(model)).to.deep.equal([['<b> & "text"']]);
 		});
 
-		it('reports malformed script prompt output as a configuration validation error', async () => {
+		it('reports malformed script prompt output as an output validation error', async () => {
 			const model = mockModel('DONE');
 			const generator = create.LLMAgent.withScript({ model, prompt: 'return [{content: "Invalid message"}]' });
 			await rejects(() => generator(), (error: unknown) => error instanceof ValidationError && error.message.includes('Prompt output validation failed'));
@@ -721,12 +738,17 @@ describe('LLM call contracts without providers', () => {
 
 	describe('run overrides', () => {
 		for (const promptType of ['template', 'script'] as const) {
-			it(`should reject a non-string prompt override for a ${promptType} prompt`, async () => {
+			it(`should ${promptType === 'template' ? 'accept' : 'reject'} a message-array override for a ${promptType} prompt`, async () => {
 				const model = mockModel('DONE');
 				const generator = promptType === 'template'
 					? create.LLMAgent.withTemplate({ model, prompt: 'Configured.' })
 					: create.LLMAgent.withScript({ model, prompt: 'return "Configured."' });
 				const prompt: ModelMessage[] = [{ role: 'user', content: 'Array.' }];
+				if (promptType === 'template') {
+					await runtimeRun(generator, { prompt });
+					expect(model.doGenerateCalls).to.have.length(1);
+					return;
+				}
 				await rejects(async () => await runtimeRun(generator, { prompt }), (error: unknown) => {
 					expect(error).to.be.instanceOf(ValidationError);
 					expect((error as Error).message).to.match(/must be a string/);
@@ -734,7 +756,7 @@ describe('LLM call contracts without providers', () => {
 				});
 				expect(model.doGenerateCalls).to.have.length(0);
 				if (false) {
-					// @ts-expect-error Template and script prompts are source strings.
+					// @ts-expect-error A union that may be a script requires a string source.
 					void generator.run({ prompt });
 				}
 			});

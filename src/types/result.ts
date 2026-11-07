@@ -6,6 +6,9 @@ import type { StreamSchema } from '../streams.js';
 
 export type ScriptResult = unknown;
 
+/** Serializable file result returned by image and speech tools. */
+export interface FilePayload { mediaType: string; base64: string }
+
 export type CompletedOutput<O> = O extends OutputInterface ? InferGenerateOutput<O> : string;
 // Native SDK properties retain their own delivery types.
 export type GenerateTextResultAugmented<T extends ToolSet = ToolSet, O extends OutputInterface | undefined = undefined, C extends Record<string, unknown> = Record<string, unknown>> =

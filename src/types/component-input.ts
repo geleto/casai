@@ -1,4 +1,4 @@
-import type { EmptyMap, DistributiveOmit, NamedKeys, UnionKeys } from './utils.js';
+import type { EmptyMap, DistributiveOmit, IsUnion, NamedKeys, UnionKeys } from './utils.js';
 import type { MergedProperties } from './merge.js';
 import type { CallbackContextFromConfig, ConfigValue, ContextFromConfig, InputConfigAlternatives, InputSchemaFromConfig, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig } from './config.js';
 import type { HasClosedInput, ParsedSchemaOutput, SchemaInputNames, SchemaInputObject } from './schema-shape.js';
@@ -83,5 +83,3 @@ type ComponentInputChecks<TConfig, TArguments, TKeys extends PropertyKey, TAlter
 export type ValidateComponentInput<TConfig, TArguments, TKeys extends PropertyKey = UnionKeys<TArguments>> = 0 extends (1 & TArguments) ? unknown
 	: [TArguments] extends [never] ? unknown
 	: ComponentInputChecks<TConfig, TArguments, TKeys> extends (check: infer Check) => void ? Check : never;
-
-type IsUnion<TValue, TWhole = TValue> = TValue extends TWhole ? [TWhole] extends [TValue] ? false : true : never;

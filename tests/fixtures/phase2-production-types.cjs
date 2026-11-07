@@ -154,6 +154,14 @@ const alternativeString: Promise<string> = alternative();
 const inheritedAlternative = component({}, { config: alternativeConfig });
 // @ts-expect-error Parent normalization must retain the schema-bearing alternative.
 const inheritedString: Promise<string> = inheritedAlternative();
+const numericOutput = Output.object({ schema: z.object({ value: z.number() }) });
+declare const alternativeAgentConfig: { model: LanguageModel; prompt: string; output: typeof numericOutput }
+  | { model: LanguageModel; prompt: string };
+LLMAgent(alternativeAgentConfig)().then(result => {
+  const textOrObject: string | { value: number } = result.output;
+  // @ts-expect-error A whole configuration alternative can select a structured output.
+  const onlyText: string = result.output;
+});
 declare const privateParent: { context: { user: string } } | Record<never, never>;
 component({ inputSchema: z.object({ value: z.number() }), execute: input => {
   const user: string | undefined = input.user;
@@ -243,13 +251,13 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       /Unused '@ts-expect-error'/, "src/types/tool-binding.ts", 'const admitted: ValidateToolsContext<{ tools: typeof nestedRegistry }> = { tools: nestedRegistry };'],
     ['branch-only descriptor hooks', 'DescriptorErrors<Final, R> = Final extends unknown', 'DescriptorErrors<Final, R> = unknown extends unknown',
       /Unused '@ts-expect-error'/, 'src/types/callbacks.ts', 'const admitted: ValidateDescriptor<HookReplacement, FinalHook, string> = {};'],
-    ['branch-only Function contracts', 'FunctionConfigErrors<Final, AsTool extends boolean> = Final extends unknown',
-      'FunctionConfigErrors<Final, AsTool extends boolean> = unknown extends unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts',
-      'const admitted: ValidateFinalConfig<HookReplacement, typeof hookConfig, FinalHook, true> = {};'],
-    ['branch-only lifecycle callbacks', 'Callbacks = T extends unknown ? CallbackErrors', 'Callbacks = unknown extends unknown ? CallbackErrors',
+    ['branch-only Function contracts', 'FunctionConfigChecks<Final, Explicit extends boolean> = Final extends unknown',
+      'FunctionConfigChecks<Final, Explicit extends boolean> = unknown extends unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts',
+      'const admitted: ValidateFinalConfig<HookReplacement, FinalHook, true> = {};'],
+    ['branch-only lifecycle callbacks', 'Callbacks = T extends unknown ? CallbackErrors<T, A> | PromptError', 'Callbacks = T extends unknown ? PromptError',
       /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts', 'LLMAgent({ output: numberOutput }, { config: lifecycleConfig });'],
-    ['branch-only forbidden keys', 'UnionKeys<T> = T extends unknown ? keyof T : never', 'UnionKeys<T> = keyof T',
-      /Unused '@ts-expect-error'/, 'src/types/utils.ts', 'const admitted: ValidateFinalConfig<typeof forbiddenConfig, EmptyMap, typeof forbiddenConfig> = {};'],
+    ['Function final forbidden keys', "FinalConfigCheck<Final, Expected, Unknown = Exclude<UnionKeys<Final>, keyof Expected | 'asTool'>", 'FinalConfigCheck<Final, Expected, Unknown = never',
+      /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateFinalConfig<typeof forbiddenConfig, typeof forbiddenConfig> = {};'],
     ['every fragment alternative', '[InvalidUnionMembers<TConfig, CallbackConfigShape<TShape>> | InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]',
       'unknown extends unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts', 'const admitted: ValidateConfigFragment<typeof forbiddenConfig, typeof forbiddenConfig, { execute: () => number }> = forbiddenConfig;'],
     ['branch-only run settings', 'Exclude<Keys, keyof TShape> extends never', 'Exclude<keyof TRunConfig, keyof TShape> extends never',
@@ -260,7 +268,7 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
   const mutations = [
     ['whole configuration settings', 'ConfigValue<T, K extends PropertyKey> = T extends unknown', 'ConfigValue<T, K extends PropertyKey> = unknown extends unknown',
       /Unused '@ts-expect-error'/, 'src/types/config.ts'],
-    ['inherited configuration alternatives', "Parent extends unknown ? MergedConfig<Omit<Parent, 'execute'>", "unknown extends unknown ? MergedConfig<Omit<Parent, 'execute'>",
+    ['inherited configuration alternatives', 'Parent extends unknown ? keyof Parent extends never ? Data', 'unknown extends unknown ? keyof Parent extends never ? Data',
       /Property 'user' does not exist/, 'src/types/function-config.ts'],
     ['conditional configured callback fields', "TContext = TConfig extends unknown ? 'context' extends keyof TConfig", "TContext = unknown extends unknown ? 'context' extends keyof TConfig",
       /does not exist/, "src/types/config.ts"],
@@ -273,7 +281,7 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
     ['LLM application admission', '& ComponentAdmission<T>', '& unknown',
       /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
     ['private-key rejection', "InputKeyErrors<Extract<TKeys, TPrivateNames>, 'Private input key'>", "unknown", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
-    ['run context validation', '& ValidateToolsContext<TRunConfig, MergedConfig<TConfig, TRunConfig>>',
+    ['run context validation', '& ValidateToolsContext<TRunConfig, Final>',
       '', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
     ['completed helper output', "ComponentHelper<BoundHelperConfig<TConfig, TBoundContext>, TResult>", "ComponentHelper<BoundHelperConfig<TConfig, TBoundContext>, import('./result.js').CollectedResult<TConfig>>",
       /Type 'unknown' is not assignable to type 'string'/, "src/types/tool-binding.ts"],
@@ -281,7 +289,7 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
     ['run helper input and defaults', "Pick<TAfter, Extract<K, keyof TAfter>> extends Pick<TBefore, K> ? never : K", "never",
       /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
-    ['stale callback helpers', "DistributiveOmit<CallbackContextFromConfig<TConfig>, '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>>", "CallbackContextFromConfig<TConfig>",
+    ['stale callback helpers', "DistributiveOmit<CallbackContextFromConfig<TConfig>, NamedKeys<TDefaults> | '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>>", "DistributiveOmit<CallbackContextFromConfig<TConfig>, NamedKeys<TDefaults> | '_toolOptions'>",
       /Unused '@ts-expect-error'/, "src/types/execution.ts"],
     ['conditional output schema', "TOutputSchema = ConfigValue<TConfig, 'schema'>> = TOutputSchema extends FlexibleSchema<unknown>", "TOutputSchema = ConfigValue<TConfig, 'schema'>> = ConfigValue<TConfig, 'schema'> extends FlexibleSchema<unknown>",
       /Unused '@ts-expect-error'/, "src/types/result.ts"],
@@ -289,12 +297,12 @@ declare const selectedRunTools: SimpleRegistry | { tools: { simple: typeof simpl
       "EmptyMap extends ComponentInputShape<TAlternative> ? true : false", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
     ['conditional private ownership', "ReservedInputNames<undefined extends TInputSchema ? undefined : TInputSchema,",
       "ReservedInputNames<TInputSchema,", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
-    ['conditional input inference', '? Partial<Record<K, S>> : Record<K, S>',
-      '? Partial<Record<K, S>> : Partial<Record<K, S>>', /error TS/, 'src/types/factory-config.ts'],
-    ['optional schema presence', "[K in keyof T]: K extends 'inputSchema' ? Input", "[K in keyof T]-?: K extends 'inputSchema' ? Input",
+    ['conditional input inference', '? Record<K, S> : Partial<Record<K, S | undefined>>',
+      '? Partial<Record<K, S | undefined>> : Partial<Record<K, S | undefined>>', /error TS/, 'src/types/factory-config.ts'],
+    ['optional schema presence', "[K in keyof Selected]: K extends 'inputSchema' ? Input : K extends 'schema' ? Output : K extends 'toolContextSchema' ? Context", "[K in keyof Selected]-?: K extends 'inputSchema' ? Input : K extends 'schema' ? Output : K extends 'toolContextSchema' ? Context",
       /Unused '@ts-expect-error'/, 'src/types/factory-config.ts'],
-    ['provisional constraint identity', 'typeof provisionalConfig extends keyof TConfig ? unknown : TValidation',
-      'object extends TConfig ? unknown : TValidation', /Unused '@ts-expect-error'/, 'src/types/provisional.ts'],
+    ['provisional constraint identity', 'typeof provisionalConfig extends keyof TConfig',
+      'object extends TConfig', /Unused '@ts-expect-error'/, 'src/types/provisional.ts'],
     ['description context type', "description?: Tool<unknown, unknown, C>['description']", "description?: Tool<unknown, unknown, any>['description']",
       /Unused '@ts-expect-error'/, 'src/types/config.ts'],
   ];
@@ -352,8 +360,8 @@ const copied = { ...operation };
 component({ tools: { copied }, execute: () => 1 });
 `;
   const projectionMutations = [
-    ['tool factory projection admission', "AsTool extends true ? ToolInputAdmission<TFinal> : unknown",
-      'unknown', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
+    ['tool factory projection admission', '& ToolInputAdmission<Final> & ToolOutputAdmission<Final>',
+      '& ToolOutputAdmission<Final>', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
     ['bound tool projection admission', "& ToolInputAdmission<TConfig, BoundContextDefaults<ContextFromConfig<TConfig>, ConfigValue<TConfig, 'toolContextSchema'>, TContext>>",
       "& unknown", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
     ['spread tool admission', "TTool extends (...args: any[]) => any ? never : 'copied component'",
@@ -407,8 +415,8 @@ component({ inputSchema: enabled ? z.string().transform(value => ({ value })) : 
     ['selected schema contracts', ": TInputSchema extends unknown ? { config: TConfig; schema:", ": [TInputSchema] extends [unknown] ? { config: TConfig; schema:", /Unused '@ts-expect-error'|not assignable/, "src/types/config.ts"],
     ['selected callback assembly', "ExecutionContext<TConfig, TAlternatives = InputConfigAlternatives<TConfig>>", "ExecutionContext<TConfig, TAlternatives = { config: TConfig; schema: import('./config.js').InputSchemaFromConfig<TConfig> }>", /not assignable|does not exist/, "src/types/execution.ts"],
     ['correlated application configurations', "InputConfigAlternatives<TConfig> = TConfig extends unknown ?", "InputConfigAlternatives<TConfig> = unknown extends unknown ?", /Expected 1 argument|not assignable/, "src/types/config.ts"],
-    ['correlated inherited callback inference', 'Parent extends unknown ? MergedConfig<Omit<Parent,',
-      'unknown extends unknown ? MergedConfig<Omit<Parent,', /not assignable/, 'src/types/function-config.ts'],
+    ['correlated inherited callback inference', 'Parent extends unknown ? keyof Parent extends never ? Data',
+      'unknown extends unknown ? keyof Parent extends never ? Data', /not assignable/, 'src/types/function-config.ts'],
     ['correlated private binding', "ToolBindingChecks<TConfig, TContext> = TConfig extends unknown ?", "ToolBindingChecks<TConfig, TContext> = unknown extends unknown ?", /Unused '@ts-expect-error'/, "src/types/tool-binding.ts"],
     ['selected tool projection', "InvalidToolProjection<TConfig, TDefaults, TAlternatives = InputConfigAlternatives<TConfig>>", "InvalidToolProjection<TConfig, TDefaults, TAlternatives = { config: TConfig; schema: InputSchemaFromConfig<TConfig> }>", /No overload matches|not assignable/, "src/types/config-validation.ts"],
     ['selected schema admission', "ComponentAdmissionChecks<TConfig, TAlternatives = InputConfigAlternatives<TConfig>>", "ComponentAdmissionChecks<TConfig, TAlternatives = { config: TConfig; schema: InputSchemaFromConfig<TConfig> }>", /Unused '@ts-expect-error'/, "src/types/config-validation.ts"],
@@ -548,7 +556,7 @@ child(indexed);
   const callerMutations = [
     ['complete caller alternatives', "& EffectiveInputErrors<ComponentInput<TConfig, TInputSchema>, ContextFromConfig<TConfig>, SuppliedInput<TArguments, TKeys>, SchemaInputNames<TInputSchema>, HasClosedSchema<TInputSchema>>", "", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
     ['component union constraints', 'First extends TAllowed[0]', 'First = unknown', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
-    ['provided argument keys', 'first: First & (Partial<Record<K, unknown>> | undefined)', 'first: First', /Parameter 'value' implicitly has an 'any' type/, 'src/types/input.ts'],
+    ['provided argument keys', 'first: First & (Partial<Record<K, unknown>> | Exclude<NonContextArgument, (...args: never[]) => unknown>)', 'first: First', /Parameter 'value' implicitly has an 'any' type/, 'src/types/input.ts'],
     ['mapped argument fallback', "[TKeys] extends [never] ? TArguments : string extends TKeys ? TArguments", "string extends TKeys ? TArguments", /query/, "src/types/component-input.ts"],
     ['indexed private names', "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, SuppliedInputNames<TArguments, TKeys>,", "RejectedInputKeys<ComponentInput<TConfig, TInputSchema>, TKeys,", /Unused '@ts-expect-error'/, "src/types/component-input.ts"],
   ];
@@ -573,7 +581,7 @@ Template({ template: '{{ value }}' }, { config: complete })();
 LLMAgent.withTemplate({ model, prompt: '{{ value }}' }, { config: complete })();
 `;
   const omissionMutations = [
-    ['conditional renderer omission', '[TConfig] extends [Record<Key, string>]', 'TConfig extends Record<Key, string>', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
+    ['conditional renderer omission', 'PreparedSourceArguments<T, string, [T] extends [Record<Main<K>, string>] ? true : false>', 'T extends unknown ? PreparedSourceArguments<T, string, T extends Record<Main<K>, string> ? true : false> : never', /Unused '@ts-expect-error'/, 'src/types/component.ts'],
     ['conditional model omission', '[T] extends [{ prompt: ConfiguredSource<P> }] ? ContextHistory<T>', 'T extends { prompt: ConfiguredSource<P> } ? ContextHistory<T>', /Unused '@ts-expect-error'/, 'src/types/agent.ts'],
   ];
   const contextAlternatives = `import { LLMAgent } from './src/factories/LLMAgent.js';
@@ -620,7 +628,7 @@ component.asTool({ inputSchema, context: { factor: 1 }, toolContextSchema: facto
     ['context inferred inheritance', '= ValidateResolved<TConfig, [Invalid] extends [never]', '= NoInfer<[Invalid] extends [never]', /No overload matches/, 'src/types/config-validation.ts'],
   ];
   const configFactoryContracts = `import { Config } from './src/factories/Config.js';
-import { tool, Output } from 'ai';
+import { tool } from 'ai';
 import { z } from 'zod/v4';
 const unknownSettings = { unknownSetting: true };
 // @ts-expect-error The family constraint must not hide extra supplied keys.
@@ -649,16 +657,7 @@ const loaderChild = Config({ loader: { load: (name: string) => name.toUpperCase(
 const loaders: import('cascada-engine').LoaderGroup = loaderChild.config.loader;
 const described: import('./src/types/config.js').ConfigProvider<{ description: string }> = Config({ description: 'Shared' });
 const lookup = tool({ inputSchema: z.object({ query: z.string() }), execute: ({ query }) => query.length });
-Config({ tools: { lookup }, onEnd: event => {
-  const result: number = event.staticToolResults[0].output;
-  // @ts-expect-error Callback results retain the configured tool's output type.
-  const wrong: string = event.staticToolResults[0].output;
-} });
-Config({ output: Output.choice({ options: ['YES', 'NO'] }), onEnd: event => {
-  const answer: 'YES' | 'NO' | undefined = event.output;
-  // @ts-expect-error Choice output is not a number, nor any.
-  const wrong: number = event.output;
-} });
+Config({ tools: { lookup }, onEnd: (event: { text: string }) => { const text: string = event.text; } });
 `;
   const configFactoryResult = fs.readFileSync(path.join(production, 'src/factories/Config.ts'), 'utf8')
     .match(/\) => NoInfer<configs\.ConfigProvider<[^;]+;/)?.[0];
@@ -678,10 +677,6 @@ Config({ output: Output.choice({ options: ['YES', 'NO'] }), onEnd: event => {
       configFactoryResult.replace('NoInfer<', '').replace('>>>>;', '>>>;'), /Expected 2 arguments, but got 1/, 'src/factories/Config.ts'],
     ['Config inherited result', ': MergedConfig<TParentConfig, ResolvedConfig<TConfig>>',
       ': ProcessedConfig<ResolvedConfig<TConfig>>', /Property 'offset' does not exist/, 'src/factories/Config.ts'],
-    ['Config callback registry inference', 'TCallbackTools, TCallbackRuntime, TCallbackOutput>',
-      'configs.ToolRegistry, TCallbackRuntime, TCallbackOutput>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
-    ['Config callback output inference', 'TCallbackTools, TCallbackRuntime, TCallbackOutput>',
-      'TCallbackTools, TCallbackRuntime, AIOutput>', /Unused '@ts-expect-error'/, 'src/factories/Config.ts'],
   ];
   // The unified agent replaces the four output-mode factories. Native Output owns
   // enum/array schema admission; Casai owns source, context, delivery and hooks.
@@ -714,10 +709,10 @@ declare const optionalParent: [] | [typeof parent];
 // @ts-expect-error Narrow parent presence before calling.
 LLMAgent({ model, output }, ...optionalParent);
 const enumeration = LLMAgent({ model, output: Output.choice({ options: ['YES', 'NO'] }) });
-enumeration('Answer').then(result => { const value: 'YES' | 'NO' = result.value; });
-LLMAgent({ model, output })('Answer').then(result => { const value: number = result.value.answer; });
-LLMAgent.asStream({ model, output })('Answer').then(result => { const value: Promise<{ answer: number }> = result.value; });
-LLMAgent.asStream({ model })('Answer').then(result => { const value: AsyncIterable<string> = result.value; });
+enumeration('Answer').then(result => { const value: 'YES' | 'NO' = result.output; });
+LLMAgent({ model, output })('Answer').then(result => { const value: number = result.output.answer; });
+LLMAgent.asStream({ model, output })('Answer').then(result => { const value: PromiseLike<{ answer: number }> = result.output; });
+LLMAgent.asStream({ model })('Answer').then(result => { const value: AsyncIterable<string> = result.textStream; });
 const inputSchema = z.object({ value: z.string().transform(Number) });
 const toolContextSchema = z.object({ tenant: z.string() });
 LLMAgent.withTemplate.asTool({ model, output, inputSchema, toolContextSchema, prompt: '{{ value }}',
@@ -752,10 +747,10 @@ inheritedTool.generate({ prompt: 'Answer' });
     ['LLMAgent required model', 'Required = Missing<T, AgentRequiredSettings<P, A>>', 'Required = never', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
     ['LLMAgent retained prompt compatibility', 'CallbackErrors<T, A> | PromptError<T, P, A>', 'CallbackErrors<T, A>', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
     ['LLMAgent parent presence', '...parent: [ParentConfig] extends [never] ? [] : [parent: ConfigProvider<ParentConfig', '...parent: [] | [parent: ConfigProvider<ParentConfig', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
-    ['LLMAgent parent properties', 'UnionKeys<C> | UnionKeys<Parent>', 'UnionKeys<C>', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['LLMAgent parent properties', 'Unknown = Exclude<UnionKeys<T>, keyof AgentFactoryShape<P, A>>', 'Unknown = Exclude<UnionKeys<C>, keyof AgentFactoryShape<P, A>>', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
     ['LLMAgent parsed descriptor input', 'DescriptorInput<ConfigSchemas<SchemaPresence, Input, never, ToolContext>,', 'DescriptorInput<Record<never, never>,', /unknown|does not exist|implicitly has an 'any'/, 'src/factories/LLMAgent.ts'],
     ['LLMAgent completed value', 'export type CompletedOutput<O> = O extends OutputInterface ? InferGenerateOutput<O> : string;', 'export type CompletedOutput<O> = unknown;', /unknown/, 'src/types/result.ts'],
-    ['LLMAgent explicit output delivery', 'type StreamValue<O> = O extends OutputInterface ? Promise<InferGenerateOutput<O>>', 'type StreamValue<O> = O extends OutputInterface ? AsyncIterable<InferGenerateOutput<O>>', /not assignable|missing the following properties/, 'src/types/result.ts'],
+    // Output delivery now belongs to native SDK result types; the positive assertions above retain that contract.
     ['LLMAgent native argument validation', 'args: Args & NativeValidation<Args, T, AgentCallParameters<unknown>>', 'args: Args', /Unused '@ts-expect-error'/, 'src/types/agent.ts'],
     ['LLMAgent inherited source inference', "ConfigValue<Complete, 'promptType'> extends 'function'", "P extends 'function'", /implicitly has an 'any'|Unused '@ts-expect-error'|Property 'value' does not exist/, 'src/factories/LLMAgent.ts'],
   ];
@@ -835,15 +830,116 @@ const templateMode: 'async-template-name' = Template({}, Config({}, loadedTempla
 const scriptMode: 'async-script-name' = Script({}, Config({}, loadedScript)).config.promptType;
 `;
   const factoryMutations = [
-    ['Factory prompt branch failure', "? never : 'prompt'", '? never : never', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
-    ['Factory Function final validation', '& ValidateFinalConfig<TConfig, CallbackParent<TParentConfig>, Final, true extends EffectiveTool ? true : false>', '', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
-    ['Factory Function return inference', ') => NoInfer<EffectiveTool extends true ? ToolCallSignature<Final> : FunctionCallSignature<Final>>;', ') => EffectiveTool extends true ? ToolCallSignature<Final> : FunctionCallSignature<Final>;', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
-    ['Factory Template required settings', '& ValidateTemplateConfig<TConfig, Final, EffectiveShape>', '', /Unused '@ts-expect-error'/, 'src/factories/Template.ts'],
-    ['Factory Script required settings', '& ValidateScriptConfig<TConfig, Final, EffectiveShape>', '', /Unused '@ts-expect-error'/, 'src/factories/Script.ts'],
-    ['Factory Template parent validation', '& ValidateTemplateParentConfig<TParentConfig, FactoryConfig<false, true>>', '', /Unused '@ts-expect-error'/, 'src/factories/Template.ts'],
-    ['Factory Script parent validation', '& ValidateScriptParentConfig<TParentConfig, FactoryConfig<false, true>>', '', /Unused '@ts-expect-error'/, 'src/factories/Script.ts'],
+    ['Factory prompt branch failure', "ReturnType<NonNullable<PromptCallback<T, A>['prompt']>>) | undefined } ? never : 'prompt'",
+      "ReturnType<NonNullable<PromptCallback<T, A>['prompt']>>) | undefined } ? never : never", /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['Factory Function final validation', '& ValidateFinalConfig<TConfig, Final, AsTool>', '', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
+    ['Factory Function return inference', ') => NoInfer<EffectiveTool extends true ? ToolCallSignature<Final, ToolConfig> : FunctionCallSignature<Final>>;', ') => EffectiveTool extends true ? ToolCallSignature<Final, ToolConfig> : FunctionCallSignature<Final>;', /Unused '@ts-expect-error'/, 'src/factories/Function.ts'],
+    ['Factory renderer required settings', '& (RendererConfigChecks<K, TConfig, Final> extends (check: infer Check) => void ? Check : never)', '', /Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
     ['Factory inherited schema replacement', 'MergedConfig<Parent, ResolvedConfig<Config>>', 'MergedConfig<ResolvedConfig<Config>, Parent>', /not assignable/, 'src/types/factory-config.ts'],
-    ['Factory inherited source selection', "? Exclude<ConfigValue<T, 'promptType'>, undefined> extends never ? Default : Exclude<ConfigValue<T, 'promptType'>, undefined> : Explicit", '? Default : Explicit', /not assignable/, 'src/types/factory-config.ts'],
+    ['Factory inherited source selection', "? Exclude<ConfigValue<T, 'promptType'>, undefined> | (undefined extends ConfigValue<T, 'promptType'> ? Default : never) : Explicit", '? Default : Explicit', /not assignable/, 'src/types/factory-config.ts'],
+  ];
+  const unificationContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/component-unification.ts'), 'utf8')
+    .replace("from 'casai'", "from './src/index.js'");
+  const unificationMutations = [
+	['Component interface contexts', 'type ContextValue<T> = [ContextObject<T>] extends [never] ? EmptyMap : ContextObject<T>;', 'type ContextValue<T> = T extends Record<string, unknown> ? T : EmptyMap;', /not assignable|Unused '@ts-expect-error'/, 'src/types/input.ts'],
+	['Component supplied context keys', 'CallContextKeys<[First, ...Rest], Keys, ObjectSource>', 'never', /not assignable/, 'src/types/component.ts'],
+	['Component callback overloads', "([P] extends ['text'] ? unknown : CallSignature<K, P, T, Cases, Allowed, ObjectSource, ComponentInputShape<T>>)", 'unknown', /not assignable/, 'src/types/component.ts'],
+    ['Component fixed invocation types', "Main<K> | DefinitionKeys<K, 'fixedSettings'>", 'Main<K>', /Unused '@ts-expect-error'/, 'src/types/component.ts'],
+    ['Component configured source tails', 'ContextTail<T, ConfiguredTail, true>', 'ContextTail<T, Tail, true>', /not assignable|No overload matches|Expected/, 'src/types/input.ts'],
+    ['Component positional roles', 'ValidateArgumentValue<Args[0], Allowed[0], Roles> & ValidateArgumentValue<Args[1], Allowed[1], Roles>', 'unknown', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
+  ];
+  const phase5Contracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/component-review.ts'), 'utf8')
+    .replace("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const phase5Mutations = [
+    ['Phase5 voice tool bindings', '& NoInfer<ValidateToolsContext<Options, MergedConfig<T, Options>>>', '', /Unused '@ts-expect-error'/, 'src/factories/VoiceSessionSetup.ts'],
+    ['Phase5 preparer helper ownership', "import('./config.js').CallbackFromConfig<TConfig>", "ConfigValue<TConfig, 'execute'> | ConfigValue<TConfig, 'prompt'>", /Unused '@ts-expect-error'/, 'src/types/tool-binding.ts'],
+    ['Phase5 empty child validation', '[Keys] extends [never] ? EmptyMap : C', 'C', /Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
+    ['Phase5 context and format roles', 'CanOmitComponentInput<T> extends true ? WithoutContext<Tail> : never', 'CanOmitComponentInput<T> extends true ? Tail : never', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
+    ['Phase5 complete producer guarantee', '[Input] extends [QueryDocuments] ? false : true', '[Extract<Input, QueryDocuments>] extends [never] ? true : false', /Unused '@ts-expect-error'/, 'src/factories/Reranker.ts'],
+    ['Phase5 complete replacement shorthand', '=> QueryDocuments | PromiseLike<QueryDocuments>, false,', '=> never, false,', /No overload matches|not assignable/, 'src/factories/Reranker.ts'],
+    ['Phase5 native callback context', 'settings: Settings<RuntimeContextFromConfig<T>>;', 'settings: Settings;', /Expected 1 arguments|not assignable/, 'src/factories/Embedder.ts'],
+    ['Phase5 optional callback runtime context', "Pick<{ [Key in keyof RuntimePresence]: Runtime }, keyof RuntimePresence & 'runtimeContext'>", '{ runtimeContext: Runtime }', /Expected 1 arguments|not assignable/, 'src/factories/component-factory.ts'],
+    ['Phase5 fragment preparer context', 'ConfigPreparerContext<Inferred,', 'ConfigPreparerContext<EmptyMap,', /Expected 1 arguments|not assignable/, 'src/factories/Config.ts'],
+    ['Phase5 inherited callback contract', 'Pick<T, NativeCallbackKeys<K> & keyof T> extends NativeCallbacks<K, T>', 'EmptyMap extends NativeCallbacks<K, T>', /Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
+    ['Phase5 resolved private bindings', "NamedKeys<TDefaults> | '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>", "'_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>", /Unused '@ts-expect-error'|Property 'toFixed'|Expected 1 arguments/, 'src/types/execution.ts'],
+    ['Phase5 required plain tool input', '[ToolInput<K, P, T>] extends [ToolInputs<T>[K]]', '[Exclude<ToolInput<K, P, T>, undefined>] extends [ToolInputs<T>[K]]', /Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
+    ['Phase5 declared tool source', "Main<K> extends SchemaInputNames<ConfigValue<T, 'inputSchema'>>", 'true extends true', /Unused '@ts-expect-error'/, 'src/types/component.ts'],
+    ['Phase5 native alias fragments', '| Parameters<typeof embedMany>[0] | Parameters<typeof rerank>[0]', '', /Expected 1 arguments|not assignable/, 'src/types/callbacks.ts'],
+    ['Phase5 final native settings', '[T] extends [InferShape<K, undefined, A>]', 'unknown extends unknown', /Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
+    ['Phase5 replaced native settings', 'Par extends object = never,', 'Par extends object & NoInfer<InferShape<K, undefined, A>> = never,', /not assignable/, 'src/factories/component-factory.ts'],
+    ['Phase5 final agent settings', "[T] extends [Omit<InferShape<P, A>, 'prompt'>]", 'unknown extends unknown', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+  ];
+  const modeContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/mixed-source-modes.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const modeMutations = [
+    ['Mode renderer alternatives', 'RendererConfigChecks<K extends RendererKind, Config, Final> = Final extends unknown', 'RendererConfigChecks<K extends RendererKind, Config, Final> = true extends true', /not assignable|Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
+    ['Mode common inputs', '{ [K in keyof T]: (input: T[K]) => void }[keyof T] extends (input: infer Input) => void ? Input : never', 'T[keyof T]', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
+    ['Mode positional contracts', "false extends ValidCall<M, Cases[M]['arguments'], First, Rest>", 'false extends true', /Unused '@ts-expect-error'/, 'src/types/component.ts'],
+    ['Mode native object roles', ' | URL | ArrayBuffer | ArrayBufferView | Iterable<unknown> | AsyncIterable<unknown> | ReadableStream<unknown>;', ' | readonly unknown[];', /Unused '@ts-expect-error'/, 'src/types/component.ts'],
+    ['Mode branch contexts', 'ValidateComponentInput<ConfigForMode<T, M, P>, CallContext<[First, ...Rest], ObjectSource>', 'ValidateComponentInput<T, CallContext<[First, ...Rest], ObjectSource>', /not assignable/, 'src/types/component.ts'],
+    ['Mode omitted default', "? Exclude<ConfigValue<T, 'promptType'>, undefined> | (undefined extends ConfigValue<T, 'promptType'> ? Default : never) : Explicit", "? Exclude<ConfigValue<T, 'promptType'>, undefined> extends never ? Default : Exclude<ConfigValue<T, 'promptType'>, undefined> : Explicit", /Unused '@ts-expect-error'|Expected 1 arguments/, 'src/types/factory-config.ts'],
+    ['Mode final source contracts', '(ConfigChecks<K, P, T, C, A> extends (checks: infer Checks) => void ? Checks : never)', 'ValidateBranch<K, P, T, C, A>', /Unused '@ts-expect-error'|not assignable/, 'src/factories/component-factory.ts'],
+    ['Mode final agent contracts', '(ConfigChecks<C, T, P, A> extends (checks: infer Checks) => void ? Checks : never)', 'ValidateBranch<C, T, P, A>', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['Mode annotated selection', '& AnnotatedPromptMode', '', /not assignable|No overload matches/, 'src/types/agent.ts'],
+    ['Mode agent positional contracts', ", 'agent', T, ArgumentCases<T, P>>", ", 'agent', T>", /Unused '@ts-expect-error'/, 'src/types/agent.ts'],
+    ['Mode tool result correlation', ': ConfiguredOutput<K, M, ConfigForMode<T, M, P>>', ': ConfiguredOutput<K, M, T>', /Expected 1 arguments/, 'src/types/component.ts'],
+  ];
+  const callContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/component-calls.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const callMutations = [
+    ['Call ranked document placeholders', "Call extends [unknown?, ...infer Rest]\n\t\t? Extract<Call[0], unknown[]> | (Exclude<Call[0], unknown[]> extends never ? never : Rest extends [] ? undefined : CallDocuments<Rest>)\n\t\t: undefined", "[Extract<Call[number], unknown[] | undefined>] extends [never] ? undefined : Extract<Call[number], unknown[] | undefined>", /not assignable/, 'src/factories/Reranker.ts'],
+    ['Call ranked alternative roles', 'Exclude<Call[0], unknown[]> extends never ? never : Rest extends [] ? undefined : CallDocuments<Rest>', '[Extract<Call[0], unknown[]>] extends [never] ? Rest extends [] ? undefined : CallDocuments<Rest> : never', /Expected 1 arguments|Unused '@ts-expect-error'/, 'src/factories/Reranker.ts'],
+    ['Call binary context selection', 'NonArrayObject<Exclude<T, URL | ArrayBuffer | ArrayBufferView>>', 'NonArrayObject<T>', /not assignable/, 'src/types/input.ts'],
+    ['Call binary key capture', 'Partial<Record<Keys, unknown>> | Exclude<SourceArgumentRoles, (...args: never[]) => unknown> | undefined', 'Partial<Record<Keys, unknown>> | undefined', /not assignable/, 'src/types/component.ts'],
+    ['Call preparer inference', "& ([P] extends ['function'] ? SourceCalls<K, P, T, Cases, Allowed, ObjectSource> extends (signature: infer Signature) => void ? Signature : never : unknown)", '', /not assignable/, 'src/types/component.ts'],
+  ];
+  const payloadContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/claude-review.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const payloadMutations = [
+    ['Payload call validation', '? ValidateComponentInput<ConfigForMode<T, M, P>, CallContext<[First, ...Rest]>, CallContextKeys<[First, ...Rest], Keys>> : unknown', '? unknown : unknown', /Unused '@ts-expect-error'/, 'src/types/component.ts'],
+    ['Payload parsed result', "true extends ConfigValue<T, 'asTool'> ? PlainToolInput<K, T> : never", "true extends ConfigValue<T, 'asTool'> ? ConfiguredOutput<K, 'text', T> : never", /Expected 1 arguments/, 'src/types/component.ts'],
+    ['Payload optional tool result', "true extends ConfigValue<T, 'asTool'> ? PlainToolInput<K, T> : never", "[T] extends [{ asTool: true }] ? PlainToolInput<K, T> : never", /Expected 1 arguments/, 'src/types/component.ts'],
+    ['History positional roles', 'ValidateArgumentValue<Args[0], Allowed[0], Roles> & ValidateArgumentValue<Args[1], Allowed[1], Roles>', 'unknown', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
+    ['History source union calls', "& ComponentCallSignature<AgentArguments<T, P>, Promise<AgentResult<T>>, 'agent', T, ArgumentCases<T, P>>", "& import('./input.js').ComponentCall<AgentArguments<T, P>, Promise<AgentResult<T>>, 'agent', T, ArgumentCases<T, P>>", /No overload matches|not assignable/, 'src/types/agent.ts'],
+  ];
+  const annotationContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/component-map.ts'), 'utf8')
+    .replace("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const annotationMutations = [
+    ['Annotation ordinary tool mode', 'promptType?: P;', 'promptType?: P; asTool?: true;', /not assignable/, 'src/types/component.ts'],
+  ];
+  const loopContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/component-loop-review.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const loopMutations = [
+    ['Loop readonly decision state', "Extract<Settings['state'], string | readonly unknown[]>", "string | import('ai').Experimental_DecisionStatePart[]", /not assignable/, 'src/factories/Decision.ts'],
+    ['Loop native source unions', 'Exclude<SourceArgumentRoles, (...args: never[]) => unknown>', 'ArrayBuffer | ArrayBufferView', /not assignable/, 'src/types/component.ts'],
+    ['Loop source callback inference', 'Exclude<SourceArgumentRoles, (...args: never[]) => unknown>', 'SourceArgumentRoles', /implicitly has an 'any' type|not assignable|No overload matches/, 'src/types/component.ts'],
+    ['Loop configured result alternatives', 'Call = undefined> = K extends unknown ? T extends unknown ? Call extends unknown', 'Call = undefined> = K extends unknown ? true extends true ? Call extends unknown', /Expected 1 arguments|not assignable/, 'src/types/component.ts'],
+    ['Loop invocation result alternatives', 'T extends unknown ? Call extends unknown\n\t? Results', 'T extends unknown ? true extends true\n\t? Results', /Expected 1 arguments|not assignable/, 'src/types/component.ts'],
+    ['Loop tool result alternatives', 'T extends unknown ? ToolResults<T, ToolInput<K, P, T>>[K]', 'true extends true ? ToolResults<T, ToolInput<K, P, T>>[K]', /Expected 1 arguments|not assignable/, 'src/types/component.ts'],
+    ['Loop prepared source roles', 'First extends Source<K, P>', 'First extends string | unknown[] | ((...args: any[]) => any)', /Expected 1 arguments|not assignable/, 'src/types/component.ts'],
+    ['Loop optional tool admission', 'true extends A ? ToolAllowed<K, P>', 'A extends true ? ToolAllowed<K, P>', /Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
+    ['Loop branch tool admission', 'Validate<K, M, Complete, [Keys] extends [never] ? EmptyMap : C, A>', 'Validate<K, M, Complete, [Keys] extends [never] ? EmptyMap : C, AsTool>', /not assignable/, 'src/factories/component-factory.ts'],
+    ['Loop configured callback mode', "Parameters<Source<K, 'function', T, ToolMode<T, A>>>", "Parameters<Source<K, 'function', T, A>>", /Expected 1 arguments|not assignable|Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
+    ['Loop sticky optional modifiers', 'SpreadValue<A, B, K> | Extract<Value<A, K> | Value<B, K>, true>', 'SpreadValue<A, B, K>', /Expected 1 arguments|not assignable|Unused '@ts-expect-error'/, 'src/types/merge.ts'],
+    ['Loop ordinary replacement source', 'PreparedSourceArguments<T, Source<K, P, T>,', 'PreparedSourceArguments<T, Source<K, P, T, true>,', /Expected 1 arguments|not assignable|No overload matches/, 'src/types/component.ts'],
+    ['Loop ordinary named source', 'Partial<Record<Main<K>, Source<K, P, T>>>', 'Partial<Record<Main<K>, Source<K, P, T, true>>>', /Expected 1 arguments|not assignable/, 'src/types/component.ts'],
+    ['Loop ordinary agent source', '(context: ExecutionContext<T>) => PromptValue', '(context: ToolExecutionContext<T>) => PromptValue', /not assignable|No overload matches/, 'src/types/agent.ts'],
+    ['Loop ordinary agent hooks', '& AgentRunSource<T, P> & AgentCallbacks<T>', '& AgentRunSource<T, P> & AgentCallbacks<T, true>', /Expected 1 arguments|not assignable/, 'src/types/agent.ts'],
+    ['Loop complete preparer inference', "SourceCalls<K, P, T, Cases, Allowed, ObjectSource> extends (signature: infer Signature) => void ? Signature : never", "CallSignature<K, P, T, Cases, Allowed, ObjectSource, Extract<Allowed[0], (...args: never[]) => unknown>>", /Expected 1 arguments|not assignable|No overload matches/, 'src/types/component.ts'],
+  ];
+  const toolModeContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/component-tool-mode-review.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const toolModeMutations = [
+    ['Tool mode Function admission', '& ToolInputAdmission<Final> & ToolOutputAdmission<Final>', '', /Unused '@ts-expect-error'/, 'src/types/config-validation.ts'],
+    ['Tool mode agent admission', 'true extends A ? ToolInputAdmission<T>', 'A extends true ? ToolInputAdmission<T>', /Unused '@ts-expect-error'/, 'src/factories/LLMAgent.ts'],
+    ['Tool mode descriptor selection', '? Mode extends ToolMode<T, false> ? T : never : never', '? T : never', /Expected 1 arguments|not assignable/, 'src/types/factory-config.ts'],
+    ['Tool mode native methods', ': AgentMethods<AgentConfig>', ': AgentMethods<T>', /Expected 1 arguments|not assignable/, 'src/types/agent.ts'],
+    ['Tool mode absent source result', "S> = [S] extends [never] ? never : P extends 'function'", "S> = P extends 'function'", /Expected 1 arguments|not assignable/, 'src/types/component.ts'],
+  ];
+  const clearingContracts = phase5Contracts.replace("from './src/index.js'", "from './dist/index.js'");
+  const clearingMutations = [
+    ['Clearing source configuration', 'Pick<T, Main<K> & keyof T> extends Partial<Record<Main<K>, Source<K, P, T, A> | undefined>>', 'Pick<T, Main<K> & keyof T> extends Partial<Record<Main<K>, Source<K, P, T, A>>>', /not assignable/, 'dist/factories/component-factory.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Clearing native callbacks', 'OptionalUndefined<Partial<Pick<Settings, Extract<keyof Settings, NativeCallbackKeys<K>>>>>', 'Partial<Pick<Settings, Extract<keyof Settings, NativeCallbackKeys<K>>>>', /not assignable/, 'dist/factories/component-factory.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
   ];
   // Exact-optional contracts are checked against freshly emitted declarations.
   const optionalContracts = `import { create, z } from './dist/index.js';
@@ -862,8 +958,8 @@ const scriptParent = create.Config({ script: 'return "raw"', schema });
 create.Script({ schema: undefined }, scriptParent);
 create.Script.asTool({ schema: undefined, inputSchema: z.object({}) }, scriptParent);
 const agent = create.LLMAgent({ output: undefined }, parent);
-agent('Answer').then(result => { const text: string = result.value; });
-create.LLMAgent.asStream({ output: undefined }, parent)('Answer').then(result => { const text: AsyncIterable<string> = result.value; });
+agent('Answer').then(result => { const text: string = result.text; });
+create.LLMAgent.asStream({ output: undefined }, parent)('Answer').then(result => { const text: AsyncIterable<string> = result.textStream; });
 agent.run({ prompt: 'Answer', temperature: undefined });
 // @ts-expect-error A fixed output cannot be overridden through run.
 agent.run({ prompt: 'Answer', output: undefined });
@@ -871,19 +967,46 @@ agent.run({ prompt: 'Answer', output: undefined });
   const optionalMutations = [
     ['Factory optional Script output', 'schema?: SchemaType<OUTPUT> | undefined;', 'schema?: SchemaType<OUTPUT>;', /not assignable/, 'dist/types/config.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
     ['Factory optional agent output', 'output?: OUTPUT | undefined;', 'output?: OUTPUT;', /not assignable/, 'dist/types/agent.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
-    ['Factory optional Template input', 'TemplateConfig<any> & ToolContextSchemaConfig<any>', 'TemplateConfig<any> & configs.ToolConfig<any, any, any>', /Invalid template settings/, 'dist/factories/Template.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
-    ['Factory optional Script input', 'ScriptConfig<any, any> & ToolContextSchemaConfig<any>', 'configs.ScriptToolConfig<any, any, any>', /Invalid script settings/, 'dist/factories/Script.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional Template input', 'Template: configs.TemplateConfig<Record<string, any>>;', 'Template: configs.TemplateToolConfig<Record<string, any>>;', /Types of property 'inputSchema' are incompatible/, 'dist/factories/component-factory.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Factory optional Script input', 'Script: configs.ScriptConfig<Record<string, any>, unknown>;', 'Script: configs.ScriptToolConfig<Record<string, any>, unknown>;', /Types of property 'inputSchema' are incompatible/, 'dist/factories/component-factory.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
   ];
-  if (optionalMutations.some(([name]) => filter.test(name))) {
+  const registryContainerContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/optional-registry-containers.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const registryContainerMutations = [
+    ['Factory required registry inference', '& (NoInfer<T> extends { tools: unknown } ? { tools: Tools } : unknown)', '', /Expected 1 arguments|Unused '@ts-expect-error'|not assignable/, 'src/types/factory-config.ts'],
+    ['Factory required binding-map inference', '& (NoInfer<T> extends { toolsContext: unknown } ? { toolsContext: Contexts } : unknown)', '', /Unused '@ts-expect-error'|not assignable/, 'src/types/factory-config.ts'],
+    ['Registry optional tool container', "Extract<ContextFromConfig<TConfig, ConfigValue<TConfig, 'tools'>>, ToolRegistry>", "[Extract<NonNullable<ConfigValue<TConfig, 'tools'>>, ToolRegistry>] extends [never] ? EmptyMap : Extract<NonNullable<ConfigValue<TConfig, 'tools'>>, ToolRegistry>", /Expected 1 arguments|not assignable|Unused '@ts-expect-error'/, 'src/types/config.ts'],
+    ['Registry optional context container', "ContextFromConfig<TConfig, ConfigValue<TConfig, 'toolsContext'>>", "[NonNullable<ConfigValue<TConfig, 'toolsContext'>>] extends [never] ? EmptyMap : NonNullable<ConfigValue<TConfig, 'toolsContext'>>", /Expected 1 arguments|not assignable|Unused '@ts-expect-error'/, 'src/types/config.ts'],
+    ['Registry absent map inheritance', '[T] extends [never] ? EmptyMap : T extends object ? T : EmptyMap', '[NonNullable<T>] extends [never] ? EmptyMap : NonNullable<T> extends object ? undefined extends T ? Partial<NonNullable<T>> : NonNullable<T> : EmptyMap', /Expected 1 arguments|possibly 'undefined'|not assignable/, 'src/types/merge.ts'],
+    ['Registry guaranteed helper alternatives', '[TTools[K]] extends [{ execute:', '[Exclude<TTools[K], undefined>] extends [{ execute:', /Expected 1 arguments|Unused '@ts-expect-error'/, 'src/types/config.ts'],
+    ['Registry optional entry validation', '[K in keyof TTools]-?: [InvalidToolContext', '[K in keyof TTools]: [InvalidToolContext', /not assignable|No overload matches/, 'src/types/tool-binding.ts'],
+  ];
+  const rendererSourceContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/renderer-source-unions.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './src/index.js'");
+  const rendererSourceMutations = [
+    ['Renderer named source alternatives', '[TConfig] extends [Record<TSourceKey, string>]', 'TConfig extends Record<TSourceKey, string>', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
+  ];
+  const nativeRegistryContracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/native-tool-registries.ts'), 'utf8')
+    .replaceAll("from 'casai'", "from './dist/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
+  const nativeRegistryMutations = [
+    ['Native registry admission', '[K in keyof ToolSet]: ToolSet[K] | null | undefined', '[K in keyof ToolSet]: Tool | null | undefined', /not assignable|No overload matches/, 'dist/types/config.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Native registry projection', 'Extract<T[K], ToolSet[string]>', 'Extract<T[K], Tool>', /Expected 1 arguments|not assignable/, 'dist/types/config.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Native registry context names', '[NonNullable<TTools[K]>] extends [never] ? never : K', 'Extract<TTools[K], Tool> extends never ? never : K', /Property 'nativeDeferred' does not exist/, 'dist/types/config.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+    ['Native registry replacements', 'type CompatibleTool<T> = T | (', 'type CompatibleTool<T> = (', /not assignable/, 'dist/types/agent.d.ts', undefined, true, ['--exactOptionalPropertyTypes']],
+  ];
+  if ([...optionalMutations, ...clearingMutations, ...nativeRegistryMutations].some(([name]) => filter.test(name))) {
     const declarations = run(process.execPath, [compiler, ...common.filter(flag => flag !== '--noEmit'), '--declaration', '--emitDeclarationOnly',
       '--rootDir', path.join(production, 'src'), '--outDir', path.join(production, 'dist'), path.join(production, 'src/index.ts')]);
     assert.equal(declarations.status, 0, declarations.stdout + declarations.stderr);
   }
   const consumer = path.join(production, 'contracts.ts');
-  for (const [contracts, cases] of [[alternatives, alternativeMutations], [check, mutations], [schemaVersions, schemaMutations], [preprocessors, preprocessorMutations], [projection, projectionMutations], [selectedSchemas, selectedMutations], [helperContracts, helperMutations], [runContexts, runContextMutations], [runDescriptorContexts, runDescriptorMutations], [callerAlternatives, callerMutations], [configuredOmissions, omissionMutations], [contextAlternatives, contextMutations], [configFactoryContracts, configFactoryMutations], [agentContracts, agentMutations], [reviewContracts, reviewMutations], [settingOwnershipContracts, settingOwnershipMutations], [factoryContracts, factoryMutations], [optionalContracts, optionalMutations]]) {
+  let selectedMutationCount = 0;
+  const mutationFailures = [];
+  for (const [contracts, cases] of [[alternatives, alternativeMutations], [check, mutations], [schemaVersions, schemaMutations], [preprocessors, preprocessorMutations], [projection, projectionMutations], [selectedSchemas, selectedMutations], [helperContracts, helperMutations], [runContexts, runContextMutations], [runDescriptorContexts, runDescriptorMutations], [callerAlternatives, callerMutations], [configuredOmissions, omissionMutations], [contextAlternatives, contextMutations], [configFactoryContracts, configFactoryMutations], [agentContracts, agentMutations], [reviewContracts, reviewMutations], [settingOwnershipContracts, settingOwnershipMutations], [factoryContracts, factoryMutations], [unificationContracts, unificationMutations], [phase5Contracts, phase5Mutations], [modeContracts, modeMutations], [callContracts, callMutations], [payloadContracts, payloadMutations], [annotationContracts, annotationMutations], [loopContracts, loopMutations], [toolModeContracts, toolModeMutations], [clearingContracts, clearingMutations], [optionalContracts, optionalMutations], [registryContainerContracts, registryContainerMutations], [rendererSourceContracts, rendererSourceMutations], [nativeRegistryContracts, nativeRegistryMutations]]) {
     let checkedContracts;
     for (const [name, before, after, expected, filename, assertion, rejected = true, flags = []] of cases) {
       if (!filter.test(name)) continue;
+      selectedMutationCount += 1;
       assert.ok(filename, `Mutation needs an explicit owner: ${name}`);
       const currentContracts = assertion ? contracts + (rejected ? '\n// @ts-expect-error This guard must reject the invalid configuration.\n' : '\n') + assertion : contracts;
       const checkKey = JSON.stringify(flags) + currentContracts;
@@ -895,15 +1018,22 @@ agent.run({ prompt: 'Answer', output: undefined });
       }
       const file = path.join(production, filename);
       const source = fs.readFileSync(file, 'utf8');
-      assert.ok(source.includes(before), `Missing mutation location: ${name}`);
-      fs.writeFileSync(file, source.replace(before, after));
-      const result = run(process.execPath, [compiler, ...common, ...flags, consumer]);
-      assert.notEqual(result.status, 0, `Mutation survived: ${name}`);
-      assert.match(result.stdout + result.stderr, expected);
-      fs.writeFileSync(file, source);
-      console.log(`Caught production type mutation: ${name}.`);
+      assert.equal(source.split(before).length - 1, 1, `Expected one mutation location: ${name}`);
+      try {
+        fs.writeFileSync(file, source.replace(before, after));
+        const result = run(process.execPath, [compiler, ...common, ...flags, consumer]);
+        assert.notEqual(result.status, 0, `Mutation survived: ${name}`);
+        assert.match(result.stdout + result.stderr, expected);
+        console.log(`Caught production type mutation: ${name}.`);
+      } catch (error) {
+        mutationFailures.push(`${name}: ${error.message}`);
+        console.error(`Failed production type mutation: ${name}: ${error.message}`);
+      } finally {
+        fs.writeFileSync(file, source);
+      }
     }
   }
+  assert.ok(selectedMutationCount > 0, `No production type mutations matched ${filter}.`);
   // The ordinary-call budget above does not exercise injected helper contracts.
   // Compare the same registry workload with and without the new type-only member.
   const registryWorkload = `import { LLMAgent } from './src/factories/LLMAgent.js';
@@ -929,6 +1059,7 @@ owner${index}.run({ toolsContext: { child: { factor: 5 } } });
   assert.ok(registryCosts.withoutContract > 0 && registryCosts.withContract > 0);
   assert.ok(registryCosts.withContract <= 2 * registryCosts.withoutContract, 'Helper contracts exceeded the 2x type-instantiation budget');
   console.log(`TS7 registry workload: ${JSON.stringify(registryCosts)}`);
+  assert.deepEqual(mutationFailures, [], 'Every selected production type mutation must be caught.');
 } finally {
   const target = path.resolve(temporary);
   assert.equal(path.dirname(target), workspace);

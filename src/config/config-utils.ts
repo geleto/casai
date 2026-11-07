@@ -1,22 +1,8 @@
 import { ConfigError, ValidationError } from '../errors.js';
 import { configMapKeys } from '../types/merge.js';
-import type { MergedConfig, ProcessedConfig } from '../types/merge.js';
-import * as configs from '../types/config.js';
+import type { MergedConfig } from '../types/merge.js';
 import { resolveLoader, type LoaderInput } from '../loaders.js';
 import { validateConfigBasics } from './validate.js';
-
-export function processConfig<T extends Partial<configs.LoaderConfig> & Record<string, any>>(
-	config: T
-): ProcessedConfig<T> {
-	validateConfigBasics(config);
-	const processed = { ...config };
-	for (const key of configMapKeys) {
-		if (config[key] !== undefined) Object.assign(processed, { [key]: { ...config[key] as Record<string, unknown> } });
-	}
-	if (Array.isArray(config.prompt)) Object.assign(processed, { prompt: [...config.prompt as unknown[]] });
-	if ('loader' in config) Object.assign(processed, { loader: resolveLoader(config.loader) });
-	return processed;
-}
 
 /**
  * Merge partial configs using the shared map and loader policies.
@@ -31,18 +17,8 @@ export function mergeConfigs<
 ): MergedConfig<TParent, TChild> {
 	// Validate raw values before map/loader merging can consume them.
 	validateConfigBasics(childConfig, ErrorClass);
-	// Evaluate debug logging using the most specific config (child overrides parent).
-	const childHasDebug = Object.prototype.hasOwnProperty.call(childConfig, 'debug');
-	const debugEnabled = childHasDebug
-		? Boolean(childConfig.debug)
-		: Boolean(parentConfig.debug);
-
-	if (debugEnabled) {
-		console.log('[DEBUG] mergeConfigs called with:', { parentConfig, childConfig });
-	}
-
-	// Start shallow merge
 	const merged: Record<string, unknown> = { ...parentConfig, ...childConfig };
+	if (merged.debug) console.log('[DEBUG] mergeConfigs called with:', { parentConfig, childConfig });
 	if (parentConfig.streaming === true || childConfig.streaming === true) merged.streaming = true;
 	if (parentConfig.asTool === true || childConfig.asTool === true) merged.asTool = true;
 	if (Array.isArray(merged.prompt)) merged.prompt = [...merged.prompt as unknown[]];

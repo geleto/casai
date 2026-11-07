@@ -1,8 +1,7 @@
 import type { ContextFromSchema, InferSchema, SchemaType } from './schema.js';
 import type { EmptyMap, Fields } from './utils.js';
-import type { LLMAgentConfig } from './agent.js';
 import type { LoaderInput } from '../loaders.js';
-import type { TemplatePromptType, ScriptPromptType, AnyPromptSource } from './prompt.js';
+import type { TemplatePromptType, ScriptPromptType } from './prompt.js';
 import type { FunctionImplementation, FunctionToolImplementation } from './function-config.js';
 import type { Tool, ToolSet } from 'ai';
 import type { ConfigureOptions } from 'cascada-engine';
@@ -27,21 +26,21 @@ export type ConfigValue<T, K extends PropertyKey> = T extends unknown
 // SDK tool context of the final configuration, after parent overrides. Without a schema it is undefined.
 export type ToolContextFromConfig<TConfig> = ContextFromSchema<ConfigValue<TConfig, 'toolContextSchema'>>;
 
-export type ToolRegistry = Record<string, Tool | null | undefined>;
-type ResolvedTools<T> = string extends keyof T ? { [K in keyof T]: Extract<T[K], Tool> }
-	: { [K in keyof T as [NonNullable<T[K]>] extends [never] ? never : K]-?: Extract<T[K], Tool> };
+export type ToolRegistry = { [K in keyof ToolSet]: ToolSet[K] | null | undefined };
+type ResolvedTools<T> = { [K in keyof T as [NonNullable<T[K]>] extends [never] ? never : K]-?: Extract<T[K], ToolSet[string]> };
 export type ToolsFromConfig<TConfig> = TConfig extends unknown ? 'tools' extends keyof TConfig
 	? ResolvedTools<NonNullable<TConfig['tools']>> : EmptyMap : never;
 
 export type RuntimeContextFromConfig<T> = [NonNullable<ConfigValue<T, 'runtimeContext'>>] extends [never] ? Record<string, unknown> : NonNullable<ConfigValue<T, 'runtimeContext'>> extends infer C extends Record<string, unknown> ? C : Record<string, unknown>;
 
 // Resolved configuration values shared by caller, execution and binding types.
-export type PossibleExecutableToolNames<TTools extends ToolRegistry> = { [K in keyof TTools]-?: NonNullable<TTools[K]> extends { execute?: infer TExecute }
-	? Extract<TExecute, (...args: any[]) => any> extends never ? never : K : never }[keyof TTools];
+export type PossibleExecutableToolNames<TTools extends ToolRegistry> = TTools extends unknown ? { [K in keyof TTools]-?: NonNullable<TTools[K]> extends { execute?: infer TExecute }
+	? Extract<TExecute, (...args: any[]) => any> extends never ? never : K : never }[keyof TTools] : never;
 
-export type ExecutableToolNames<TTools extends ToolRegistry> = { [K in keyof TTools]-?: [TTools[K]] extends [{ execute: (...args: any[]) => any }] ? K : never }[keyof TTools];
+// A helper is guaranteed only when every possible registry entry has an executor.
+export type ExecutableToolNames<TTools extends ToolRegistry, Keys extends keyof TTools = keyof TTools> = { [K in Keys]-?: [TTools[K]] extends [{ execute: (...args: any[]) => any }] ? K : never }[Keys];
 
-export type ConfiguredToolNames<TTools extends ToolRegistry> = { [K in keyof TTools]-?: Extract<TTools[K], Tool> extends never ? never : K }[keyof TTools];
+export type ConfiguredToolNames<TTools extends ToolRegistry> = TTools extends unknown ? { [K in keyof TTools]-?: [NonNullable<TTools[K]>] extends [never] ? never : K }[keyof TTools] : never;
 
 // Discover context across configurations, then make its fields optional if any branch lacks it.
 export type ContextFromConfig<TConfig, TContext = TConfig extends unknown ? 'context' extends keyof TConfig ? TConfig['context'] : undefined : never> =
@@ -49,9 +48,9 @@ export type ContextFromConfig<TConfig, TContext = TConfig extends unknown ? 'con
 		? undefined extends TContext ? Partial<NonNullable<TContext>> : NonNullable<TContext> : EmptyMap;
 
 // Preserve authored null/undefined entries here; ToolsFromConfig describes resolved SDK tools.
-export type ToolRegistryFromConfig<TConfig> = [Extract<NonNullable<ConfigValue<TConfig, 'tools'>>, ToolRegistry>] extends [never] ? EmptyMap : Extract<NonNullable<ConfigValue<TConfig, 'tools'>>, ToolRegistry>;
+export type ToolRegistryFromConfig<TConfig> = Extract<ContextFromConfig<TConfig, ConfigValue<TConfig, 'tools'>>, ToolRegistry>;
 
-export type ToolsContextFromConfig<TConfig> = [NonNullable<ConfigValue<TConfig, 'toolsContext'>>] extends [never] ? EmptyMap : NonNullable<ConfigValue<TConfig, 'toolsContext'>>;
+export type ToolsContextFromConfig<TConfig> = ContextFromConfig<TConfig, ConfigValue<TConfig, 'toolsContext'>>;
 
 export type InputSchemaFromConfig<TConfig> = ConfigValue<TConfig, 'inputSchema'>;
 
@@ -62,16 +61,17 @@ type InputSchemaAlternatives<TConfig, TInputSchema = Exclude<InputSchemaFromConf
 
 export type InputConfigAlternatives<TConfig> = TConfig extends unknown ? InputSchemaAlternatives<TConfig> : never;
 
-export type CallbackContextFromConfig<TConfig> = TConfig extends { execute: (context: infer TContextInput, ...args: any[]) => any } | { prompt: (context: infer TContextInput, ...args: any[]) => any }
-	? unknown extends TContextInput ? Fields : NonNullable<TContextInput> : Fields;
+export type CallbackFromConfig<T> = T extends unknown ? Extract<T[keyof T & import('./component.js').Main<import('./component.js').ComponentKind>], (...args: any[]) => any> : never;
+export type CallbackContextFromConfig<T> = T extends unknown
+	? CallbackFromConfig<T> extends (context: infer Input, ...args: any[]) => any ? unknown extends Input ? Fields : NonNullable<Input> : Fields : never;
 
 interface ContextConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends BaseConfig {
 	context?: CONTEXT;
 }
 
 interface RegistryConfig {
-	tools?: ToolRegistry;
-	toolsContext?: Record<string, unknown>;
+	tools?: ToolRegistry | undefined;
+	toolsContext?: Record<string, unknown> | undefined;
 }
 
 export interface CascadaConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends ContextConfig<CONTEXT> {
@@ -165,11 +165,9 @@ export interface FunctionToolConfig<
 			=> InferSchema<TOutputSchema>, TOOL_CONTEXT>;
 }
 
-// The four component families share configuration and context, not execution envelopes.
+// Every component contributes its own configuration shape to reusable fragments.
 export type AnyConfig<TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT> =
-	(LLMAgentConfig<TOOLS, INPUT, AnyPromptSource> & Partial<Omit<ToolConfig<INPUT, OUTPUT>, 'inputSchema'>>)
-	| TemplateConfig<INPUT> | TemplateToolConfig<INPUT> | ScriptConfig<INPUT, OUTPUT> | ScriptToolConfig<INPUT, OUTPUT>
-	| FunctionConfigShape;
+	import('./component-map.js').ConfigShapes<TOOLS, INPUT, OUTPUT>[import('./component.js').ComponentKind];
 
 // Function settings admitted by AnyConfig. Schema-dependent callbacks are checked separately.
 export type FunctionConfigShape = Omit<FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any> | undefined,
@@ -184,4 +182,4 @@ export type AnyConfigShape<TOOLS extends ToolSet, INPUT extends Record<string, a
 export type ToolConfigInferShape<T> = Provisional<ParentToolConfigInferShape<T>>;
 export type ParentToolConfigInferShape<T> = ToolConfigShape<Partial<T>>;
 export type AnyConfigInferShape<TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT> =
-	Provisional<CallbackConfigShape<ToolConfigShape<Partial<AnyConfigShape<TOOLS, INPUT, OUTPUT>>>>>;
+	Provisional<import('./factory-config.js').ConfigSourceInferShape<CallbackConfigShape<ToolConfigShape<Partial<AnyConfigShape<TOOLS, INPUT, OUTPUT>>>>>>;

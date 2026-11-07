@@ -149,7 +149,8 @@ describe('Owned tool registries', () => {
 	it('forwards native execution options while giving injected calls their own metadata and context', async () => {
 		const unused = () => { throw new Error('Sandbox operations are not used by this test.'); };
 		const sandbox = { description: 'shared sandbox', readFile: unused, readBinaryFile: unused, readTextFile: unused,
-			writeFile: unused, writeBinaryFile: unused, writeTextFile: unused, spawn: unused, run: unused };
+			writeFile: unused, writeBinaryFile: unused, writeTextFile: unused, spawn: unused, run: unused,
+			stat: unused, listDirectory: unused, deleteFile: unused };
 		const abortSignal = new AbortController().signal;
 		const child = tool({ inputSchema: z.object({}), contextSchema: z.object({ tenant: z.string() }),
 			execute: (_input, options) => options });

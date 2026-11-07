@@ -26,7 +26,7 @@ The initial investigation completed 36 runtime cases, TS7/TS6 with exact-optiona
 
 Completed hybrid validation: **60 combined runtime cases**, TS7/TS6 under both optional-property modes, four independently detected runtime guard-removal mutations, one detected private-key type-guard mutation, and focused ESLint. The mutation pass exposed and corrected an initially weak assertion: a throwing body was not evidence that execution had been prevented. Relevant rejection tests now assert zero body entries. The passing suite includes explicitly named counterexamples and is not a clean implementation-readiness pass.
 
-The [tests](../tests/Phase2PrivateBoundary.unit.test.ts) distinguish protective cases from explicit counterexamples. A passing counterexample test means the vulnerability/ambiguity was reproduced, not solved. The [candidate](../tests/fixtures/phase2-private-boundary.ts) protects **known own root private slots** only; it is not the approved final adapter and its minimal metadata projection is not the production projector.
+The `tests/Phase2PrivateBoundary.unit.test.ts` (retired prototype) distinguish protective cases from explicit counterexamples. A passing counterexample test means the vulnerability/ambiguity was reproduced, not solved. The `tests/fixtures/phase2-private-boundary.ts` (retired prototype) protects **known own root private slots** only; it is not the approved final adapter and its minimal metadata projection is not the production projector.
 
 | Boundary / case | Evidence and consequence | Status |
 | --- | --- | --- |
@@ -98,7 +98,7 @@ Do not call the known-slot guard a universal guarantee, silently require dummy `
 
 ## Hybrid evaluation: closed input plus protected open input
 
-The user authorized evaluating this proposal, not silently adopting new admission restrictions. **Result: the hybrid is feasible for identifiable private names, but it does not establish a universal guarantee for arbitrary flat schemas.** Keep the integration gate open. See [runtime tests](../tests/Phase2HybridBoundary.unit.test.ts), [bounded discovery](../tests/fixtures/phase2-hybrid-boundary.ts), and the [caller signature sketch](../tests/type-safety/phase2-private-boundary.ts).
+The user authorized evaluating this proposal, not silently adopting new admission restrictions. **Result: the hybrid is feasible for identifiable private names, but it does not establish a universal guarantee for arbitrary flat schemas.** Keep the integration gate open. See `tests/Phase2HybridBoundary.unit.test.ts` (retired prototype), `tests/fixtures/phase2-hybrid-boundary.ts` (retired prototype), and the `tests/type-safety/phase2-private-boundary.ts` (retired prototype).
 
 ### Demonstrated schema-backed boundary
 

@@ -4,6 +4,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { model, temperature, temperatureConfig, StringLoader, AsyncStringLoader, timeout } from './common';
 import { create, ConfigError, z } from './cascada';
+import { InvalidPromptError } from 'ai';
 
 // Configure chai-as-promised
 chai.use(chaiAsPromised);
@@ -154,7 +155,7 @@ describe('create.LLMAgent', function () {
 			expect(result.text).to.equal('(apples)!');
 		});
 
-		it('should merge and deduplicate "loader" arrays', () => {
+		it('should compose loader groups in child-first order', () => {
 			const loader1 = new StringLoader();
 			const loader2 = new StringLoader();
 			const parent = create.Config({ loader: loader1 });
@@ -163,7 +164,7 @@ describe('create.LLMAgent', function () {
 				parent,
 			);
 			expect(generator.config.loader).to.be.an('array').with.lengthOf(2);
-			expect(generator.config.loader).to.deep.equal([loader1, loader2]);
+			expect(generator.config.loader).to.deep.equal([[loader1, loader2], loader1]);
 		});
 	});
 
@@ -374,18 +375,17 @@ describe('create.LLMAgent', function () {
 			// This now throws at creation time due to stricter config validation.
 			expect(() => create.LLMAgent({ prompt: 'test' } as never)).to.throw(
 				ConfigError,
-				'Text generator configs require a \'model\' property',
+				"LLMAgent requires a 'model'.",
 			);
 		});
 
-		it('should not throw ConfigError if plain text generator uses template properties (validation handled at TypeScript level)', () => {
-			// This validation is now handled at the TypeScript level, not runtime
+		it('should allow rendering defaults in a literal agent configuration', () => {
 			expect(() =>
 				create.LLMAgent({
 					model,
 					...temperatureConfig,
 					filters: { test: () => '' },
-				} as never),
+				}),
 			).to.not.throw();
 		});
 
@@ -400,7 +400,7 @@ describe('create.LLMAgent', function () {
 				}),
 			).to.throw(
 				ConfigError,
-				`A 'loader' is required for this operation`,
+				`LLMAgent requires 'loader'.`,
 			);
 		});
 
@@ -409,8 +409,8 @@ describe('create.LLMAgent', function () {
 			const generator = create.LLMAgent({ model });
 			// Calling with no arguments should fail.
 			await expect(generator(undefined as unknown as string)).to.be.rejectedWith(
-				ConfigError,
-				'Either \'prompt\' (string or messages array) or \'messages\' must be provided',
+				InvalidPromptError,
+				'messages must not be empty',
 			);
 		});
 
@@ -438,7 +438,7 @@ describe('create.LLMAgent', function () {
 				model, ...temperatureConfig,
 			})).to.throw(
 				ConfigError,
-				"A 'loader' is required for this operation"
+				"LLMAgent requires 'loader'."
 			);
 		});
 
@@ -518,7 +518,7 @@ describe('create.LLMAgent', function () {
 				})
 			).to.throw(
 				ConfigError,
-				"A 'loader' is required for this operation"
+				"LLMAgent requires 'loader'."
 			);
 		});
 

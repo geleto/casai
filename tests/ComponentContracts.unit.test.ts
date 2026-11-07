@@ -1,4 +1,4 @@
-import { Output, InvalidPromptError, generateText } from 'ai';
+import { Output, generateText } from 'ai';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
@@ -152,7 +152,6 @@ describe('Component boundary contracts', () => {
 				expect(ModelMessageSchema.parse(message)).to.deep.equal(modelMessageSchema.parse(message));
 				expect(PromptStringOrMessagesSchema.parse([message])).to.deep.equal([modelMessageSchema.parse(message)]);
 				expect(create.Config({ prompt: [message] }).config.prompt).to.deep.equal([message]);
-				expect(create.Config({ prompt: [message] }).config.prompt).to.deep.equal([message]);
 			});
 		}
 
@@ -179,8 +178,7 @@ describe('Component boundary contracts', () => {
 			it(`rejects ${name} in schemas, configured messages and prompts`, () => {
 				expect(ModelMessageSchema.safeParse(message).success).to.equal(false);
 				expect(PromptStringOrMessagesSchema.safeParse([message]).success).to.equal(false);
-				expect(() => create.Config({ prompt: [message] } as never)).to.throw(ConfigError, /invalid message objects/);
-				expect(() => create.Config({ prompt: [message] } as never)).to.throw(ConfigError, /invalid message objects/);
+				expect(() => create.LLMAgent({ model: textModel('unused') }, create.Config({ prompt: [message] } as never))).to.throw(ConfigError, /invalid message objects/);
 			});
 		}
 
@@ -204,7 +202,8 @@ describe('Component boundary contracts', () => {
 			const model = textModel('unused');
 			// Deliberately malformed JavaScript input at the public boundary.
 			const messages: ModelMessage[] = [{ role: 'user', content: 'Hello', providerOptions: 42 }] as never;
-			await rejects(() => generateText({ model, messages }), InvalidPromptError);
+			// Native dispatch no longer performs this envelope schema validation.
+			await generateText({ model, messages });
 			const direct = create.LLMAgent({ model, prompt: 'Hello' });
 			// Casai validates the retained conversation before hooks can replace the SDK request.
 			await rejects(async () => direct(messages), ValidationError);
@@ -213,13 +212,15 @@ describe('Component boundary contracts', () => {
 			await rejects(async () => prepared({}), ValidationError);
 			const scripted = create.LLMAgent.withScript({ model, prompt: 'return messages', context: { messages } });
 			await rejects(async () => scripted(), ValidationError);
-			expect(model.doGenerateCalls).to.have.length(0);
+			expect(model.doGenerateCalls).to.have.length(1);
 		});
 
-		it('accepts plain prompt strings and rejects non-prompt scalar values', () => {
+		it('accepts plain prompt strings and single messages, and rejects other scalar values', () => {
 			expect(PromptStringOrMessagesSchema.parse('')).to.equal('');
 			expect(PromptStringOrMessagesSchema.parse('Question')).to.equal('Question');
-			for (const invalid of [null, undefined, 42, true, { role: 'user', content: 'Question' }]) {
+			const message = { role: 'user', content: 'Question' };
+			expect(PromptStringOrMessagesSchema.parse(message)).to.deep.equal(message);
+			for (const invalid of [null, undefined, 42, true]) {
 				expect(PromptStringOrMessagesSchema.safeParse(invalid).success).to.equal(false);
 			}
 		});
@@ -246,7 +247,7 @@ describe('Component boundary contracts', () => {
 			expect(inferredMessages).to.deep.equal(messages);
 			expect(inferredMessages).not.to.equal(messages);
 			if (false) {
-				// @ts-expect-error Template prompts must be strings rather than message arrays.
+				// Inline templates render explicit text slots in native messages.
 				create.Config({ promptType: 'async-template', prompt: messages });
 				// @ts-expect-error Script prompts must be strings rather than message arrays.
 				create.Config({ promptType: 'async-script', prompt: messages });
@@ -587,6 +588,7 @@ describe('Component boundary contracts', () => {
 			console.log = (...args: unknown[]) => { logs.push(args); };
 			try {
 				const parent = create.Config({ debug: true, context: { circular } });
+				expect(logs).to.have.length(1);
 				expect(await create.Template({ template: 'Template' }, parent)()).to.equal('Template');
 				expect(await create.Script({ script: 'return "Script"' }, parent)()).to.equal('Script');
 				expect(await create.Function({ execute: () => 'Function' }, parent)({})).to.equal('Function');
@@ -605,7 +607,7 @@ describe('Component boundary contracts', () => {
 				console.log = originalLog;
 			}
 			const messages = logs.map(args => String(args[0]));
-			for (const message of ['Config function created', 'mergeConfigs called', 'Template created', 'Script created', 'Function created', 'LLMAgent created', 'LLMAgent call']) {
+			for (const message of ['mergeConfigs called', 'Template created', 'Script created', 'Function created', 'LLMAgent created', 'LLMAgent call']) {
 				expect(messages.some(logged => logged.includes(message)), message).to.equal(true);
 			}
 			expect(logs.some(args => args.some(arg => (arg as { context?: { circular?: unknown } } | undefined)?.context?.circular === circular))).to.equal(true);

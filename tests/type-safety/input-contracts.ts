@@ -30,7 +30,7 @@ void fn({ value: 1 });
 void fn({ value: 1, label: 'one' });
 // @ts-expect-error Private configured dependencies cannot be supplied through public arguments.
 void fn({ value: 1, offset: 3 });
-// @ts-expect-error Schema-based Function calls preserve configured extra-field types when overriding them.
+// @ts-expect-error A wrong value does not permit replacement of a private configured dependency.
 void fn({ value: 1, offset: 'wrong' });
 // @ts-expect-error The input schema requires value at call time.
 void fn({});
@@ -98,7 +98,7 @@ void inferred({ value: 1 });
 void inferred({ value: 1, offset: 3 });
 // @ts-expect-error Execute's unconfigured input fields remain required without a schema.
 void inferred({});
-// @ts-expect-error Configured fields may be overridden only with the declared type.
+// @ts-expect-error Without a schema declaration, configured fields remain private.
 void inferred({ value: 1, offset: 'wrong' });
 const schemaRequiresConfigured = create.Function({
 	inputSchema: z.object({ value: z.number(), offset: z.number() }),
@@ -129,7 +129,7 @@ const rawFunction = create.Function({ inputSchema: transformedInput, execute: ({
 	return value;
 } });
 void rawFunction({ value: '1' });
-// @ts-expect-error Ordinary Function input is validated but not replaced by parsed schema output.
+// @ts-expect-error Ordinary callers supply raw schema input; the implementation receives parsed output.
 void rawFunction({ value: 1 });
 // @ts-expect-error Implementations consume parsed values on every entry path.
 create.Config({ inputSchema: transformedInput, execute: ({ value }: { value: string, fallback?: string | undefined }) => value.length });
@@ -297,9 +297,8 @@ expectType<Promise<number>>(script({ value: 1 }));
 expectType<Promise<number>>(inheritedScript({ value: 1 }));
 void template('{{ value }}', { value: 1 });
 void script('return value', { value: 1 });
-// @ts-expect-error Template context is positional only after an actual string prompt.
+// Undefined source slots preserve the configured source in forwarding wrappers.
 void template(undefined, { value: 1 });
-// @ts-expect-error Script context is positional only after an actual string script.
 void script(undefined, { value: 1 });
 // @ts-expect-error Template input follows its declared schema.
 void template({ value: 'wrong' });

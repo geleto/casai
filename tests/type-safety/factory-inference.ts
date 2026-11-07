@@ -113,9 +113,9 @@ create.LLMAgent({ tools: { lookup: functionTool } }, { config: { model, activeTo
 // @ts-expect-error Parent selectors cannot name a missing tool.
 create.LLMAgent.asStream({ tools: { lookup: functionTool } }, { config: { model, activeTools: ['missing'] } });
 const objectStream = create.LLMAgent.asStream({ output: Output.array({ element: schema }) }, objectParent);
-// @ts-expect-error Selecting array mode must not hide an explicit schema removal.
+// @ts-expect-error Native Output.array requires its element schema before factory construction.
 create.LLMAgent.asStream({ output: Output.array({ element: undefined }) }, objectParent);
-// @ts-expect-error Generators must capture the same child override in exact-optional mode.
+// @ts-expect-error The same native Output.array requirement applies in a generator expression.
 create.LLMAgent({ output: Output.array({ element: undefined }) }, objectParent);
 expectEqual<Awaited<Awaited<ReturnType<typeof objectStream>>['output']>, { answer: number }[]>();
 expectType<AsyncIterable<{ answer: number }>>((await objectStream('Answer')).elementStream);

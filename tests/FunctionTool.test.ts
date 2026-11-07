@@ -187,7 +187,7 @@ describe('Function.asTool Updates', () => {
 			expect(() => create.Function.asTool({
 				description: 'Test tool',
 				execute: (input: { val: number }) => { return input.val; }
-			} as never)).to.throw(ConfigError, /'inputSchema' is a required property/);
+			} as never)).to.throw(ConfigError, /requires 'inputSchema'/);
 		});
 
 		it('should accept valid inputSchema', () => {

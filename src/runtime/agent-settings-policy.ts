@@ -5,7 +5,7 @@ type NativeSetting = keyof StreamRequest;
 type NativeObserver = Extract<NativeSetting, `on${string}` | `experimental_on${string}`>;
 
 export const observers = ['onStart', 'onStepStart', 'onLanguageModelCallStart', 'onLanguageModelCallEnd',
-	'onToolExecutionStart', 'onToolExecutionEnd', 'onStepEnd', 'onEnd', 'onChunk', 'onAbort'] as const satisfies readonly NativeObserver[];
+	'onToolExecutionStart', 'onToolExecutionEnd', 'onStepEnd', 'onStepError', 'onEnd', 'onChunk', 'onAbort'] as const satisfies readonly NativeObserver[];
 export const aliases = { onStart: 'experimental_onStart', onStepStart: 'experimental_onStepStart', onStepEnd: 'onStepFinish', onEnd: 'onFinish',
 	onLanguageModelCallStart: 'experimental_onLanguageModelCallStart', onLanguageModelCallEnd: 'experimental_onLanguageModelCallEnd',
 	onToolExecutionStart: 'experimental_onToolCallStart', onToolExecutionEnd: 'experimental_onToolCallFinish' } as const satisfies Partial<Record<typeof observers[number], NativeObserver>>;

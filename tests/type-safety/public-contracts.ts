@@ -24,7 +24,9 @@ if (caught instanceof ValidationError) {
 
 // Both public entry points expose the same overloads rather than widened wrappers.
 // New factories or modifiers require a corresponding coverage review.
-expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'LLMAgent'>();
+expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'LLMAgent'
+	| 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'StreamingTranscriber'
+	| 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceSessionSetup'>();
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
 	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'
@@ -35,8 +37,7 @@ expectEqual<keyof typeof LLMAgent, PromptModifiers | 'asTool' | 'asStream'>();
 expectEqual<keyof typeof LLMAgent.asStream, never>();
 expectEqual<keyof typeof LLMAgent.asTool, never>();
 expectEqual<keyof typeof Template, 'withTemplate' | 'loadsTemplate' | 'asTool'>();
-expectEqual<keyof typeof Script, 'withScript' | 'loadsScript' | 'asTool' | 'loadsScriptAsTool'>();
-expectEqual<typeof Script.loadsScriptAsTool, typeof Script.loadsScript.asTool>();
+expectEqual<keyof typeof Script, 'withScript' | 'loadsScript' | 'asTool'>();
 expectEqual<keyof typeof FunctionFactory, 'asTool'>();
 expectEqual<keyof typeof Config, never>();
 type GeneratorToolModifiers<T> = { [K in keyof T & PromptModifiers]: keyof T[K] }[keyof T & PromptModifiers];
@@ -146,7 +147,8 @@ expectType<'system' | 'user' | 'assistant' | 'tool'>(parsed.role);
 expectType<number>(parsed.role);
 const prompt = PromptStringOrMessagesSchema.parse('Question');
 if (typeof prompt === 'string') expectType<string>(prompt);
-else expectType<z.infer<typeof ModelMessageSchema>[]>(prompt);
+else if (Array.isArray(prompt)) expectType<z.infer<typeof ModelMessageSchema>[]>(prompt);
+else expectType<z.infer<typeof ModelMessageSchema>>(prompt);
 
 const cause = new Error('Cause');
 expectType<Error>(new ConfigError('Invalid', cause));

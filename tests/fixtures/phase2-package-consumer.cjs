@@ -34,8 +34,18 @@ try {
     }
   }
   const [packed] = JSON.parse(npm(['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], workspace));
-  assert.ok(!packed.files.some(({ path: file }) => /(?:TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt|types\/cascada)\./.test(file)),
+  const packagedPaths = new Set(packed.files.map(({ path: file }) => file));
+  for (const { path: file } of packed.files.filter(({ path: file }) => file.endsWith('.map'))) {
+    const map = JSON.parse(fs.readFileSync(path.join(workspace, file), 'utf8'));
+    for (const source of map.sources) {
+      assert.ok(packagedPaths.has(path.posix.normalize(path.posix.join(path.posix.dirname(file), map.sourceRoot || '', source))),
+        `Source map ${file} points at an unpackaged source: ${source}`);
+    }
+  }
+  assert.ok(!packed.files.some(({ path: file }) => /(?:TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt|types\/cascada|(?:factories|runtime|types)\/specialized|types\/operations)\./.test(file)),
     'Removed factories and adapters must not survive in the published package.');
+  assert.ok(!packed.files.some(({ path: file }) => /factories\/Experimental_/.test(file)),
+    'Renamed component factories must not survive in the published package.');
   fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
   npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', path.join(temporary, packed.filename), ...engine ? [engine] : []]);
   const engineRoot = path.join(temporary, 'node_modules/cascada-engine');
@@ -50,9 +60,9 @@ try {
   assert.equal(installed.dependencies.typescript, undefined);
   assert.equal(installed.dependencies['ts-node'], undefined);
   assert.equal(installed.dependencies.zod, undefined);
-  assert.equal(installed.peerDependencies.ai, '^7.0.130');
+  assert.equal(installed.peerDependencies.ai, '^7.0.162');
   assert.equal(installed.peerDependencies.zod, '^4.6.5');
-  assert.equal(installed.dependencies['@ai-sdk/provider-utils'], '^5.0.56');
+  assert.equal(installed.dependencies['@ai-sdk/provider-utils'], '^5.0.74');
   console.log(npm(['ls', 'casai', 'cascada-engine', 'ai', 'zod', '@ai-sdk/provider-utils']));
   // A second physical package exercises runtime identity and independent declarations.
   fs.cpSync(path.join(temporary, 'node_modules/casai'), path.join(temporary, 'casai-copy'), { recursive: true });
@@ -65,11 +75,21 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { create, z, streamSchema, collectStream, makeSharedIterable, raceLoaders, raceParent, overrideParent } from 'casai';
+import * as casai from 'casai';
 import { Output } from 'ai';
-import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
+import { MockLanguageModelV3, MockEmbeddingModelV4, convertArrayToReadableStream } from 'ai/test';
 import { makeSharedIterable as nativeSharedIterable, raceLoaders as nativeRaceLoaders } from 'cascada-engine';
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 assert.notEqual(create.Function, foreignCreate.Function);
+for (const name of ['Decision', 'StreamingTranscriber', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceSessionSetup']) {
+  assert.equal(typeof casai[name], 'function');
+  assert.equal(casai[name], create[name]);
+  assert.equal('Experimental_' + name in casai, false);
+  assert.equal('Experimental_' + name in create, false);
+}
+const embeddings = create.Embedder.withFunction({ model: new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) }),
+  inputSchema: z.object({ subject: z.string() }), input: ({ subject }) => [subject] });
+assert.deepEqual((await embeddings({ subject: 'packed' })).embeddings, [[6]]);
 const foreignTool = foreignCreate.Function.asTool({ inputSchema: z.object({ factor: z.number() }), context: { factor: 3 }, execute: input => input.factor });
 const foreignOwner = create.Function({ tools: { foreignTool }, toolsContext: { foreignTool: { factor: 5 } }, execute: ({ foreignTool }) => foreignTool({}) });
 assert.equal(await foreignOwner(), 5);
@@ -133,8 +153,8 @@ await shared.dispose();
 `);
   fs.writeFileSync(path.join(temporary, 'consumer.ts'), `
 import { create, z, raceLoaders, raceParent, overrideParent } from 'casai';
-import { Output } from 'ai';
-import type { Agent, LanguageModel } from 'ai';
+import { Output, ToolLoopAgent } from 'ai';
+import type { Agent, LanguageModel, ToolSet } from 'ai';
 import type { ComponentExecutionOptions, ToolContextSchemaConfig, StreamSchema } from 'casai';
 import type { LoaderGroup, LoaderInput, ParentLoader } from 'casai';
 const loaderGroup: LoaderGroup = [[name => name === 'main' ? 'answer' : null], raceLoaders([[]])];
@@ -170,6 +190,11 @@ const component = create.Function({ inputSchema: z.object({ value: z.string().tr
   } });
 const result: Promise<number> = component();
 declare const model: LanguageModel;
+declare const nativeTools: ToolSet;
+new ToolLoopAgent({ model, tools: nativeTools });
+const nativeRegistryOwner = create.LLMAgent({ model, tools: nativeTools });
+const exposedNativeTools: ToolSet = nativeRegistryOwner.tools;
+void nativeRegistryOwner.run({ tools: nativeTools, prompt: 'ready' });
 const writer = create.LLMAgent.withFunction.asStream({ model, inputSchema: z.object({ topic: z.string() }),
   output: Output.text(), prompt: context => context.topic,
   prepareCall: (request, config, context) => ({ ...request, temperature: context.topic.length ? 0 : 1 }),
@@ -194,9 +219,12 @@ create.LLMAgent({ model: 'test', prompt: 'ready' }, { config: validSelection });
   // The consumer's compiler is a test dependency, not part of Casai's runtime.
   const manifest = JSON.parse(fs.readFileSync(path.join(workspace, 'package.json'), 'utf8'));
   npm(['install', '--save-dev', '--ignore-scripts', '--no-audit', '--no-fund', `@typescript/native@${manifest.devDependencies['@typescript/native']}`]);
-  run(process.execPath, ['node_modules/@typescript/native/bin/tsc', '--ignoreConfig', '--noEmit', '--strict',
-    '--skipLibCheck', '--target', 'ES2022', '--module', 'nodenext', '--moduleResolution', 'nodenext', 'consumer.ts']);
-  console.log('Packed declarations passed with an explicit consumer compiler.');
+  for (const exact of [false, true]) {
+    run(process.execPath, ['node_modules/@typescript/native/bin/tsc', '--ignoreConfig', '--noEmit', '--strict',
+      '--exactOptionalPropertyTypes', String(exact), '--skipLibCheck', '--target', 'ES2022',
+      '--module', 'nodenext', '--moduleResolution', 'nodenext', 'consumer.ts']);
+    console.log(`Packed declarations passed with an explicit consumer compiler (exact optional properties: ${exact}).`);
+  }
   run(process.execPath, ['consumer.mjs']);
   console.log('Packed consumer passed without workspace resolution.');
 } finally {

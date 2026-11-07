@@ -239,7 +239,8 @@ describe('LLMAgent resume', () => {
 		await assert.rejects(resume([], { abortSignal: controller.signal }), /Canceled/);
 		assert.equal(parses, 0); assert.equal(hooks, 0);
 		for (const approve of [true, undefined]) {
-			assert.throws(() => create.Config({ approve } as never), ConfigError);
+			const fragment = create.Config({ approve } as never);
+			assert.throws(() => create.LLMAgent({ model: modelFor(undefined) }, fragment), ConfigError);
 			assert.throws(() => create.LLMAgent({ model: modelFor(undefined), approve } as never), ConfigError);
 			await assert.rejects(agent.run({ messageHistory: [], approve } as never), ValidationError);
 		}

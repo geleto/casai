@@ -7,7 +7,7 @@ import type { ModelMessage, Tool } from 'ai';
 import * as mini from 'zod/mini';
 import { create, ConfigError, ValidationError, z } from './cascada';
 import type { ComponentExecutionOptions } from './cascada';
-import { mergeConfigs, processConfig } from '../src/config/config-utils.js';
+import { mergeConfigs } from '../src/config/config-utils.js';
 import { inputNames } from '../src/schema.js';
 import { explicitMetadata } from './fixtures/phase2-api-schemas.js';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
@@ -272,7 +272,7 @@ describe('Review configuration and metadata corrections', () => {
 			assert.ok(!JSON.stringify(model.doGenerateCalls).includes('replaced'));
 			assert.ok(JSON.stringify(model.doGenerateCalls).includes('original'));
 		}
-		assert.deepEqual(processConfig({ prompt: undefined }), { prompt: undefined });
+		assert.deepEqual(create.Config({ prompt: undefined }).config, { prompt: undefined });
 		assert.deepEqual(mergeConfigs({}, { prompt: undefined }), { prompt: undefined });
 		assert.deepEqual(mergeConfigs({ prompt: undefined }, {}), { prompt: undefined });
 		assert.deepEqual(mergeConfigs({ prompt: undefined }, { prompt: undefined }), { prompt: undefined });
@@ -380,9 +380,8 @@ describe('Review configuration and metadata corrections', () => {
 
 	it('rejects obsolete rendering options through configurations and inheritance', async () => {
 		const model = new MockLanguageModelV3();
-		const configFactory: unknown = create.Config;
 		const factories: [unknown, object][] = [
-			[configFactory, {}], [create.Function, { execute: () => 1 }],
+			[create.Function, { execute: () => 1 }],
 			[create.Template, { template: '{{ value }}' }], [create.Script, { script: 'return value' }],
 			[create.LLMAgent, { model, prompt: 'ready' }],
 			[create.LLMAgent.withTemplate, { model, prompt: '{{ value }}' }],
@@ -393,8 +392,9 @@ describe('Review configuration and metadata corrections', () => {
 		for (const [factory, config] of factories) {
 			const make = factory as (config: object, parent?: object) => unknown;
 			for (const options of [undefined, { autoescape: true }]) {
-				assert.throws(() => make({ ...config, options }), /Use 'renderOptions'/);
-				assert.throws(() => make(config, { config: { options } }), /Use 'renderOptions'/);
+				assert.throws(() => make({ ...config, options }), /options/);
+				const fragment = create.Config({ options } as never);
+				assert.throws(() => make(config, fragment), /options/);
 			}
 		}
 		const escaped = create.Template({ template: '{{ value }}', renderOptions: { autoescape: true } });
@@ -407,8 +407,8 @@ describe('Review configuration and metadata corrections', () => {
 
 	it('snapshots configuration maps on standalone and one-sided inherited paths', () => {
 		const resource = { value: 1 };
-		const settings = { context: { resource }, tools: { action: () => 1 }, toolsContext: { action: { factor: 2 } }, filters: { label: () => 'one' } };
-		const snapshots = [processConfig(settings), mergeConfigs({}, settings), mergeConfigs(settings, {}), mergeConfigs(settings, settings)];
+		const settings = { context: { resource }, tools: { action: { inputSchema: z.object({}), execute: () => 1 } }, toolsContext: { action: { factor: 2 } }, filters: { label: () => 'one' } };
+		const snapshots = [create.Config(settings).config, mergeConfigs({}, settings), mergeConfigs(settings, {}), mergeConfigs(settings, settings)];
 		for (const snapshot of snapshots) {
 			for (const key of ['context', 'tools', 'toolsContext', 'filters'] as const) {
 				assert.notEqual(snapshot[key], settings[key]);
@@ -417,7 +417,7 @@ describe('Review configuration and metadata corrections', () => {
 			assert.equal(snapshot.context.resource, resource);
 			assert.equal(snapshot.toolsContext.action, settings.toolsContext.action);
 		}
-		assert.deepEqual(processConfig({ context: undefined }), { context: undefined });
+		assert.deepEqual(create.Config({ context: undefined }).config, { context: undefined });
 		assert.deepEqual(mergeConfigs({}, { context: undefined }), { context: undefined });
 		assert.deepEqual(mergeConfigs({ context: undefined }, {}), { context: undefined });
 	});

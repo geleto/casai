@@ -12,7 +12,7 @@ export type TextPromptType = 'text' | 'text-name';
 
 export type PromptType = TemplatePromptType | ScriptPromptType | FunctionPromptType | TextPromptType;
 
-export type PromptValue = string | ModelMessage[];
+export type PromptValue = string | ModelMessage | ModelMessage[];
 
 // Source admission preserves typed callbacks; the final component checks their parsed context.
 export type AnyPromptSource = PromptValue | PromptFunction<PromptValue, never>;

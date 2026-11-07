@@ -122,13 +122,13 @@ create.LLMAgent({ tools: { lookup: replacement }, onEnd: _event => {
 	expectEqual<(typeof _event.staticToolCalls)[number]['input']['query'], string>();
 } }, parent);
 
-// Shared fragments preserve inline callback types before they become a component.
-create.Config({ onEnd: _event => {
+// Shared fragments preserve explicitly typed callbacks; the completed owner infers overrides.
+create.Config({ onEnd: (_event: StreamTextOnFinishEvent<typeof tools, typeof output>) => {
 	// @ts-expect-error A child fragment retains inherited tools.
 	expectType<number>(_event.staticToolCalls[0].input.query);
 } }, parent);
 const objectParent = create.Config({ model, output, prompt: 'Answer.' });
-create.Config({ onEnd: _event => {
+create.Config({ onEnd: (_event: StreamTextOnFinishEvent<EmptyMap, typeof output>) => {
 	expectEqual<typeof _event.output, { answer: number } | undefined>();
 	// @ts-expect-error A schema-bearing fragment retains its object type.
 	expectType<string>(_event.output?.answer);
@@ -210,8 +210,8 @@ create.LLMAgent({ model, repairToolCall: () => null });
 create.LLMAgent({ model, repairText: async () => 123, output: Output.object({ schema: schema }) });
 // @ts-expect-error Object observers cannot return arbitrary values.
 create.LLMAgent.asStream({ model, onEnd: () => 123, output: Output.object({ schema: schema }) });
-// @ts-expect-error Shared fragments check observer return values too.
-create.Config({ onEnd: async () => 123 }, parent);
+// @ts-expect-error The completed owner checks inherited observer return values.
+create.LLMAgent({}, create.Config({ onEnd: async () => 123 }, parent));
 // SDK error observers may return ignored values because one overload returns void.
 create.LLMAgent.asStream({ model, onError: () => 123 });
 
@@ -236,7 +236,7 @@ type TextSDK = Parameters<typeof streamText<typeof tools, typeof runtimeContext,
 type TextEvent<K extends keyof TextSDK> = Parameters<Extract<NonNullable<TextSDK[K]>, Callback>>[0];
 type TextCallbackNames = 'toolApproval' | 'stopWhen' | 'prepareStep' | 'repairToolCall' | 'experimental_repairToolCall'
 	| 'experimental_transform' | 'experimental_download' | 'onChunk' | 'onError' | 'onEnd' | 'onFinish' | 'onAbort'
-	| 'onStepEnd' | 'onStepFinish' | 'onStart' | 'experimental_onStart' | 'onStepStart' | 'experimental_onStepStart'
+	| 'onStepEnd' | 'onStepError' | 'onStepFinish' | 'onStart' | 'experimental_onStart' | 'onStepStart' | 'experimental_onStepStart'
 	| 'onLanguageModelCallStart' | 'experimental_onLanguageModelCallStart' | 'onLanguageModelCallEnd' | 'experimental_onLanguageModelCallEnd'
 	| 'onToolExecutionStart' | 'onToolExecutionEnd' | 'experimental_onToolCallStart' | 'experimental_onToolCallFinish';
 expectEqual<CallbackKeys<TextSDK>, TextCallbackNames>();
@@ -357,7 +357,7 @@ void streamer.run({ toolApproval: { lookup: 'approved', missing: 'approved' } })
 // @ts-expect-error Factory input-refinement maps only accept configured tool names.
 create.LLMAgent({ experimental_refineToolInput: { lookup: input => input, missing: () => ({ query: 'input' }) } }, parent);
 // @ts-expect-error Shared fragments cannot retain an unknown refiner key.
-create.Config({ experimental_refineToolInput: { lookup: input => input, missing: () => ({ query: 'input' }) } }, parent);
+create.Config({ experimental_refineToolInput: { lookup: (input: { query: string }) => input, missing: () => ({ query: 'input' }) } }, parent);
 // @ts-expect-error Standalone factories reject extra approval-map names.
 create.LLMAgent({ model, tools, toolsContext, toolApproval: { lookup: 'approved', missing: 'approved' } });
 // @ts-expect-error Shared fragments reject extra approval-map names.
@@ -395,20 +395,20 @@ const deferredApprovalCallback = create.Config({ toolApproval: { lookup: (input:
 create.LLMAgent({ model, tools, toolsContext }, deferredApprovalCallback);
 // @ts-expect-error Deferred approval callback inputs must match the eventual tool schema.
 create.LLMAgent({ model, tools: { lookup: replacement }, toolsContext }, deferredApprovalCallback);
-create.Config({ toolApproval: { lookup: (_input, _options) => {
+create.Config({ toolApproval: { lookup: (_input: unknown, _options: Parameters<import('ai').SingleToolApprovalFunction<unknown, unknown, Record<string, unknown>>>[1]) => {
 	expectEqual<typeof _input, unknown>();
 	expectEqual<typeof _options.runtimeContext, Record<string, unknown>>();
 	return 'approved';
 } } });
 create.Config({ toolApproval: { lookup: undefined } });
-// @ts-expect-error Approval configurations are maps or callbacks even before tools are provided.
-create.Config({ toolApproval: 123 });
-// @ts-expect-error Approval-map statuses follow the SDK contract even in incomplete fragments.
-create.Config({ toolApproval: { lookup: 123 } });
-// @ts-expect-error Approval callback return types do not depend on the unresolved input type.
-create.Config({ toolApproval: { lookup: (_input: { query: string }) => 123 } });
+// @ts-expect-error The completed owner requires an approval map or callback.
+create.LLMAgent({ model, tools, toolsContext }, create.Config({ toolApproval: 123 }));
+// @ts-expect-error The completed owner validates approval-map statuses.
+create.LLMAgent({ model, tools, toolsContext }, create.Config({ toolApproval: { lookup: 123 } }));
+// @ts-expect-error The completed owner validates approval callback return types.
+create.LLMAgent({ model, tools, toolsContext }, create.Config({ toolApproval: { lookup: (_input: { query: string }) => 123 } }));
 // @ts-expect-error Async approval callbacks must still resolve an SDK approval status.
-create.Config({ toolApproval: { lookup: async (_input: { query: string }) => true } });
+create.LLMAgent({ model, tools, toolsContext }, create.Config({ toolApproval: { lookup: async (_input: { query: string }) => true } }));
 // @ts-expect-error Download callback parameters are not text.
 create.LLMAgent({ model, experimental_download: async (_requests: string) => [], output: Output.object({ schema: schema }) });
 // @ts-expect-error Object lifecycle observers cannot return arbitrary values.
@@ -622,9 +622,9 @@ void inlineRuntime.run({ prepareStep: () => ({ runtimeContext: { requestId: 'nex
 const inlineRuntimeStream = create.LLMAgent.asStream({ model, prompt: 'Answer.', runtimeContext: { requestId: 'initial' } });
 void inlineRuntimeStream.run({ runtimeContext: { requestId: 'next' }, onEnd: _event => { expectEqual<typeof _event.runtimeContext.requestId, string>(); } });
 
-// Incomplete fragments use the native event with unknown parsed output.
+// Incomplete fragments can explicitly select a native event with unknown parsed output.
 type FragmentFinish = StreamTextOnFinishEvent<EmptyMap, import('ai').OutputInterface<unknown, unknown, unknown>>;
-const sharedFinish = create.Config({ onEnd: _event => {
+const sharedFinish = create.Config({ onEnd: (_event: FragmentFinish) => {
 	expectEqual<typeof _event, FragmentFinish>();
 	expectEqual<typeof _event.output, unknown>();
 	expectEqual<typeof _event.text, string>();

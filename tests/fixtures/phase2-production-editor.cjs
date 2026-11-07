@@ -259,6 +259,14 @@ selected.run({ context: { key: '5' } }); // expected: key
 const helperSettings = { toolContextSchema: z.object({ factor: z.number() }), context: { factor: 1 } };
 const stringHelper = create.Function.asTool({ inputSchema: z.object({ value: z.string().transform(Number) }), execute: input => input.value }, { config: helperSettings });
 const numberHelper = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), execute: input => input.value }, { config: helperSettings });
+declare const realtimeModel: import('ai').Experimental_RealtimeModel;
+const voiceSetup = create.VoiceSessionSetup({ model: realtimeModel, tools: { lookup: stringHelper }, toolsContext: { lookup: { factor: 1 } } });
+voiceSetup.executeTool({ toolCallId: 'call', toolName: 'lookup', args: { value: '4' } }, { toolsContext: { lookup: { /*voiceToolContext*/ } } }); // expected: factor
+const voiceDependency = create.Function.asTool({ inputSchema: z.object({}), context: { db: (): string => 'configured' }, execute: ({ db }) => db() });
+const voiceDependencies = create.VoiceSessionSetup.withTemplate({ model: realtimeModel, instructions: 'Help {{ company }}', inputSchema: z.object({ company: z.string() }), tools: { lookup: voiceDependency } });
+voiceDependencies.executeTool({ toolCallId: 'call', toolName: 'lookup', args: {} });
+voiceDependencies.executeTool({ toolCallId: 'call', toolName: 'lookup', args: {} }, { toolsContext: { lookup: { db: () => 'replacement' } } });
+voiceDependencies.executeTool({ toolCallId: 'call', toolName: 'lookup', args: {} }, { toolsContext: { lookup: { db: 'invalid' } } }); // expected: lookup
 const helperOwner = create.LLMAgent.withFunction({ model, tools: { operation: stringHelper }, toolsContext: { operation: { factor: 1 } },
   prompt: async ({ operation }) => {
     await operation({ /*rawHelper*/ }); // expected: value
@@ -266,6 +274,92 @@ const helperOwner = create.LLMAgent.withFunction({ model, tools: { operation: st
   } });
 helperOwner.run({ tools: { operation: numberHelper } }); // expected: operation
 create.LLMAgent.withFunction({ tools: { operation: numberHelper } }, helperOwner); // expected: operation
+create.Embedder./*embeddingModes*/withFunction;
+create.StreamingTranscriber./*transcriptionModes*/withFunction;
+create.StreamingTranscriber.withFunction./*transcriptionToolMode*/asTool;
+create.StreamingSpeechGenerator.withFunction./*liveSpeechModes*/name;
+declare const decisionModel: import('ai').Experimental_DecisionModel;
+declare const readonlyDecisionState: readonly import('ai').Experimental_DecisionStatePart[];
+create.Decision.withTemplate({ model: decisionModel, questions: {}, state: readonlyDecisionState })({});
+declare const speechModel: Parameters<typeof import('ai').experimental_streamSpeech>[0]['model'];
+declare const speechInput: ReadableStream<string> | AsyncIterable<string> | readonly string[];
+create.StreamingSpeechGenerator({ model: speechModel })(speechInput);
+const preparedSpeech = create.StreamingSpeechGenerator.withFunction({ model: speechModel, inputSchema: z.object({ subject: z.string() }), text: ({ subject }) => subject });
+preparedSpeech(({ subject }) => subject./*speechSourceMembers*/toUpperCase(), { subject: 'hello' });
+declare const embeddingModel: import('ai').EmbeddingModel;
+const callbackTool = create.Embedder.withFunction({ model: embeddingModel, asTool: true,
+  inputSchema: z.object({}), context: { secret: 1 }, toolContextSchema: z.object({ secret: z.string() }),
+  input: ({ secret }) => { secret/*configuredToolSecret*/; return String(secret); } });
+callbackTool.run({ input: ({ secret }) => secret./*ordinaryToolSecret*/toFixed() });
+const ordinaryEmbeddingConfig: import('casai').ComponentConfig<'Embedder'> = { model: embeddingModel };
+create.Embedder(ordinaryEmbeddingConfig)('text');
+const clearableEmbedding = create.Embedder({ model: embeddingModel, input: 'configured', onEnd: () => {} });
+const clearedEmbedding = create.Embedder.withText({ input: undefined, onEnd: undefined }, clearableEmbedding);
+clearedEmbedding('replacement');
+clearedEmbedding(); // error
+declare const rankingModel: import('ai').RerankingModel;
+const preciseRanker = create.Reranker({ model: rankingModel, query: 'q', documents: [{ original: true }] });
+preciseRanker(undefined, ['replacement']).then(result => result.ranking[0].document./*rankedDocumentMembers*/toUpperCase());
+declare const rankedAlternatives:
+  | { model: import('ai').RerankingModel; promptType: 'function'; query: () => { query: string; documents: { prepared: boolean }[] }; documents: { ignored: boolean }[] }
+  | { model: import('ai').RerankingModel; promptType: 'function'; query: () => string; documents: { fallback: boolean }[] };
+create.Reranker(rankedAlternatives)().then(result => result.ranking[0].document/*rankedAlternativeValue*/);
+const callbackEmbedding = create.Embedder.withTemplate({ model: embeddingModel, input: '{{ map(factor) }}', context: { factor: '3', secret: true },
+  inputSchema: z.object({ factor: z.string(), map: z.custom<(value: number) => number>() }) });
+callbackEmbedding({ map: value => value/*embeddingCallbackValue*/ });
+callbackEmbedding({ factor: undefined, map: value => value }); // error
+interface EmbeddingPayload { map: (value: number) => number }
+declare const embeddingPayload: EmbeddingPayload;
+callbackEmbedding('{{ map(factor) }}', embeddingPayload);
+interface PrivateEmbeddingPayload extends EmbeddingPayload { secret: boolean }
+declare const privateEmbeddingPayload: PrivateEmbeddingPayload;
+callbackEmbedding('{{ map(factor) }}', privateEmbeddingPayload); // expected: secret
+create.Embedder.withFunction({ model: embeddingModel, inputSchema: z.object({ text: z.string().transform(value => value.length) }), input: context => {
+  context.text/*embeddingParsedValue*/;
+  return String(context.text);
+} });
+declare const imageModel: import('ai').ImageModel;
+create.Embedder({}); // expected: model
+create.Embedder({}, create.Config({ input: 'x' })); // expected: model
+create.Embedder({ modle: embeddingModel }); // expected: modle
+create.Embedder.asTool({ model: embeddingModel, inputSchema: z.object({ custom: z.string() }) }); // expected: preparer
+const preparedConfig = create.Config({ promptType: 'function', inputSchema: z.object({ text: z.string().transform(value => value.length) }), input: context => {
+  context.text/*fragmentPreparedValue*/;
+  return String(context.text);
+} });
+create.Embedder({ model: embeddingModel }, preparedConfig)({ text: 'x' });
+const nativeEvents = create.Config({ model: embeddingModel, runtimeContext: { requestId: 'r' }, onEnd: (_event: { unrelated: true }) => {} });
+create.Embedder({}, nativeEvents); // error
+create.Embedder({ onEnd: event => { event.runtimeContext./*nativeEventMembers*/requestId; event.runtimeContext.requestId/*nativeEventValue*/; } }, nativeEvents);
+const privateEmbedding = create.Embedder.withFunction({ model: embeddingModel, context: { prefix: 'old' }, input: ({ prefix }) => prefix.toUpperCase() });
+create.Embedder.withFunction({ context: { prefix: 42 }, input: context => {
+  context./*replacementPrivateMembers*/prefix;
+  return context.prefix/*replacementPrivateValue*/.toFixed(1);
+} }, privateEmbedding);
+create.Embedder({ experimental_onEnd: event => { event.runtimeContext.requestId/*nativeAliasValue*/; } }, create.Config({ model: embeddingModel, runtimeContext: { requestId: 'r' } }));
+declare const mixedModes: { model: typeof embeddingModel; promptType: 'text'; input: string }
+  | { model: typeof embeddingModel; promptType: 'function'; input: () => string };
+const mixedComponent = create.Embedder(mixedModes);
+mixedComponent();
+mixedComponent.run({ /*mixedRunSettings*/ });
+mixedComponent('replacement'); // error
+mixedComponent.run({ input: 'replacement' }); // error
+const modeSchema = z.object({ map: z.custom<(value: number) => number>() });
+declare const renderedModes: { model: typeof embeddingModel; promptType: 'async-template' | 'async-script'; input: string; inputSchema: typeof modeSchema };
+create.Embedder(renderedModes)({ map: value => value/*mixedCallbackValue*/ * 2 });
+const literalModeAnnotation: import('casai').LLMAgentConfig<Record<never, never>, Record<never, never>, string> = { model, prompt: 'ready' };
+const literalModeAgent = create.LLMAgent(literalModeAnnotation);
+literalModeAgent.config.promptType/*annotatedLiteralMode*/;
+literalModeAgent('replacement');
+const maskedImage = create.ImageGenerator.withFunction({ model: imageModel, images: [new Uint8Array()],
+  inputSchema: z.object({ subject: z.string().transform(value => value.length) }), prompt: ({ subject }) => String(subject) });
+maskedImage(context => String(context.subject/*imagePreparerValue*/), { subject: 'tree' }, new Uint8Array());
+maskedImage({ /*imageMaskContext*/ }, new Uint8Array()); // expected: subject
+create.ImageGenerator.withTemplate.asTool({ model: imageModel, prompt: '{{ subject }}', inputSchema: z.object({ subject: z.string() }),
+  toModelOutput: ({ output }) => {
+    output[0]./*imageToolFile*/mediaType;
+    return { type: 'text', value: 'image' };
+  } });
 `;
 async function check(sourceMode, exactOptionalPropertyTypes) {
   const directory = fs.mkdtempSync(path.join(base, '.phase2-editor-'));
@@ -368,6 +462,7 @@ async function check(sourceMode, exactOptionalPropertyTypes) {
     }
     const contextKeys = await completions(at('toolContext'));
     assert.ok(contextKeys.has('factor'), 'Tool-context override lost schema completion');
+    assert.ok((await completions(at('voiceToolContext'))).has('factor'), 'Voice tool-context override lost schema completion');
     const numericInputs = await completions(at('numericCall'));
     assert.ok(numericInputs.has('value'), 'Complete-argument validation lost declared input completion');
     const resultMembers = await completions(at('helperResult'));
@@ -378,6 +473,40 @@ async function check(sourceMode, exactOptionalPropertyTypes) {
     assert.ok(rawHelperInputs.has('value'), `Helper contract lost raw application input completion: ${[...rawHelperInputs].join(',')}`);
     const conditionalInputs = await completions(at('conditionalCall'));
     assert.ok(conditionalInputs.has('value'), 'Conditional schema lost raw input completion');
+    const embeddingModes = await completions(at('embeddingModes'));
+    assert.ok(embeddingModes.has('withTemplate') && embeddingModes.has('withFunction') && embeddingModes.has('asTool'));
+    const transcriptionModes = await completions(at('transcriptionModes'));
+    assert.ok(transcriptionModes.has('withFunction') && !transcriptionModes.has('withTemplate') && !transcriptionModes.has('asTool'));
+    assert.ok((await completions(at('transcriptionToolMode'))).has('asTool'));
+    assert.ok(!(await completions(at('liveSpeechModes'))).has('asTool'));
+    const speechSourceMembers = await completions(at('speechSourceMembers'));
+    assert.ok(speechSourceMembers.has('toUpperCase') && !speechSourceMembers.has('toFixed'), 'Native source unions erased preparer callback inference');
+    const configuredToolSecret = await hover(at('configuredToolSecret') - 1);
+    assert.match(configuredToolSecret, /string/);
+    assert.match(configuredToolSecret, /number/);
+    const ordinaryToolSecret = await completions(at('ordinaryToolSecret'));
+    assert.ok(ordinaryToolSecret.has('toFixed') && !ordinaryToolSecret.has('toUpperCase'), 'An invocation source inherited tool-bound context');
+    const rankedDocumentMembers = await completions(at('rankedDocumentMembers'));
+    assert.ok(rankedDocumentMembers.has('toUpperCase') && !rankedDocumentMembers.has('original'), 'A source placeholder widened replacement documents');
+    const rankedAlternativeValue = await hover(at('rankedAlternativeValue') - 1);
+    assert.match(rankedAlternativeValue, /prepared/);
+    assert.match(rankedAlternativeValue, /fallback/);
+    assert.doesNotMatch(rankedAlternativeValue, /ignored/);
+    assert.match(await hover(at('embeddingParsedValue') - 1), /text: number/);
+    assert.match(await hover(at('fragmentPreparedValue') - 1), /text: number/);
+    assert.match(await hover(at('nativeEventValue') - 1), /requestId: string/);
+    assert.ok((await completions(at('nativeEventMembers'))).has('requestId'), 'Component callback override lost its inherited native runtime context');
+    assert.match(await hover(at('nativeAliasValue') - 1), /requestId: string/);
+    assert.match(await hover(at('replacementPrivateValue') - 1), /prefix: number/);
+    assert.ok((await completions(at('replacementPrivateMembers'))).has('prefix'), 'Replacement preparer lost its final private bindings');
+    assert.ok((await completions(at('mixedRunSettings'))).has('headers'), 'Mixed source modes lost shared run settings');
+    assert.match(await hover(at('mixedCallbackValue') - 1), /value: number/);
+    assert.match(await hover(at('annotatedLiteralMode') - 1), /promptType: "text"/);
+    assert.match(await hover(at('embeddingCallbackValue') - 1), /value: number/);
+    assert.match(await hover(at('imagePreparerValue') - 1), /subject: number/);
+    assert.ok((await completions(at('imageMaskContext'))).has('subject'), 'Binary mask displaced application-context completion');
+    const imageFile = await completions(at('imageToolFile'));
+    assert.ok(imageFile.has('mediaType') && imageFile.has('base64'), 'Image tool formatter lost its file payload type');
     assert.match(await hover(at('conditionalValue') - 1), /value: string \| number/);
     assert.match(await hover(at('descriptionValue') - 1), /tenant: string/);
     assert.match(await hover(at('replacedHook') - 1), /value: number/);

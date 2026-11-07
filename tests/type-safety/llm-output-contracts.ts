@@ -20,7 +20,7 @@ expectType<{ answer: string }>((await generated()).output);
 // @ts-expect-error Structured streaming value is a promise of the complete output.
 expectType<AsyncIterable<Answer>>((await streamed()).output);
 
-const sdkSchema = jsonSchema<{ value: string }>({ type: 'object', properties: { value: { type: 'string' } }, required: ['output'] });
+const sdkSchema = jsonSchema<{ value: string }>({ type: 'object', properties: { value: { type: 'string' } }, required: ['value'] });
 const sdk = create.LLMAgent({ model, output: Output.object({ schema: sdkSchema }) });
 expectEqual<Awaited<ReturnType<typeof sdk>>['output'], { value: string }>();
 const scalar = create.LLMAgent({ model, output: Output.object({ schema: z.number() }) });

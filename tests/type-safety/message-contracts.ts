@@ -16,8 +16,8 @@ const generator = create.LLMAgent({ model, prompt: 'Answer' });
 void generator([parsed]);
 void generator.run({ messageHistory: [parsed] });
 const prompt = PromptStringOrMessagesSchema.parse([sdkMessage]);
-expectType<string | ModelMessage[]>(prompt);
-expectEqual<z.output<typeof PromptStringOrMessagesSchema>, string | ModelMessage[]>();
+expectType<string | ModelMessage | ModelMessage[]>(prompt);
+expectEqual<z.output<typeof PromptStringOrMessagesSchema>, string | ModelMessage | ModelMessage[]>();
 // @ts-expect-error Validated prompts retain their string/message shape.
 expectType<number>(prompt);
 

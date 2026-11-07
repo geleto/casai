@@ -54,3 +54,16 @@ export { textStreamSchema, streamSchema, collectStream, collectTextStream, toRea
 export type { StreamSchema } from './streams.js';
 export { LLMAgent } from './factories/LLMAgent.js';
 export type { LLMAgentConfig, LLMAgentComponent, PrepareCall, PrepareCallRequest, PrepareStep } from './types/agent.js';
+export { Decision } from './factories/Decision.js';
+export { Embedder } from './factories/Embedder.js';
+export { Reranker } from './factories/Reranker.js';
+export { ImageGenerator } from './factories/ImageGenerator.js';
+export { Transcriber } from './factories/Transcriber.js';
+export { StreamingTranscriber } from './factories/StreamingTranscriber.js';
+export { SpeechGenerator } from './factories/SpeechGenerator.js';
+export { StreamingSpeechGenerator } from './factories/StreamingSpeechGenerator.js';
+export { StreamingTranslator } from './factories/StreamingTranslator.js';
+export { VoiceSessionSetup } from './factories/VoiceSessionSetup.js';
+export type { ComponentConfig, Component } from './types/component.js';
+export type { TranscriptSnapshot } from './factories/Transcriber.js';
+export type { VoiceSetupResult } from './factories/VoiceSessionSetup.js';

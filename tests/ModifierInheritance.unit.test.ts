@@ -67,9 +67,9 @@ describe('modifier inheritance', () => {
 		const templateSource = create.Config({ promptType: 'async-template' });
 		const scriptSource = create.Config({ promptType: 'async-script' });
 		// @ts-expect-error The base factory preserves an incompatible inherited source.
-		assert.throws(() => create.Template({ template: 'hello' }, scriptSource), /template source modifier/);
+		assert.throws(() => create.Template({ template: 'hello' }, scriptSource), /Template source modifier/);
 		// @ts-expect-error The base factory preserves an incompatible inherited source.
-		assert.throws(() => create.Script({ script: 'return 1' }, templateSource), /script source modifier/);
+		assert.throws(() => create.Script({ script: 'return 1' }, templateSource), /Script source modifier/);
 		assert.equal(create.Template.withTemplate({ template: 'hello' }, scriptSource).config.promptType, 'async-template');
 		assert.equal(create.Script.withScript({ script: 'return 1' }, templateSource).config.promptType, 'async-script');
 		assert.throws(() => create.Function({ execute: () => 1, streaming: true } as never), ConfigError);

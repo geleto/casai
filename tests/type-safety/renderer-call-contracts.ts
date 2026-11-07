@@ -76,15 +76,15 @@ void renderedText({ list: [3] }, messages);
 void renderedStream({ nested: { value: 2 } }, messages);
 void renderedObject({}, messages);
 void renderedObjectStream(undefined, { list: [3] }, messages);
-// @ts-expect-error An unconfigured renderer still requires a prompt before history/context.
-void optionalPrompt(messages, { topic: 'math' });
+// Message arrays are explicitly authored through named source settings.
+void optionalPrompt.run({ prompt: messages, context: { topic: 'math' } });
 // @ts-expect-error Numeric arrays are invalid message history and cannot be context.
 void renderedText([1, 2, 3]);
 // @ts-expect-error Numeric arrays cannot masquerade as script context.
 void renderedStream('return 1', [1, 2, 3]);
 // @ts-expect-error Arrays in the third position cannot be context.
 void renderedObject('return 1', messages, [1, 2, 3]);
-// @ts-expect-error A message array cannot be provided twice.
+// @ts-expect-error Rendered agents take one positional history; array sources require run().
 void renderedObjectStream(messages, messages);
 // @ts-expect-error Callable values cannot serve as renderer contexts.
 void renderedText(() => 'context');

@@ -117,12 +117,13 @@ describe('LLM surface combinations', () => {
 					for (const withStatic of [false, true]) for (const withHistory of [false, true]) {
 						const mock = model();
 						const streaming = factory.startsWith('stream');
+						const structured = factory.endsWith('-structured');
 						const plain = modifier === 'withText' || modifier === 'loadsText';
 						const schema = z.object({ n: z.string().transform(Number) });
 						const observed: object[] = [];
 						const base = {
 							model: mock,
-							output: Output.object({ schema }), onEnd: (event: object) => { observed.push(event); },
+							...(structured ? { output: Output.object({ schema }) } : {}), onEnd: (event: object) => { observed.push(event); },
 							...(withStatic && { instructions: 'static' }),
 						};
 						const source = plain ? 'turn' : modifier.includes('Script') ? 'return label' : '{{ label }}';
@@ -145,7 +146,7 @@ describe('LLM surface combinations', () => {
 						const result = await pending;
 						const partials = result.partialOutputStream;
 						if (partials) for await (const _part of partials) { /* Native object streams need a consumer. */ }
-						assert.deepEqual(await result.output, { n: 7 });
+						assert.deepEqual(await result.output, structured ? { n: 7 } : raw);
 						await result.consumeStream?.();
 						const calls = streaming ? mock.doStreamCalls : mock.doGenerateCalls;
 						assert.equal(calls.length, 1);
@@ -158,7 +159,7 @@ describe('LLM surface combinations', () => {
 						const nativeMessages: ModelMessage[] = [];
 						if (withHistory) nativeMessages.push(...history);
 						nativeMessages.push({ role: 'user', content: 'turn' });
-						const agent = new ToolLoopAgent({ model: nativeModel, output: Output.object({ schema }), ...(withStatic ? { instructions: 'static' } : {}) });
+						const agent = new ToolLoopAgent({ model: nativeModel, ...(structured ? { output: Output.object({ schema }) } : {}), ...(withStatic ? { instructions: 'static' } : {}) });
 						const native = streaming ? await agent.stream({ messages: nativeMessages }) : await agent.generate({ messages: nativeMessages });
 						assert.deepEqual(await result.output, await native.output);
 						const nativeCalls = streaming ? nativeModel.doStreamCalls : nativeModel.doGenerateCalls;
@@ -225,7 +226,6 @@ describe('Concurrent LLM invocations', () => {
 					},
 				});
 				const schema = z.object({ n: z.string().transform(Number) });
-				const staticMessages: ModelMessage[] = [{ role: 'user', content: 'static' }];
 				const parent = create.Config({ model: mock, maxRetries: 0, instructions: 'static',
 					...(structured ? { output: Output.object({ schema }) } : {}),
 				});
@@ -292,7 +292,6 @@ describe('Concurrent LLM invocations', () => {
 				}
 				assert.equal(mock.doGenerateCalls.length + mock.doStreamCalls.length, 8);
 				assert.equal(component.config.instructions, 'static');
-				assert.deepEqual(staticMessages, [{ role: 'user', content: 'static' }]);
 			});
 		}
 	}

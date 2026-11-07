@@ -120,7 +120,7 @@ describe('create.Function', function () {
 			expect(result).to.equal('Hello Alice');
 		});
 
-		it('validates input schema against runtime args only (ignoring config context)', async () => {
+		it('validates application input without passing private configuration to its schema', async () => {
 			const fn = create.Function({
 				context: { secret: 'hidden' },
 				inputSchema: z.object({
@@ -603,6 +603,7 @@ describe('create.Function', function () {
 					debug: true,
 					context: { value: 10 }
 				});
+				logs.length = 0;
 
 				const fn = create.Function({
 					debug: false, // Override parent
@@ -1079,7 +1080,7 @@ describe('create.Function', function () {
 			expect(result).to.equal('call_123');
 		});
 
-		it('validates input schema in Function(temp test to compare with asTool)', async () => {
+		it('accepts valid application input on an ordinary Function call', async () => {
 			const tool = create.Function({
 				inputSchema: z.object({ req: z.string() }),
 				execute: async (input) => {
@@ -1088,12 +1089,12 @@ describe('create.Function', function () {
 				}
 			});
 
-			// If we call it like a tool, internal validation is skipped (assuming SDK did it)
+			// Ordinary calls validate application input before executing the implementation.
 			const result = await tool({ req: 'valid' });
 			expect(result).to.equal('valid');
 		});
 
-		it('validates input schema via AI SDK flow (simulated)', async () => {
+		it('accepts already parsed input at the SDK descriptor executor', async () => {
 			const tool = create.Function.asTool({
 				inputSchema: z.object({ req: z.string() }),
 				execute: async (input) => {

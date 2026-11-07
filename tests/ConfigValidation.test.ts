@@ -13,7 +13,7 @@ describe('Config validation', () => {
 		let preparations = 0;
 		for (const key of ['enum', 'schemaName', 'schemaDescription', 'mode', 'callOptionsSchema']) {
 			const settings = { model, [key]: undefined, prompt: () => { preparations++; return 'Answer'; } };
-			const factories = [create.Config as (...args: never[]) => unknown, create.LLMAgent.withFunction as (...args: never[]) => unknown, create.LLMAgent.withFunction.asStream as (...args: never[]) => unknown];
+			const factories = [create.LLMAgent.withFunction as (...args: never[]) => unknown, create.LLMAgent.withFunction.asStream as (...args: never[]) => unknown];
 			for (const factory of factories) {
 				expect(() => { Reflect.apply(factory, undefined, [settings]); }).to.throw(ConfigError);
 				expect(() => { Reflect.apply(factory, undefined, [{}, { config: settings }]); }).to.throw(ConfigError);
@@ -23,9 +23,10 @@ describe('Config validation', () => {
 		expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
 	});
 
-	it('checks named literal source fragments before constructing an agent', () => {
+	it('checks named literal sources when constructing an agent', () => {
 		assert.equal(create.Config({ promptType: 'text-name', prompt: 'question.txt' }).config.prompt, 'question.txt');
-		assert.throws(() => create.Config({ promptType: 'text-name', prompt: [] } as never), ConfigError);
+		const fragment = create.Config({ promptType: 'text-name', prompt: [] } as never);
+		assert.throws(() => create.LLMAgent({ model }, fragment), ConfigError);
 	});
 
 	it('inherits, replaces and clears complete output specifications', () => {
@@ -52,11 +53,12 @@ describe('Config validation', () => {
 		expect(parent.config.schema).not.to.equal(undefined);
 	});
 
-	it('rejects obsolete object generation mode in fragments, factories and inherited settings', () => {
+	it('checks obsolete object generation mode at completed agents, including inherited fragments', () => {
 		for (const mode of ['auto', 'json', 'tool', undefined]) {
 			const settings = { model, output: Output.object({ schema }), prompt: 'Answer.', mode };
+			const fragment = create.Config(settings as never);
 			for (const construct of [
-				() => create.Config(settings as never),
+				(): unknown => Reflect.apply(create.LLMAgent, undefined, [{}, fragment]),
 				() => create.LLMAgent(settings as never),
 				() => create.LLMAgent.asStream(settings as never),
 				(): unknown => Reflect.apply(create.LLMAgent, undefined, [{}, { config: settings }]),
@@ -97,7 +99,7 @@ describe('Config validation', () => {
 		});
 
 		for (const output of [Output.object({ schema }), Output.array({ element: schema }), Output.choice({ options: ['YES'] }), Output.json()]) {
-			it('leaves model selection to a child of an output-only fragment', () => {
+			it(`leaves model selection to a child of an output-only fragment: ${output.name}`, () => {
 				const fragment = create.Config({ output });
 				expect(fragment.config.output).to.equal(output);
 				expect(() => { Reflect.apply(create.LLMAgent, undefined, [{}, fragment]); }).to.throw(ConfigError, /requires a 'model'/);
@@ -116,7 +118,7 @@ describe('Config validation', () => {
 
 		it('should leave tool requirements to the .asTool factory', () => {
 			const fragment = create.Config({ execute: () => 'Answer' });
-			expect(() => create.Function.asTool({} as never, fragment)).to.throw(ConfigError, "'inputSchema' is a required property");
+			expect(() => create.Function.asTool({} as never, fragment)).to.throw(ConfigError, "requires 'inputSchema'");
 			expect(create.Function.asTool({ inputSchema }, fragment)).to.be.a('function');
 		});
 
@@ -125,89 +127,47 @@ describe('Config validation', () => {
 			expect(create.LLMAgent({ prompt: 'Answer.' }, shared)).to.be.a('function');
 			const fragment = create.Config({ execute: undefined }, create.Config({ execute: () => 'Answer' }));
 			expect(fragment.config.execute).to.equal(undefined);
-			expect(() => create.Function({} as never, fragment)).to.throw(ConfigError, "'execute' property");
+			expect(() => create.Function({} as never, fragment)).to.throw(ConfigError, "requires 'execute'");
 		});
 	});
 
-	describe('Incompatible supplied properties', () => {
-		// Deliberately bypass TypeScript to exercise the JavaScript/dynamic-config contract.
-		const conflicts: { name: string, config: Record<string, unknown>, error: RegExp }[] = [
-			{ name: 'template and execute', config: { template: 'Hello', execute: () => 1 }, error: /template.*Function/ },
-			{ name: 'script and execute', config: { script: 'return 1', execute: () => 1 }, error: /script.*Function/ },
-			{ name: 'model and execute', config: { model, execute: () => 1 }, error: /model.*Function/ },
-			{ name: 'output and execute', config: { output: 'array', execute: () => 1 }, error: /output.*Function/ },
-			{ name: 'template and script', config: { template: 'Hello', script: 'return 1' }, error: /both 'template' and 'script'/ },
-			{ name: 'template and model', config: { template: 'Hello', model }, error: /model.*Template/ },
-			{ name: 'template and schema', config: { template: 'Hello', schema }, error: /schema.*Template/ },
-			{ name: 'script and model', config: { script: 'return 1', model }, error: /model.*Script/ },
-			{ name: 'script and output', config: { script: 'return 1', output: 'array' }, error: /output.*Script/ },
-			{ name: 'invalid output specification', config: { output: 'array', tools: {} }, error: /AI SDK Output specification/ },
-			{ name: 'model/schema and tools', config: { model, schema, tools: {} }, error: /schema.*LLMAgent/ },
-			{ name: 'schema, prompt and tools without a component kind', config: { schema, prompt: 'Answer.', tools: {} }, error: /schema.*LLMAgent/ },
-		];
-		for (const { name, config, error } of conflicts) {
-			it(`should reject ${name} in standalone and inherited fragments`, () => {
-				expect(() => create.Config(config as never)).to.throw(ConfigError, error);
-				expect(() => create.Config(config as never, create.Config({ context: { name: 'Alice' } }))).to.throw(ConfigError, error);
-			});
-		}
-
-		it('should reject conflicts introduced across parent and child configurations', () => {
-			const template = create.Config({ template: 'Hello' });
-			const fn = create.Config({ execute: () => 1 });
-			expect(() => create.Config({ execute: () => 1 } as never, template)).to.throw(ConfigError, /template.*Function/);
-			expect(() => create.Config({ template: 'Hello' } as never, fn)).to.throw(ConfigError, /template.*Function/);
-			const shared = create.Config({ schema });
-			expect(() => create.Config({ tools: {} }, shared)).not.to.throw();
+	describe('Fragment and component validation boundaries', () => {
+		it('leaves component-specific fields to the completed component', () => {
+			const fragment = create.Config({ model, schema, prompt: 'Answer' } as never);
+			expect(() => create.LLMAgent({} as never, fragment)).to.throw(ConfigError, /schema/);
+			const malformed = create.Config({ execute: 42 } as never);
+			expect(() => create.Function({} as never, malformed)).to.throw(ConfigError, /must be a function/);
 		});
 
-		it('should enforce the same compatibility rules in concrete factories', () => {
-			expect(() => create.Function({ execute: () => 1, template: 'Hello' } as never)).to.throw(ConfigError, /template.*Function/);
-			expect(() => create.Template({ template: 'Hello', execute: () => 1 } as never)).to.throw(ConfigError, /execute.*Template/);
-			expect(() => create.Script({ script: 'return 1', execute: () => 1 } as never)).to.throw(ConfigError, /execute.*Script/);
-			expect(() => create.LLMAgent({ model, execute: () => 1 } as never)).to.throw(ConfigError, /execute/);
-			expect(() => create.LLMAgent({ model, schema, tools: {} } as never)).to.throw(ConfigError, /schema/);
+		it('checks the resolved fields of each completed component', () => {
+			for (const { factory, config, invalid } of [
+				{ factory: create.Function, config: { execute: () => 1 }, invalid: ['model', 'prompt', 'template', 'script', 'loader', 'renderOptions', 'output', 'unknown'] },
+				{ factory: create.Template, config: { template: 'Hello' }, invalid: ['model', 'prompt', 'script', 'execute', 'schema', 'output', 'unknown'] },
+				{ factory: create.Script, config: { script: 'return 1' }, invalid: ['model', 'prompt', 'template', 'execute', 'output', 'unknown'] },
+			]) {
+				for (const key of invalid) {
+					const fragment = create.Config({ [key]: undefined } as never);
+					expect(() => { Reflect.apply(factory, undefined, [{ ...config, [key]: undefined }]); }).to.throw(ConfigError, key);
+					expect(() => { Reflect.apply(factory, undefined, [config, fragment]); }).to.throw(ConfigError, key);
+				}
+			}
 		});
 
-		it('rejects legacy output mode strings before dispatch', () => {
+		it('rejects legacy output modes and malformed prompts at the agent boundary', () => {
 			for (const factory of [create.LLMAgent, create.LLMAgent.asStream]) {
 				for (const output of ['object', 'array', 'enum', 'no-schema', null]) {
-					expect(() => { Reflect.apply(factory, undefined, [{ model, output, prompt: 'Answer.' }]); })
-						.to.throw(ConfigError, /AI SDK Output specification/);
+					const fragment = create.Config({ output } as never);
+					expect(() => factory({ model }, fragment)).to.throw(ConfigError, /AI SDK Output specification/);
+				}
+				for (const prompt of [42, null, [{ role: 'user', content: 42 }]]) {
+					const fragment = create.Config({ prompt } as never);
+					expect(() => factory({ model }, fragment)).to.throw(ConfigError, /invalid message objects/);
 				}
 			}
 			expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
 		});
-	});
 
-	describe('Invalid supplied values', () => {
-		const invalidValues: { name: string, config: Record<string, unknown>, error: RegExp }[] = [
-			{ name: 'non-function execute', config: { execute: 42 }, error: /execute.*must be a function/ },
-			{ name: 'unknown output mode', config: { output: 'invalid' }, error: /AI SDK Output specification/ },
-			{ name: 'non-array enum', config: { enum: 'YES' }, error: /Unsupported configuration properties/ },
-			{ name: 'non-string enum entries', config: { output: 'enum', enum: ['YES', 42] }, error: /Unsupported configuration properties/ },
-			{ name: 'invalid prompt number', config: { prompt: 42 }, error: /prompt/ },
-			{ name: 'null prompt', config: { prompt: null }, error: /prompt/ },
-			{ name: 'invalid message content', config: { prompt: [{ role: 'user', content: 42 }] }, error: /invalid message objects/ },
-			{ name: 'invalid message prompt', config: { prompt: [{ role: 'user', content: 42 }] }, error: /invalid message objects/ },
-			{ name: 'non-function function prompt', config: { promptType: 'function', prompt: 'Hello' }, error: /prompt.*must be a function/ },
-			{ name: 'message array for a template prompt', config: { promptType: 'async-template', prompt: [{ role: 'user', content: 'Hello' }] }, error: /message array is not allowed/ },
-		];
-		for (const { name, config, error } of invalidValues) {
-			it(`should reject ${name} in standalone and inherited fragments`, () => {
-				expect(() => create.Config(config as never)).to.throw(ConfigError, error);
-				expect(() => create.Config(config as never, create.Config({ context: { name: 'Alice' } }))).to.throw(ConfigError, error);
-			});
-		}
-
-		it('should validate malformed child messages before concatenating them with parent messages', () => {
-			const parent = create.Config({ prompt: [{ role: 'user', content: 'Previous' }] });
-			for (const messages of [null, {}, false, 42]) {
-				expect(() => create.Config({ prompt: messages } as never, parent)).to.throw(ConfigError);
-			}
-		});
-
-		it('should reject non-object configuration values', () => {
+		it('rejects non-object configuration values', () => {
 			for (const invalid of [undefined, null, [], 'config', 42]) {
 				expect(() => create.Config(invalid as never)).to.throw(ConfigError, 'Config must be an object.');
 			}
@@ -219,21 +179,21 @@ describe('Config validation', () => {
 		const loader = { load: () => 'Loaded' };
 		const requirements: { name: string, build: () => unknown, error: RegExp }[] = [
 			// @ts-expect-error Inline Template creation requires a template body.
-			{ name: 'a Template without a template', build: () => create.Template({}), error: /'template' property is required/ },
+			{ name: 'a Template without a template', build: () => create.Template({}), error: /requires 'template'/ },
 			// @ts-expect-error Inline Script creation requires a script body.
-			{ name: 'a Script without a script', build: () => create.Script({}), error: /'script' property is required/ },
-			{ name: 'a Template tool without an input schema', build: () => create.Template.asTool({ template: 'Hello' } as never), error: /'inputSchema' is a required property when creating a Template/ },
-			{ name: 'a Script tool without an input schema', build: () => create.Script.asTool({ script: 'return 1' } as never), error: /'inputSchema' is a required property when creating a Script/ },
+			{ name: 'a Script without a script', build: () => create.Script({}), error: /requires 'script'/ },
+			{ name: 'a Template tool without an input schema', build: () => create.Template.asTool({ template: 'Hello' } as never), error: /requires 'inputSchema'/ },
+			{ name: 'a Script tool without an input schema', build: () => create.Script.asTool({ script: 'return 1' } as never), error: /requires 'inputSchema'/ },
 			// @ts-expect-error A loaded Template tool must have a configured template name.
-			{ name: 'a loaded Template tool without a name', build: () => create.Template.loadsTemplate.asTool({ inputSchema, loader }), error: /'template' is a required property when creating a Template as a tool/ },
+			{ name: 'a loaded Template tool without a name', build: () => create.Template.loadsTemplate.asTool({ inputSchema, loader }), error: /requires 'template'/ },
 			// @ts-expect-error A loaded Script tool must have a configured script name.
-			{ name: 'a loaded Script tool without a name', build: () => create.Script.loadsScript.asTool({ inputSchema, loader }), error: /'script' is a required property when creating a Script as a tool/ },
-			{ name: 'a Function without execute', build: () => create.Function({} as never), error: /'execute' property in a Function config must be a function/ },
-			{ name: 'a Function tool without an input schema', build: () => create.Function.asTool({ execute: () => 1 } as never), error: /'inputSchema' is a required property when creating a Function/ },
-			{ name: 'a text generator tool without a prompt', build: () => create.LLMAgent.withTemplate.asTool({ model, inputSchema } as never), error: /requires inputSchema and a configured prompt/ },
-			{ name: 'an object generator tool without an input schema', build: () => create.LLMAgent.withTemplate.asTool({ model, output: Output.object({ schema }), prompt: 'Hello' } as never), error: /requires inputSchema and a configured prompt/ },
-			{ name: 'an object generator tool without a prompt', build: () => create.LLMAgent.withTemplate.asTool({ model, output: Output.object({ schema }), inputSchema } as never), error: /requires inputSchema and a configured prompt/ },
-			{ name: 'a loaded object streamer without a loader', build: () => create.LLMAgent.loadsTemplate.asStream({ model, output: Output.object({ schema }), prompt: 'name' } as never), error: /require a loader/ },
+			{ name: 'a loaded Script tool without a name', build: () => create.Script.loadsScript.asTool({ inputSchema, loader }), error: /requires 'script'/ },
+			{ name: 'a Function without execute', build: () => create.Function({} as never), error: /requires 'execute'/ },
+			{ name: 'a Function tool without an input schema', build: () => create.Function.asTool({ execute: () => 1 } as never), error: /requires 'inputSchema'/ },
+			{ name: 'a text generator tool without a prompt', build: () => create.LLMAgent.withTemplate.asTool({ model, inputSchema } as never), error: /requires 'prompt'/ },
+			{ name: 'an object generator tool without an input schema', build: () => create.LLMAgent.withTemplate.asTool({ model, output: Output.object({ schema }), prompt: 'Hello' } as never), error: /requires 'inputSchema'/ },
+			{ name: 'an object generator tool without a prompt', build: () => create.LLMAgent.withTemplate.asTool({ model, output: Output.object({ schema }), inputSchema } as never), error: /requires 'prompt'/ },
+			{ name: 'a loaded object streamer without a loader', build: () => create.LLMAgent.loadsTemplate.asStream({ model, output: Output.object({ schema }), prompt: 'name' } as never), error: /requires 'loader'/ },
 		];
 		for (const { name, build, error } of requirements) {
 			it(`should reject ${name} at creation`, () => {

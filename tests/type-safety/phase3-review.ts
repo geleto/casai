@@ -32,7 +32,7 @@ void fixedOutput.run({ messageHistory: [42] as const });
 void fixedOutput.generate({ messages: readonlyHistory });
 // @ts-expect-error Streaming native methods retain the same SDK contract.
 void fixedOutput.stream({ messages: readonlyHistory });
-// @ts-expect-error The literal prompt source type is unchanged.
+// A positional array is history on every agent, including readonly arrays.
 void fixedOutput(readonlyHistory);
 // @ts-expect-error Named prompt source types are unchanged too.
 void fixedOutput.run({ prompt: readonlyHistory });
@@ -96,8 +96,8 @@ const approved = create.LLMAgent({ model, tools, toolApproval: { lookup: 'user-a
 expectEqual<typeof approved.config.toolApproval.lookup, 'user-approval'>();
 create.LLMAgent.asStream({ model, tools, toolApproval: { lookup: { type: 'denied', reason: 'Policy' } } });
 create.LLMAgent({ toolApproval: { lookup: 'approved' } }, create.Config({ model, tools }));
-create.LLMAgent({ model, tools, toolApproval: { lookup: (input, _options) => {
-	expectEqual<typeof input.query, string>();
+create.LLMAgent({ model, tools, toolApproval: { lookup: (_input, _options) => {
+	expectEqual<typeof _input.query, string>();
 	expectEqual<typeof _options.toolCallId, string>();
 	return 'approved';
 } } });

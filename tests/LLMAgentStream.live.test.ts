@@ -4,7 +4,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { create, ConfigError, z, collectTextStream as streamToString } from './cascada';
 import { model, temperature, temperatureConfig, modelName, StringLoader, AsyncStringLoader, createProvider, timeout } from './common';
-import { streamText } from 'ai';
+import { InvalidPromptError, NoOutputGeneratedError, streamText } from 'ai';
 
 // Configure chai-as-promised
 chai.use(chaiAsPromised);
@@ -37,7 +37,6 @@ describe('create.LLMAgent.asStream', function () {
 			expect(streamedText).to.equal(simpleExpected);
 		});
 
-		// vercel bug, result.text does not resolve, the stream is ok
 		it('should provide the full text using Vercel streamText directly', async () => {
 			const result = streamText({
 				model, ...temperatureConfig,
@@ -45,6 +44,7 @@ describe('create.LLMAgent.asStream', function () {
 			});
 			const fullText = await streamToString(result.textStream);
 			expect(fullText).to.equal(simpleExpected);
+			expect(await result.text).to.equal(fullText);
 		});
 
 		it('should stream text when the prompt is a runtime argument', async () => {
@@ -218,7 +218,7 @@ describe('create.LLMAgent.asStream', function () {
 			expect(streamedText).to.equal('(apples)!');
 		});
 
-		it('should merge and deduplicate "loader" arrays', () => {
+		it('should compose loader groups in child-first order', () => {
 			const loader1 = new StringLoader();
 			const loader2 = new StringLoader();
 			const parent = create.Config({ loader: loader1 });
@@ -227,7 +227,7 @@ describe('create.LLMAgent.asStream', function () {
 				parent,
 			);
 			expect(streamer.config.loader).to.be.an('array').with.lengthOf(2);
-			expect(streamer.config.loader).to.deep.equal([loader1, loader2]);
+			expect(streamer.config.loader).to.deep.equal([[loader1, loader2], loader1]);
 		});
 
 		it('should correctly handle a three-level inheritance chain and call the LLM', async () => {
@@ -369,7 +369,7 @@ describe('create.LLMAgent.asStream', function () {
 		it('should throw ConfigError if no model is provided', () => {
 			expect(() => create.LLMAgent.asStream({ prompt: 'test' } as never)).to.throw(
 				ConfigError,
-				'Text generator configs require a \'model\' property',
+				"LLMAgent requires a 'model'.",
 			);
 		});
 
@@ -382,17 +382,18 @@ describe('create.LLMAgent.asStream', function () {
 				}),
 			).to.throw(
 				ConfigError,
-				`A 'loader' is required for this operation`,
+				`LLMAgent requires 'loader'.`,
 			);
 		});
 
-		it('should throw at runtime if no prompt is provided in config or call', () => {
-			const streamer = create.LLMAgent.asStream({ model });
-			// A plain-text streamer returns its result directly, so it throws rather than rejects.
-			expect(() => streamer(undefined as unknown as string)).to.throw(
-				ConfigError,
-				'Either \'prompt\' (string or messages array) or \'messages\' must be provided',
-			);
+		it('should report the native stream error if no prompt is provided in config or call', async () => {
+			const errors: unknown[] = [];
+			const streamer = create.LLMAgent.asStream({ model, onError: ({ error }) => { errors.push(error); } });
+			const result = await streamer(undefined as unknown as string);
+			await expect(result.text).to.be.rejectedWith(NoOutputGeneratedError);
+			expect(errors).to.have.lengthOf(1);
+			expect(errors[0]).to.be.instanceOf(InvalidPromptError);
+			expect((errors[0] as Error).message).to.include('messages must not be empty');
 		});
 
 	});
@@ -456,7 +457,7 @@ describe('create.LLMAgent.asStream', function () {
 				})
 			).to.throw(
 				ConfigError,
-				"A 'loader' is required for this operation"
+				"LLMAgent requires 'loader'."
 			);
 		});
 

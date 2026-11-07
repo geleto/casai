@@ -40,10 +40,9 @@ export type ExpectedToolConfig<T> = Omit<configs.FunctionToolConfig<ToolInputSch
 
 // Assemble only known schema settings, configured context and registry for
 // callback inference. The ordinary merge preserves omission versus undefined.
-export type ConfigInferDefinition<Parent, Schemas, Context, Tools, ToolsContext> =
-	Parent extends unknown ? MergedConfig<Omit<Parent, 'execute'>, Schemas
-		& ([Context] extends [undefined] ? EmptyMap : { context: Context })
-		& { tools: Tools; toolsContext: ToolsContext }> : never;
+export type ConfigInferDefinition<Parent, Data, Context> =
+	Parent extends unknown ? keyof Parent extends never ? Data & ([Context] extends [undefined] ? EmptyMap : { context: Context })
+		: MergedConfig<Omit<Parent, 'execute'>, Data & ([Context] extends [undefined] ? EmptyMap : { context: Context })> : never;
 
 // Function-property syntax checks the callback against the input schema's contract.
 interface InputSchemaFunctionExecuteContext<T> {

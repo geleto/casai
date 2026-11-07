@@ -10,7 +10,26 @@ const schema = z.object({ answer: z.number() });
 const structuredOutput = Output.object({ schema });
 const loader = (name: string) => name;
 const messages: ModelMessage[] = [{ role: 'user', content: 'Answer.' }];
+declare const singleMessage: ModelMessage;
 const parent = create.Config({ model });
+
+// Single messages belong in explicit prompt slots; positional objects remain context.
+const single = create.LLMAgent({ model, prompt: singleMessage });
+void single();
+void single.run({ prompt: { role: 'user', content: 'Replacement.' }, messageHistory: messages });
+void create.LLMAgent({ model }).run({ prompt: singleMessage });
+void create.LLMAgent.withTemplate({ model, prompt: singleMessage })();
+void create.LLMAgent.withTemplate({ model }).run({ prompt: singleMessage, context: { name: 'Ada' } });
+void create.LLMAgent.withTemplate.asStream({ model }).run({ prompt: singleMessage });
+void create.LLMAgent.withFunction({ model, prompt: () => ({ role: 'user', content: 'Prepared.' }) })();
+// @ts-expect-error An unconfigured prompt cannot be supplied as a positional object.
+void create.LLMAgent({ model })(singleMessage);
+// @ts-expect-error An unconfigured template cannot be supplied as a positional object.
+void create.LLMAgent.withTemplate({ model })(singleMessage);
+// @ts-expect-error Native Agent calls retain the SDK's string-or-array prompt contract.
+void single.generate({ prompt: singleMessage });
+// @ts-expect-error A loaded source is still a resource name.
+void create.LLMAgent.loadsText({ model, loader }).run({ prompt: singleMessage });
 
 type NoTools = EmptyMap;
 
@@ -30,21 +49,22 @@ void object(messages);
 void objectStream();
 void objectStream(messages);
 void text(undefined, messages);
-// A new prompt array can be supplied separately from history.
+// Explicit prompt slots distinguish new messages from literal history.
+void text.run({ prompt: messages, messageHistory: messages });
+void stream.run({ prompt: messages, messageHistory: messages });
+void object.run({ prompt: messages, messageHistory: messages });
+void objectStream.run({ prompt: messages, messageHistory: messages });
+// @ts-expect-error Two arrays cannot select a new source; use run({ prompt, messageHistory }).
 void text(messages, messages);
-// A new prompt array can be supplied separately from history.
-void stream(messages, messages);
-// A new prompt array can be supplied separately from history.
-void object(messages, messages);
-// A new prompt array can be supplied separately from history.
-void objectStream(messages, messages);
+// @ts-expect-error History follows context, including on plain agents.
+void text(messages, { topic: 'math' });
 // @ts-expect-error A scalar is neither a prompt nor message history.
 void text(123);
 // Literal agents accept the same context as prepared agents.
 void stream({ topic: 'math' });
 // Named application context can follow an explicit prompt.
 void object('Replace.', { topic: 'math' });
-// @ts-expect-error Plain prompts have no third positional argument.
+// @ts-expect-error History belongs after context, not before it.
 void objectStream('Replace.', messages, {});
 
 const unconfiguredText = create.LLMAgent({ model });
@@ -111,7 +131,7 @@ void templateStream('Replace.', 123, {});
 // @ts-expect-error Template context must be an object.
 void templateObject('Replace.', messages, 123);
 // @ts-expect-error A rendered stream result requires awaiting rendering.
-expectType<unknown>(templateObjectStream().object);
+expectType<unknown>(templateObjectStream().output);
 // @ts-expect-error Script invocation accepts a string or context object.
 void scriptText(123);
 // @ts-expect-error Script context must be an object.
@@ -119,7 +139,7 @@ void scriptStream('return 1', false);
 // @ts-expect-error An object script invocation accepts a string or context object.
 void scriptObject(false);
 // @ts-expect-error A rendered stream result requires awaiting rendering.
-expectType<unknown>(scriptObjectStream().object);
+expectType<unknown>(scriptObjectStream().output);
 
 // Omitted rendered prompts must be supplied at invocation.
 const needsTemplate = create.LLMAgent.withTemplate({ model });
@@ -202,9 +222,9 @@ expectEqual<typeof _objectRun, Promise<GenerateTextResult<NoTools, typeof struct
 expectEqual<typeof _templateStreamRun, Promise<StreamTextResult<NoTools>>>();
 expectEqual<typeof _scriptObjectStreamRun, Promise<StreamTextResult<NoTools, typeof structuredOutput>>>();
 expectEqual<typeof _functionStreamRun, Promise<StreamTextResult<NoTools>>>();
-// @ts-expect-error Function prompts accept context, not positional prompt replacements.
+// @ts-expect-error A replacement function source must be a callback, not a string.
 void functionText('Replace.');
-// @ts-expect-error Function prompts reject arrays even when no input schema is configured.
+// Function prompts accept literal positional history.
 void functionText(messages);
 // @ts-expect-error One-off run contexts are objects, not message arrays.
 void functionText.run({ context: messages });

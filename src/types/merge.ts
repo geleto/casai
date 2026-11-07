@@ -1,4 +1,4 @@
-import type { EmptyMap } from './utils.js';
+import type { EmptyMap, UnionKeys } from './utils.js';
 import type { LoaderGroup } from 'cascada-engine';
 
 // These maps merge by key. Values within each map are replaced, not deep-merged.
@@ -24,10 +24,11 @@ export type MergedProperties<A, B> = A extends unknown ? B extends unknown ? {
 	[K in keyof B]: SpreadValue<A, B, K>;
 } : never : never;
 
-// An optional finite map can be absent, so its new entries are optional.
-type MapValue<T> = [NonNullable<T>] extends [never] ? EmptyMap : NonNullable<T> extends object
-	? undefined extends T ? string extends keyof NonNullable<T> ? NonNullable<T> : Partial<NonNullable<T>>
-	: NonNullable<T> : EmptyMap;
+// An absent map contributes no entries; it does not replace parent entries with undefined.
+type MapValue<T> = [T] extends [never] ? EmptyMap : T extends object ? T : EmptyMap;
+type ReadableMap<T, Keys extends PropertyKey = UnionKeys<T>> = T extends unknown
+	? Exclude<Keys, keyof T> extends never ? T : T & Partial<Record<Exclude<Keys, keyof T>, never>> : never;
+type MergedMap<A, B, Result = MergedProperties<MapValue<A>, MapValue<B>>> = undefined extends A | B ? ReadableMap<Result> : Result;
 
 type ProcessedValue<K, T> = K extends 'loader' ? LoaderGroup | (undefined extends T ? undefined : never) : T;
 export type ProcessedConfig<T> = { [K in keyof T]: ProcessedValue<K, T[K]> };
@@ -37,9 +38,9 @@ type LoaderValue<T> = 'loader' extends keyof T ? T['loader'] : undefined;
 type MergedValue<A, B, K extends PropertyKey> = K extends 'loader'
 	// Loaders combine or inherit; the result may be undefined if neither side supplies one.
 	? LoaderGroup | (undefined extends LoaderValue<A> ? undefined extends LoaderValue<B> ? undefined : never : never)
-	: K extends 'streaming' | 'asTool' ? A extends Record<K, true> ? true : B extends Record<K, true> ? true : SpreadValue<A, B, K>
+	: K extends 'streaming' | 'asTool' ? A extends Record<K, true> ? true : B extends Record<K, true> ? true : SpreadValue<A, B, K> | Extract<Value<A, K> | Value<B, K>, true>
 	: K extends keyof A & keyof B
-	? K extends ConfigMapKey ? MergedProperties<MapValue<A[K]>, MapValue<B[K]>>
+	? K extends ConfigMapKey ? MergedMap<A[K], B[K]>
 	: SpreadValue<A, B, K>
 	: SpreadValue<A, B, K>;
 

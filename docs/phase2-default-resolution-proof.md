@@ -7,7 +7,7 @@
 
 Status: isolated comparison and runtime/type prototypes, 2026-10-18. Production factories are unchanged. The recommended algorithm preserves the confirmed configuration, input-admission, shallow-merge, and immutable-binding contracts.
 
-Evidence: [runtime comparisons](../tests/Phase2DefaultResolution.unit.test.ts), [candidate helper](../tests/fixtures/phase2-default-resolution.ts), [compiler checks](../tests/type-safety/phase2-default-resolution.ts), and [native SDK binding proof](phase2-input-adapter-proof.md). The binding fixture now uses the same declaration resolver. These are executable design probes, not tests claiming that current factories already implement Phase 2.
+Evidence: `tests/Phase2DefaultResolution.unit.test.ts` (retired prototype), `tests/fixtures/phase2-default-resolution.ts` (retired prototype), `tests/type-safety/phase2-default-resolution.ts` (retired prototype), and [native SDK binding proof](phase2-input-adapter-proof.md). The binding fixture now uses the same declaration resolver. These are executable design probes, not tests claiming that current factories already implement Phase 2.
 
 ## Recommendation
 

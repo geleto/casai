@@ -54,10 +54,10 @@ describe('withFunction prompts', () => {
 	const describeItem = (context: Context) =>
 		`Generate an object with name "${context.name}" and value ${context.value}.`;
 
-	for (const factory of ['generate', 'stream', 'stream-structured'] as const) {
-		it(`${factory} rejects missing or cleared function prompts before dispatch`, () => {
+	for (const structured of [false, true]) {
+		it(`${structured ? 'structured' : 'text'} tools reject missing or cleared function prompts before dispatch`, () => {
 			const model = mockModel('unused');
-			const settings = { model, inputSchema: itemSchema, ...(factory === 'stream-structured' ? { output: Output.object({ schema: itemSchema }) } : {}) };
+			const settings = { model, inputSchema: itemSchema, ...(structured ? { output: Output.object({ schema: itemSchema }) } : {}) };
 			const cases = [
 				[settings],
 				[{}, { config: settings }],
@@ -65,8 +65,8 @@ describe('withFunction prompts', () => {
 				[{ prompt: undefined }, { config: { ...settings, prompt: describeItem } }],
 			];
 			for (const args of cases) {
-				expect(() => { Reflect.apply(factory === 'generate' ? create.LLMAgent.withFunction.asTool : create.LLMAgent.withFunction.asTool, undefined, args); })
-					.to.throw(ConfigError, /configured prompt/);
+				expect(() => { Reflect.apply(create.LLMAgent.withFunction.asTool, undefined, args); })
+					.to.throw(ConfigError, /requires 'prompt'/);
 			}
 			expect(model.doGenerateCalls.length + model.doStreamCalls.length).to.equal(0);
 		});
@@ -229,16 +229,15 @@ describe('withFunction prompts', () => {
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
 		});
 
-		it('should reject positional prompt and message overrides', async () => {
+		it('rejects string source overrides and accepts literal positional history', async () => {
 			const model = mockModel('unused');
 			const generator = create.LLMAgent.withFunction({ model, prompt: () => 'Configured' });
 
 			// @ts-expect-error Function prompts accept context, not a string override.
 			await expect(generator('Replacement')).to.be.rejectedWith(ValidationError, '');
-			// @ts-expect-error An array cannot serve as function context.
-			await expect(generator([{ role: 'user', content: 'Replacement' }]))
-				.to.be.rejectedWith(ValidationError, '');
 			expect(model.doGenerateCalls).to.have.lengthOf(0);
+			const result = await generator([{ role: 'user', content: 'Earlier {{ literal }}' }]);
+			expect(result.messageHistory.slice(0, 2)).to.deep.equal([{ role: 'user', content: 'Earlier {{ literal }}' }, { role: 'user', content: 'Configured' }]);
 		});
 
 		it('should propagate callback failures and validate returned prompts', async () => {
@@ -350,23 +349,6 @@ describe('withFunction prompts', () => {
 	});
 
 	describe('create.LLMAgent.withFunction', () => {
-		it('rejects missing or cleared prompt callbacks before model dispatch', () => {
-			const model = mockModel('{"name":"unused","value":0}');
-			const settings = { model, inputSchema: itemSchema, output: Output.object({ schema: itemSchema }) };
-			const cases = [
-				[settings],
-				[{}, { config: settings }],
-				[{ prompt: undefined }, { config: settings }],
-				[{ prompt: undefined }, { config: { ...settings, prompt: describeItem } }],
-			];
-			for (const args of cases) {
-				// Exercise the JavaScript boundary independently of compile-time rejection.
-				expect(() => { Reflect.apply(create.LLMAgent.withFunction.asTool, undefined, args); })
-					.to.throw(ConfigError, /configured prompt/);
-			}
-			expect(model.doGenerateCalls).to.have.length(0);
-		});
-
 		it('should merge the configured and call-time context', async () => {
 			const model = mockModel('{"name":"FnObject","value":7}');
 			const generator = create.LLMAgent.withFunction({ model, inputSchema: itemSchema, context: { name: 'Configured', value: 7 }, prompt: describeItem, output: Output.object({ schema: itemSchema }) });

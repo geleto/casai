@@ -36,7 +36,7 @@ describe('Casai error boundaries', () => {
 
 	it('classifies invalid configured values separately from invocation overrides', async () => {
 		const messages = [{ role: 'user', content: 42 }] as never;
-		assert.throws(() => create.Config({ prompt: messages }), ConfigError);
+		assert.throws(() => create.LLMAgent({ model: modelFor(undefined) }, create.Config({ prompt: messages })), ConfigError);
 		const generator = create.LLMAgent({ model: modelFor(undefined), prompt: 'ready' });
 		await assert.rejects(generator.run({ messageHistory: messages }), ValidationError);
 		assert.throws(() => create.Function({ toolsContext: { missing: {} }, execute: () => 1 } as never), ConfigError);
@@ -54,10 +54,10 @@ describe('Casai error boundaries', () => {
 	it('reports missing and malformed sources before application work', async () => {
 		let calls = 0;
 		const context = { effect: () => { calls++; } };
-		const script = create.Script({ script: undefined, context } as never);
+		const script = create.Script.loadsScript({ loader: () => null, context });
 		await assert.rejects(async () => { await Reflect.apply(script, undefined, []); }, ValidationError);
-		const template = create.Template({ template: undefined, context } as never);
-		await assert.rejects(template(), ValidationError);
+		const template = create.Template.loadsTemplate({ loader: () => null, context });
+		await assert.rejects(async () => { await Reflect.apply(template, undefined, []); }, ValidationError);
 		await assert.rejects(create.Script({ script: 'return (', context })(), error => error instanceof ScriptError && error.cause instanceof Error);
 		await assert.rejects(create.Template({ template: '{{ (', context })(), error => error instanceof TemplateError && error.cause instanceof Error);
 		assert.equal(calls, 0);

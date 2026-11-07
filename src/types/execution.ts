@@ -24,15 +24,24 @@ export interface PreparedToolRegistry {
 	tools: ToolSet;
 	toolsContext: Fields;
 	helpers(options: ComponentExecutionOptions): Fields;
+	invoke(name: string, input: unknown, options: ComponentExecutionOptions): Promise<unknown>;
 	assertContext(value: unknown): void;
+}
+
+export interface ToolInvocation {
+	/** Parsed public payload, before private bindings and helpers are assembled. */
+	input: Fields;
+	inputNames: ReadonlySet<string>;
+	context: PreparedExecutionContext;
+	registry: PreparedToolRegistry;
 }
 
 // Accepted public data cannot replace private fields, including through an open index signature.
 type ParsedExecutionContext<TInputSchema, TDefaults, TTools extends ToolRegistry, TContexts = EmptyMap> = DistributiveOmit<MergedProperties<SchemaOutputObject<TInputSchema>, DistributiveOmit<TDefaults, SchemaInputNames<TInputSchema>>>, '_toolOptions' | Extract<PossibleExecutableToolNames<TTools>, NamedKeys<TTools>>>
 	& (string extends keyof TTools ? EmptyMap : InjectedToolHelpers<TInputSchema, TDefaults, TTools, TContexts>) & { _toolOptions: ComponentExecutionOptions };
 
-// Rebuild injected fields from the final config. Intersecting them with a
-// retained callback's old helper signatures would restore obsolete overloads.
+// Rebuild configured bindings and injected fields from the final config. Old
+// callback types must not narrow replacement bindings or restore obsolete helpers.
 // A dependency missing in one configuration is readable as undefined, without
 // mixing the values of the configurations where it is present.
 type ExecutionDefaults<TConfig, TAllConfigs> = ContextFromConfig<TConfig> & Partial<Record<Exclude<NamedKeys<ContextFromConfig<TAllConfigs>>, NamedKeys<ContextFromConfig<TConfig>>>, never>>;
@@ -42,7 +51,7 @@ export type ExecutionContext<TConfig, TAlternatives = InputConfigAlternatives<TC
 	? BranchExecutionContext<TAlternative, TInputSchema, ExecutionDefaults<TAlternative, TConfig>> : never;
 
 type BranchExecutionContext<TConfig, TInputSchema, TDefaults> = [Exclude<TInputSchema, undefined>] extends [never]
-	? DistributiveOmit<CallbackContextFromConfig<TConfig>, '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>> & DistributiveOmit<TDefaults, '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>>
+	? DistributiveOmit<CallbackContextFromConfig<TConfig>, NamedKeys<TDefaults> | '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>> & DistributiveOmit<TDefaults, '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>>
 		& InjectedToolHelpers<undefined, TDefaults, ToolRegistryFromConfig<TConfig>, ToolsContextFromConfig<TConfig>> & { _toolOptions: ComponentExecutionOptions }
 	: ParsedExecutionContext<Exclude<TInputSchema, undefined>, TDefaults, ToolRegistryFromConfig<TConfig>, ToolsContextFromConfig<TConfig>>
 		| (undefined extends TInputSchema

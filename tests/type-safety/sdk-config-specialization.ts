@@ -47,8 +47,8 @@ const generated: Generated = {
 		expectEqual<(typeof _event.staticToolResults)[number]['output'], number>();
 		return completion;
 	},
-	toolApproval: { lookup: (input, _options) => {
-		expectEqual<typeof input.query, string>();
+	toolApproval: { lookup: (_input, _options) => {
+		expectEqual<typeof _input.query, string>();
 		expectEqual<typeof _options.runtimeContext.requestId, string>();
 		expectEqual<typeof _options.toolContext.factor, number>();
 		return 'approved';
@@ -68,8 +68,15 @@ const streamed: Streamed = {
 			expectType<number>(chunk.input.query);
 		}
 	},
+};
+const _wrongStreamed: Streamed = { ...streamed,
 	// @ts-expect-error prepareStep returns the declared runtime context type.
 	prepareStep: () => ({ runtimeContext: { requestId: 123 } }),
 };
+// These broad annotations permit an absent context map; finishing the component requires it.
+// @ts-expect-error Required tool context cannot be guaranteed by an optional annotated map.
 create.LLMAgent(generated);
+// @ts-expect-error Streaming construction has the same required context contract.
 create.LLMAgent.asStream(streamed);
+create.LLMAgent({ ...generated, toolsContext });
+create.LLMAgent.asStream({ ...streamed, toolsContext });

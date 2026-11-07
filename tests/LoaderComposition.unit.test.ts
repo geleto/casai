@@ -206,7 +206,7 @@ describe('Built-in loaders', () => {
 			return missing('missing.casc')(error);
 		});
 		await rejects(async () => await create.LLMAgent.loadsText({ model: textModel(), loader, prompt: 'missing.txt' })(), (error: unknown) => {
-			expect((error as Error).message).to.match(/^Failed to load prompt/);
+			expect((error as Error).message).to.match(/^Failed to load source/);
 			return missing('missing.txt')(error);
 		});
 	});

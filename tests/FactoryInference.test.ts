@@ -59,13 +59,15 @@ describe('Factory inference with inline callbacks', () => {
 
 	it('should retain structured text output and runtime context in callbacks and result methods', async () => {
 		const finished: number[] = [];
+		const runtimeContexts: string[] = [];
+		const uiRoles: string[] = [];
 		const parent = create.Config({ model: mockModel(answer), output: Output.object({ schema }), runtimeContext: { requestId: 'request' } });
 		const generator = create.LLMAgent({ prompt: 'Answer.', onStepEnd: event => {
-			expect(event.runtimeContext.requestId).to.equal('request');
+			runtimeContexts.push(event.runtimeContext.requestId);
 		} }, parent);
 		const streamer = create.LLMAgent.asStream({ prompt: 'Answer.', onEnd: event => {
 			if (event.output) finished.push(event.output.answer);
-			expect(event.runtimeContext.requestId).to.equal('request');
+			runtimeContexts.push(event.runtimeContext.requestId);
 		} }, parent);
 		expect((await generator()).output.answer).to.equal(4);
 		const result = (await streamer());
@@ -76,10 +78,12 @@ describe('Factory inference with inline callbacks', () => {
 			if (event.output) finished.push(event.output.answer * 2);
 		} }));
 		const uiResponse = uiResult.toUIMessageStreamResponse({ onEnd: event => {
-			expect(event.responseMessage.role).to.equal('assistant');
+			uiRoles.push(event.responseMessage.role);
 		}, messageMetadata: () => ({ requestId: 'request' }) });
 		expect(await uiResponse.text()).to.include('request');
 		expect(finished).to.deep.equal([4, 4, 8]);
+		expect(runtimeContexts).to.deep.equal(['request', 'request', 'request']);
+		expect(uiRoles).to.deep.equal(['assistant']);
 	});
 
 	it('should infer object generator configs with inline callbacks under a parent', async () => {
@@ -128,11 +132,11 @@ describe('Factory inference with inline callbacks', () => {
 		expect(result).to.deep.equal({ answer: 4 });
 	});
 
-	it('should type inline callbacks in Config fragments for every component they fit', async () => {
+	it('preserves explicitly typed Config callbacks and infers component overrides', async () => {
 		const started: string[] = [];
 		const shared = create.Config({
 			model: mockModel(answer),
-			onStart: event => {
+			onStart: (event: Parameters<NonNullable<Parameters<typeof import('ai').streamText>[0]['onStart']>>[0]) => {
 				if (false) {
 					// @ts-expect-error The event is typed for text and object generators, not any.
 					const _event: number = event;
@@ -141,7 +145,7 @@ describe('Factory inference with inline callbacks', () => {
 			},
 		});
 		const text = create.LLMAgent({ prompt: 'Answer.' }, shared);
-		const object = create.LLMAgent({ prompt: 'Answer.', output: Output.object({ schema: schema }) }, shared);
+		const object = create.LLMAgent({ prompt: 'Answer.', output: Output.object({ schema: schema }), onStart: event => { started.push(typeof event); } }, shared);
 		expect((await text()).text).to.equal(answer);
 		expect((await object()).output).to.deep.equal({ answer: 4 });
 		expect(started).to.deep.equal(['object', 'object']);

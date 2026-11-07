@@ -54,7 +54,7 @@ describe('asTool', function () {
 					// Missing inputSchema
 				} as never)).to.throw(
 					ConfigError,
-					'An LLMAgent tool requires inputSchema and a configured prompt.'
+					"LLMAgent requires 'inputSchema'."
 				);
 			});
 		});
@@ -83,7 +83,7 @@ describe('asTool', function () {
 				}) }) })).to.not.throw();
 			});
 
-			it('should verify parent types have correct type property', () => {
+			it('should expose the native Agent version on language components', () => {
 				//@todo - this is not a tool test
 				const textGenerator = create.LLMAgent({
 					model,
@@ -96,19 +96,9 @@ describe('asTool', function () {
 					age: z.number()
 				}) }) });
 
-				const script = create.Script({
-					script: 'return "Hello"'
-				});
-
-				const template = create.Template({
-					template: 'Hello {{ name }}'
-				});
-
-				// Check that each parent has the correct type property
+				// Agent components expose the native SDK version.
 				expect(textGenerator.version).to.equal('agent-v1');
 				expect(objectGenerator.version).to.equal('agent-v1');
-				expect(script.type).to.equal('Script');
-				expect(template.type).to.equal('Template');
 			});
 		});
 
@@ -134,22 +124,6 @@ describe('asTool', function () {
 			});
 		});
 
-		// Note: inputSchema validation is handled at TypeScript level, not runtime
-		// describe('Error: Invalid inputSchema Schema', () => {
-		// 	it('should throw error if inputSchema is not a z.object as our context can only be a z.object', () => {
-		// 		expect(() => create.LLMAgent.withTemplate.asTool({
-		// 			model,
-		// 			...temperatureConfig,
-		// 			prompt: 'Hello world',
-		// 			description: 'A test tool',
-		// 			//@ts-expect-error - inputSchema is not a z.object
-		// 			inputSchema: z.string() // Not z.object
-		// 		})).to.throw(
-		// 			ConfigError,
-		// 			'For Template components, \'inputSchema\' must be a Zod object schema'
-		// 		);
-		// 	});
-		// });
 	});
 
 	describe('Suite 2: Direct Execution & Integration Tests', () => {
@@ -840,9 +814,6 @@ describe('asTool', function () {
 
 			const resultSubtract = await calculatorFunction({ a: 10, b: 5, operation: 'subtract' });
 			expect(resultSubtract).to.deep.equal({ result: 5 });
-
-			// Verify it has the correct type
-			expect(calculatorFunction.type).to.equal('FunctionCall');
 		});
 
 		it('should be callable by an LLM in an automated loop', async () => {

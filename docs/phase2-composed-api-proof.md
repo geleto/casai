@@ -17,7 +17,7 @@ The later [security attack-path review](phase2-review.md#security-attack-path-re
 
 Can **one implemented callable**, rather than separate type sketches, combine configured public defaults, raw/parsed schemas, private-key protection, closed-shape checks, no-schema callbacks, binding and registered helpers?
 
-The candidate in [phase2-composed-api.ts](../tests/fixtures/phase2-composed-api.ts) composes those requirements. Its runtime tests and compiler consumer import that same factory. It retains one application schema; it adds neither an author-supplied ownership schema nor an unrestricted override flag. Runtime validation remains necessary when structural typing hides actual object keys.
+The candidate in `tests/fixtures/phase2-composed-api.ts` (retired prototype) composes those requirements. Its runtime tests and compiler consumer import that same factory. It retains one application schema; it adds neither an author-supplied ownership schema nor an unrestricted override flag. Runtime validation remains necessary when structural typing hides actual object keys.
 
 This establishes bounded feasibility for starting the shared Function slice. It does not establish that existing factories already enforce the policy. Production integration, full schema projection and the complete consumer review remain required.
 

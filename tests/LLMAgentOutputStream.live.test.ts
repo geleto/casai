@@ -1,5 +1,5 @@
 import type { EmptyMap } from './type-safety/assert.js';
-import { Output } from 'ai';
+import { NoOutputGeneratedError, Output } from 'ai';
 import 'dotenv/config';
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -137,7 +137,7 @@ describe('create.LLMAgent.asStream', function () {
 				prompt: 'Generate an array with one item: {id: 19, item: "InheritedStream"}.'
 			}, parentStreamer);
 
-			expect(childStreamer.config.output).to.equal('array');
+			expect(childStreamer.config.output).to.equal(parentStreamer.config.output);
 
 			//collect the stream
 			const result = await childStreamer();
@@ -145,8 +145,7 @@ describe('create.LLMAgent.asStream', function () {
 			expect(array).to.be.an('array').with.lengthOf(1);
 			expect(array).to.deep.equal([{ id: 19, item: 'InheritedStream' }]);
 
-			// Avoid relying on result.object; use the streamed elements directly
-			const finalArray = array;
+			const finalArray = await result.output;
 			expect(finalArray).to.be.an('array').with.lengthOf(1);
 			expect(finalArray).to.deep.equal([{ id: 19, item: 'InheritedStream' }]);
 		});
@@ -161,7 +160,7 @@ describe('create.LLMAgent.asStream', function () {
 			expect(finalObject).to.deep.equal({ name: 'streamed_product', value: 456 });
 		});
 
-		it('should merge and deduplicate loader arrays from parent configs and use a named template', async () => {
+		it('should compose child-first loader groups and use a named template', async () => {
 			// 1. SETUP: Define two distinct loaders with different templates.
 			const loader1 = new StringLoader();
 			loader1.addString('stream1.njk', 'Generate an object with name "{{ name }}" and value {{ value }}.');
@@ -174,7 +173,7 @@ describe('create.LLMAgent.asStream', function () {
 
 			// 3. ASSERT CONFIGURATION: The final loader array should contain both loaders, with the child's loader (loader2) first.
 			expect(streamer.config.loader).to.be.an('array').with.lengthOf(2);
-			expect(streamer.config.loader).to.deep.equal([loader2, loader1]);
+			expect(streamer.config.loader).to.deep.equal([[loader2], [loader1]]);
 
 			// 4. ASSERT FUNCTIONALITY (stream1.njk): This will now use the fallback mechanism.
 			// The engine tries loader2 first, fails to find 'stream1.njk', then tries loader1 and succeeds.
@@ -241,20 +240,19 @@ describe('create.LLMAgent.asStream', function () {
 			expect(finishData.usage.outputTokens).to.be.a('number').and.be.greaterThan(0);
 		});
 
-		it('should throw and reject promises for API errors', async () => {
+		it('should report API errors and reject the final output', async () => {
 			const provider = createProvider({ apiKey: 'invalid-key' });
 			const badModel = provider(modelName);
+			const errors: unknown[] = [];
 
-			const streamer = create.LLMAgent.asStream({ model: badModel, ...temperatureConfig, prompt: 'This will fail.', output: Output.object({ schema: simpleSchema }) });
+			const streamer = create.LLMAgent.asStream({ model: badModel, ...temperatureConfig, prompt: 'This will fail.', output: Output.object({ schema: simpleSchema }), onError: ({ error }) => { errors.push(error); } });
 
 			const result = (await streamer());
 
-			try {
-				await collectPartials(result.partialOutputStream); // Consuming the stream triggers the error
-			} catch (e) {
-				expect(e).to.be.an.instanceOf(Error);
-				expect((e as Error).message).to.match(/invalid x-api-key|Incorrect API key/i);
-			}
+			await expect(result.output).to.be.rejectedWith(NoOutputGeneratedError);
+			expect(errors).to.have.lengthOf(1);
+			expect(errors[0]).to.be.instanceOf(Error);
+			expect((errors[0] as Error).message).to.match(/invalid x-api-key|Incorrect API key/i);
 		});
 	});
 
@@ -305,7 +303,7 @@ describe('create.LLMAgent.asStream', function () {
 				create.LLMAgent.loadsText.asStream({ model, ...temperatureConfig, prompt: 'file.txt', output: Output.object({ schema: simpleSchema }) })
 			).to.throw(
 				ConfigError,
-				"A 'loader' is required for this operation"
+				"LLMAgent requires 'loader'."
 			);
 		});
 
@@ -402,7 +400,7 @@ describe('create.LLMAgent.asStream', function () {
 			const asyncLoader = new AsyncStringLoader();
 			asyncLoader.addString('mixed.txt', 'Generate an object with name "AsyncMixed" and value 75.');
 
-			// The sync loader shall have the answer first
+			// The first loader containing the source wins, even when it is asynchronous.
 			const streamer = create.LLMAgent.loadsText.asStream({ model, ...temperatureConfig, loader: [asyncLoader, syncLoader], prompt: 'mixed.txt', output: Output.object({ schema: simpleSchema }) });
 
 			const result = await streamer();

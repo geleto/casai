@@ -68,8 +68,8 @@ type HelperShadowValue<TInputSchema, TDefaults, TKey> = HelperShadowSource<TInpu
 
 type HasRequiredKey<TSource, TKey extends PropertyKey> = TKey extends keyof TSource ? [TSource] extends [Record<TKey, unknown>] ? true : false : false;
 
-type HelperFallbackValue<TInputSchema, TDefaults, TTools extends ToolRegistry, TContexts, TKey extends keyof TTools> = HelperShadowValue<TInputSchema, TDefaults, TKey>
-	| (HasRequiredKey<HelperShadowSource<TInputSchema, TDefaults, TKey>, TKey> extends true ? never : InjectedToolHelper<TTools[TKey], RegistryEntry<TContexts, TKey>>);
+type HelperFallbackValue<TInputSchema, TDefaults, TTools extends ToolRegistry, TContexts, TKey extends PropertyKey> = HelperShadowValue<TInputSchema, TDefaults, TKey>
+	| (HasRequiredKey<HelperShadowSource<TInputSchema, TDefaults, TKey>, TKey> extends true ? never : InjectedToolHelper<RegistryEntry<TTools, TKey>, RegistryEntry<TContexts, TKey>>);
 
 type RequiredHelperNames<TInputSchema, TDefaults, TTools extends ToolRegistry> = ExecutableToolNames<TTools> | { [TKey in PossibleExecutableToolNames<TTools>]: HasRequiredKey<HelperShadowSource<TInputSchema, TDefaults, TKey>, TKey> extends true ? TKey : never }[PossibleExecutableToolNames<TTools>];
 
@@ -103,7 +103,7 @@ type InvalidToolContext<TTool, TContext, PartialConfig extends boolean> = TTool 
 		| (unknown extends ComponentToolBindingCheck<TTool, TContext> ? never : 'binding') : never;
 
 type InvalidRegistryContexts<TTools extends ToolRegistry, TContexts, PartialConfig extends boolean> = TTools extends unknown ? TContexts extends unknown ? {
-	[K in keyof TTools]: [InvalidToolContext<TTools[K], RegistryEntry<TContexts, K>, PartialConfig>] extends [never] ? never : K
+	[K in keyof TTools]-?: [InvalidToolContext<TTools[K], RegistryEntry<TContexts, K>, PartialConfig>] extends [never] ? never : K
 }[keyof TTools] : never : never;
 
 // Validate complete configuration branches before projecting their tools and context.
@@ -111,9 +111,9 @@ export type InvalidToolContexts<TConfig, PartialConfig extends boolean = false> 
 	? InvalidRegistryContexts<ToolRegistryFromConfig<TConfig>, ToolsContextFromConfig<TConfig>, PartialConfig> : never;
 
 export type ToolContexts<TTools extends ToolRegistry> = {
-	[K in ConfiguredToolNames<TTools> as undefined extends RawToolContext<TTools[K]> ? never : K]: RawToolContext<TTools[K]>
+	[K in ConfiguredToolNames<TTools> as undefined extends RawToolContext<RegistryEntry<TTools, K>> ? never : K]: RawToolContext<RegistryEntry<TTools, K>>
 } & {
-	[K in ConfiguredToolNames<TTools> as undefined extends RawToolContext<TTools[K]> ? K : never]?: RawToolContext<TTools[K]>
+	[K in ConfiguredToolNames<TTools> as undefined extends RawToolContext<RegistryEntry<TTools, K>> ? K : never]?: RawToolContext<RegistryEntry<TTools, K>>
 };
 
 type ConfiguredToolHelpers<TConfig, TAlternatives = InputConfigAlternatives<TConfig>> = TAlternatives extends { config: infer TAlternative; schema: infer TInputSchema }
@@ -124,7 +124,7 @@ type ConfiguredToolHelpers<TConfig, TAlternatives = InputConfigAlternatives<TCon
 // Optional helpers must not add undefined to the failed-key union.
 export type ValidateRunHelpers<TConfig, TChanges, TBefore = ConfiguredToolHelpers<TConfig>, TAfter = ConfiguredToolHelpers<MergedConfig<TConfig, TChanges>>,
 	TInvalid = { [K in keyof TBefore]-?: Pick<TAfter, Extract<K, keyof TAfter>> extends Pick<TBefore, K> ? never : K }[keyof TBefore],
-> = [Extract<ConfigValue<TConfig, 'execute'> | ConfigValue<TConfig, 'prompt'> | ConfigValue<TConfig, 'prepareCall'> | ConfigValue<TConfig, 'prepareStep'>, (...args: any[]) => any>] extends [never] ? unknown
+> = [Extract<import('./config.js').CallbackFromConfig<TConfig> | ConfigValue<TConfig, 'prepareCall'> | ConfigValue<TConfig, 'prepareStep'>, (...args: any[]) => any>] extends [never] ? unknown
 	: [TInvalid] extends [never] ? unknown : `Config Error: Replacement changes the helper call contract for tool '${TInvalid & string}'.`;
 
 // A binding knows its raw context even without a parser. An optional parser can

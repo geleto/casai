@@ -316,24 +316,24 @@ describe('LLMAgent', () => {
 		assert.equal(renders, 0);
 	});
 
-	it('uses context-before-history, treats arrays as new literal prompts and preserves empty user turns', async () => {
+	it('uses context-before-history, explicit message sources and empty user turns', async () => {
 		const history: ModelMessage[] = [{ role: 'assistant', content: 'earlier' }];
 		const literal = create.LLMAgent({ model: model() });
 		assert.deepEqual((await literal('', history)).messageHistory.slice(0, 2), [...history, { role: 'user', content: '' }]);
-		assert.deepEqual((await literal(history, history)).messageHistory.slice(0, 2), [...history, ...history]);
+		assert.deepEqual((await literal(history)).messageHistory.slice(0, 1), history);
+		assert.deepEqual((await literal.run({ prompt: history, messageHistory: history })).messageHistory.slice(0, 2), [...history, ...history]);
 		const rendered = create.LLMAgent.withTemplate({ model: model(), prompt: '{{ name }}' });
 		assert.deepEqual((await rendered({ name: 'Ada' }, history)).messageHistory.slice(0, 2), [...history, { role: 'user', content: 'Ada' }]);
-		const invalidCall = rendered as (...args: never[]) => Promise<unknown>;
-		await assert.rejects(invalidCall(history as never, { name: 'Ada' } as never), ValidationError);
+		assert.deepEqual((await rendered.run({ prompt: history, context: { name: 'Ada' } })).messageHistory.slice(0, 1), history);
 		await assert.rejects(literal.run({ messageHistory: 3 } as never), ValidationError);
 	});
 	for (const streaming of [false, true]) it(`borrows frozen history through literal and rendered calls, streaming=${streaming}`, async () => {
 		const provider = model();
 		const previous = Object.freeze({ role: 'assistant' as const, content: 'Earlier.' });
 		const history: readonly ModelMessage[] = Object.freeze([previous]);
-		const literal = (streaming ? create.LLMAgent.asStream : create.LLMAgent)({ model: provider });
+		const literal = (streaming ? create.LLMAgent.asStream : create.LLMAgent)({ model: provider, prompt: 'Next.' });
 		const rendered = (streaming ? create.LLMAgent.withTemplate.asStream : create.LLMAgent.withTemplate)({ model: provider, prompt: '{{ name }}' });
-		const results = [await literal('Next.', history), await literal.run({ messageHistory: history }),
+		const results = [await literal('Next.', history), await literal(history), await literal.run({ messageHistory: history }),
 			await rendered({ name: 'Ada' }, history), await rendered.run({ context: { name: 'Ada' }, messageHistory: history })];
 		for (const result of results) {
 			assert.equal(await result.output, 'answer');
@@ -342,7 +342,7 @@ describe('LLMAgent', () => {
 			assert.equal(saved[0], previous);
 		}
 		assert.deepEqual(history, [{ role: 'assistant', content: 'Earlier.' }]);
-		assert.equal((streaming ? provider.doStreamCalls : provider.doGenerateCalls).length, 4);
+		assert.equal((streaming ? provider.doStreamCalls : provider.doGenerateCalls).length, 5);
 	});
 
 	it('keeps tool and Agent surfaces separate, and tools return completed generation output', async () => {

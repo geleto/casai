@@ -1,15 +1,14 @@
-import type { EmptyMap, DistributiveOmit, NamedKeys, UnionKeys, InvalidUnionMembers } from './utils.js';
-import type { CallbackContextFromConfig, ConfigValue, ContextFromConfig, InputConfigAlternatives, InputSchemaFromConfig, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig, ToolsContextFromConfig, ToolsFromConfig } from './config.js';
+import type { EmptyMap, NamedKeys, UnionKeys, InvalidUnionMembers } from './utils.js';
+import type { ConfigValue, ContextFromConfig, InputConfigAlternatives, InputSchemaFromConfig, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig, ToolsFromConfig } from './config.js';
 import type { MergedConfig } from './merge.js';
 import type { HasOpenRootInput, HasRootSchemaAlternatives, InputDeclarationKind, SchemaInputNames, SchemaOutputNames, ValidateContextSchema, ValidateToolContextSchema } from './schema-shape.js';
 import type { ComponentBranchResult } from './result.js';
 import type { StreamSchema } from '../streams.js';
-import type { InjectedToolHelpers } from './tool-binding.js';
-import type { ComponentExecutionOptions } from './sdk.js';
 import type { DeclaredExecute, DeclaredFunctionExecute, ExpectedFunctionConfig, ExpectedToolConfig } from './function-config.js';
 import type { ValidateResolved } from './provisional.js';
 import type { CallbackConfigShape, ValidateToolCallbackNames, ValidateToolSelectionNames } from './callbacks.js';
 import type { ValidateContextValue } from './input.js';
+import type { ToolMode } from './factory-config.js';
 import type * as configs from './config.js';
 
 // keyof a union hides branch-only keys; reject a configured signal in any alternative.
@@ -63,12 +62,14 @@ export type ValidateRunConfig<TRunConfig, TConfig, TShape, Keys extends Property
 // A fragment may be incomplete, but it must fit one component's config, and an execute must match the
 // schemas and context the fragment declares. Its context map must match the tools it knows about.
 type ValidPromptSource<T> = T extends { promptType: infer P extends import('./prompt.js').PromptType }
-	? Pick<T, 'prompt' & keyof T> extends { prompt?: import('./factory-config.js').PromptSource<P> | undefined } ? unknown
+	? Pick<T, 'prompt' & keyof T> extends { prompt?: import('./factory-config.js').PromptSource<P> | import('./component.js').Source<'ImageGenerator', P> | undefined } ? unknown
 	: 'Config Error: The prompt does not match its source mode.' : unknown;
 
 // Derive each alternative's callback contract before collecting incompatible implementations.
 type InvalidFragmentExecute<T> = T extends unknown
-	? Pick<T, 'execute' & keyof T> extends { execute?: DeclaredExecute<T> | DeclaredFunctionExecute<T> } ? never : T : never;
+	? Pick<T, 'execute' & keyof T> extends { execute?: [Exclude<InputSchemaFromConfig<T>, undefined>] extends [never]
+		// Private dependencies may remain unresolved until the completed component.
+		? DeclaredFunctionExecute<Omit<T, 'context'>> : DeclaredExecute<T> | DeclaredFunctionExecute<T> } ? never : T : never;
 
 export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateResolved<TConfig,
 	[InvalidUnionMembers<TConfig, CallbackConfigShape<TShape>> | InvalidUnionMembers<TFinalConfig, CallbackConfigShape<TShape>>] extends [never]
@@ -76,6 +77,7 @@ export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateReso
 		? ValidateToolsContext<TConfig, TFinalConfig, true>
 		: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'
 	: 'Config Error: These properties do not belong to any single component configuration.'> & ValidateConfiguredSignal<TFinalConfig>
+	& ValidateResolved<TConfig, ValidateToolCallbackNames<TFinalConfig, true> & ValidateToolSelectionNames<TFinalConfig, true>>
 	& NoInfer<ValidPromptSource<TFinalConfig>>;
 
 type RequiredKeys<T> = { [K in keyof T]-?: EmptyMap extends Pick<T, K> ? never : K }[keyof T];
@@ -90,52 +92,32 @@ type IncompatibleKeys<TFinal, TExpected> = {
 	[K in keyof TExpected & keyof TFinal]-?: Pick<TFinal, K> extends Pick<TExpected, K> ? never : K
 }[keyof TExpected & keyof TFinal];
 
-type FinalConfigError<Final, Expected, Missing = MissingKeys<Final, Expected>, Incompatible = IncompatibleKeys<Final, Expected>> =
-	[Missing] extends [never] ? [Incompatible] extends [never] ? never
+type FinalConfigCheck<Final, Expected, Unknown = Exclude<UnionKeys<Final>, keyof Expected | 'asTool'>,
+	Missing = MissingKeys<Final, Expected>, Incompatible = IncompatibleKeys<Final, Expected>> =
+	[Unknown] extends [never] ? [Missing] extends [never] ? [Incompatible] extends [never] ? unknown
 	: `Config Error: Property '${Incompatible & string}' is incompatible with the final configuration.`
-	: `Config Error: Missing required property '${Missing & string}' in the final configuration.`;
-type FunctionConfigErrors<Final, AsTool extends boolean> = Final extends unknown
-	? FinalConfigError<Final, AsTool extends true ? ExpectedToolConfig<Final> : ExpectedFunctionConfig<Final>> : never;
+	: `Config Error: Missing required property '${Missing & string}' in the final configuration.`
+	: `Config Error: Unknown properties for the final Function configuration: '${Unknown & string}'.`;
+type FunctionModeChecks<Final, AsTool extends boolean> = AsTool extends unknown
+	? (check: AsTool extends true
+		? FinalConfigCheck<Final, ExpectedToolConfig<Final>> & ToolInputAdmission<Final> & ToolOutputAdmission<Final>
+		: FinalConfigCheck<Final, ExpectedFunctionConfig<Final>>) => void : never;
+type FunctionConfigChecks<Final, Explicit extends boolean> = Final extends unknown ? FunctionModeChecks<Final, ToolMode<Final, Explicit>> : never;
 
 // Derive each branch's contract before collecting failures, including inherited callbacks.
-export type ValidateFinalConfig<TConfig, TParent, TFinal, AsTool extends boolean = false,
-	TExpected = AsTool extends true ? ExpectedToolConfig<TFinal> : ExpectedFunctionConfig<TFinal>,
-	TUnknown = Exclude<UnionKeys<TConfig>, keyof TExpected | 'asTool'>,
-	TParentUnknown = Exclude<UnionKeys<TParent>, keyof TExpected | 'asTool'>,
-	Errors = FunctionConfigErrors<TFinal, AsTool>,
-> = ValidateResolved<TConfig, [TUnknown] extends [never] ? [TParentUnknown] extends [never] ? [Errors] extends [never] ? unknown : Errors
-	: `Parent Config Error: Parent has properties not allowed for the final generator type: '${TParentUnknown & string}'`
-	: `Config Error: Unknown properties for this generator type: '${TUnknown & string}'`>
-	& (AsTool extends true ? ToolInputAdmission<TFinal> : unknown);
+export type ValidateFinalConfig<TConfig, TFinal, Explicit extends boolean = false> = ValidateResolved<TConfig,
+	FunctionConfigChecks<TFinal, Explicit> extends (check: infer Check) => void ? Check : never>;
 
-// Loaded ordinary renderers can receive their source at call time; tools cannot.
-type RendererRequirements<Shape, Source extends 'template' | 'script'> =
-	(Shape extends configs.LoaderConfig ? { loader: unknown } : EmptyMap)
-	& (Shape extends { inputSchema: unknown } ? { inputSchema: unknown } : EmptyMap)
-	& (Shape extends configs.LoaderConfig ? Shape extends { inputSchema: unknown }
-		? Record<Source, string> : EmptyMap : Record<Source, string>);
-
-type ValidateRendererConfig<Config, Final, Shape, Source extends 'template' | 'script', Result,
-	Missing = MissingRequiredKeys<Final, RendererRequirements<Shape, Source>>> =
-	ValidateResolved<Config, Exclude<UnionKeys<Config>, keyof Shape | 'asTool'> extends never
+export type ValidateRendererConfig<K extends 'Template' | 'Script', Config, Final, Shape,
+	Result = import('./component-map.js').ToolResults<Final, never>[K],
+	Missing = MissingRequiredKeys<Final, Record<import('./component.js').RequiredComponentKeys<K, ConfigValue<Final, 'promptType'>, true extends ToolMode<Final, false> ? true : false>, unknown>>> =
+	ValidateResolved<Config, Exclude<UnionKeys<Final>, keyof Shape | 'asTool'> extends never
 		? [Missing] extends [never] ? Config
 			: `Config Error: Missing required property '${Missing & string}' in the final configuration.`
-		: `Config Error: Unknown properties for this generator type: '${Exclude<UnionKeys<Config>, keyof Shape | 'asTool'> & string}'`>
+		: `Config Error: Unknown properties for this generator type: '${Exclude<UnionKeys<Final>, keyof Shape | 'asTool'> & string}'`>
 	& ValidateResolved<Config, ComponentAdmission<Final>>
-	& ValidateToolsContext<import('./provisional.js').ResolvedConfig<Config>, Final>
 	& import('./callbacks.js').ValidateDescriptor<Config, Final, Result>
-	& ValidateResolved<Config, Shape extends { inputSchema: unknown } ? ToolInputAdmission<Final> : unknown>;
-
-type ValidateRendererParent<Parent, Shape, Source extends 'template' | 'script'> =
-	Exclude<UnionKeys<Parent>, keyof Shape | 'asTool'> extends never ? Parent
-	: `Parent Config Error: Parent has properties not allowed for the final ${Source} type: '${Exclude<UnionKeys<Parent>, keyof Shape | 'asTool'> & string}'`;
-
-export type ValidateTemplateConfig<Config, Final, Shape> = ValidateRendererConfig<Config, Final, Shape, 'template', string>;
-export type ValidateScriptConfig<Config, Final, Shape> = ValidateRendererConfig<Config, Final, Shape, 'script', import('./result.js').CollectedResult<Final>>
-	& ValidateResolved<Config, Shape extends { inputSchema: unknown } ? ToolOutputAdmission<Final> : unknown>;
-
-export type ValidateTemplateParentConfig<Parent, Shape> = ValidateRendererParent<Parent, Shape, 'template'>;
-export type ValidateScriptParentConfig<Parent, Shape> = ValidateRendererParent<Parent, Shape, 'script'>;
+	& ValidateResolved<Config, true extends ToolMode<Final, false> ? ToolInputAdmission<Final> & ToolOutputAdmission<Final, Result> : unknown>;
 
 // Shared preparation requirements, used by component construction and tool binding.
 export type ValidateInputDeclarations<TInputSchema, TDefaults, TContextSchema = undefined, TTools extends ToolRegistry = EmptyMap> = [UnionKeys<TDefaults> | SchemaOutputNames<TContextSchema> | PossibleExecutableToolNames<TTools>] extends [never] ? unknown
@@ -154,14 +136,7 @@ export type ToolInputAdmission<TConfig, TDefaults = never> =
 	(true extends HasOpenRootInput<InputSchemaFromConfig<TConfig>> ? { readonly 'Tool input requires a closed root object; nest dynamic keys in a declared field': never } : unknown)
 	& ([InvalidToolProjection<TConfig, TDefaults>] extends [never] ? unknown : { readonly 'Tool public defaults require an independent object schema': never });
 
-type ConfiguredDependencies<TConfig> = DistributiveOmit<ContextFromConfig<TConfig>, '_toolOptions' | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>>>
-	& InjectedToolHelpers<undefined, ContextFromConfig<TConfig>, ToolRegistryFromConfig<TConfig>, ToolsContextFromConfig<TConfig>> & { _toolOptions: ComponentExecutionOptions };
-
-type ValidateConfiguredDependencies<TConfig> = [Extract<ConfigValue<TConfig, 'execute'> | ConfigValue<TConfig, 'prompt'>, (...args: never[]) => unknown>] extends [never] ? unknown
-	: [ConfiguredDependencies<TConfig>] extends [Pick<CallbackContextFromConfig<TConfig>, Extract<keyof CallbackContextFromConfig<TConfig>, NamedKeys<ContextFromConfig<TConfig>> | PossibleExecutableToolNames<ToolRegistryFromConfig<TConfig>> | '_toolOptions'>>]
-	? unknown : { readonly 'Configured private dependencies must satisfy the callback': never };
-
-type ComponentBranchAdmission<TConfig, TInputSchema> = [Exclude<TInputSchema, undefined>] extends [never] ? ValidateConfiguredDependencies<TConfig>
+type ComponentBranchAdmission<TConfig, TInputSchema> = [Exclude<TInputSchema, undefined>] extends [never] ? unknown
 	: ValidateInputDeclarations<TInputSchema, ContextFromConfig<TConfig>, ConfigValue<TConfig, 'toolContextSchema'>, ToolRegistryFromConfig<TConfig>> & ValidateContextSchema<Exclude<TInputSchema, undefined>> & ValidateToolContextSchema<ConfigValue<TConfig, 'toolContextSchema'>>;
 
 type ComponentAdmissionChecks<TConfig, TAlternatives = InputConfigAlternatives<TConfig>> = TAlternatives extends { config: infer TAlternative; schema: infer TInputSchema } ? (check: ComponentBranchAdmission<TAlternative, TInputSchema>) => void : never;

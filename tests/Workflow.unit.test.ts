@@ -181,7 +181,7 @@ describe('Component workflow contracts', () => {
 		});
 	}
 
-	it('runs the README RAG script with retrieved context passed to the answer component', async () => {
+	it('passes retrieved context to the answer component in a RAG workflow', async () => {
 		const calls: string[] = [];
 		const answerGenerator = create.Function({
 			inputSchema: z.object({ context: z.string() }),
@@ -198,13 +198,17 @@ describe('Component workflow contracts', () => {
 					return 'retrieved sources';
 				},
 			},
-			script: readmeScript('ragOrchestrator'),
+			script: `
+				var retrievedContext = searchIndex(query)
+				var answer = answerGenerator({ context: retrievedContext }).output
+				return { query: query, answer: answer }
+			`,
 		});
 		expect(await workflow()).to.deep.equal({ query: 'current research', answer: 'Based on retrieved sources' });
 		expect(calls).to.deep.equal(['search:current research', 'answer:retrieved sources']);
 	});
 
-	it('runs the README embedding script with asynchronous document and embedding lookups', async () => {
+	it('composes asynchronous document and embedding lookups in source order', async () => {
 		const read: string[] = [];
 		const embedded: string[] = [];
 		const workflow = create.Script({
@@ -221,7 +225,16 @@ describe('Component workflow contracts', () => {
 				compareSimilarity: cosineSimilarity,
 			},
 			schema: z.object({ docs: z.array(z.object({ filename: z.string(), similarity: z.number() })) }),
-			script: readmeScript('documentFinder'),
+			script: `
+				var queryEmbedding = embedText(userQuery)
+				data result
+				for i in range(10)
+					var docPath = 'docs/document' ~ (i + 1) ~ '.txt'
+					var docEmbedding = embedText(readFile(docPath))
+					result.docs.push({filename: docPath, similarity: compareSimilarity(queryEmbedding, docEmbedding)})
+				endfor
+				return result.snapshot()
+			`,
 		});
 		const result = await workflow();
 		expect(result.docs).to.deep.equal(Array.from({ length: 10 }, (_, index) => ({

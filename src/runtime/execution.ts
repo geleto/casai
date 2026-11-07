@@ -1,16 +1,21 @@
 import { asSchema, generateId, jsonSchema } from 'ai';
 import type { FlexibleSchema, Tool, ToolSet } from 'ai';
-import { executeTool, isExecutableTool } from '@ai-sdk/provider-utils';
+import { executeTool, isExecutableTool, isRecord } from '@ai-sdk/provider-utils';
 import type { ExecutableTool } from '@ai-sdk/provider-utils';
 import { ConfigError, ValidationError } from '../errors.js';
-import { contextNames, inputNames, isPlainObject, requireContextObject, ownKeys, parseSchema, projectInput, sameContext, selectFields, snapshot } from '../schema.js';
+import { contextNames, inputNames, requireContextObject, ownKeys, parseSchema, projectInput, sameContext, selectFields, snapshot } from '../schema.js';
 import type { Fields } from '../types/utils.js';
 import { toolOutput } from '../streams.js';
 
 import type { ComponentExecutionOptions } from '../types/sdk.js';
-import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry } from '../types/execution.js';
+import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry, ToolInvocation } from '../types/execution.js';
 
-type Executor = (context: PreparedExecutionContext, registry: PreparedToolRegistry) => Promise<unknown>;
+export const invocationKeys = ['abortSignal', 'toolsContext', 'context'] as const;
+
+export function definedSettings(settings: Fields): Fields {
+	return Object.fromEntries(Object.entries(settings).filter(([, value]) => value !== undefined));
+}
+type Executor = (prepared: ToolInvocation) => Promise<unknown>;
 interface ComponentToolBinding {
 	tool: Tool<Fields, unknown, unknown>;
 	context: unknown;
@@ -27,20 +32,25 @@ function isComponent(tool: Tool): tool is BindableComponentTool {
 	return component;
 }
 
+/** Context consumes object records; native URL and binary inputs keep their separate positional roles. */
+export function isContextArgument(value: unknown): value is Fields {
+	return isRecord(value) && !(value instanceof URL) && !(value instanceof ArrayBuffer) && !ArrayBuffer.isView(value);
+}
+
 /** Cascada names arguments explicitly. Schema field order never supplies positional meaning. */
-export function namedArguments(args: readonly unknown[]): { values: unknown[]; keywords: boolean } {
+export function namedArguments(args: readonly unknown[], objectSource = false): { values: unknown[]; keywords: boolean } {
 	const last = args.at(-1);
 	if (last === null || typeof last !== 'object' || !Object.hasOwn(last, '__hasKeywordArgs') || Reflect.get(last, '__hasKeywordArgs') !== true) return { values: [...args], keywords: false };
 	const { __hasKeywordArgs: _marker, ...keywords } = last as Fields;
-	if (args.slice(0, -1).some(isPlainObject)) throw new ValidationError('Use either a context object or named arguments, not both.');
+	if (args.slice(objectSource ? 1 : 0, -1).some(isContextArgument)) throw new ValidationError('Use either a context object or named arguments, not both.');
 	return { values: [...args.slice(0, -1), keywords], keywords: true };
 }
 
-export function runSettings(args: readonly unknown[], allowed: readonly string[]): Fields {
+export function runSettings(args: readonly unknown[], allowed?: readonly string[]): Fields {
 	const { values: normalized } = namedArguments(args);
 	if (normalized.length > 1) throw new ValidationError('A component run accepts one settings object.');
 	const settings = { ...requireContextObject(normalized[0] === undefined ? {} : normalized[0]) };
-	const unknown = Object.keys(settings).filter(key => !allowed.includes(key));
+	const unknown = allowed ? Object.keys(settings).filter(key => !allowed.includes(key)) : [];
 	if (unknown.length) throw new ValidationError(`Unknown run settings: ${unknown.join(', ')}. Put application data in context.`);
 	return settings;
 }
@@ -79,8 +89,25 @@ export function prepareRegistry(config: ExecutionConfig, overrides?: Fields): Pr
 	}));
 	const toolsContext = Object.fromEntries(entries.map(([key]) => [key, bindings.has(key) ? bindings.get(key)!.context
 		: Object.hasOwn(selected, key) ? selected[key] : undefined]));
+	async function invoke(key: string, rawInput: unknown, options: ComponentExecutionOptions) {
+		options.abortSignal?.throwIfAborted();
+		const tool = (Object.hasOwn(tools, key) ? tools[key] : undefined) as Tool<unknown, unknown, unknown> | undefined;
+		if (!isExecutableTool(tool)) throw new ValidationError(`Unknown or unavailable tool '${key}'.`);
+		const binding = bindings.get(key);
+		if (binding) return binding.invoke(rawInput, options);
+		const { value: input } = await parseSchema(tool.inputSchema, rawInput, `Tool '${key}' input`);
+		const raw = Object.hasOwn(selected, key) ? selected[key] : undefined;
+		const context = tool.contextSchema === undefined ? raw
+			: (await parseSchema(tool.contextSchema, raw, `Tool '${key}' context`)).value;
+		options.abortSignal?.throwIfAborted();
+		// The native conditional context type is erased by heterogeneous registry enumeration.
+		for await (const result of executeTool({ tool, input, options: { ...options, toolCallId: options.toolCallId!, messages: options.messages ?? [], context: context as never } })) {
+			if (result.type === 'final') return result.output;
+		}
+		return undefined;
+	}
 	return {
-		tools, toolsContext,
+		tools, toolsContext, invoke,
 		assertContext(value) {
 			const next = requireContextObject(value);
 			for (const key of bindings.keys()) {
@@ -88,24 +115,11 @@ export function prepareRegistry(config: ExecutionConfig, overrides?: Fields): Pr
 			}
 		},
 		helpers(options) {
-			return Object.fromEntries(entries.filter((entry): entry is [string, ExecutableTool<Tool<unknown, unknown, unknown>>] => isExecutableTool(entry[1])).map(([key, tool]) => [key,
+			return Object.fromEntries(entries.filter((entry): entry is [string, ExecutableTool<Tool<unknown, unknown, unknown>>] => isExecutableTool(entry[1])).map(([key]) => [key,
 				async (...args: unknown[]) => {
 					const { values: normalized } = namedArguments(args);
 					if (normalized.length > 1) throw new ValidationError('A registered tool accepts one input value.');
-					options.abortSignal?.throwIfAborted();
-					const metadata = { ...options, toolCallId: generateId(), messages: [] };
-					const binding = bindings.get(key);
-					if (binding) return binding.invoke(normalized[0], metadata);
-					const { value: input } = await parseSchema(tool.inputSchema, normalized[0], `Tool '${key}' input`);
-					const raw = Object.hasOwn(selected, key) ? selected[key] : undefined;
-					const context = tool.contextSchema === undefined ? raw
-						: (await parseSchema(tool.contextSchema, raw, `Tool '${key}' context`)).value;
-					options.abortSignal?.throwIfAborted();
-					// The native conditional context type is erased by heterogeneous registry enumeration.
-					for await (const result of executeTool({ tool, input, options: { ...metadata, context: context as never } })) {
-						if (result.type === 'final') return result.output;
-					}
-					return undefined;
+					return invoke(key, normalized[0], { ...options, toolCallId: generateId(), messages: [] });
 				},
 			]));
 		},
@@ -116,7 +130,7 @@ export function prepareRegistry(config: ExecutionConfig, overrides?: Fields): Pr
  * One application parse, followed by one private-context assembly. SDK executors
  * enter after parsing; ordinary and injected calls enter before it.
  */
-function preparation(config: ExecutionConfig, binding?: { context: unknown; name?: string | undefined }) {
+function preparation(config: ExecutionConfig, binding?: { context: unknown; name?: string | undefined }, toolInputField?: string) {
 	const tool = config.asTool === true;
 	const context = snapshot(binding?.context);
 	const toolName = binding?.name;
@@ -125,7 +139,12 @@ function preparation(config: ExecutionConfig, binding?: { context: unknown; name
 	const registered = Object.entries(config.tools ?? {}).filter(([, tool]) => isExecutableTool(tool ?? undefined)).map(([key]) => key);
 	let declarations: Promise<Set<string>> | undefined;
 	const namesFor = () => declarations ??= config.inputSchema === undefined ? Promise.resolve(new Set<string>())
-		: inputNames(config.inputSchema, tool).then(names => new Set(names));
+		: inputNames(config.inputSchema, tool).then(names => {
+			if (toolInputField !== undefined && names.some(key => key !== toolInputField)) {
+				throw new ConfigError(`Plain tool input must declare only '${toolInputField}'. Use a preparer for custom argument names.`);
+			}
+			return new Set(names);
+		});
 	async function prepare() {
 		const incoming = !binding ? {} : inputObject(config.toolContextSchema === undefined ? context
 			: (await parseSchema(config.toolContextSchema, context, toolName === undefined ? 'Tool context' : `Tool '${toolName}' context`)).value);
@@ -155,7 +174,7 @@ function preparation(config: ExecutionConfig, binding?: { context: unknown; name
 			rejectPrivate(parsed, reserved);
 			return { value: parsed };
 		},
-		async assemble(input: Fields, incoming: Fields, options: ComponentExecutionOptions, registry: PreparedToolRegistry): Promise<{ context: PreparedExecutionContext }> {
+		async assemble(input: Fields, incoming: Fields, options: ComponentExecutionOptions, registry: PreparedToolRegistry): Promise<{ context: PreparedExecutionContext; inputNames: ReadonlySet<string> }> {
 			const facts = await ready();
 			const names = Object.keys(incoming).length ? await namesFor() : facts.names;
 			if (!binding && Object.keys(incoming).some(key => names.has(key))) {
@@ -171,7 +190,7 @@ function preparation(config: ExecutionConfig, binding?: { context: unknown; name
 			}
 			options.abortSignal?.throwIfAborted();
 			// A helper named `then` must remain data across the async boundary.
-			return { context: execution };
+			return { context: execution, inputNames: names };
 		},
 		ready,
 		metadata: async () => {
@@ -182,13 +201,12 @@ function preparation(config: ExecutionConfig, binding?: { context: unknown; name
 	};
 }
 
-export async function prepareExecution(config: ExecutionConfig, input: unknown, options: ComponentExecutionOptions = {}, toolsContext?: Fields) {
-	options.abortSignal?.throwIfAborted();
+export async function prepareExecution(config: ExecutionConfig, input: unknown, options: ComponentExecutionOptions = {}, toolsContext?: Fields, toolInputField?: string) {
 	const registry = prepareRegistry(config, toolsContext);
-	const prepared = preparation(config);
+	const prepared = preparation(config, undefined, toolInputField);
 	const { value } = await prepared.parse(input);
-	const { context } = await prepared.assemble(value, {}, options, registry);
-	return { context, registry };
+	const { context, inputNames } = await prepared.assemble(value, {}, options, registry);
+	return { input: value, context, registry, inputNames };
 }
 
 export const descriptorKeys = [
@@ -198,17 +216,17 @@ export const descriptorKeys = [
 
 /** Add the native SDK surface directly to a callable; its original config stays intact. */
 export function defineTool<T extends { config: ExecutionConfig }>(
-	component: T, execute: Executor, outputSchema?: FlexibleSchema<unknown>, descriptorConfig: object = component.config,
+	component: T, execute: Executor, outputSchema?: FlexibleSchema<unknown>, descriptorConfig: object = component.config, toolInputField?: string,
 ): T & Tool<Fields, unknown, unknown> & { bindToolContext(context: unknown): { tool: Tool<Fields, unknown, unknown>; context: unknown } } {
 	const config = component.config;
 	function bind(raw: unknown, bound: boolean, toolName?: string): ComponentToolBinding {
-		const prepared = preparation(config, bound ? { context: raw, name: toolName } : undefined);
+		const prepared = preparation(config, bound ? { context: raw, name: toolName } : undefined, toolInputField);
 		const properties = Object.fromEntries(descriptorKeys.filter(key => Object.hasOwn(descriptorConfig, key)).map(key => [key, (descriptorConfig as Fields)[key]]));
 		async function finish(input: Fields, incoming: Fields, options: ComponentExecutionOptions) {
 			options.abortSignal?.throwIfAborted();
 			const registry = prepareRegistry(config);
-			const { context } = await prepared.assemble(input, incoming, options, registry);
-			return toolOutput(await execute(context, registry), outputSchema);
+			const { context, inputNames } = await prepared.assemble(input, incoming, options, registry);
+			return toolOutput(await execute({ input, context, registry, inputNames }), outputSchema);
 		}
 		const tool: Tool<Fields, unknown, unknown> = {
 			...properties,

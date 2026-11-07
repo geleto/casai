@@ -5,7 +5,7 @@
 | `npm test` / `npm run test:local` | Mock-only runtime suite against source | No |
 | `npm run test:file -- tests/LLMCalls.unit.test.ts` | One selected file; append `--grep "pattern"` to narrow it | Depends on the selected file |
 | `npm run test:watch` | Watch the mock-only suite | No |
-| `npm run test:types` | Source, build, emitted-consumer and exact-optional checks | No |
+| `npm run test:types` | Source, build, consumer declaration emission, emitted-consumer and exact-optional checks | No |
 | `npm run build` | Incremental package build; reuse unchanged output | No |
 | `npm run test:coverage` | Mock-only runtime coverage and thresholds | No |
 | `npm run check` | All type profiles, type-aware lint and mock coverage | No |
@@ -17,20 +17,24 @@
 
 The current mock suite covers LLM requests, tools, approvals, history, streaming and errors using SDK mock models and fake provider fetch responses. These contracts do not need a real model. Live tests check actual provider/model behavior. Do not replace them with a generic mock that simply returns each assertion's expected answer; use explicit scripted responses and assert the outgoing requests in mock contract tests.
 
-The paired package check packs the existing engine build without running its scripts, installs both tarballs outside the workspace, and checks declarations, imports and execution without links. It does not publish or change versions. Passing with a development engine candidate does not establish compatibility with the currently published engine or replace checking the final coordinated release candidates and dependency minimum.
+The paired package check packs the existing engine build without running its scripts, installs both tarballs outside the workspace, and checks declarations, imports and execution without links. Declaration checks include both optional-property modes and native `ToolSet` annotations. It does not publish or change versions. Passing with a development engine candidate does not establish compatibility with the currently published engine or replace checking the final coordinated release candidates and dependency minimum.
 
 ## Where the time goes
 
-The preceding runs recorded 21–55 seconds for mock coverage (1,424 tests in the final run). The reported 18-minute full check was dominated by compilation and lint, not model latency. The old type gate started five compiler processes. Type-aware ESLint uses the TS6 compiler API in another process; a previous full lint attempt reached about 6 GB before it was stopped under system memory pressure. These are historical observations, not a fresh timing of the changed commands. All lint rules and file coverage remain enabled.
+The preceding runs recorded 21Р В Р вЂ Р В РІР‚С™Р Р†Р вЂљРЎС™55 seconds for mock coverage (1,424 tests in the final run). The reported 18-minute full check was dominated by compilation and lint, not model latency. The old type gate started five compiler processes. Type-aware ESLint uses the TS6 compiler API in another process; a previous full lint attempt reached about 6 GB before it was stopped under system memory pressure. These are historical observations, not a fresh timing of the changed commands. All lint rules and file coverage remain enabled.
 
-`test:types` first extracts all 65 current TypeScript examples directly from README2 into `.cache/readme2`. The source and emitted-consumer profiles compile these files, including exact optional properties; examples make no model calls. Every TypeScript fence must have a checking marker or an explicit future-phase skip (currently 17). Setup supplies application dependencies and wraps property fragments in concrete components; the example code stays verbatim. Run `node tests/fixtures/readme2-examples.cjs` to refresh them before an individual typecheck.
+`test:types` first extracts all 95 current TypeScript examples directly from README2 into `.cache/readme2`. It also checks all 60 README TypeScript examples: 51 share verbatim source with README2, and nine have their own fixtures. The source and emitted-consumer profiles compile these files, including exact optional properties; examples make no model calls. Every TypeScript fence must have a checking marker, with explicit future-phase skips allowed only in README2 (currently 3). Setup supplies application dependencies and wraps property fragments in concrete components; the example code stays verbatim. Run `node tests/fixtures/readme2-examples.cjs` to refresh them before an individual typecheck.
 
-`test:types` uses four compiler passes:
+`test:types` uses four main compiler passes:
 
 1. `typecheck:src`: implementation, runtime-test types and compile-only API assertions in one source program (`tsconfig.source.json`). The exact-optional-only fixture belongs to the last pass.
 2. `build`: NodeNext compilation and emission of JavaScript and declarations.
 3. `typecheck`: runtime-test consumers using emitted public declarations (`tsconfig.consumers.json`). Source files are no longer added as roots. Tests of internal functions still import the internal source they need; they are not excluded or redirected to different implementations.
 4. `typecheck:exact`: compile-only consumers of emitted declarations with exact optional properties enabled.
+
+After the build, `component-declarations.cjs` also exports all fourteen inferred component types from a physical package consumer and compiles a second consumer of those emitted declarations, under both optional-property modes. This checks portable type names and package exports without another dependency installation.
+
+`npm run test:component-mutations` runs twenty-two focused runtime mutations against the component boundary regression tests. It checks an unchanged control, works in an isolated source copy, and supports a regular-expression argument after `--` to select mutations.
 
 Each no-emit profile uses its own TypeScript incremental cache in `node_modules/.cache/casai`. Source/declaration resolution and optional-property modes must not share a cache file. `typecheck:safety:src` remains an optional focused API check, outside the full gate because its assertions are already in the combined source pass. TypeScript tracks changed inputs and dependencies; caching does not remove assertions or compiler options. Cold checks and broad public-type edits can still be expensive.
 
@@ -57,4 +61,8 @@ Do not turn off type assertions, lower coverage thresholds or enable dependency-
 
 These are bounded source workloads, not runtime call costs or a whole-application timing benchmark. LLMAgent retains the former Text/Object workload ceilings; no existing ceiling was relaxed during migration. See the [implementation review](../docs/phase3-review.md#implementation-review-2026-10-27) for measurements and the separate budgets for new hook/native-method workloads. Rebaseline only with an explicit before/after comparison of both import and component costs on the same compiler and workload.
 
+Phase 5 adds function-prepared Embedder, template ImageGenerator tool and matching function-prepared LLMAgent workloads. The two function-prepared workloads use limits of 22,000 initial and 13,000 additional instantiations per component; the image tool uses 12,000 and 6,500 (see the measured recalibration below). Common source-mode contracts also required small increases to the Function tool, Template, Script and structured LLMAgent ceilings. The [Phase 5 implementation record](../docs/phase5-implementation.md#safe-calls-across-source-modes-2026-11-05) records measurements and the retained/reverted experiments. `node tests/fixtures/phase2-production-mutations.cjs phase5` selects its five production fault injections; `node tests/fixtures/phase2-production-types.cjs Mode` selects the mixed-source-mode contract mutations.
+
 `LLMAgent.unit.test.ts` covers the new hook, Agent/UI, approval and telemetry boundaries. `ModifierInheritance.unit.test.ts` checks supported modifiers across all component families. The four provider-backed LLMAgent files end in `.live.test.ts` and remain opt-in. The package consumer also checks LLMAgent inheritance, native Agent typing and streaming output from a tarball, and rejects stale retired factory files. Clean `dist` after deleting source modules: incremental emission does not remove their old generated files.
+
+The 2026-11-06 image shorthand correction adds the supported `(text, images, count)` tuple. On the same compiler/workload with all other corrections held fixed, old/new image tuples cost 436,815/436,837 import instantiations, 7,266.92/7,711.25 initial instantiations per component, and 6,020/6,454 marginal instantiations. The marginal ceiling is recalibrated from 6,300 to 6,500 for that added call form; the import and initial ceilings and every other family ceiling remain unchanged. The shared tuple is clearer and cheaper than the tested flat alternative (6,482 marginal); no safe source-union calls were removed to reduce the count.

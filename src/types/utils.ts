@@ -1,6 +1,7 @@
 export type Fields = Record<string, unknown>;
 
 export type UnionKeys<T> = T extends unknown ? keyof T : never;
+export type IsUnion<T, All = T> = T extends unknown ? [All] extends [T] ? false : true : never;
 
 // A successful alternative must not erase another alternative's failure.
 export type InvalidUnionMembers<T, Shape> = T extends unknown

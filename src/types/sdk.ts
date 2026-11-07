@@ -15,8 +15,6 @@ export type GenerateRequest<Tools extends ToolSet = ToolSet, RuntimeContext exte
 export type StreamRequest<Tools extends ToolSet = ToolSet, RuntimeContext extends Record<string, unknown> = Record<string, unknown>, Output extends OutputInterface = OutputInterface> =
 	Parameters<typeof streamText<Tools, RuntimeContext, Output>>[0];
 
-export type ConversationRequest = Partial<Pick<GenerateRequest, 'prompt' | 'messages'>>;
-
 export type JSONSchema = Awaited<ReturnType<typeof asSchema>['jsonSchema']>;
 
 export type AIOutput<OUTPUT = any, PARTIAL = any, ELEMENT = any> = Output.Output<OUTPUT, PARTIAL, ELEMENT>;

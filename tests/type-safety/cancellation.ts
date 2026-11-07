@@ -7,7 +7,7 @@ import { expectEqual } from './assert.js';
 declare const model: LanguageModel;
 declare const abortSignal: AbortSignal;
 const schema = z.object({ n: z.number() });
-const configured = { model, prompt: 'test', schema, abortSignal };
+const configured = { model, prompt: 'test', abortSignal };
 
 // Configuration checks reject signals even when they arrive through variables or parents.
 // @ts-expect-error Cancellation belongs to an invocation.

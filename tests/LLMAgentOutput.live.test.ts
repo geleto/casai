@@ -113,7 +113,7 @@ describe('create.LLMAgent', function () {
 				prompt: 'Generate an array with one item: {id: 9, item: "Inherited"}.'
 			}, parentGenerator);
 
-			expect(childGenerator.config.output).to.equal('array');
+			expect(childGenerator.config.output).to.equal(parentGenerator.config.output);
 			const { output: object } = await childGenerator();
 			expect(object).to.be.an('array').with.lengthOf(1);
 			expect(object[0].id).to.equal(9);//check type
@@ -177,7 +177,7 @@ describe('create.LLMAgent', function () {
 			expect(object.city).to.equal('Paris');//check type
 		});
 
-		it('should merge and deduplicate loader arrays from parent configs', async () => {
+		it('should compose loader groups from parent configs in child-first order', async () => {
 			const loader1 = new StringLoader();
 			loader1.addString('object1.njk', 'Generate an object with these exact properties - name: "{{ name }}" and value: {{ value }}.');
 			const loader2 = new StringLoader();
@@ -187,7 +187,7 @@ describe('create.LLMAgent', function () {
 			const generator = create.LLMAgent.loadsTemplate({ model, ...temperatureConfig, loader: [loader2], output: Output.object({ schema: simpleSchema }) }, parent);
 
 			expect(generator.config.loader).to.be.an('array').with.lengthOf(2);
-			expect(generator.config.loader).to.deep.equal([loader2, loader1]);
+			expect(generator.config.loader).to.deep.equal([[loader2], [loader1]]);
 
 			//test the loader functionality using named templates
 			const { output: object1 } = await generator('object1.njk', { name: 'Test', value: 10 });
@@ -316,7 +316,7 @@ describe('create.LLMAgent', function () {
 				create.LLMAgent.loadsText({ model, ...temperatureConfig, prompt: 'file.txt', output: Output.object({ schema: simpleSchema }) })
 			).to.throw(
 				ConfigError,
-				"A 'loader' is required for this operation"
+				"LLMAgent requires 'loader'."
 			);
 		});
 

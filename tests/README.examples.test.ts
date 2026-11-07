@@ -1,5 +1,7 @@
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
 import { z } from 'zod';
 import { create, raceLoaders, raceParent } from './cascada';
 import { AsyncStringLoader, timeout } from './common';
@@ -9,6 +11,15 @@ const { expect } = chai;
 
 describe('README literal examples', function () {
 	this.timeout(timeout);
+
+	it('executes the documented mock workflow through its final assertion', async () => {
+		const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+		const example = /<!-- typecheck: mock-workflow -->\s*```typescript\r?\n([\s\S]*?)\r?\n```/.exec(readme)?.[1];
+		if (!example) throw new Error('README mock-workflow example was not found.');
+		const entry = new URL('../src/index.ts', import.meta.url).href;
+		const source = stripTypeScriptTypes(`import { create, z } from '${entry}';\n${example}`);
+		await import(`data:text/javascript,${encodeURIComponent(source)}`);
+	});
 
 	it('renders the Callable Component Objects template example', async () => {
 		const dynamicComponent = create.Template({
