@@ -1,12 +1,15 @@
 // Generate and type-check the displayed examples, not hand-maintained copies.
 import assert from 'node:assert/strict';
-import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, mkdir, writeFile, realpath, rm } from 'node:fs/promises';
+import { relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripTypeScriptTypes } from 'node:module';
 import { components, render, validateOptions, selectOption, visibleGroups } from '../../docs/matrix/matrix.js';
 import { multiline } from '../../docs/matrix/shared.js';
 import { checkReference } from './matrix-reference.mjs';
+import { checkBundle } from './matrix-bundle.mjs';
+import { checkPackage } from './matrix-package.mjs';
 
 export const root = new URL('../../', import.meta.url);
 export const destination = new URL('.cache/matrix/', root);
@@ -20,6 +23,12 @@ export function selections(component) {
 }
 
 export async function generate() {
+  const target = await realpath(destination).catch(error => {
+    if (error.code !== 'ENOENT') throw error;
+    return resolve(fileURLToPath(destination));
+  });
+  assert.equal(relative(await realpath(root), target).replaceAll('\\', '/'), '.cache/matrix', 'Only clear the matrix cache inside this workspace');
+  await rm(destination, { recursive: true, force: true });
   const authored = await readdir(new URL('docs/matrix/', root));
   assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
   assert.deepEqual(authored.filter(name => /\.(cat|cas)$/.test(name)).sort(), components.flatMap(item => item.resources).sort(), 'No duplicated streaming resources');
@@ -36,7 +45,12 @@ export async function generate() {
         assert.equal(next.includes(choice.id), active);
         assert.deepEqual(validateOptions(component.name, next), next);
       }
-      const example = await render(component.name, options, { readText });
+      const reads = [];
+      const example = await render(component.name, options, { readText: url => { reads.push(fileURLToPath(url).split(/[\\/]/).at(-1)); return readText(url); } });
+      const expectedResource = options.some(id => ['withTemplate', 'loadTemplate'].includes(id)) ? `${component.name}.cat`
+        : options.some(id => ['withScript', 'loadScript'].includes(id)) ? `${component.name}.cas`
+        : !options.includes('withFunction') && ['Template', 'Script'].includes(component.name) ? `${component.name}.${component.name === 'Template' ? 'cat' : 'cas'}` : null;
+      assert.deepEqual(reads, expectedResource ? [expectedResource] : [], `${component.name}: load only the selected source`);
       assert(!ids.has(example.id), `Duplicate ID: ${example.id}`);
       ids.add(example.id);
       assert.equal(example.explanations.length, options.length);
@@ -116,12 +130,27 @@ export async function generate() {
   const llm = components.find(item => item.name === 'LLMAgent');
   assert.equal(llm.experimental, undefined);
   assert(llm.groups.flatMap(group => group.choices).every(option => option.experimental === undefined));
-  // Explicit files keep stale generated cache entries out of compilation.
+  await checkPackage(root, destination);
+  await writeFile(new URL('_contracts.ts', destination), `import { describe, type SelectionExport } from '@casai/matrix/reference';
+import { render, validateOptions } from '@casai/matrix';
+validateOptions('LLMAgent');
+await render('Context');
+const selected: SelectionExport = { schemaVersion: 1, reference: describe('LLMAgent'), example: await render('LLMAgent', [], { readText: async () => '' }) };
+const origin: 'casai' | 'cascada' | 'ai-sdk' = selected.reference.config.properties.model.origin;
+void origin;
+// @ts-expect-error A missing/renamed reference field must not silently become any.
+void selected.reference.topics;
+// @ts-expect-error Serialized example files contain strings, not DOM elements.
+const source: HTMLElement = selected.example.files[0].code;
+void source;
+`);
+  // The cache is fresh; the explicit file list also excludes planned APIs.
   await writeFile(new URL('tsconfig.json', destination), JSON.stringify({
     extends: '../../tsconfig.json', compilerOptions: { noEmit: true, customConditions: ['casai-source'] },
-    include: [], files: examples.filter(example => example.status === 'implemented').map(example => `${example.id}/${example.files[0].name}`),
+    include: [], files: ['_contracts.ts', '_data-contracts.ts', ...examples.filter(example => example.status === 'implemented').map(example => `${example.id}/${example.files[0].name}`)],
   }, null, 2));
   await checkReference(examples);
+  await checkBundle(examples);
   console.log(`Checked ${examples.filter(example => example.status === 'planned').length} planned selections for syntax, shared sources and matching streaming counterparts.`);
   return examples;
 }

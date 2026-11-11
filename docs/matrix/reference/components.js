@@ -1,6 +1,9 @@
 // Documentation choices describe API contracts, independently of example constraints.
 const native = (operation, result, details = {}) => ({ operation, result, ...details });
 const nativeContext = { options: { description: 'Application input for Casai context validation. Required exactly when configured public defaults do not satisfy inputSchema.' } };
+const historyResult = [{ name: 'messageHistory', type: 'ModelMessage[]', description: 'Original conversation plus native response messages. This is the only result property added by Casai.' }];
+const streamedHistoryResult = [{ name: 'messageHistory', type: 'Promise<ModelMessage[]>', description: 'Resolves to the original conversation plus native response messages, independently of output parsing. It shares the same execution.' }];
+const recordedAudio = 'Uint8Array | ArrayBuffer | ReadableStream<string | Uint8Array>';
 export const componentReference = {
   Config: {
     kind: 'configuration', input: 'A partial configuration and an optional compatible parent.',
@@ -14,6 +17,7 @@ export const componentReference = {
     ],
   },
   Context: {
+    propertyShapes: [],
     kind: 'concept', input: 'An application object containing public defaults and private dependencies.',
     resultSummary: 'Context is data passed to a component, not a factory or callable component.',
     concepts: ['context', 'schemas', 'effects', 'tools'],
@@ -44,20 +48,20 @@ export const componentReference = {
     resultDescription: 'output is text unless an SDK Output specification selects another value. Casai adds messageHistory; other result fields and methods retain native behavior. Output validity does not prove that every tool task finished.',
     toolResult: 'The completed parsed output. Paused, unfinished or stop-condition-cut-off inner workflows fail tool execution. Ordinary calls on the tool still return the native result.',
     concepts: ['context', 'sources', 'history', 'hooks', 'steps', 'tools', 'inheritance', 'errors'],
-    call: 'agent(prompt?, context?, messageHistory?)', contextPositional: true,
+    call: 'agent(prompt?, context?, messageHistory?)', contextPositional: true, positional: ['messageHistory'],
     runShape: 'AgentRun', nativeDocs: 'StreamSettings',
-    additionalResults: [{ name: 'messageHistory', type: 'ModelMessage[]', description: 'Original conversation plus native response messages. This is the only result property added by Casai.' }],
+    additionalResults: historyResult,
     variants: [{ requires: { stream: ['asStream'] }, operation: 'streamText', summaryOperation: 'streamText', result: 'LLMAgentStream', streamModifier: true,
       resultSummary: 'A live SDK result; consume its streams and await final output and history.',
       resultDescription: 'textStream, partialOutputStream, elementStream and execution events share one native execution. Partial values do not establish whole-result validity. messageHistory resolves independently of output parsing.',
-      additionalResults: [{ name: 'messageHistory', type: 'Promise<ModelMessage[]>', description: 'Resolves to the original conversation plus native response messages, independently of output parsing. It shares the same execution.' }] }],
+      additionalResults: streamedHistoryResult }],
     methods: [
       { name: 'id', kind: 'property', signature: 'agent.id', description: 'The configured SDK Agent ID, or undefined.', requires: { tool: [null] } },
       { name: 'version', kind: 'property', signature: 'agent.version', description: 'The native Agent protocol marker: agent-v1.', requires: { tool: [null] } },
       { name: 'tools', kind: 'property', signature: 'agent.tools', description: 'The prepared native tool registry used by Agent integrations.', requires: { tool: [null] } },
-      { name: 'resume', signature: 'agent.resume(history, { context?, approve?, ...overrides }?)', description: 'Continues a saved conversation without preparing another source. It also supports provider pauses and deferred results; tools are needed only for the approval example. Supply required raw context and any per-call overrides again.', properties: ['history', 'approve'], requires: { tool: [null] } },
-      { name: 'generate', signature: 'agent.generate({ prompt? | messages?, options?, ...settings })', description: 'Runs the native SDK Agent generation method. Content is literal: source loading/rendering is skipped. options supplies application input and still passes through Casai context validation and hooks.', shape: 'NativeGenerate', argumentOverrides: nativeContext, requires: { tool: [null] } },
-      { name: 'stream', signature: 'agent.stream({ prompt? | messages?, options?, ...settings })', description: 'Runs the native streaming Agent method, even when ordinary calls use generation. It shares the same validated context and hooks and skips source preparation.', shape: 'NativeStream', argumentOverrides: nativeContext, requires: { tool: [null] } },
+      { name: 'resume', signature: 'agent.resume(history, { context?, approve?, ...overrides }?)', description: 'Continues a saved conversation without preparing another source. It also supports provider pauses and deferred results; tools are needed only for the approval example. Supply required raw context and any per-call overrides again.', properties: ['history', 'approve'], settings: 'run', omit: ['prompt', 'messageHistory'], requires: { tool: [null] } },
+      { name: 'generate', signature: 'agent.generate({ prompt? | messages?, options?, ...settings })', description: 'Runs the native SDK Agent generation method. Content is literal: source loading/rendering is skipped. options supplies application input and still passes through Casai context validation and hooks.', shape: 'NativeGenerate', argumentOverrides: nativeContext, resultShape: 'LLMAgent_result', additionalProperties: historyResult, requires: { tool: [null] } },
+      { name: 'stream', signature: 'agent.stream({ prompt? | messages?, options?, ...settings })', description: 'Runs the native streaming Agent method, even when ordinary calls use generation. It shares the same validated context and hooks and skips source preparation.', shape: 'NativeStream', argumentOverrides: nativeContext, resultShape: 'LLMAgentStream_result', additionalProperties: streamedHistoryResult, requires: { tool: [null] } },
     ],
   },
   Decision: {
@@ -87,7 +91,7 @@ export const componentReference = {
     ...native('transcribe', 'Transcriber'), input: 'A recording as encoded data or a URL.', resultSummary: 'Transcript text, segments, language, duration and native metadata.',
     toolResult: 'Only text, segments, language and durationInSeconds; the model receives transcript text.',
     concepts: ['sources', 'context', 'audio', 'tools', 'inheritance'], call: 'transcribe(audio) or transcribe(context)',
-    variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingTranscriber', types: 'StreamingTranscriber',
+    variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingTranscriber', types: 'StreamingTranscriber', activeOptions: ['asStream'],
       summaryOperation: 'experimental_streamTranscribe', ...native('experimental_streamTranscribe', 'StreamingTranscriber'),
       input: 'A fresh raw-audio stream and its input format.',
       resultSummary: 'Native transcription events and final transcript promises.',
@@ -99,7 +103,7 @@ export const componentReference = {
     ...native('generateSpeech', 'SpeechGenerator'), input: 'A complete text string and optional voice.', resultSummary: 'A generated audio file and native metadata.',
     toolResult: 'A file as { mediaType, base64 }; the model receives a short confirmation.',
     concepts: ['sources', 'context', 'audio', 'tools', 'inheritance'], call: 'speak(text, voice?) or speak(context, voice?)', positional: ['voice'],
-    variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingSpeechGenerator', types: 'StreamingSpeechGenerator',
+    variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingSpeechGenerator', types: 'StreamingSpeechGenerator', activeOptions: ['asStream'],
       summaryOperation: 'experimental_streamSpeech', ...native('experimental_streamSpeech', 'StreamingSpeechGenerator'), input: 'A text string, iterable or stream of text deltas/parts; optional voice.',
       resultSummary: 'Live audio events and final native metadata.',
       resultDescription: 'outputFormat is a native audio-format object, not the complete operation’s format string. Suitable script/function preparers may return streamed text even though the example uses direct text input.',
@@ -112,7 +116,8 @@ export const componentReference = {
     resultDescription: 'The planned complete adapter consumes one native fullStream before reading final values. It collects audio as Uint8Array and preserves native error/completion semantics. It adds no errors array and infers no media type.',
     concepts: ['sources', 'context', 'audio', 'translation', 'inheritance'],
     call: 'translate(audio, inputAudioFormat?, targetLanguage?) or translate(context, inputAudioFormat?, targetLanguage?)', positional: ['inputAudioFormat', 'targetLanguage'],
-    overrides: { audio: { type: 'Uint8Array | ArrayBuffer | ReadableStream<string | Uint8Array>', description: 'Planned finite recorded input. A stream must end. Bytes are raw audio matching inputAudioFormat; encoded containers require explicit preparation.' } },
+    inputTypes: { direct: recordedAudio, prepared: recordedAudio },
+    overrides: { audio: { description: 'Planned finite recorded input. A stream must end. Bytes are raw audio matching inputAudioFormat; encoded containers require explicit preparation.' } },
     omit: ['includeRawChunks'],
     additionalResults: [
       { name: 'audio', type: 'Uint8Array', description: 'Collected translated audio bytes. Empty on a native text-only success; no media type is inferred.' },
@@ -120,20 +125,31 @@ export const componentReference = {
       { name: 'translationText', type: 'string', description: 'The authoritative final translated text.' },
       ...['durationInSeconds', 'usage', 'warnings', 'response', 'providerMetadata'].map(name => ({ name, type: `Awaited<Experimental_StreamTranslationResult['${name}']>`, description: 'The resolved native final field, without a second execution or a new result contract.' })),
     ],
-    variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingTranslator', status: 'implemented', omit: [], overrides: {}, additionalResults: [],
+    variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingTranslator', status: 'implemented', activeOptions: ['asStream'], omit: [], overrides: {}, inputTypes: {}, additionalResults: [],
       summaryOperation: 'experimental_streamTranslate', ...native('experimental_streamTranslate', 'StreamingTranslator'), input: 'A fresh raw-audio stream, its format and a target language.',
       resultSummary: 'Live translated audio/text events and native final promises.',
       resultDescription: 'Use one consumer of fullStream. Reading a final promise first can consume the underlying stream. Current input is a native stream; finite-byte admission is planned.',
     }],
   },
   VoiceSessionSetup: {
-    ...native('realtime model setup methods', 'VoiceSessionSetup'), input: 'Server-owned instructions, model, session preferences and optional tools.',
+    ...native('doCreateClientSecret', 'VoiceSessionSetup'), input: 'Server-owned instructions, model, session preferences and optional tools.',
     resultSummary: 'Client-secret information plus prepared tool definitions.',
     resultDescription: 'Ordinary calls and run create a client secret where the model supports it. Token, WebRTC and Live capabilities differ by provider. The application owns transport, authentication and matching server context.',
-    concepts: ['sources', 'context', 'voice-session', 'tools', 'inheritance'], call: 'setup(instructions?) or setup(context)',
+    concepts: ['sources', 'context', 'voice-session', 'tools', 'inheritance'], call: 'setup(instructions?) or setup(context)', preparedSourceRequired: true,
+    variants: [
+      { requires: { invocation: ['prepareSession'] }, operation: 'prepareSessionConfig', result: 'VoiceSessionConfig',
+        resultSummary: 'Prepared native session configuration, including instructions and tool definitions.',
+        resultDescription: 'Returns session configuration without opening a provider session. Empty tool definitions are omitted. The application supplies it to the supported session transport.',
+      },
+      { requires: { invocation: ['webRTC'] }, operation: 'doCreateWebRTCSession', result: 'VoiceWebRTC',
+        input: 'A browser SDP offer, server-owned instructions, session preferences and optional tools.',
+        resultSummary: 'The native WebRTC session result, including the SDP answer.',
+        resultDescription: 'Pass the returned SDP answer to the browser peer connection. The provider owns the result fields and capability errors; the application owns transport and authentication.',
+      },
+    ],
     methods: [
-      { name: 'prepareSessionConfig', signature: 'setup.prepareSessionConfig(settings?)', description: 'Prepares instructions and tool definitions without opening a provider session. Empty tool definitions are omitted.', resultShape: 'SessionConfig' },
-      { name: 'createWebRTCSession', signature: 'setup.createWebRTCSession({ sdp, ...settings })', description: 'Answers a browser SDP offer using the configured model. Unsupported providers retain their native error.', properties: ['sdp'] },
+      { name: 'prepareSessionConfig', signature: 'setup.prepareSessionConfig(settings?)', description: 'Prepares instructions and tool definitions without opening a provider session. Empty tool definitions are omitted.', settings: 'run', omit: ['expiresAfterSeconds'], resultShape: 'SessionConfig' },
+      { name: 'createWebRTCSession', signature: 'setup.createWebRTCSession({ sdp, ...settings })', description: 'Answers a browser SDP offer using the configured model. Unsupported providers retain their native error.', settings: 'run', omit: ['expiresAfterSeconds'], properties: ['sdp'], resultShape: 'VoiceWebRTC_result' },
       { name: 'executeTool', signature: 'setup.executeTool({ toolCallId, toolName, args }, { toolsContext?, abortSignal? }?)', description: 'Validates and executes a registered tool with the real call metadata. Returns the tool execution value without language-model toModelOutput formatting. Applications own HTTP transport and map undefined results to JSON null.', properties: ['toolCallId', 'toolName', 'args', 'toolsContext', 'abortSignal'] },
     ],
   },

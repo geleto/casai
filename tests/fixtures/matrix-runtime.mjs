@@ -20,14 +20,13 @@ const pcm = new Uint8Array(19202);
 const recording = new URL('data:audio/wav;base64,AQI=');
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
 
-function languageModel(allowTools = true) {
+function languageModel(allowTools = true, toolArguments = {}) {
   let called = false;
   const next = request => {
     const name = request.tools?.find(tool => tool.type === 'function')?.name;
     const calling = Boolean(allowTools && name && !called);
     called ||= calling;
-    const prompt = request.prompt.flatMap(message => typeof message.content === 'string' ? [message.content] : message.content.filter(part => part.type === 'text').map(part => part.text)).join('\n');
-    const args = prompt.match(/with these arguments: (.+)\. Explain the result briefly\./)?.[1] ?? '{}';
+    const args = JSON.stringify(toolArguments[name] ?? {});
     const text = request.responseFormat?.type === 'json' ? '{"answer":"done","nextStep":"Send a photo."}' : 'done';
     return { content: calling ? [{ type: 'tool-call', toolCallId: 'matrix-call', toolName: name, input: args }] : [{ type: 'text', text }],
       finishReason: { unified: calling ? 'tool-calls' : 'stop', raw: 'stop' }, usage, warnings: [] };
@@ -85,7 +84,20 @@ for (const example of examples.filter(example => example.status === 'implemented
   const { model, requests } = fixture(operation);
   const args = model ? [model] : [];
   const hosted = selected('asTool') && !selected('run') && example.component !== 'Embedder';
-  if (hosted) args.push(languageModel());
+  if (hosted) {
+    const prepared = ['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'].some(selected);
+    args.push(languageModel(true, {
+      deliveryUpdate: { name: 'Ada', orderId: 'N-1042' },
+      orderSummary: { orderId: 'N-1042' },
+      deliveryQuote: { weightKg: 2, service: 'express' },
+      returnsAdvisor: prepared ? { question: 'My mug arrived cracked. What should I do?' } : {},
+      routeRequest: prepared ? { issue: 'My mug arrived cracked.' } : { state: 'My mug arrived cracked.' },
+      findPolicy: prepared ? { question: 'How do I replace a damaged mug?' } : { query: 'How do I replace a damaged mug?' },
+      productScene: prepared ? { scene: 'a picnic table beside a mountain lake' } : { prompt: 'Place a Trail mug on a picnic table beside a mountain lake. Keep the mug shape and markings unchanged.' },
+      transcribeNote: prepared ? {} : { audio: recording.href },
+      speakUpdate: prepared ? { name: 'Ada' } : { text: 'Hello Ada. Your Northstar order is due Friday.' },
+    }));
+  }
   if (selected('referenceImage')) args.push(png);
   if (selected('mask')) args.push(png);
   if (selected('voice')) args.push('test-voice');

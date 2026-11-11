@@ -38,6 +38,7 @@ ${consume('result')}${final('result')}` : (has(options, 'asTool') && !has(option
     source: source('LLMAgent', 'prompt', options, resources,
       '`Policy: ${policy}\\nQuestion: ${input.question}`',
       '({ policy, question }) => `Policy: ${policy}\\nQuestion: ${question}`'),
+    toolPrompt: "input.question",
     toolArgs: coded ? 'input' : '{}', body,
   });
 }

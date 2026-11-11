@@ -7,41 +7,6 @@ export default {
     "@ai-sdk/provider": "4.0.35",
     "cascada-engine": "0.6.2"
   },
-  "files": {
-    "src/types/config.ts": "788006f6d5482d2c4f8af1131c275339590635e08028b5c04a82f7a36d0624b9",
-    "src/factories/Template.ts": "6a192de204b955714f34cc3abaff0d068fab29fa61dca538a213f516576ba777",
-    "src/factories/Script.ts": "71fc5a5dd6bf3d6d56f37e0bf17ff3238b2c812c4447f33ae7f07e4b94a5f2a3",
-    "src/factories/Function.ts": "61eb0322416c169c1b5e1539d93f7bcf53e518db5601924fb11fb479ec97ee44",
-    "src/types/agent.ts": "a3180ad6aaf15ac683f0d2222d0d3590de6260423209d393d34839ef804629a2",
-    "node_modules/ai/dist/index.d.ts": "334099d57eb8c58169993c9bbb7e24a0e033790ced09ccc622506c95f9be18fa",
-    "src/factories/LLMAgent.ts": "899961f4cb9b8854afea9d5d628afff62dff4ddabc1ec1086fc7342b145aa912",
-    "src/types/component.ts": "fbcb44abe5069e595708afc7bc8eb36d4674ee56180017efca38a8aca36d120c",
-    "src/factories/Decision.ts": "6226972cb727f7e17f09dd80016b5001a9d4077e8cffcd8d1fef0742bd51e788",
-    "src/factories/Embedder.ts": "6c93ba12926721d4cf707bd10056cfd3f2c274c9dba61aacdca820e0594e212f",
-    "src/factories/Reranker.ts": "df107aab9840336d8125d2cbde3aa9a42c0125ba87a02c61258aedd8e2a7e60d",
-    "src/factories/ImageGenerator.ts": "7b79da02d671ebf76a8dd8aeb27e8de31f7e9485fafabf87be85f832d92f947b",
-    "src/factories/Transcriber.ts": "3424b5fde8da2c7b9c58b8c1f78a87df3d4bc79a47f962e299b9d2701c536295",
-    "src/factories/StreamingTranscriber.ts": "c10db91ad8b5f83724571d7d4b50b97a962bd5120bd9ea1d7d65bc8dd4862d00",
-    "src/factories/SpeechGenerator.ts": "52d14729d5dee2fccc7c75fe8d9b444886d1606dc693632333434a11bb354ab8",
-    "src/factories/StreamingSpeechGenerator.ts": "0d597d153b593181499f294288c8829d0b3d329497b41bb98d5ef4b6cc9b80d1",
-    "src/factories/StreamingTranslator.ts": "611aeebac512098d942fd0a0ced1c69e729eb9c62faa5b5b92df5f29cc617161",
-    "node_modules/@ai-sdk/provider/dist/index.d.ts": "13298ba948b023dd400b487cbf7c9554bad1c7f4fac817f9a985c664923a1f6d",
-    "src/factories/VoiceSessionSetup.ts": "3328ca2e3d7592f0c3c69572be2a9e446fcabf42bb6f112b576e709bee276ca5",
-    "node_modules/@ai-sdk/provider-utils/dist/index.d.ts": "2d62e73575585eb7dadfa48c804e95fa1d714bbb59ca89d6d0443402be05f140",
-    "../cascada/dist/types/index.d.ts": "d7702ca42cc723155c7d1bae39846ac9aa3de8f607fd29119f2e6bb5e12beeea",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/01-generate-text.mdx": "5bb9ef0ea873ce150238d38e8719ad6ff58b38704824aac34099ff9d46c9b5fd",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/02-stream-text.mdx": "be67308dd0400d6fe0afecc7ac06dccd57b38b0a4c09ca6cbc64a5c98c7e63c3",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/05-embed.mdx": "4f8ad979d1da659d3c0465f6b2312a45842db1c1a8212aa4d028152232cbd3f5",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/06-embed-many.mdx": "e3b0af6d7baddadcd3acd5144da19e2a4742ff18bd6b64b08127510e22ceeba6",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/06-rerank.mdx": "1b847c64079e29b756e7eae45a0a0134d8a67a733d0583894092dd3bb0c436c4",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/10-generate-image.mdx": "969db34c6e3e8df9323f4b1d257f1a158af64a5e77f367fe0c969e52c4737994",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx": "101106b4f2ffd11eb8ccb4d27e1d45b79d10060f79584559834dcb0ef9cf1c66",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx": "86591054e1f5412cfc61292a3159da0c99e80f35137f6c35034727295dc7bb41",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/12-generate-speech.mdx": "fd9802b7d59f15422bbdc37d60498926646ef650865af45d24ea6cae5eaa611a",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/12-stream-speech.mdx": "7bbaf7a975e28d9980dd27e1af744fd39106cbafbdae3354093c74269aae9087",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/11-stream-translate.mdx": "b772a63b84ec7a9d5823a8b7188e7e7337963199197ce216c6a6ac3a983aad82",
-    "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx": "864facea6306e2fa5fa1d4e6be9de1336c7290cf61e0eb7687d0d802c9cf0657"
-  },
   "definitions": {
     "Template": {
       "name": "Template",
@@ -369,30 +334,30 @@ export default {
   },
   "shapes": {
     "Template_config": [
-      "template-a55e64b6b26c",
-      "inputSchema-45a82f5e832b",
-      "promptType-afc9eaa1f75d",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "tools-e5c3cbfbb5e6",
-      "toolsContext-478ba1572083"
+      "template-902b6327f5ff",
+      "inputSchema-f335a5a81f68",
+      "promptType-adaae62fa855",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-05ebb5c95a02",
+      "toolsContext-492a80518673"
     ],
     "Template_settings": [
-      "template-a55e64b6b26c",
-      "inputSchema-45a82f5e832b",
-      "promptType-afc9eaa1f75d",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "tools-e5c3cbfbb5e6",
-      "toolsContext-478ba1572083"
+      "template-902b6327f5ff",
+      "inputSchema-f335a5a81f68",
+      "promptType-adaae62fa855",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-05ebb5c95a02",
+      "toolsContext-492a80518673"
     ],
     "Template_inputs": [
       "direct-c287cb6ac7c7",
@@ -400,32 +365,32 @@ export default {
       "prepared-01eff35c8614"
     ],
     "Script_config": [
-      "script-80dcaccc6cf2",
-      "schema-23ba1ef38922",
-      "inputSchema-6d460913697b",
-      "promptType-103a96b89fc6",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "tools-e5c3cbfbb5e6",
-      "toolsContext-478ba1572083"
+      "script-3ee7336160ef",
+      "schema-288e8cf2b21a",
+      "inputSchema-f335a5a81f68",
+      "promptType-4e6960d1ae5c",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-05ebb5c95a02",
+      "toolsContext-492a80518673"
     ],
     "Script_settings": [
-      "script-80dcaccc6cf2",
-      "schema-23ba1ef38922",
-      "inputSchema-6d460913697b",
-      "promptType-103a96b89fc6",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "tools-e5c3cbfbb5e6",
-      "toolsContext-478ba1572083"
+      "script-3ee7336160ef",
+      "schema-288e8cf2b21a",
+      "inputSchema-f335a5a81f68",
+      "promptType-4e6960d1ae5c",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-05ebb5c95a02",
+      "toolsContext-492a80518673"
     ],
     "Script_inputs": [
       "direct-b5cef17f1666",
@@ -433,24 +398,24 @@ export default {
       "prepared-360e241e4dcb"
     ],
     "Function_config": [
-      "inputSchema-28e9daa52875",
-      "schema-5f876771b744",
-      "execute-0ac25e1cb1c3",
-      "context-ac652772f964",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "tools-e5c3cbfbb5e6",
-      "toolsContext-478ba1572083"
+      "inputSchema-434f89f77423",
+      "schema-1d2155b590a2",
+      "execute-5deb85869c1d",
+      "context-884c05d5299f",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-05ebb5c95a02",
+      "toolsContext-492a80518673"
     ],
     "Function_settings": [
-      "inputSchema-28e9daa52875",
-      "schema-5f876771b744",
-      "execute-0ac25e1cb1c3",
-      "context-ac652772f964",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "tools-e5c3cbfbb5e6",
-      "toolsContext-478ba1572083"
+      "inputSchema-434f89f77423",
+      "schema-1d2155b590a2",
+      "execute-5deb85869c1d",
+      "context-884c05d5299f",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-05ebb5c95a02",
+      "toolsContext-492a80518673"
     ],
     "Function_inputs": [
       "direct-61182c4fc774",
@@ -458,20 +423,20 @@ export default {
       "prepared-d70b23f5570a"
     ],
     "LLMAgent_config": [
-      "inputSchema-c7ecf4eb93ae",
-      "promptType-0747961cdd0d",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "tools-c302445fa0dc",
-      "toolsContext-9439724d2aa2",
+      "inputSchema-d2ab2b864d21",
+      "promptType-a87a79942498",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-d8cac053f1e9",
+      "toolsContext-be97e33328f3",
       "runtimeContext-5279a5b531bf",
       "providerOptions-bdb985c437b4",
-      "id-c3e895c425c6",
-      "output-fdbfab7c5208",
+      "id-7c420ba44547",
+      "output-960376aadf77",
       "maxOutputTokens-28aceb6f8de2",
       "temperature-d5e463222c25",
       "topP-c18ae9faa20b",
@@ -486,7 +451,7 @@ export default {
       "timeout-d2d66c53fa17",
       "instructions-b0d8abcfc99d",
       "allowSystemInMessages-e1a407f3bbe9",
-      "prompt-cb9adb7088a7",
+      "prompt-dbcb70464d4d",
       "model-f5334808405d",
       "toolChoice-ee62be34526e",
       "telemetry-8764a08784e2",
@@ -499,7 +464,7 @@ export default {
       "experimental_toolApprovalSecret-4ff3620966c4",
       "include-2f0b096d0254",
       "streamRetries-2780ace7cb77",
-      "streaming-fa884fce3abd",
+      "streaming-7ebe1c1cd17f",
       "stopWhen-fb42ba28c06a",
       "toolApproval-6a9876dda4cd",
       "experimental_download-339211b44f67",
@@ -518,9 +483,9 @@ export default {
       "onChunk-53740e0f058c",
       "onError-74cbedca876d",
       "onAbort-1aceb31e0923",
-      "prepareCall-5709c49a528e",
-      "prepareStep-3982ac97116d",
-      "asTool-2739e7156e24"
+      "prepareCall-1ce8440c2874",
+      "prepareStep-b1fc7f13d5d4",
+      "asTool-dfdd3e4eaf49"
     ],
     "LLMAgent_settings": [
       "runtimeContext-5279a5b531bf",
@@ -569,20 +534,20 @@ export default {
       "onError-16e40c751f49",
       "streamRetries-2780ace7cb77",
       "onAbort-9e072f29fce0",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "id-c3e895c425c6",
-      "streaming-fa884fce3abd",
-      "output-fdbfab7c5208",
-      "prompt-cb9adb7088a7",
-      "promptType-0747961cdd0d",
-      "inputSchema-c7ecf4eb93ae",
-      "tools-c302445fa0dc",
-      "toolsContext-9439724d2aa2"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "id-7c420ba44547",
+      "streaming-7ebe1c1cd17f",
+      "output-960376aadf77",
+      "prompt-dbcb70464d4d",
+      "promptType-a87a79942498",
+      "inputSchema-d2ab2b864d21",
+      "tools-d8cac053f1e9",
+      "toolsContext-be97e33328f3"
     ],
     "LLMAgent_inputs": [
       "direct-92236f2a65ad",
@@ -602,17 +567,17 @@ export default {
       "onEnd-a03dc449884e",
       "questions-dd5363516405",
       "state-f6557702dc32",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "Decision_settings": [
       "runtimeContext-0add664a522c",
@@ -649,17 +614,17 @@ export default {
       "maxParallelCalls-6694df5c0a88",
       "experimental_onEnd-a59f437a84ba",
       "input-fb5baefd9ad6",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "Embedder_settings": [
       "runtimeContext-b82193f21760",
@@ -676,7 +641,7 @@ export default {
       "dimensions-2ccabb90d619",
       "maxParallelCalls-6694df5c0a88",
       "experimental_onEnd-a59f437a84ba",
-      "input-b7b46216c601"
+      "input-dcc8da217a5c"
     ],
     "Embedder_inputs": [
       "direct-fce20620be48",
@@ -698,17 +663,17 @@ export default {
       "documents-153e8de9ac0a",
       "topN-2e58a6ef4988",
       "query-bf57c694fea9",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "Reranker_settings": [
       "runtimeContext-bfeb4849a32a",
@@ -745,17 +710,17 @@ export default {
       "images-a9ef46239974",
       "mask-67715919181b",
       "prompt-e832a0f8b353",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "ImageGenerator_settings": [
       "providerOptions-d0dcb86a4b4b",
@@ -785,17 +750,17 @@ export default {
       "telemetry-72cc4604f7aa",
       "download-f08788366d4c",
       "audio-0c1c18aa3172",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "Transcriber_settings": [
       "providerOptions-6fb067a708e2",
@@ -820,17 +785,17 @@ export default {
       "includeRawChunks-7d3f5f2a41a1",
       "inputAudioFormat-7e0e83a62aca",
       "audio-73f3d8f8ab2d",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "StreamingTranscriber_settings": [
       "providerOptions-0e700395c4b1",
@@ -859,17 +824,17 @@ export default {
       "speed-4d164fbb7f9d",
       "language-61b62537a500",
       "text-9952b743697d",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "SpeechGenerator_settings": [
       "text-ec806897822a",
@@ -902,17 +867,17 @@ export default {
       "speed-38cf774e7d2f",
       "language-17c4c3804341",
       "text-85a9dc177766",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "StreamingSpeechGenerator_settings": [
       "text-730665458c8e",
@@ -943,17 +908,17 @@ export default {
       "sourceLanguage-af6309dbca4a",
       "outputAudioFormat-89e588aef43c",
       "audio-73f3d8f8ab2d",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "StreamingTranslator_settings": [
       "providerOptions-629f88d39640",
@@ -974,7 +939,7 @@ export default {
     ],
     "VoiceSessionSetup_config": [
       "providerOptions-017504595b6e",
-      "model-2754f28f44b2",
+      "model-ffb52545b337",
       "inputAudioFormat-955d75ed5ca3",
       "voice-7e42c4fa10ac",
       "outputAudioFormat-bc737eb9a538",
@@ -984,17 +949,17 @@ export default {
       "turnDetection-8e67b91d87d3",
       "expiresAfterSeconds-f25ee8b0931a",
       "instructions-cda74c669be0",
-      "filters-b3b5e2afbfc0",
-      "renderOptions-d463b1a16001",
-      "loader-f3f131fae807",
-      "context-5af5885e2019",
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
-      "toolContextSchema-ad456b414b19",
-      "inputSchema-d3b35526d831",
-      "tools-bbba4f5220d4",
-      "toolsContext-5b5dd88603ab",
-      "promptType-fa49094b612a"
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "toolContextSchema-d7c206b57ff4",
+      "inputSchema-e1f157741580",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "promptType-fcb30516c7a6"
     ],
     "VoiceSessionSetup_settings": [
       "providerOptions-017504595b6e",
@@ -1007,7 +972,7 @@ export default {
       "outputAudioTranscription-d19f1c7d2fa9",
       "turnDetection-8e67b91d87d3",
       "expiresAfterSeconds-f25ee8b0931a",
-      "model-2754f28f44b2"
+      "model-ffb52545b337"
     ],
     "VoiceSessionSetup_inputs": [
       "direct-b5cef17f1666",
@@ -1015,9 +980,9 @@ export default {
       "prepared-360e241e4dcb"
     ],
     "Tool": [
-      "inputSchema-319642d9b466",
-      "asTool-2739e7156e24",
-      "toolContextSchema-ad456b414b19",
+      "inputSchema-47ed76ea66b3",
+      "asTool-dfdd3e4eaf49",
+      "toolContextSchema-d7c206b57ff4",
       "onInputAvailable-0ee077587da3",
       "onInputStart-060e54bf784e",
       "onInputDelta-ea4168ae0b75",
@@ -1029,11 +994,11 @@ export default {
       "toModelOutput-8f0e85e088c7",
       "strict-07a151c197b1",
       "inputExamples-ff69a7242b1e",
-      "description-f436dfdbf60d"
+      "description-e0df7f9e2319"
     ],
     "AgentRun": [
-      "debug-75161fb8a902",
-      "description-7b3c3b055d84",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
       "runtimeContext-5279a5b531bf",
       "providerOptions-bdb985c437b4",
       "maxOutputTokens-28aceb6f8de2",
@@ -1061,8 +1026,8 @@ export default {
       "experimental_toolApprovalSecret-4ff3620966c4",
       "include-2f0b096d0254",
       "streamRetries-2780ace7cb77",
-      "prompt-94410a7b832d",
-      "messageHistory-21df482f5c5f",
+      "prompt-0bb201e140ef",
+      "messageHistory-fb9b9d072e86",
       "stopWhen-ff0af44bb75f",
       "toolApproval-c6b1e240ae25",
       "experimental_download-339211b44f67",
@@ -1081,10 +1046,10 @@ export default {
       "onChunk-776bfe13cff3",
       "onError-74cbedca876d",
       "onAbort-e8b00af800f1",
-      "prepareCall-eda6955bc092",
-      "prepareStep-a959628a9442",
-      "tools-a594eeb9e999",
-      "model-63da115fe327"
+      "prepareCall-80fbe84c6775",
+      "prepareStep-8ac0218841fa",
+      "tools-fdfe05249bc3",
+      "model-9cc84a88e236"
     ],
     "NativeGenerate": [
       "options-37bd75580b6d",
@@ -1260,17 +1225,17 @@ export default {
       "_internal-2797c17b47fe"
     ],
     "RenderOptions": [
-      "replayAsyncIterables-f0c701043b7b",
-      "autoescape-724019f70a52",
-      "throwOnUndefined-e81c28fc0fef",
-      "trimBlocks-66b483c32f5a",
-      "lstripBlocks-7dde21eb0532",
-      "watch-83a8d8277100",
-      "noCache-d7e554d9cabf",
-      "dev-cf2cea39d7e0",
-      "web-5bfc79250362",
-      "express-984a46a4b0db",
-      "tags-42702bbf1564"
+      "replayAsyncIterables-08bd2e383475",
+      "autoescape-19ef6c31974b",
+      "throwOnUndefined-c31e1e20c542",
+      "trimBlocks-1cbedc8066bc",
+      "lstripBlocks-d9932524bb24",
+      "watch-9dc748ac9d7d",
+      "noCache-4c9b4c901eb7",
+      "dev-14d5494fcdff",
+      "web-284a273e5641",
+      "express-fa9408561b49",
+      "tags-3d4ec07f1a22"
     ],
     "ExecutionOptions": [
       "abortSignal-2bf31b7f87fc",
@@ -1279,11 +1244,11 @@ export default {
       "messages-f97f28a7fbbb"
     ],
     "Output": [
-      "array-6b1fec60387b",
-      "choice-a910d22c98b9",
-      "json-2cda4a740be7",
-      "object-66b8756505aa",
-      "text-e9e1ba9737f2"
+      "array-a50da8c00109",
+      "choice-89fbb2824793",
+      "json-56015e6681ff",
+      "object-fb3d199946ca",
+      "text-2dba2c59564f"
     ],
     "SessionConfig": [
       "instructions-4cc81f59e6ac",
@@ -1296,6 +1261,22 @@ export default {
       "turnDetection-8e67b91d87d3",
       "tools-a0a46f619d2a",
       "providerOptions-017504595b6e"
+    ],
+    "VoiceSessionConfig_result": [
+      "instructions-4cc81f59e6ac",
+      "voice-7e42c4fa10ac",
+      "outputModalities-39bbf6b1aadb",
+      "inputAudioFormat-955d75ed5ca3",
+      "inputAudioTranscription-bc4eeaf53b51",
+      "outputAudioTranscription-d19f1c7d2fa9",
+      "outputAudioFormat-bc737eb9a538",
+      "turnDetection-8e67b91d87d3",
+      "tools-a0a46f619d2a",
+      "providerOptions-017504595b6e"
+    ],
+    "VoiceWebRTC_result": [
+      "sessionId-b384762552aa",
+      "sdp-6a765cb22ad4"
     ],
     "LLMAgent_result": [
       "content-2a8a29548036",
@@ -1727,129 +1708,253 @@ export default {
       "token-ef6388c67aaf",
       "url-6694c49079ae",
       "expiresAt-b4d04565231e",
-      "tools-2966d9dc4055"
+      "tools-2d73a7f6a27a"
+    ],
+    "Telemetry:0": [
+      "isEnabled-461f93f561cc",
+      "recordInputs-5a9bc04cadf6",
+      "recordOutputs-eef63173ee8d",
+      "functionId-a8cb2fcd49af",
+      "includeRuntimeContext-7be8a823ab05",
+      "includeToolsContext-4e95f5357138",
+      "integrations-96ef7c9abe2e"
+    ],
+    "Timeout:0": [],
+    "Timeout:1": [
+      "totalMs-594fa641341f",
+      "stepMs-4e681ef685e4",
+      "firstChunkMs-08154ea18be9",
+      "chunkMs-ea0876ccf03b",
+      "toolMs-b110bb37581e",
+      "tools-9d7732e75fb6"
+    ],
+    "StreamInclude:0": [
+      "requestBody-e4b8c5083ebc",
+      "requestMessages-f417475096d1",
+      "rawChunks-84c188cf4090"
+    ],
+    "AudioFormat:0": [
+      "type-3d37b77be676",
+      "rate-9d519651bed3"
+    ],
+    "SessionTranscription:0": [
+      "model-747c04f06434",
+      "language-c8af6ab181e6",
+      "prompt-198973fe857c"
+    ],
+    "TurnDetection:0": [],
+    "TurnDetection:1": [
+      "type-4403e09d8750",
+      "threshold-d319cb183c9a",
+      "silenceDurationMs-ea7c5a2320c3",
+      "prefixPaddingMs-d9ac0b322e22"
+    ],
+    "DecisionQuestion:0": [
+      "type-e23128cc0ea3",
+      "instructions-b8948cb7f97e",
+      "criteria-25a4abc81557"
+    ],
+    "DecisionQuestion:1": [
+      "type-f0ed6b10b0cb",
+      "instructions-716db50b0640",
+      "criteria-f2ab0914b0a2"
+    ],
+    "DecisionQuestion:2": [
+      "type-33b2c1d6b3ea",
+      "instructions-ec4fde729210"
+    ],
+    "DecisionQuestion:3": [
+      "type-d51d159b0b95",
+      "instructions-c1fc06851b28",
+      "criteria-4a3e82e16f10"
+    ],
+    "ModelMessage:0": [
+      "role-98fcfc9df349",
+      "content-5d96322cd173",
+      "providerOptions-c6c4e0593818"
+    ],
+    "ModelMessage:1": [
+      "role-842fd34a266d",
+      "content-92937787a683",
+      "providerOptions-cf02dd68a7de"
+    ],
+    "ModelMessage:2": [
+      "role-56618d0a1118",
+      "content-be1a0de1cdcc",
+      "providerOptions-1649f94a4e5e"
+    ],
+    "ModelMessage:3": [
+      "role-27bc21560f98",
+      "content-489efe726dd4",
+      "providerOptions-fd446947bc10"
+    ],
+    "ImagePrompt:0": [
+      "images-5e3daa468130",
+      "text-44720aaced31",
+      "mask-67715919181b"
+    ],
+    "GeneratedFile:0": [
+      "base64-c3f892cd6414",
+      "uint8Array-0ab6dcaf1c56",
+      "mediaType-bd46b3644604",
+      "providerMetadata-38a36c15e990"
+    ],
+    "GeneratedAudioFile:0": [
+      "format-abeb330ea542",
+      "base64-c3f892cd6414",
+      "uint8Array-0ab6dcaf1c56",
+      "mediaType-bd46b3644604",
+      "providerMetadata-38a36c15e990"
+    ],
+    "RealtimeToolDefinition:0": [
+      "type-2c4b7c1f06e1",
+      "name-98415698ff60",
+      "description-765dad9c3ae1",
+      "parameters-a7ebd2b436da"
+    ],
+    "OutputObject:0": [
+      "schema-6c2c7e02e817",
+      "name-06a2b2b44852",
+      "description-09f4aee69855"
+    ],
+    "OutputArray:0": [
+      "element-91da8658bc12",
+      "minItems-af67e565c2af",
+      "maxItems-83b91f99b871",
+      "name-0fc0260efcb7",
+      "description-4c42d2df1bbb"
+    ],
+    "OutputChoice:0": [
+      "options-6fc25659e8c1",
+      "name-71d67ed50215",
+      "description-5989d1faa9c5"
+    ],
+    "OutputJSON:0": [
+      "name-29ff40758bf7",
+      "description-43c7639c81e5"
+    ],
+    "RenderTags:0": [
+      "blockStart-f5e2528ea25e",
+      "blockEnd-0f749e13b000",
+      "variableStart-05fdbed68441",
+      "variableEnd-f77e2116f6e3",
+      "commentStart-b8315042f228",
+      "commentEnd-d74f77fd5dec"
+    ],
+    "RenderWeb:0": [
+      "useCache-fea750cb2b63",
+      "async-83ca33f9d83e"
     ]
   },
   "properties": {
-    "template-a55e64b6b26c": {
+    "template-902b6327f5ff": {
       "name": "template",
       "type": "string",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 91
+        "path": "src/types/config.ts"
       }
     },
-    "inputSchema-45a82f5e832b": {
+    "inputSchema-f335a5a81f68": {
       "name": "inputSchema",
       "type": "SchemaType<Record<string, any>> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 92
+        "path": "src/types/config.ts"
       }
     },
-    "promptType-afc9eaa1f75d": {
+    "promptType-adaae62fa855": {
       "name": "promptType",
       "type": "TemplatePromptType | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 93
+        "path": "src/types/config.ts"
       }
     },
-    "filters-b3b5e2afbfc0": {
+    "filters-e21828790709": {
       "name": "filters",
       "type": "Record<string, (input: any, ...args: any[]) => any> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 78
+        "path": "src/types/config.ts"
       }
     },
-    "renderOptions-d463b1a16001": {
+    "renderOptions-0b6a6f477332": {
       "name": "renderOptions",
       "type": "ConfigureOptions | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 79
+        "path": "src/types/config.ts"
       }
     },
-    "loader-f3f131fae807": {
+    "loader-5d45bab68a1b": {
       "name": "loader",
       "type": "LoaderInput | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 80
+        "path": "src/types/config.ts"
       }
     },
-    "context-5af5885e2019": {
+    "context-9009039f251e": {
       "name": "context",
       "type": "Record<string, any> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 69
+        "path": "src/types/config.ts"
       }
     },
-    "debug-75161fb8a902": {
+    "debug-cdff8d93c93d": {
       "name": "debug",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 12
+        "path": "src/types/config.ts"
       }
     },
-    "description-7b3c3b055d84": {
+    "description-094750903948": {
       "name": "description",
       "type": "string | ((options: { context: any; experimental_sandbox?: SandboxSession; }) => string) | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 13
+        "path": "src/types/config.ts"
       }
     },
-    "tools-e5c3cbfbb5e6": {
+    "tools-05ebb5c95a02": {
       "name": "tools",
       "type": "ToolRegistry | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 73
+        "path": "src/types/config.ts"
       }
     },
-    "toolsContext-478ba1572083": {
+    "toolsContext-492a80518673": {
       "name": "toolsContext",
       "type": "Record<string, unknown> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 74
+        "path": "src/types/config.ts"
       }
     },
     "direct-c287cb6ac7c7": {
@@ -1873,48 +1978,34 @@ export default {
       "description": "",
       "tags": []
     },
-    "script-80dcaccc6cf2": {
+    "script-3ee7336160ef": {
       "name": "script",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 109
+        "path": "src/types/config.ts"
       }
     },
-    "schema-23ba1ef38922": {
+    "schema-288e8cf2b21a": {
       "name": "schema",
       "type": "SchemaType<unknown> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 110
+        "path": "src/types/config.ts"
       }
     },
-    "inputSchema-6d460913697b": {
-      "name": "inputSchema",
-      "type": "SchemaType<Record<string, any>> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts",
-        "line": 111
-      }
-    },
-    "promptType-103a96b89fc6": {
+    "promptType-4e6960d1ae5c": {
       "name": "promptType",
       "type": "ScriptPromptType | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 112
+        "path": "src/types/config.ts"
       }
     },
     "direct-b5cef17f1666": {
@@ -1931,48 +2022,44 @@ export default {
       "description": "",
       "tags": []
     },
-    "inputSchema-28e9daa52875": {
+    "inputSchema-434f89f77423": {
       "name": "inputSchema",
       "type": "any",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 145
+        "path": "src/types/config.ts"
       }
     },
-    "schema-5f876771b744": {
+    "schema-1d2155b590a2": {
       "name": "schema",
       "type": "any",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 146
+        "path": "src/types/config.ts"
       }
     },
-    "execute-0ac25e1cb1c3": {
+    "execute-5deb85869c1d": {
       "name": "execute",
       "type": "FunctionImplementation<any, any, any, (input: any) => any>",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 147
+        "path": "src/types/config.ts"
       }
     },
-    "context-ac652772f964": {
+    "context-884c05d5299f": {
       "name": "context",
       "type": "any",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 69
+        "path": "src/types/config.ts"
       }
     },
     "direct-61182c4fc774": {
@@ -1989,48 +2076,44 @@ export default {
       "description": "",
       "tags": []
     },
-    "inputSchema-c7ecf4eb93ae": {
+    "inputSchema-d2ab2b864d21": {
       "name": "inputSchema",
       "type": "SchemaType<Record<string, any>> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 54
+        "path": "src/types/agent.ts"
       }
     },
-    "promptType-0747961cdd0d": {
+    "promptType-a87a79942498": {
       "name": "promptType",
       "type": "PromptType | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 53
+        "path": "src/types/agent.ts"
       }
     },
-    "tools-c302445fa0dc": {
+    "tools-d8cac053f1e9": {
       "name": "tools",
       "type": "{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; } | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 55
+        "path": "src/types/agent.ts"
       }
     },
-    "toolsContext-9439724d2aa2": {
+    "toolsContext-be97e33328f3": {
       "name": "toolsContext",
       "type": "ToolContexts<ToolSet> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 56
+        "path": "src/types/agent.ts"
       }
     },
     "runtimeContext-5279a5b531bf": {
@@ -2061,26 +2144,24 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3970"
       }
     },
-    "id-c3e895c425c6": {
+    "id-7c420ba44547": {
       "name": "id",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 49
+        "path": "src/types/agent.ts"
       }
     },
-    "output-fdbfab7c5208": {
+    "output-960376aadf77": {
       "name": "output",
       "type": "AIOutput | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 51
+        "path": "src/types/agent.ts"
       }
     },
     "maxOutputTokens-28aceb6f8de2": {
@@ -2289,15 +2370,14 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L877"
       }
     },
-    "prompt-cb9adb7088a7": {
+    "prompt-dbcb70464d4d": {
       "name": "prompt",
       "type": "PromptValue | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 52
+        "path": "src/types/agent.ts"
       }
     },
     "model-f5334808405d": {
@@ -2473,15 +2553,14 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4108"
       }
     },
-    "streaming-fa884fce3abd": {
+    "streaming-7ebe1c1cd17f": {
       "name": "streaming",
       "type": "true | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 50
+        "path": "src/types/agent.ts"
       }
     },
     "stopWhen-fb42ba28c06a": {
@@ -2610,37 +2689,34 @@ export default {
       "description": "",
       "tags": []
     },
-    "prepareCall-5709c49a528e": {
+    "prepareCall-1ce8440c2874": {
       "name": "prepareCall",
       "type": "PrepareCall<Pick<AgentSettings<ToolSet, Record<string, any>, PromptValue, AIOutput, Record<string, unknown>>, \"inputSchema\" | \"context\" | \"tools\" | \"toolsContext\" | \"runtimeContext\" | \"output\">, false> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 78
+        "path": "src/types/agent.ts"
       }
     },
-    "prepareStep-3982ac97116d": {
+    "prepareStep-b1fc7f13d5d4": {
       "name": "prepareStep",
       "type": "PrepareStep<Pick<AgentSettings<ToolSet, Record<string, any>, PromptValue, AIOutput, Record<string, unknown>>, \"inputSchema\" | \"context\" | \"tools\" | \"toolsContext\" | \"runtimeContext\" | \"output\">, false> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 78
+        "path": "src/types/agent.ts"
       }
     },
-    "asTool-2739e7156e24": {
+    "asTool-dfdd3e4eaf49": {
       "name": "asTool",
       "type": "true | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 16
+        "path": "src/types/config.ts"
       }
     },
     "stopWhen-e8250c5614a3": {
@@ -3082,59 +3158,54 @@ export default {
       "description": "",
       "tags": []
     },
-    "toolContextSchema-ad456b414b19": {
+    "toolContextSchema-d7c206b57ff4": {
       "name": "toolContextSchema",
       "type": "SchemaType<unknown> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 125
+        "path": "src/types/config.ts"
       }
     },
-    "inputSchema-d3b35526d831": {
+    "inputSchema-e1f157741580": {
       "name": "inputSchema",
       "type": "SchemaType<Record<string, any>> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/component.ts",
-        "line": 30
+        "path": "src/types/component.ts"
       }
     },
-    "tools-bbba4f5220d4": {
+    "tools-f8808df35909": {
       "name": "tools",
       "type": "ToolRegistry | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/component.ts",
-        "line": 31
+        "path": "src/types/component.ts"
       }
     },
-    "toolsContext-5b5dd88603ab": {
+    "toolsContext-a026c14e3010": {
       "name": "toolsContext",
       "type": "Record<string, unknown> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/component.ts",
-        "line": 31
+        "path": "src/types/component.ts"
       }
     },
-    "promptType-fa49094b612a": {
+    "promptType-fcb30516c7a6": {
       "name": "promptType",
       "type": "\"text\" | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/component.ts",
-        "line": 31
+        "path": "src/types/component.ts"
       }
     },
     "abortSignal-3e2de4b1ba34": {
@@ -3442,15 +3513,14 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8145"
       }
     },
-    "input-b7b46216c601": {
+    "input-dcc8da217a5c": {
       "name": "input",
       "type": "string | string[]",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/factories/Embedder.ts",
-        "line": 11
+        "path": "src/factories/Embedder.ts"
       }
     },
     "direct-fce20620be48": {
@@ -4879,15 +4949,14 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7462"
       }
     },
-    "model-2754f28f44b2": {
+    "model-ffb52545b337": {
       "name": "model",
       "type": "RealtimeModelV4",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/factories/VoiceSessionSetup.ts",
-        "line": 19
+        "path": "src/factories/VoiceSessionSetup.ts"
       }
     },
     "inputAudioFormat-955d75ed5ca3": {
@@ -5023,15 +5092,14 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7368"
       }
     },
-    "inputSchema-319642d9b466": {
+    "inputSchema-47ed76ea66b3": {
       "name": "inputSchema",
       "type": "SchemaType<Record<string, unknown>>",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 135
+        "path": "src/types/config.ts"
       }
     },
     "onInputAvailable-0ee077587da3": {
@@ -5198,15 +5266,14 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2337"
       }
     },
-    "description-f436dfdbf60d": {
+    "description-e0df7f9e2319": {
       "name": "description",
       "type": "string | ((options: { context: unknown; experimental_sandbox?: SandboxSession; }) => string) | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts",
-        "line": 129
+        "path": "src/types/config.ts"
       }
     },
     "timeout-1bba377e46d4": {
@@ -5293,26 +5360,24 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4019"
       }
     },
-    "prompt-94410a7b832d": {
+    "prompt-0bb201e140ef": {
       "name": "prompt",
       "type": "string | SystemModelMessage | UserModelMessage | AssistantModelMessage | ToolModelMessage | ModelMessage[] | (string & SystemModelMessage) | (string & UserModelMessage) | (string & AssistantModelMessage) | (string & ToolModelMessage) | (string & ModelMessage[]) | (SystemModelMessage & string) | (SystemModelMessage & ModelMessage[]) | (UserModelMessage & string) | (UserModelMessage & ModelMessage[]) | (AssistantModelMessage & string) | (AssistantModelMessage & ModelMessage[]) | (ToolModelMessage & string) | (ToolModelMessage & ModelMessage[]) | (ModelMessage[] & string) | (ModelMessage[] & SystemModelMessage) | (ModelMessage[] & UserModelMessage) | (ModelMessage[] & AssistantModelMessage) | (ModelMessage[] & ToolModelMessage) | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 98
+        "path": "src/types/agent.ts"
       }
     },
-    "messageHistory-21df482f5c5f": {
+    "messageHistory-fb9b9d072e86": {
       "name": "messageHistory",
       "type": "readonly ModelMessage[] | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 98
+        "path": "src/types/agent.ts"
       }
     },
     "stopWhen-ff0af44bb75f": {
@@ -5420,48 +5485,44 @@ export default {
       "description": "",
       "tags": []
     },
-    "prepareCall-eda6955bc092": {
+    "prepareCall-80fbe84c6775": {
       "name": "prepareCall",
       "type": "PrepareCall<{}, false> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 78
+        "path": "src/types/agent.ts"
       }
     },
-    "prepareStep-a959628a9442": {
+    "prepareStep-8ac0218841fa": {
       "name": "prepareStep",
       "type": "PrepareStep<{}, false> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 78
+        "path": "src/types/agent.ts"
       }
     },
-    "tools-a594eeb9e999": {
+    "tools-fdfe05249bc3": {
       "name": "tools",
       "type": "RunTools<{}> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 104
+        "path": "src/types/agent.ts"
       }
     },
-    "model-63da115fe327": {
+    "model-9cc84a88e236": {
       "name": "model",
       "type": "ModelOverride | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/agent.ts",
-        "line": 104
+        "path": "src/types/agent.ts"
       }
     },
     "options-37bd75580b6d": {
@@ -7131,125 +7192,114 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4224"
       }
     },
-    "replayAsyncIterables-f0c701043b7b": {
+    "replayAsyncIterables-08bd2e383475": {
       "name": "replayAsyncIterables",
       "type": "boolean | undefined",
       "optional": true,
       "description": "Set false to disable automatic async loop replay. Sequential loops close on early exit. Default: true.",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 111
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "autoescape-724019f70a52": {
+    "autoescape-19ef6c31974b": {
       "name": "autoescape",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 112
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "throwOnUndefined-e81c28fc0fef": {
+    "throwOnUndefined-c31e1e20c542": {
       "name": "throwOnUndefined",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 113
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "trimBlocks-66b483c32f5a": {
+    "trimBlocks-1cbedc8066bc": {
       "name": "trimBlocks",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 114
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "lstripBlocks-7dde21eb0532": {
+    "lstripBlocks-d9932524bb24": {
       "name": "lstripBlocks",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 115
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "watch-83a8d8277100": {
+    "watch-9dc748ac9d7d": {
       "name": "watch",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 116
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "noCache-d7e554d9cabf": {
+    "noCache-4c9b4c901eb7": {
       "name": "noCache",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 117
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "dev-cf2cea39d7e0": {
+    "dev-14d5494fcdff": {
       "name": "dev",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 118
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "web-5bfc79250362": {
+    "web-284a273e5641": {
       "name": "web",
       "type": "{ useCache?: boolean | undefined; async?: boolean | undefined; } | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 119
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "express-984a46a4b0db": {
+    "express-fa9408561b49": {
       "name": "express",
       "type": "object | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 125
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "tags-42702bbf1564": {
+    "tags-3d4ec07f1a22": {
       "name": "tags",
       "type": "{ blockStart?: string | undefined; blockEnd?: string | undefined; variableStart?: string | undefined; variableEnd?: string | undefined; commentStart?: string | undefined; commentEnd?: string | undefined; } | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts",
-        "line": 126
+        "path": "../cascada/dist/types/index.d.ts"
       }
     },
     "abortSignal-2bf31b7f87fc": {
@@ -7308,74 +7358,151 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2128"
       }
     },
-    "array-6b1fec60387b": {
+    "array-a50da8c00109": {
       "name": "array",
       "type": "<ELEMENT>({ element: inputElementSchema, minItems, maxItems, name, description }: { element: FlexibleSchema<ELEMENT>; minItems?: number; maxItems?: number; name?: string; description?: string; }) => Output<Array<ELEMENT>, Array<ELEMENT>, ELEMENT>",
       "optional": false,
-      "description": "",
-      "tags": [],
+      "description": "Output specification for array generation.\nWhen the model generates a text response, it will return an array of elements.",
+      "tags": [
+        {
+          "name": "param",
+          "text": "element - The schema of the array elements to generate."
+        },
+        {
+          "name": "param",
+          "text": "minItems - Optional minimum number of elements to generate."
+        },
+        {
+          "name": "param",
+          "text": "maxItems - Optional maximum number of elements to generate."
+        },
+        {
+          "name": "param",
+          "text": "name - Optional name of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema name."
+        },
+        {
+          "name": "param",
+          "text": "description - Optional description of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema description."
+        },
+        {
+          "name": "returns",
+          "text": "An output specification for generating an array of elements."
+        }
+      ],
       "source": {
         "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4237,
+        "line": 4313,
         "package": "ai",
         "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4237"
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4313"
       }
     },
-    "choice-a910d22c98b9": {
+    "choice-89fbb2824793": {
       "name": "choice",
       "type": "<CHOICE extends string>({ options: choiceOptions, name, description }: { options: Array<CHOICE>; name?: string; description?: string; }) => Output<CHOICE, CHOICE, never>",
       "optional": false,
-      "description": "",
-      "tags": [],
+      "description": "Output specification for choice generation.\nWhen the model generates a text response, it will return one of the choice options.",
+      "tags": [
+        {
+          "name": "param",
+          "text": "options - The available choices."
+        },
+        {
+          "name": "param",
+          "text": "name - Optional name of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema name."
+        },
+        {
+          "name": "param",
+          "text": "description - Optional description of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema description."
+        },
+        {
+          "name": "returns",
+          "text": "An output specification for generating a choice."
+        }
+      ],
       "source": {
         "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4237,
+        "line": 4344,
         "package": "ai",
         "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4237"
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4344"
       }
     },
-    "json-2cda4a740be7": {
+    "json-56015e6681ff": {
       "name": "json",
       "type": "({ name, description }?: { name?: string; description?: string; }) => Output<JSONValue, JSONValue, never>",
       "optional": false,
-      "description": "",
-      "tags": [],
+      "description": "Output specification for unstructured JSON generation.\nWhen the model generates a text response, it will return a JSON object.",
+      "tags": [
+        {
+          "name": "param",
+          "text": "name - Optional name of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema name."
+        },
+        {
+          "name": "param",
+          "text": "description - Optional description of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema description."
+        },
+        {
+          "name": "returns",
+          "text": "An output specification for generating JSON."
+        }
+      ],
       "source": {
         "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4237,
+        "line": 4366,
         "package": "ai",
         "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4237"
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4366"
       }
     },
-    "object-66b8756505aa": {
+    "object-fb3d199946ca": {
       "name": "object",
       "type": "<OBJECT>({ schema: inputSchema, name, description }: { schema: FlexibleSchema<OBJECT>; name?: string; description?: string; }) => Output<OBJECT, DeepPartial<OBJECT>, never>",
       "optional": false,
-      "description": "",
-      "tags": [],
+      "description": "Output specification for typed object generation using schemas.\nWhen the model generates a text response, it will return an object that matches the schema.",
+      "tags": [
+        {
+          "name": "param",
+          "text": "schema - The schema of the object to generate."
+        },
+        {
+          "name": "param",
+          "text": "name - Optional name of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema name."
+        },
+        {
+          "name": "param",
+          "text": "description - Optional description of the output that should be generated. Used by some providers for additional LLM guidance, e.g. via tool or schema description."
+        },
+        {
+          "name": "returns",
+          "text": "An output specification for generating objects with the specified schema."
+        }
+      ],
       "source": {
         "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4237,
+        "line": 4288,
         "package": "ai",
         "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4237"
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4288"
       }
     },
-    "text-e9e1ba9737f2": {
+    "text-2dba2c59564f": {
       "name": "text",
       "type": "() => Output<string, string, never>",
       "optional": false,
-      "description": "",
-      "tags": [],
+      "description": "Output specification for text generation.\nThis is the default output mode that generates plain text.",
+      "tags": [
+        {
+          "name": "returns",
+          "text": "An output specification for generating text."
+        }
+      ],
       "source": {
         "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4237,
+        "line": 4277,
         "package": "ai",
         "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4237"
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4277"
       }
     },
     "tools-a0a46f619d2a": {
@@ -7390,6 +7517,34 @@ export default {
         "package": "@ai-sdk/provider",
         "version": "4.0.35",
         "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7458"
+      }
+    },
+    "sessionId-b384762552aa": {
+      "name": "sessionId",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7861,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7861"
+      }
+    },
+    "sdp-6a765cb22ad4": {
+      "name": "sdp",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7862,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7862"
       }
     },
     "content-2a8a29548036": {
@@ -9924,16 +10079,1426 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7498"
       }
     },
-    "tools-2966d9dc4055": {
+    "tools-2d73a7f6a27a": {
       "name": "tools",
       "type": "RealtimeModelV4ToolDefinition[]",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/factories/VoiceSessionSetup.ts",
-        "line": 25
+        "path": "src/factories/VoiceSessionSetup.ts"
+      }
+    },
+    "isEnabled-461f93f561cc": {
+      "name": "isEnabled",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "Enable or disable telemetry. Enabled by default when a telemetry\nintegration is registered. Set to `false` to opt out.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1129,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1129"
+      }
+    },
+    "recordInputs-5a9bc04cadf6": {
+      "name": "recordInputs",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "Enable or disable input recording. Enabled by default.\n\nYou might want to disable input recording to avoid recording sensitive\ninformation, to reduce data transfers, or to increase performance.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1136,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1136"
+      }
+    },
+    "recordOutputs-eef63173ee8d": {
+      "name": "recordOutputs",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "Enable or disable output recording. Enabled by default.\n\nYou might want to disable output recording to avoid recording sensitive\ninformation, to reduce data transfers, or to increase performance.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1143,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1143"
+      }
+    },
+    "functionId-a8cb2fcd49af": {
+      "name": "functionId",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Identifier for this function. Used to group telemetry data by function.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1147,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1147"
+      }
+    },
+    "includeRuntimeContext-7be8a823ab05": {
+      "name": "includeRuntimeContext",
+      "type": "IncludedContext<Context>",
+      "optional": true,
+      "description": "Top-level runtime context properties that should be included in telemetry.\nRuntime context properties are excluded unless they are explicitly set to `true`.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1152,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1152"
+      }
+    },
+    "includeToolsContext-4e95f5357138": {
+      "name": "includeToolsContext",
+      "type": "IncludedToolsContext<ToolSet>",
+      "optional": true,
+      "description": "Top-level tool context properties that should be included in telemetry,\nconfigured per tool.\n\nTool context properties are excluded unless they are explicitly set to `true`.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1159,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1159"
+      }
+    },
+    "integrations-96ef7c9abe2e": {
+      "name": "integrations",
+      "type": "Arrayable<Telemetry>",
+      "optional": true,
+      "description": "Per-call telemetry integrations that receive lifecycle events during generation.\n\nWhen provided, these integrations will take precedence over the globally registered\nintegrations for this call.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1166,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1166"
+      }
+    },
+    "totalMs-594fa641341f": {
+      "name": "totalMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 778,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L778"
+      }
+    },
+    "stepMs-4e681ef685e4": {
+      "name": "stepMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 779,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L779"
+      }
+    },
+    "firstChunkMs-08154ea18be9": {
+      "name": "firstChunkMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 780,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L780"
+      }
+    },
+    "chunkMs-ea0876ccf03b": {
+      "name": "chunkMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 781,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L781"
+      }
+    },
+    "toolMs-b110bb37581e": {
+      "name": "toolMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 782,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L782"
+      }
+    },
+    "tools-9d7732e75fb6": {
+      "name": "tools",
+      "type": "Partial<Record<`${string}Ms`, number>> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 783,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L783"
+      }
+    },
+    "requestBody-e4b8c5083ebc": {
+      "name": "requestBody",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "Whether to retain the request body in step results.\nThe request body can be large when sending images or files.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "false"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 3786,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3786"
+      }
+    },
+    "requestMessages-f417475096d1": {
+      "name": "requestMessages",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "Whether to retain the request messages in step results.\nThe request messages can be large when sending images or files.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "false"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 3793,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3793"
+      }
+    },
+    "rawChunks-84c188cf4090": {
+      "name": "rawChunks",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "Whether to include raw chunks from the provider in the stream.\n\nWhen enabled, you will receive raw chunks with type 'raw' that contain\nthe unprocessed data from the provider.\n\nThis allows access to cutting-edge provider features not yet wrapped by\nthe AI SDK.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "false"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 3805,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3805"
+      }
+    },
+    "type-3d37b77be676": {
+      "name": "type",
+      "type": "string",
+      "optional": false,
+      "description": "Audio format type, e.g. `audio/pcm`, `audio/pcmu`, or `audio/pcma`.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 10,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L10"
+      }
+    },
+    "rate-9d519651bed3": {
+      "name": "rate",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Sample rate in Hz. Only applicable for formats that require a rate.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 14,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L14"
+      }
+    },
+    "model-747c04f06434": {
+      "name": "model",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Provider-specific transcription model.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7392,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7392"
+      }
+    },
+    "language-c8af6ab181e6": {
+      "name": "language",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional language hint for the input audio.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7396,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7396"
+      }
+    },
+    "prompt-198973fe857c": {
+      "name": "prompt",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional prompt to guide transcription.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7400,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7400"
+      }
+    },
+    "type-4403e09d8750": {
+      "name": "type",
+      "type": "\"server-vad\" | \"semantic-vad\" | \"disabled\"",
+      "optional": false,
+      "description": "VAD mode. 'server-vad' for automatic detection,\n'semantic-vad' for OpenAI's semantic detection,\n'disabled' to turn off VAD.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7438,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7438"
+      }
+    },
+    "threshold-d319cb183c9a": {
+      "name": "threshold",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "VAD activation threshold (0.0-1.0).\nHigher values require louder audio to trigger.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7443,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7443"
+      }
+    },
+    "silenceDurationMs-ea7c5a2320c3": {
+      "name": "silenceDurationMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "How long the user must be silent (in ms) before\nthe server ends the turn.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7448,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7448"
+      }
+    },
+    "prefixPaddingMs-d9ac0b322e22": {
+      "name": "prefixPaddingMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Amount of audio (in ms) to include before the\ndetected start of speech.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7453,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7453"
+      }
+    },
+    "type-e23128cc0ea3": {
+      "name": "type",
+      "type": "\"choice\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2412,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2412"
+      }
+    },
+    "instructions-b8948cb7f97e": {
+      "name": "instructions",
+      "type": "DecisionModelV4Input | null | undefined",
+      "optional": true,
+      "description": "May be omitted or null when supported by the provider and criteria define the judgment.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2414,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2414"
+      }
+    },
+    "criteria-25a4abc81557": {
+      "name": "criteria",
+      "type": "Readonly<Record<string, DecisionModelV4Input | null>>",
+      "optional": false,
+      "description": "Nonempty map of option names to descriptions. Null means no description.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2416,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2416"
+      }
+    },
+    "type-f0ed6b10b0cb": {
+      "name": "type",
+      "type": "\"score\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2418,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2418"
+      }
+    },
+    "instructions-716db50b0640": {
+      "name": "instructions",
+      "type": "DecisionModelV4Input | null | undefined",
+      "optional": true,
+      "description": "May be omitted or null when supported by the provider and criteria define the judgment.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2420,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2420"
+      }
+    },
+    "criteria-f2ab0914b0a2": {
+      "name": "criteria",
+      "type": "readonly (DecisionModelV4Input | null)[]",
+      "optional": false,
+      "description": "At least one ordered level, indexed from zero. Providers may require more.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2422,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2422"
+      }
+    },
+    "type-33b2c1d6b3ea": {
+      "name": "type",
+      "type": "\"box\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2424,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2424"
+      }
+    },
+    "instructions-ec4fde729210": {
+      "name": "instructions",
+      "type": "DecisionModelV4Input",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2425,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2425"
+      }
+    },
+    "type-d51d159b0b95": {
+      "name": "type",
+      "type": "\"boolean\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2427,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2427"
+      }
+    },
+    "instructions-c1fc06851b28": {
+      "name": "instructions",
+      "type": "DecisionModelV4Input | null | undefined",
+      "optional": true,
+      "description": "May be omitted or null when supported by the provider and criteria define the judgment.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2429,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2429"
+      }
+    },
+    "criteria-4a3e82e16f10": {
+      "name": "criteria",
+      "type": "{ readonly true?: DecisionModelV4Input | null; readonly false?: DecisionModelV4Input | null; } | undefined",
+      "optional": true,
+      "description": "At least one non-null description is required when instructions are absent.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 2431,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2431"
+      }
+    },
+    "role-98fcfc9df349": {
+      "name": "role",
+      "type": "\"system\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1758,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1758"
+      }
+    },
+    "content-5d96322cd173": {
+      "name": "content",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1759,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1759"
+      }
+    },
+    "providerOptions-c6c4e0593818": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific metadata. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1765,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1765"
+      }
+    },
+    "role-842fd34a266d": {
+      "name": "role",
+      "type": "\"user\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1824,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1824"
+      }
+    },
+    "content-92937787a683": {
+      "name": "content",
+      "type": "UserContent",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1825,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1825"
+      }
+    },
+    "providerOptions-cf02dd68a7de": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific metadata. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1831,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1831"
+      }
+    },
+    "role-56618d0a1118": {
+      "name": "role",
+      "type": "\"assistant\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1734,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1734"
+      }
+    },
+    "content-be1a0de1cdcc": {
+      "name": "content",
+      "type": "AssistantContent",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1735,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1735"
+      }
+    },
+    "providerOptions-1649f94a4e5e": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific metadata. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1741,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1741"
+      }
+    },
+    "role-27bc21560f98": {
+      "name": "role",
+      "type": "\"tool\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1805,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1805"
+      }
+    },
+    "content-489efe726dd4": {
+      "name": "content",
+      "type": "ToolContent",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1806,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1806"
+      }
+    },
+    "providerOptions-fd446947bc10": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific metadata. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 1812,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1812"
+      }
+    },
+    "images-5e3daa468130": {
+      "name": "images",
+      "type": "DataContent[]",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 7600,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7600"
+      }
+    },
+    "text-44720aaced31": {
+      "name": "text",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 7601,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7601"
+      }
+    },
+    "base64-c3f892cd6414": {
+      "name": "base64",
+      "type": "string",
+      "optional": false,
+      "description": "File as a base64 encoded string.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1203,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1203"
+      }
+    },
+    "uint8Array-0ab6dcaf1c56": {
+      "name": "uint8Array",
+      "type": "Uint8Array<ArrayBufferLike>",
+      "optional": false,
+      "description": "File as a Uint8Array.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1207,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1207"
+      }
+    },
+    "mediaType-bd46b3644604": {
+      "name": "mediaType",
+      "type": "string",
+      "optional": false,
+      "description": "The IANA media type of the file.",
+      "tags": [
+        {
+          "name": "see",
+          "text": "https://www.iana.org/assignments/media-types/media-types.xhtml"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1213,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1213"
+      }
+    },
+    "providerMetadata-38a36c15e990": {
+      "name": "providerMetadata",
+      "type": "Record<string, JSONObject> | undefined",
+      "optional": true,
+      "description": "Provider-specific metadata for this file.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 1217,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1217"
+      }
+    },
+    "format-abeb330ea542": {
+      "name": "format",
+      "type": "string",
+      "optional": false,
+      "description": "Audio format of the file (e.g., 'mp3', 'wav', etc.)",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9448,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9448"
+      }
+    },
+    "type-2c4b7c1f06e1": {
+      "name": "type",
+      "type": "\"function\"",
+      "optional": false,
+      "description": "The type of the tool (always 'function').",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7343,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7343"
+      }
+    },
+    "name-98415698ff60": {
+      "name": "name",
+      "type": "string",
+      "optional": false,
+      "description": "The name of the tool. Unique within the session.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7347,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7347"
+      }
+    },
+    "description-765dad9c3ae1": {
+      "name": "description",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "A description of what the tool does. The model uses this to decide\nwhether to call the tool.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7352,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7352"
+      }
+    },
+    "parameters-a7ebd2b436da": {
+      "name": "parameters",
+      "type": "JSONSchema7",
+      "optional": false,
+      "description": "JSON Schema describing the parameters the tool expects.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7356,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7356"
+      }
+    },
+    "schema-6c2c7e02e817": {
+      "name": "schema",
+      "type": "FlexibleSchema<unknown>",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4289,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4289"
+      }
+    },
+    "name-06a2b2b44852": {
+      "name": "name",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4294,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4294"
+      }
+    },
+    "description-09f4aee69855": {
+      "name": "description",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4299,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4299"
+      }
+    },
+    "element-91da8658bc12": {
+      "name": "element",
+      "type": "FlexibleSchema<unknown>",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4314,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4314"
+      }
+    },
+    "minItems-af67e565c2af": {
+      "name": "minItems",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Optional minimum number of elements to generate.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4318,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4318"
+      }
+    },
+    "maxItems-83b91f99b871": {
+      "name": "maxItems",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Optional maximum number of elements to generate.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4322,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4322"
+      }
+    },
+    "name-0fc0260efcb7": {
+      "name": "name",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4327,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4327"
+      }
+    },
+    "description-4c42d2df1bbb": {
+      "name": "description",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4332,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4332"
+      }
+    },
+    "options-6fc25659e8c1": {
+      "name": "options",
+      "type": "string[]",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4345,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4345"
+      }
+    },
+    "name-71d67ed50215": {
+      "name": "name",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4350,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4350"
+      }
+    },
+    "description-5989d1faa9c5": {
+      "name": "description",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4355,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4355"
+      }
+    },
+    "name-29ff40758bf7": {
+      "name": "name",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4371,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4371"
+      }
+    },
+    "description-43c7639c81e5": {
+      "name": "description",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4376,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4376"
+      }
+    },
+    "blockStart-f5e2528ea25e": {
+      "name": "blockStart",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
+      }
+    },
+    "blockEnd-0f749e13b000": {
+      "name": "blockEnd",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
+      }
+    },
+    "variableStart-05fdbed68441": {
+      "name": "variableStart",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
+      }
+    },
+    "variableEnd-f77e2116f6e3": {
+      "name": "variableEnd",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
+      }
+    },
+    "commentStart-b8315042f228": {
+      "name": "commentStart",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
+      }
+    },
+    "commentEnd-d74f77fd5dec": {
+      "name": "commentEnd",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
+      }
+    },
+    "useCache-fea750cb2b63": {
+      "name": "useCache",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
+      }
+    },
+    "async-83ca33f9d83e": {
+      "name": "async",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "../cascada/dist/types/index.d.ts"
       }
     }
+  },
+  "details": {
+    "Telemetry": {
+      "type": "Telemetry",
+      "variants": [
+        {
+          "type": "Telemetry",
+          "shape": "Telemetry:0"
+        }
+      ]
+    },
+    "Timeout": {
+      "type": "Timeout",
+      "variants": [
+        {
+          "type": "number",
+          "shape": "Timeout:0"
+        },
+        {
+          "type": "{ totalMs?: number; stepMs?: number; firstChunkMs?: number; chunkMs?: number; toolMs?: number; tools?: Partial<Record<`${string}Ms`, number>> | undefined; }",
+          "shape": "Timeout:1"
+        }
+      ]
+    },
+    "StreamInclude": {
+      "type": "import(\"ai\").StreamTextInclude",
+      "variants": [
+        {
+          "type": "import(\"ai\").StreamTextInclude",
+          "shape": "StreamInclude:0"
+        }
+      ]
+    },
+    "AudioFormat": {
+      "type": "import(\"@ai-sdk/provider\").SharedV4AudioFormat",
+      "variants": [
+        {
+          "type": "import(\"@ai-sdk/provider\").SharedV4AudioFormat",
+          "shape": "AudioFormat:0"
+        }
+      ]
+    },
+    "SessionTranscription": {
+      "type": "{ model?: string; language?: string; prompt?: string; }",
+      "variants": [
+        {
+          "type": "{ model?: string; language?: string; prompt?: string; }",
+          "shape": "SessionTranscription:0"
+        }
+      ]
+    },
+    "TurnDetection": {
+      "type": "TurnDetection",
+      "variants": [
+        {
+          "type": "null",
+          "shape": "TurnDetection:0"
+        },
+        {
+          "type": "{ type: \"server-vad\" | \"semantic-vad\" | \"disabled\"; threshold?: number; silenceDurationMs?: number; prefixPaddingMs?: number; }",
+          "shape": "TurnDetection:1"
+        }
+      ]
+    },
+    "DecisionQuestion": {
+      "type": "import(\"ai\").Experimental_DecisionQuestion",
+      "variants": [
+        {
+          "type": "{ readonly type: \"choice\"; readonly instructions?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly criteria: Readonly<Record<string, import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null>>; }",
+          "shape": "DecisionQuestion:0"
+        },
+        {
+          "type": "{ readonly type: \"score\"; readonly instructions?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly criteria: readonly (import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null)[]; }",
+          "shape": "DecisionQuestion:1"
+        },
+        {
+          "type": "{ readonly type: \"box\"; readonly instructions: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input; }",
+          "shape": "DecisionQuestion:2"
+        },
+        {
+          "type": "{ readonly type: \"boolean\"; readonly instructions?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly criteria?: { readonly true?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly false?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; }; }",
+          "shape": "DecisionQuestion:3"
+        }
+      ]
+    },
+    "ModelMessage": {
+      "type": "import(\"ai\").ModelMessage",
+      "variants": [
+        {
+          "type": "import(\"ai\").SystemModelMessage",
+          "shape": "ModelMessage:0"
+        },
+        {
+          "type": "import(\"ai\").UserModelMessage",
+          "shape": "ModelMessage:1"
+        },
+        {
+          "type": "import(\"ai\").AssistantModelMessage",
+          "shape": "ModelMessage:2"
+        },
+        {
+          "type": "import(\"ai\").ToolModelMessage",
+          "shape": "ModelMessage:3"
+        }
+      ]
+    },
+    "ImagePrompt": {
+      "type": "{ images: Array<import(\"ai\").DataContent>; text?: string; mask?: import(\"ai\").DataContent; }",
+      "variants": [
+        {
+          "type": "{ images: Array<import(\"ai\").DataContent>; text?: string; mask?: import(\"ai\").DataContent; }",
+          "shape": "ImagePrompt:0"
+        }
+      ]
+    },
+    "GeneratedFile": {
+      "type": "import(\"ai\").GeneratedFile",
+      "variants": [
+        {
+          "type": "import(\"ai\").GeneratedFile",
+          "shape": "GeneratedFile:0"
+        }
+      ]
+    },
+    "GeneratedAudioFile": {
+      "type": "import(\"ai\").GeneratedAudioFile",
+      "variants": [
+        {
+          "type": "import(\"ai\").GeneratedAudioFile",
+          "shape": "GeneratedAudioFile:0"
+        }
+      ]
+    },
+    "RealtimeToolDefinition": {
+      "type": "import(\"@ai-sdk/provider\").Experimental_RealtimeModelV4ToolDefinition",
+      "variants": [
+        {
+          "type": "import(\"@ai-sdk/provider\").Experimental_RealtimeModelV4ToolDefinition",
+          "shape": "RealtimeToolDefinition:0"
+        }
+      ]
+    },
+    "OutputObject": {
+      "type": "{ schema: import(\"ai\").FlexibleSchema<unknown>; name?: string; description?: string; }",
+      "variants": [
+        {
+          "type": "{ schema: import(\"ai\").FlexibleSchema<unknown>; name?: string; description?: string; }",
+          "shape": "OutputObject:0"
+        }
+      ]
+    },
+    "OutputArray": {
+      "type": "{ element: import(\"ai\").FlexibleSchema<unknown>; minItems?: number; maxItems?: number; name?: string; description?: string; }",
+      "variants": [
+        {
+          "type": "{ element: import(\"ai\").FlexibleSchema<unknown>; minItems?: number; maxItems?: number; name?: string; description?: string; }",
+          "shape": "OutputArray:0"
+        }
+      ]
+    },
+    "OutputChoice": {
+      "type": "{ options: string[]; name?: string; description?: string; }",
+      "variants": [
+        {
+          "type": "{ options: string[]; name?: string; description?: string; }",
+          "shape": "OutputChoice:0"
+        }
+      ]
+    },
+    "OutputJSON": {
+      "type": "{ name?: string; description?: string; }",
+      "variants": [
+        {
+          "type": "{ name?: string; description?: string; }",
+          "shape": "OutputJSON:0"
+        }
+      ]
+    },
+    "RenderTags": {
+      "type": "{ blockStart?: string | undefined; blockEnd?: string | undefined; variableStart?: string | undefined; variableEnd?: string | undefined; commentStart?: string | undefined; commentEnd?: string | undefined; }",
+      "variants": [
+        {
+          "type": "{ blockStart?: string | undefined; blockEnd?: string | undefined; variableStart?: string | undefined; variableEnd?: string | undefined; commentStart?: string | undefined; commentEnd?: string | undefined; }",
+          "shape": "RenderTags:0"
+        }
+      ]
+    },
+    "RenderWeb": {
+      "type": "{ useCache?: boolean | undefined; async?: boolean | undefined; }",
+      "variants": [
+        {
+          "type": "{ useCache?: boolean | undefined; async?: boolean | undefined; }",
+          "shape": "RenderWeb:0"
+        }
+      ]
+    }
+  },
+  "documentation": {
+    "Decision_result": {
+      "answers": {
+        "description": "One typed answer per question ID, with literal Choice option inference.",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
+          "line": 66,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
+        }
+      },
+      "usage": {
+        "description": "`inputTokens`, `outputTokens`, and `totalTokens`, each possibly undefined.",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
+          "line": 67,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
+        }
+      },
+      "warnings": {
+        "description": "Provider warnings, also passed to the SDK warning logger.",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
+          "line": 68,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
+        }
+      },
+      "rounding": {
+        "description": "Optional provider-declared decimal precision for probabilities and scores.",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
+          "line": 69,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
+        }
+      },
+      "providerMetadata": {
+        "description": "Optional provider-specific metadata.",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
+          "line": 70,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
+        }
+      },
+      "response": {
+        "description": "Timestamp, model ID, and optional response ID, headers, and body.",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
+          "line": 71,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
+        }
+      }
+    },
+    "OutputObject:0": {
+      "schema": {
+        "description": "The schema of the object to generate.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 4288,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4288"
+        }
+      }
+    },
+    "OutputArray:0": {
+      "element": {
+        "description": "The schema of the array elements to generate.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 4313,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4313"
+        }
+      }
+    },
+    "OutputChoice:0": {
+      "options": {
+        "description": "The available choices.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 4344,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4344"
+        }
+      }
+    },
+    "OutputJSON:0": {}
   }
 };

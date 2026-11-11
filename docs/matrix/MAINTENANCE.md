@@ -26,14 +26,21 @@ Later topics should explain tasks and cross-component workflows and link to the 
 | `.cat` / `.cas` resources | Canonical template/script text, reused inline and when loaded | Yes |
 | `reference/components.js` | Native operation mapping, API variants, source forms, call/method/result explanations and ordering | Yes |
 | `reference/properties.js` | Casai properties and amendments: requiredness, defaults, invocation, inheritance and adapted behavior | Yes |
+| `reference/details.js` | Links to nested native data shapes and explanations for remaining undocumented members | Yes; fill gaps without replacing accurate native prose |
 | `reference/concepts.js` | Shared explanations inside the matrix | Yes |
 | `reference/api.js` | Pinned public type shapes and native JSDoc descriptions | **No**, regenerate |
 | `reference/sdk-docs.js` | Opening descriptions extracted from the matching SDK documentation | **No**, regenerate |
+| `matrix.d.ts`, `reference.d.ts` | Consumer types for the catalog, selection helpers, reference and JSON exports | Yes; keep tests tied to the returned fields |
 | `reference.js` | Generic resolver that joins the selected catalog entry, native inventory and local amendments | Only when the data contract needs to change |
+| `package.json` | Private `@casai/matrix` entry points for the separate UI project's file/workspace dependency | Yes; no runtime dependencies |
 
 Types determine which settings, methods and results exist. The configured component's types determine its accepted shape; a native documentation page does not add settings to Casai. Keep complete and streaming shapes separate. Config fragments list compatible alternatives, not one mixture of every component's properties.
 
 Example controls choose teaching scenarios. They do not define API support: turning off `useTools` must not remove `tools` from the configuration reference. `render().configuration` names the factory and properties actually used by the displayed example. `describe()` describes the selected API independently of that example.
+
+A choice’s `properties` lists configuration fields to highlight; only fields present in the selected API are linked.
+
+Use component `variants` for operation/result changes, including method selections. Primary-input overrides belong in `inputTypes` so script, function and loaded forms keep their correct source types. Method `settings: 'run'` references the existing named-call properties, with `omit` for irrelevant settings; do not duplicate their explanations. Add new renderers and resource URLs to the literal import/asset registries in `matrix.js` so bundlers can discover them. `inlineResource` identifies a standalone component's default source; other selections load only their selected template or script.
 
 `requires` maps a group to its allowed choices: any listed choice within a group, all specified groups together. An array of maps allows any alternative. `null` means no choice in that group. `excludes` lists conflicts. Use these data rules instead of component-name branches in the resolver. Keep one choice or none in each group; validate the requested selection at the render boundary. See the [integration contract](README.md) for source/Loads adapters and returned fields.
 
@@ -47,7 +54,7 @@ These explanations belong **inside the matrix**: context, inheritance, schemas, 
 
 Use upstream wording verbatim whenever it accurately describes Casai. Do not paraphrase merely to give it a different voice. Keep local wording for actual differences and explanations the SDK does not provide.
 
-The installed `ai` package contains its reference pages under `node_modules/ai/docs/07-reference/01-ai-sdk-core/`. `npm run docs:matrix` extracts their opening paragraphs and native JSDoc from the installed public declarations. This pins the content to the same version as the code. Online pages are useful for reading and comparison, but can describe a newer release. Generation is offline and does not evaluate MDX or import the SDK runtime.
+The installed `ai` package contains its reference pages under `node_modules/ai/docs/07-reference/01-ai-sdk-core/`. `npm run docs:matrix` extracts their opening paragraphs, selected missing result descriptions and native JSDoc from the installed public declarations. It follows exported aliases and reuses builder parameter documentation for nested options. This pins the content to the same version as the code. Online pages are useful for reading and comparison, but can describe a newer release. Generation is offline and does not evaluate MDX or import the SDK runtime.
 
 ### Component descriptions: checked against ai@7.0.162
 
@@ -74,6 +81,8 @@ The default is native description reuse, not a locally rewritten catalog. Unchan
 
 Keep the native type/description/source in `upstream`. Put local behavior in `required`, `default`, `locations`, `override`, `inheritance`, `notes` and `adaptation`; replace `description` only when the native explanation would be misleading. `descriptionOrigin` identifies the displayed prose's owner. For example, headers retain the SDK's HTTP-provider qualification, while Casai's invocation-location rules are separate fields.
 
+Nested configuration data belongs in the generator's `detailAliases` inventory, linked through property `detail` entries or `reference/details.js`. Keep each native union branch separate. Add local member descriptions only when native JSDoc or extracted reference prose is missing. Do not expand model implementations, arbitrary application schemas or provider option dictionaries into an invented fixed option list. Rendering options inherited from Cascada's configure() type need special care: Casai creates an environment directly, so loader/Express setup flags must not be described as configuring those integrations through renderOptions.
+
 Write or adapt the explanation for these boundaries:
 
 - Casai context/default merging, private bindings and `inputSchema` are not native prompt or tool-context settings.
@@ -89,7 +98,7 @@ Longer native guides, provider capability tables and troubleshooting pages shoul
 
 ### Attribution
 
-Retain source paths, versions, source hashes and original prose. `sdk-docs.js` records the pinned source and public documentation link; catalog summaries mark verbatim/adapted reuse. The extractor joins wrapped lines and resolves root-relative SDK links without changing wording.
+Retain source paths, versions and original prose. Local declarations use file paths without unstable line numbers; dependency links retain their pinned version and line. `sdk-docs.js` records the pinned source and public documentation link; catalog summaries mark verbatim/adapted reuse. The extractor joins wrapped lines and resolves root-relative SDK links without changing wording.
 
 Distribute [THIRD_PARTY.md](reference/THIRD_PARTY.md) and the included Apache-2.0/BSD-2-Clause license files with copied data. Record modifications and check for changed notices on upgrades. This reuse covers the inspected licensed SDK repository/package text, not a blanket permission to copy unrelated provider sites, branding or website assets.
 
@@ -107,8 +116,12 @@ Avoid HTML or SDK website-specific MDX components in authored matrix data. Expre
 2. Run `npm run docs:matrix` after API/dependency changes. Review added/removed fields, types, native prose and operation summaries. Generated files are checked in so consumers need no compiler or installed SDK.
 3. Update only affected catalog rules, component mappings, local amendments and shared concepts. Remove a local paraphrase when the upstream wording now fits. Keep planned and implemented forms distinct.
 4. Update the family renderer and canonical resources if the example needs to change. Preserve the scenario, names and code order across toggles. Reuse the same `.cat`/`.cas` text for inline and loaded forms; do not add files for every combination.
-5. Run `node scripts/update-matrix-reference.mjs --check` and `npm run test:matrix`. The first checks reproducibility; the latter checks source freshness, reference applicability, example metadata, type-checking and mock execution. Planned snippets get syntax/shared-source checks, not a claim of working future APIs. No provider calls are made.
+5. Run `npm run test:matrix`. It runs the generator's `--check` mode to compare the extracted contract and prose, then checks registry integrity, complete configuration inventories, descriptions for displayed nested/method/result fields, declared output fields, reference applicability, example metadata, source transitions/resource reads, consumer types and mock execution. It also checks linked package imports/resources, executes every selection from a browser-targeted bundle and compiles representative actual exports against the consumer declarations. Unrelated implementation comments and local line shifts do not require regeneration; changed public types or documented behavior do. Planned snippets get syntax/shared-source checks, not a claim of working future APIs. No provider calls are made.
 6. Read the affected summaries, property explanations and examples as a user would. Check that they explain the task and the actual call clearly. Inspect representative data with `npm run --silent docs:matrix:export -- Component choiceIds...` to verify the handoff, including relevant default, variant and prepared/tool forms. A valid JSON export does not establish good documentation.
+
+The JavaScript authoring modules and matrix tooling participate in `npm run lint`; generated snapshots are excluded. Mock tool arguments belong in test fixtures, never in a special user-facing prompt format. Generation starts with a clean workspace-local `.cache/matrix` directory.
+
+Keep public field changes synchronized with the `.d.ts` declarations, tests and integration README. Coordinate breaking changes with the consuming project and change the JSON `schemaVersion` when breaking an already published format.
 
 The generator uses the repository's TS6 compiler API as tooling; consumer examples use TS7. Test the selected behavior and its interactions, not just snapshot equality. If the upstream docs layout changes, update the small extractor and review the resulting prose; do not silently accept empty descriptions.
 

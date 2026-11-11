@@ -33,8 +33,47 @@
  * Streaming choices use today's Streaming* factories until the API migration
  * in docs/streaming-modifiers-plan.md lands. Complete Translator is planned.
  */
-import { exampleId } from './shared.js';
+import { exampleId, sourceMode, sourceKind } from './shared.js';
 import sdkDocs from './reference/sdk-docs.js';
+
+// Literal imports and asset URLs let bundlers discover the renderer/resources.
+// Keep this execution registry private; the exported catalog remains plain data.
+const renderers = {
+  'Config.js': () => import('./Config.js'),
+  'Context.js': () => import('./Context.js'),
+  'Template.js': () => import('./Template.js'),
+  'Script.js': () => import('./Script.js'),
+  'Function.js': () => import('./Function.js'),
+  'LLMAgent.js': () => import('./LLMAgent.js'),
+  'Decision.js': () => import('./Decision.js'),
+  'Embedder.js': () => import('./Embedder.js'),
+  'Reranker.js': () => import('./Reranker.js'),
+  'ImageGenerator.js': () => import('./ImageGenerator.js'),
+  'Transcriber.js': () => import('./Transcriber.js'),
+  'SpeechGenerator.js': () => import('./SpeechGenerator.js'),
+  'Translator.js': () => import('./Translator.js'),
+  'VoiceSessionSetup.js': () => import('./VoiceSessionSetup.js'),
+};
+const resourceURLs = {
+  'Template.cat': new URL('./Template.cat', import.meta.url),
+  'Script.cas': new URL('./Script.cas', import.meta.url),
+  'LLMAgent.cat': new URL('./LLMAgent.cat', import.meta.url),
+  'LLMAgent.cas': new URL('./LLMAgent.cas', import.meta.url),
+  'Decision.cat': new URL('./Decision.cat', import.meta.url),
+  'Decision.cas': new URL('./Decision.cas', import.meta.url),
+  'Embedder.cat': new URL('./Embedder.cat', import.meta.url),
+  'Embedder.cas': new URL('./Embedder.cas', import.meta.url),
+  'Reranker.cat': new URL('./Reranker.cat', import.meta.url),
+  'Reranker.cas': new URL('./Reranker.cas', import.meta.url),
+  'ImageGenerator.cat': new URL('./ImageGenerator.cat', import.meta.url),
+  'ImageGenerator.cas': new URL('./ImageGenerator.cas', import.meta.url),
+  'Transcriber.cas': new URL('./Transcriber.cas', import.meta.url),
+  'SpeechGenerator.cat': new URL('./SpeechGenerator.cat', import.meta.url),
+  'SpeechGenerator.cas': new URL('./SpeechGenerator.cas', import.meta.url),
+  'Translator.cas': new URL('./Translator.cas', import.meta.url),
+  'VoiceSessionSetup.cat': new URL('./VoiceSessionSetup.cat', import.meta.url),
+  'VoiceSessionSetup.cas': new URL('./VoiceSessionSetup.cas', import.meta.url),
+};
 
 // Keep upstream wording and provenance together. Supply text only for a real
 // difference or a family spanning several native operations.
@@ -44,31 +83,31 @@ const sdk = (operation, description) => ({
 });
 
 const choices = {
-  asTool: ['As a tool', 'Lets an AI agent or workflow call this component using declared input fields.'],
-  asStream: ['Stream results', 'Returns the live AI SDK result so you can consume output as it arrives.'],
-  useTools: ['Use tools', 'Registers tools that this component can call from its model, workflow or input preparer.'],
+  asTool: ['As a tool', 'Lets an AI agent or workflow call this component using declared input fields.', ['asTool', 'inputSchema', 'toolContextSchema', 'description', 'toModelOutput', 'strict', 'inputExamples']],
+  asStream: ['Stream results', 'Returns the live AI SDK result so you can consume output as it arrives.', ['streaming', 'inputAudioFormat', 'outputFormat', 'outputAudioFormat', 'onChunk', 'onError', 'onAbort', 'streamRetries']],
+  useTools: ['Use tools', 'Registers tools that this component can call from its model, workflow or input preparer.', ['tools', 'toolsContext', 'toolChoice', 'stopWhen']],
   run: ['Named .run() call', 'Calls this component with named inputs. For an asTool component, demonstrates direct invocation rather than a host agent calling it.'],
   prepareSession: ['Session configuration', 'Prepares instructions and tool definitions without opening a provider session.'],
   webRTC: ['WebRTC session', 'Answers a browser SDP offer using a model that supports WebRTC setup.'],
-  structured: ['Structured output', 'Returns an object matching a declared schema instead of plain text.'],
-  batch: ['Several texts', 'Embeds an array of texts in one call and returns one vector per text.'],
-  topN: ['Top matches only', 'Returns the two most relevant documents from the supplied list.'],
-  referenceImage: ['Reference image', 'Uses an existing image to guide generation or editing. Requires a model supporting image input.'],
-  mask: ['Edit mask', 'Supplies a mask with the reference image. Mask conventions depend on the selected model.'],
-  count: ['Several images', 'Requests three variations of the same scene.'],
-  voice: ['Select voice', 'Passes a voice supported by the selected speech model.'],
-  textStream: ['Streamed text input', 'Feeds text in chunks while the model produces speech. A live application can supply an async iterable instead.'],
-  messages: ['Message history', 'Supplies previous conversation messages and returns the updated history. Earlier messages are not rendered again.'],
-  resume: ['Approval and resume()', 'Pauses a tool call for an application approval decision, then resumes the same turn without rendering another prompt.'],
+  structured: ['Structured output', 'Returns an object matching a declared schema instead of plain text.', ['output']],
+  batch: ['Several texts', 'Embeds an array of texts in one call and returns one vector per text.', ['input', 'maxParallelCalls']],
+  topN: ['Top matches only', 'Returns the two most relevant documents from the supplied list.', ['topN']],
+  referenceImage: ['Reference image', 'Uses an existing image to guide generation or editing. Requires a model supporting image input.', ['images']],
+  mask: ['Edit mask', 'Supplies a mask with the reference image. Mask conventions depend on the selected model.', ['mask']],
+  count: ['Several images', 'Requests three variations of the same scene.', ['n']],
+  voice: ['Select voice', 'Passes a voice supported by the selected speech model.', ['voice']],
+  textStream: ['Streamed text input', 'Feeds text in chunks while the model produces speech. A live application can supply an async iterable instead.', ['text']],
+  messages: ['Message history', 'Supplies previous conversation messages and returns the updated history. Earlier messages are not rendered again.', ['messageHistory']],
+  resume: ['Approval and resume()', 'Pauses a tool call for an application approval decision, then resumes the same turn without rendering another prompt.', ['messageHistory', 'toolApproval']],
   withTemplate: ['Inline template', 'Builds input with an inline Cascada template using Nunjucks syntax.'],
   withScript: ['Inline script', 'Runs inline Cascada code to prepare input or orchestrate the workflow.'],
   withFunction: ['JavaScript function', 'Prepares input with a JavaScript function that can await application services.'],
-  loadTemplate: ['Template file', 'Loads the same template from the accompanying .cat file.'],
-  loadScript: ['Script file', 'Loads the same script from the accompanying .cas file.'],
+  loadTemplate: ['Template file', 'Loads the same template from the accompanying .cat file.', ['loader']],
+  loadScript: ['Script file', 'Loads the same script from the accompanying .cas file.', ['loader']],
 };
 const textSources = ['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'];
 const audioSources = ['withScript', 'withFunction', 'loadScript'];
-const choice = (id, rules = {}) => ({ id, name: choices[id][0], description: choices[id][1], ...rules });
+const choice = (id, rules = {}) => ({ id, name: choices[id][0], description: choices[id][1], properties: choices[id][2] ?? [], ...rules });
 const group = (id, name, ids, rules = {}) => ({ id, name, optional: true, choices: ids.map(value => choice(value, rules)) });
 
 // Shared group definitions only supply labels and choices; entries supply rules.
@@ -95,11 +134,11 @@ export const components = [
   }),
   component('Context', 'An object containing application values and private helpers available to a component. Declared input fields can be supplied by the caller.'),
   component('Template', 'Turns data into text using the same template syntax as Nunjucks, including variables, loops, conditions and macros. It needs no AI model.', {
-    resources: ['Template.cat'],
+    resources: ['Template.cat'], inlineResource: 'Template.cat',
     groups: [tool(), source(['withTemplate', 'loadTemplate']), tools(workflowTools), invocation()],
   }),
   component('Script', 'Orchestrates the workflow and implements its logic in Cascada. Independent operations run concurrently, at the same time.', {
-    resources: ['Script.cas'],
+    resources: ['Script.cas'], inlineResource: 'Script.cas',
     groups: [tool(), source(['withScript', 'loadScript']), tools(workflowTools), invocation()],
   }),
   component('Function', 'Runs JavaScript or TypeScript logic as a component, with shared context and input validation.', {
@@ -170,7 +209,7 @@ export const components = [
       requires: { stream: [null] },
       description: 'Planned API: complete Translator is not implemented yet. See docs/streaming-modifiers-plan.md.',
     },
-    groups: [stream({ excludes: ['asTool'] }), source(audioSources), preparerTools(audioSources), invocation()],
+    groups: [stream(), source(audioSources), preparerTools(audioSources), invocation()],
   }),
   component('VoiceSessionSetup', 'Prepares a browser voice session and exposes server-side tool execution. The application owns transport and authentication.', {
     resources: ['VoiceSessionSetup.cat', 'VoiceSessionSetup.cas'], experimental,
@@ -247,8 +286,10 @@ export async function render(name, selected, { readText = async url => {
 } } = {}) {
   const item = getComponent(name);
   const options = validateOptions(name, selected);
-  const resources = Object.fromEntries(await Promise.all(item.resources.map(async file => [file, await readText(new URL(file, import.meta.url))])));
-  const module = await import(new URL(item.file, import.meta.url).href);
+  const kind = sourceKind(options);
+  const files = kind ? item.resources.filter(file => file.endsWith(`.${kind}`)) : !sourceMode(options) && item.inlineResource ? [item.inlineResource] : [];
+  const resources = Object.fromEntries(await Promise.all(files.map(async file => [file, await readText(resourceURLs[file])])));
+  const module = await renderers[item.file]();
   const example = module.default(options, resources);
   const notice = item.planned && enabled(item, item.planned, options) ? item.planned.description : undefined;
   return { ...example, id: exampleId(name, options), component: name, activeOptions: options,

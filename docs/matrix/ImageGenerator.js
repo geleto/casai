@@ -11,6 +11,7 @@ export default function render(options, resources) {
     source: source('ImageGenerator', 'prompt', options, resources, undefined,
       'async ({ scene, lookupInfo }) => `Place a Trail mug on ${scene}. ${await lookupInfo()}`'),
     call: coded ? 'productScene(input)' : 'productScene(prompt)', named: coded ? '{ context: input }' : '{ prompt }',
+    toolPrompt: "`Create a product photo of a Trail mug on ${input.scene}. Keep its shape and markings unchanged.`",
     toolArgs: coded ? 'input' : '{ prompt }', result: 'return result.images.map(image => ({ bytes: image.uint8Array, mediaType: image.mediaType }));',
   });
 }

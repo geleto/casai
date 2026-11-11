@@ -8,6 +8,7 @@ export default function render(options, resources) {
     fields: [...contextField(["company: 'Northstar'", ...tool.context]), ...tool.fields],
     schema: 'z.object({ name: z.string(), orderId: z.string() })',
     source: source('Template', 'template', options, resources, undefined, undefined, 'cat'),
+    toolPrompt: "`Write a delivery update for ${input.name}, order ${input.orderId}.`",
     toolArgs: 'input', call: 'deliveryUpdate(input)', named: '{ context: input }',
   });
 }

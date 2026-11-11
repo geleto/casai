@@ -15,6 +15,7 @@ export default function render(options, resources) {
     source: source('Reranker', 'query', options, resources, undefined,
       'async ({ question, lookupInfo }) => `${question} ${await lookupInfo()}`'),
     call: coded ? 'findPolicy(input)' : 'findPolicy(input.question)', named: coded ? '{ context: input }' : '{ query: input.question }',
+    toolPrompt: "input.question",
     toolArgs: coded ? 'input' : '{ query: input.question }', result: 'return result.ranking;',
   });
 }

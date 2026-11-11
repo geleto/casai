@@ -15,6 +15,7 @@ export default function render(options, resources) {
     source: source('Transcriber', 'audio', options, resources, undefined,
       'async ({ findRecording, getRecording }) => getRecording(await findRecording())'),
     call: coded ? 'transcribeNote({})' : `transcribeNote(${audio})`, named: coded ? '{ context: {} }' : `{ audio: ${audio} }`,
+    toolPrompt: coded ? "'Transcribe the available delivery note.'" : '`Transcribe the delivery note at ${recordingUrl.href}.`',
     toolArgs: coded ? '{}' : '{ audio: recordingUrl.href }', result: streaming ? consumeAudio('text') : 'return result.text;',
   });
 }

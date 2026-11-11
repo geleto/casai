@@ -1,0 +1,13 @@
+{
+  "name": "@casai/matrix",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Canonical Casai component documentation and example data; no UI or runtime dependencies.",
+  "exports": {
+    ".": { "types": "./matrix.d.ts", "import": "./matrix.js" },
+    "./reference": { "types": "./reference.d.ts", "import": "./reference.js" }
+  },
+  "files": ["*.js", "*.d.ts", "*.cat", "*.cas", "*.md", "reference"]
+}

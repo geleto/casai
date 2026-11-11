@@ -2,6 +2,7 @@
 export const has = (options, name) => options.includes(name);
 export const sourceModes = ['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'];
 export const sourceMode = options => sourceModes.find(name => has(options, name));
+export const sourceKind = options => sourceMode(options)?.includes('Template') ? 'cat' : sourceMode(options)?.includes('Script') ? 'cas' : undefined;
 export const prepared = options => Boolean(sourceMode(options));
 export const literal = value => JSON.stringify(value);
 export const indent = (text, spaces = 2) => text.split('\n').map(line => line ? ' '.repeat(spaces) + line : '').join('\n');
@@ -24,7 +25,7 @@ export function factory(component, options) {
 
 export function source(component, field, options, resources, plain, fn, defaultKind) {
   const mode = sourceMode(options);
-  const kind = mode?.includes('Template') ? 'cat' : mode?.includes('Script') ? 'cas' : defaultKind;
+  const kind = sourceKind(options) ?? defaultKind;
   if (mode === 'withFunction') return { fields: [`${field}: ${fn},`], files: [], loaded: false };
   if (!kind) return { fields: plain === undefined ? [] : [`${field}: ${plain},`], files: [], loaded: false };
   const name = `${component}.${kind}`;
@@ -66,7 +67,7 @@ export function contextField(entries) {
   return entries.length ? [`context: { ${entries.join(', ')} },`] : [];
 }
 
-export function toolUse(variable, args, kind = 'agent') {
+export function toolUse(variable, args, kind, prompt) {
   if (kind === 'script') return `// Call the tool from a workflow and keep its native application result.
 const workflow = Script({
   tools: { ${variable} },
@@ -74,15 +75,14 @@ const workflow = Script({
   script: 'return ${variable}(arguments)',
 });
 return await workflow();`;
+  if (!prompt) throw new Error(`Supply a natural-language toolPrompt for ${variable}`);
   return `// Give this component to an AI agent as a tool.
 const assistant = LLMAgent({
   model: orchestratorModel,
   tools: { ${variable} },
   stopWhen: isStepCount(3),
 });
-const answer = await assistant(
-  'Use ${variable} with these arguments: ' + JSON.stringify(${args}) + '. Explain the result briefly.',
-);
+const answer = await assistant(${prompt});
 return {
   text: answer.output,
   toolResults: answer.steps.flatMap(step => step.toolResults),
@@ -91,7 +91,7 @@ return {
 
 export function renderExample({ component, options, variable, params = [], modelType, streamingFactory,
   imports = [], setup = [], fields = [], source: input = { fields: [], files: [] },
-  description, toolDescription = description, schema, toolArgs = '{}', toolCaller = 'agent',
+  description, toolDescription = description, schema, toolArgs = '{}', toolCaller = 'agent', toolPrompt,
   call = `${variable}()`, named = '{}', result = 'return result;', body, typeImports = [], aiImports = [] }) {
   const asTool = has(options, 'asTool');
   // Keep one matrix family while the current audio API has separate factories.
@@ -125,7 +125,7 @@ export function renderExample({ component, options, variable, params = [], model
     ...(schema ? [`inputSchema: ${schema},`] : []), ...input.fields,
   ];
   const declaration = `const ${variable} = ${factory(api, modifiers)}({\n${indent(config.join('\n'))}\n});`;
-  const invocation = body ?? (asTool && !has(options, 'run') ? toolUse(variable, toolArgs, toolCaller)
+  const invocation = body ?? (asTool && !has(options, 'run') ? toolUse(variable, toolArgs, toolCaller, toolPrompt)
     : `const result = await ${has(options, 'run') ? `${variable}.run(${asTool ? `{ context: ${toolArgs} }` : named})` : call};\n${result}`);
   let code = `${importLines.join('\n')}\n\n// ${description}\nexport async function example(${parameters.join(', ')}) {\n${indent([...setup, declaration, invocation].filter(Boolean).join('\n\n'))}\n}\n`;
   if (input.inlineText !== undefined) code = code.replace('__MATRIX_SOURCE__', () => multiline(input.inlineText));

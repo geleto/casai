@@ -1,6 +1,6 @@
 # Third-party documentation and declaration material
 
-`api.js` contains descriptions and type information extracted from installed dependency declarations. Casai modifies their organization by extracting, deduplicating and grouping property records for documentation. `sdk-docs.js` contains opening descriptions from the SDK's packaged MDX reference pages; Casai extracts the paragraphs, joins wrapped lines and resolves root-relative documentation links. Local explanations and adaptations are maintained separately in `matrix.js`, `properties.js`, `components.js` and `concepts.js`; they do not replace the attributed native description stored in each record.
+`api.js` contains descriptions and type information extracted from installed dependency declarations, plus selected result descriptions from the matching SDK reference pages. Casai modifies their organization by extracting, deduplicating and grouping records, following exported aliases, separating nested union alternatives and reusing builder parameter descriptions. `sdk-docs.js` contains opening descriptions from the SDK's packaged MDX reference pages; Casai extracts the paragraphs, joins wrapped lines and resolves root-relative documentation links. Local explanations and adaptations are maintained separately in `matrix.js`, `properties.js`, `components.js`, `details.js` and `concepts.js`; they do not replace the attributed native description stored in each record.
 
 ## AI SDK
 

@@ -13,6 +13,7 @@ export default function render(options, resources) {
     source: source('SpeechGenerator', 'text', options, resources, undefined,
       'async ({ name, deliveryDay }) => `Hello ${name}. Your Northstar order is due ${await deliveryDay()}.`'),
     call: coded ? 'speakUpdate(input)' : 'speakUpdate(text)', named: coded ? '{ context: input }' : '{ text }',
+    toolPrompt: "`Speak a delivery update for ${input.name}: your Northstar order is due Friday.`",
     toolArgs: coded ? 'input' : '{ text }', result: streaming ? consumeAudio('usage') : 'return { bytes: result.audio.uint8Array, mediaType: result.audio.mediaType };',
   });
 }

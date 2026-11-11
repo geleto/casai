@@ -13,6 +13,7 @@ export default function render(options) {
   const rates = await getRates();
   return { amount: rates[service] + Math.ceil(weightKg) * 0.5, currency: 'GBP' as const };
 },`], files: [] },
+    toolPrompt: "`Quote ${input.service} delivery for a ${input.weightKg} kg package.`",
     toolArgs: 'input', call: 'deliveryQuote(input)', named: '{ context: input }',
   });
 }

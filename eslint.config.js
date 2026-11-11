@@ -4,6 +4,12 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
 	{
+		files: ['docs/matrix/**/*.js', 'scripts/*matrix*.mjs', 'tests/fixtures/matrix-*.mjs'],
+		ignores: ['docs/matrix/reference/api.js', 'docs/matrix/reference/sdk-docs.js'],
+		extends: [js.configs.recommended],
+		languageOptions: { globals: Object.fromEntries(['console', 'process', 'performance', 'structuredClone', 'URL', 'fetch', 'Request', 'ReadableStream', 'Buffer'].map(name => [name, 'readonly'])) },
+	},
+	{
 		files: ['src/**/*.ts', 'tests/**/*.ts'],
 		extends: [
 			js.configs.recommended,

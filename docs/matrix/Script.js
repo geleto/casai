@@ -10,6 +10,7 @@ export default function render(options, resources) {
       'schema: z.object({ orderId: z.string(), total: z.number(), deliveryDay: z.string() }),'],
     schema: 'z.object({ orderId: z.string() })',
     source: source('Script', 'script', options, resources, undefined, undefined, 'cas'),
+    toolPrompt: "`Summarize order ${input.orderId}, including its total cost and delivery day.`",
     toolArgs: 'input', call: 'orderSummary(input)', named: '{ context: input }',
   });
 }

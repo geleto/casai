@@ -1,6 +1,16 @@
 // Local explanations and adaptations. Native descriptions remain separately attributed.
 const entry = (description, details = {}) => ({ description, ...details });
 export const commonProperties = {
+  telemetry: { detail: 'Telemetry' },
+  timeout: { detail: 'Timeout' },
+  inputAudioFormat: { detail: 'AudioFormat' },
+  outputAudioFormat: { detail: 'AudioFormat' },
+  inputAudioTranscription: { detail: 'SessionTranscription' },
+  outputAudioTranscription: { detail: 'SessionTranscription' },
+  turnDetection: { detail: 'TurnDetection' },
+  experimental_telemetry: entry('Deprecated alias for telemetry. Use telemetry instead.', { origin: 'ai-sdk', aliasFor: 'telemetry', detail: 'Telemetry' }),
+  experimental_onStart: entry('Deprecated alias for onStart. Use onStart instead.', { origin: 'ai-sdk', aliasFor: 'onStart' }),
+  experimental_onEnd: entry('Deprecated alias for onEnd. Use onEnd instead.', { origin: 'ai-sdk', aliasFor: 'onEnd' }),
   context: entry('Application defaults and private dependencies. Only inputSchema-declared fields are public defaults; other configured names remain private.', {
     section: 'common', scope: 'common', type: 'Record<string, unknown>', default: 'No configured bindings.',
     inheritance: 'Shallow merge by key. Call input overrides public defaults; it cannot replace configured private bindings.',
@@ -35,7 +45,7 @@ export const commonProperties = {
     inheritance: 'Child loaders run before parent loaders. undefined preserves the chain. raceParent and overrideParent explicitly change composition.',
     notes: 'An array tries loaders in order. raceLoaders tries loaders concurrently. FileSystemLoader, WebLoader, PrecompiledLoader and custom loaders remain application choices.',
   }),
-  promptType: entry('Records how the primary property is interpreted.', { section: 'source', scope: 'capability', notes: 'Prefer source modifiers. A base factory inherits the parent’s mode; an explicit source modifier selects another mode. The property’s name remains unchanged.' }),
+  promptType: entry('Records how the primary property is interpreted.', { default: 'Inherited source mode, or the component default. An explicit source modifier selects its mode.', section: 'source', scope: 'capability', notes: 'Prefer source modifiers. A base factory inherits the parent’s mode; an explicit source modifier selects another mode. The property’s name remains unchanged.' }),
   asTool: entry('Selects a component that can be exposed as an SDK tool.', { section: 'variants', scope: 'tool', default: 'Not enabled.', notes: 'Prefer .asTool. Derived components retain tool mode; there is no reverse modifier. Ordinary calls still have their ordinary result contract.' }),
   streaming: entry('Selects the live result for ordinary LLMAgent calls, .run() and resume().', { section: 'variants', scope: 'family', default: 'Generation.', notes: 'Prefer .asStream. Native generate() and stream() remain available on non-tool agents regardless of this default.' }),
   schema: entry('Parses the Script or Function return value. Stream schemas parse each complete element lazily.', { section: 'adapted', scope: 'family', type: 'Supported output schema | streamSchema(elementSchema) | textStreamSchema()', default: 'Return the implementation’s value unchanged.', notes: 'This is not LLMAgent output, and there is no common outputSchema setting. Declared root streams are collected only during tool execution.' }),
@@ -46,7 +56,7 @@ export const commonProperties = {
   providerOptions: { section: 'sdk', sdkGroup: 'model', scope: 'capability', origin: 'ai-sdk', nativeDocs: 'GenerateSettings', default: 'No provider-specific overrides.', notes: 'On model-backed components this configures the inner operation. On Template/Script/Function tools it configures the tool descriptor.' },
   headers: { section: 'sdk', sdkGroup: 'request', origin: 'ai-sdk', nativeDocs: 'GenerateSettings', default: 'No extra request headers.' },
   abortSignal: entry('Cooperative cancellation for this invocation.', { section: 'invocation', scope: 'common', type: 'AbortSignal', origin: 'ai-sdk', default: 'No caller signal.', inheritance: 'Never stored in reusable configuration.', notes: 'Pass to .run() or a supported native/method call. Forwarded to SDK execution and registered tools; arbitrary application helpers must cooperate themselves.' }),
-  messageHistory: entry('Literal earlier conversation messages. History is appended to the newly prepared prompt, never rendered again.', { section: 'invocation', scope: 'family', type: 'readonly ModelMessage[]', default: 'No earlier messages.', notes: 'Positional arrays on LLMAgent are always history. Put newly authored message arrays in config.prompt or .run({ prompt }). Required context comes before positional history.' }),
+  messageHistory: entry('Literal earlier conversation messages, followed by the newly prepared prompt. History is never rendered again.', { section: 'invocation', scope: 'family', type: 'readonly ModelMessage[]', default: 'No earlier messages.', notes: 'Positional arrays on LLMAgent are always history. Put newly authored message arrays in config.prompt or .run({ prompt }). Required context comes before positional history.' }),
   history: entry('Saved messages for continuation, including tool calls/results and approval events.', { section: 'invocation', type: 'readonly ModelMessage[]', required: 'Required by resume().', notes: 'resume skips source preparation. It does not reconstruct prior per-call settings; supply them again when needed.' }),
   approve: entry('Selects pending approvals when resuming.', { section: 'invocation', type: 'boolean | readonly string[] | null | undefined', default: 'undefined: preserve recorded approval decisions.', notes: 'true approves pending requests; false denies them; an ID list approves those requests and denies other pending ones. This belongs only to resume(), not configuration or .run().' }),
   sdp: entry('The browser’s SDP offer for WebRTC session setup.', { section: 'invocation', type: 'string', required: 'Required by createWebRTCSession().' }),
@@ -58,24 +68,27 @@ export const commonProperties = {
 
 export const componentProperties = {
   LLMAgent: {
+    include: { detail: 'StreamInclude' },
     onAbort: entry('Called when native streaming generation is aborted, with the completed step information available at that point.', { section: 'sdk', sdkGroup: 'callbacks', origin: 'ai-sdk', operations: ['streamText'] }),
     onChunk: { section: 'sdk', sdkGroup: 'callbacks', origin: 'ai-sdk', operations: ['streamText'] },
     onError: { section: 'sdk', sdkGroup: 'callbacks', origin: 'ai-sdk', operations: ['streamText'] },
     streamRetries: { section: 'sdk', sdkGroup: 'request', origin: 'ai-sdk', operations: ['streamText'], notes: 'A streaming-only control. Casai does not add a retry loop; follow the native onError and retry contract.' },
     experimental_transform: { section: 'sdk', sdkGroup: 'request', origin: 'ai-sdk', operations: ['streamText'] },
-    prompt: entry('New content for this invocation. Direct and inline-template forms accept a string, one ModelMessage, or a message array; scripts/functions return the same native shapes.', { section: 'essential', scope: 'component', notes: 'Templates render explicit text slots only. A primary source is separate from a public input field named prompt. Positional message arrays supply history, not newly authored source.' }),
+    prompt: entry('New content for this invocation. Direct and inline-template forms accept a string, one ModelMessage, or a message array; scripts/functions return the same native shapes.', { default: 'No configured prompt.', section: 'essential', scope: 'component', notes: 'Templates render explicit text slots only. A primary source is separate from a public input field named prompt. Positional message arrays supply history, not newly authored source.' }),
     output: { section: 'adapted', origin: 'ai-sdk', nested: 'Output', default: 'Output.text() behavior.', notes: 'Fixed at construction. Generation returns output; streaming returns its final promise and native partial/element views. No extra Casai output schema is applied.' },
     stopWhen: { section: 'sdk', sdkGroup: 'tools', origin: 'ai-sdk', default: 'isStepCount(1), matching the current core SDK call.', notes: 'Set isStepCount(n) or native predicates for multiple steps. ToolLoopAgent’s 20-step default is not Casai’s current default. A paused turn needs a continuation call; increasing a step limit does not approve tools.' },
-    prepareCall: entry('Transforms the resolved request once before SDK execution.', { section: 'adapted', origin: 'casai', type: '(request, config, context) => Request | PromiseLike<Request>', adaptation: 'The three-argument Casai hook receives resolved configuration and prepared application context.', notes: 'Return the complete editable request. Omitted editable fields are not restored. Fixed contracts, explicit cancellation, composed observers and approval/telemetry policy remain protected. The retained history is not rewritten by the hook.' }),
+    prepareCall: entry('Transforms the resolved request once before SDK execution.', { default: 'No request transformation.', section: 'adapted', origin: 'casai', type: '(request, config, context) => Request | PromiseLike<Request>', adaptation: 'The three-argument Casai hook receives resolved configuration and prepared application context.', notes: 'Return the complete editable request. Omitted editable fields are not restored. Fixed contracts, explicit cancellation, composed observers and approval/telemetry policy remain protected. The retained history is not rewritten by the hook.' }),
     prepareStep: entry('Changes supported native settings before an SDK-scheduled model step.', { section: 'adapted', origin: 'ai-sdk', type: '(step, config, context) => NativeStepOverrides | undefined | PromiseLike<...>', adaptation: 'Retains the SDK name and partial-return contract; Casai adds resolved config and prepared context arguments.', notes: 'It does not schedule another step or restart a paused invocation. Return replacements without mutating shared configuration.' }),
     id: entry('The SDK Agent identifier.', { section: 'adapted', default: 'No explicit ID.', notes: 'Tool forms do not expose Agent identity or native generate/stream methods.' }),
   },
   Decision: {
-    state: entry('The state to evaluate: text or supported native multimodal parts. Prepared sources return that state.', { section: 'essential', origin: 'ai-sdk', scope: 'component' }),
+    state: entry('The state to evaluate: text, a JSON object, or an ordered array of native text, file and JSON parts. Prepared sources return that state.', { section: 'essential', origin: 'ai-sdk', scope: 'component' }),
     questions: entry('Named questions describing the requested decisions: category, boolean, score, or supported spatial answer.', { section: 'essential', origin: 'ai-sdk', scope: 'component', required: 'Required in the completed component.', notes: 'Question definitions determine answer types and are fixed at construction.' }),
   },
   Embedder: {
-    input: entry('A string for one embedding or a string array for a batch.', { section: 'essential', origin: 'casai', scope: 'component', adaptation: 'Mapped to native embed({ value }) or embedMany({ values }); native results are preserved.', notes: 'Inline templates produce one string. Script/function preparers may produce arrays. Configured input permits a no-replacement .run().' }),
+    onStart: entry('Callback that is called when the embedding operation begins, before the embedding model is called.', { origin: 'ai-sdk', notes: 'String input uses embed; array input uses embedMany. Callback events follow the selected native operation.' }),
+    onEnd: entry('Callback that is called when the embedding operation completes, after all embedding model calls return.', { origin: 'ai-sdk', notes: 'String input uses embed; array input uses embedMany. Callback events follow the selected native operation.' }),
+    input: entry('A string for one embedding or a string array for a batch.', { default: 'No configured input; supply it through invocation or source preparation.', section: 'essential', origin: 'casai', scope: 'component', adaptation: 'Mapped to native embed({ value }) or embedMany({ values }); native results are preserved.', notes: 'Inline templates produce one string. Script/function preparers may produce arrays. Configured input permits a no-replacement .run().' }),
     maxParallelCalls: { section: 'sdk', sdkGroup: 'operation', origin: 'ai-sdk', notes: 'Relevant to array input. Casai does not add its own batching or concurrency loop.' },
   },
   Reranker: {
@@ -85,8 +98,8 @@ export const componentProperties = {
   },
   ImageGenerator: {
     prompt: entry('Text or a native prompt bundle with text, images and optional mask. Template mode preserves the native bundle and renders explicit text only.', { section: 'essential', origin: 'ai-sdk', required: 'Text or effective reference images must resolve by invocation.', adaptation: 'Separate configured/invocation media can be composed with text or prepared prompts.', notes: 'An untouched complete bundle owns its media. Explicit invocation images/mask override it. Use .run() to select structured authored source unambiguously on tools.' }),
-    images: entry('Reference images for generation or editing.', { section: 'adapted', origin: 'casai', adaptation: 'Top-level convenience for the native prompt.images field.', inheritance: 'Constructor values use ordinary replacement and may retain an inherited separate mask. Invocation images replace prior images and drop the previous mask unless that call supplies one.', notes: 'An empty invocation array clears references; undefined retains them. Text-only updates keep existing media. Complete native bundles retain native empty-array behavior.' }),
-    mask: entry('An edit mask accompanying reference images; conventions depend on the model.', { section: 'adapted', origin: 'casai', adaptation: 'Top-level convenience for native prompt.mask.', inheritance: 'Mask-only updates retain images. New invocation images drop the old mask unless the call supplies a defined replacement.', notes: 'A split/field mask requires effective nonempty images. Providers own mask encoding and editing support.' }),
+    images: entry('Reference images for generation or editing.', { default: 'No separate images. A complete native prompt may provide them.', section: 'adapted', origin: 'casai', adaptation: 'Top-level convenience for the native prompt.images field.', inheritance: 'Constructor values use ordinary replacement and may retain an inherited separate mask. Invocation images replace prior images and drop the previous mask unless that call supplies one.', notes: 'An empty invocation array clears references; undefined retains them. Text-only updates keep existing media. Complete native bundles retain native empty-array behavior.' }),
+    mask: entry('An edit mask accompanying reference images; conventions depend on the model.', { default: 'No separate mask. A complete native prompt may provide one.', section: 'adapted', origin: 'casai', adaptation: 'Top-level convenience for native prompt.mask.', inheritance: 'Mask-only updates retain images. New invocation images drop the old mask unless the call supplies a defined replacement.', notes: 'A split/field mask requires effective nonempty images. Providers own mask encoding and editing support.' }),
   },
   Transcriber: {
     audio: entry('Encoded recording data (base64 string, bytes or ArrayBuffer) or a URL. Use the provider’s file transcription operation for complete recordings.', { section: 'essential', origin: 'ai-sdk' }),
@@ -111,7 +124,7 @@ export const componentProperties = {
     model: entry('The realtime model used to set up the voice session.', { section: 'essential', origin: 'ai-sdk' }),
     instructions: entry('Server-owned voice-session instructions. May be literal or produced by the selected source preparer.', { section: 'essential', origin: 'ai-sdk', default: 'No extra instructions in the direct form.', required: 'Optional in the direct form. Prepared forms need source in configuration or invocation.' }),
     tools: entry('Tools offered in the session and executable through the server’s executeTool adapter.', { section: 'common', origin: 'casai', notes: 'Prepared definitions are omitted when empty. Nonempty tools retain provider capability errors. Client-supplied preferences must not replace server-owned tool policy.' }),
-    expiresAfterSeconds: entry('Requests the client-secret lifetime supported by the model.', { section: 'sdk', sdkGroup: 'operation', origin: 'ai-sdk', notes: 'Applies to ordinary/token calls, not to session configuration or WebRTC negotiation.' }),
+    expiresAfterSeconds: entry('Requests the client-secret lifetime supported by the model.', { section: 'sdk', sdkGroup: 'operation', origin: 'ai-sdk', operations: ['doCreateClientSecret'], notes: 'Applies to ordinary/token calls, not to session configuration or WebRTC negotiation.' }),
   },
 };
 
@@ -122,5 +135,3 @@ export const sdkPropertyGroups = {
   callbacks: ['onStart', 'onEnd', 'onStepStart', 'onStepEnd', 'onStepError', 'onLanguageModelCallStart', 'onLanguageModelCallEnd', 'onToolExecutionStart', 'onToolExecutionEnd', 'onChunk', 'onError', 'onAbort', 'experimental_onStart', 'experimental_onEnd'],
   request: ['headers', 'maxRetries', 'timeout', 'download', 'experimental_download', 'streamRetries', 'experimental_transform'],
 };
-
-export const invocationProperties = ['abortSignal', 'messageHistory', 'history', 'approve', 'sdp', 'toolCallId', 'toolName', 'args', '_toolOptions'];

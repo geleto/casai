@@ -14,6 +14,7 @@ export default function render(options, resources) {
     source: source('Decision', 'state', options, resources, undefined,
       'async ({ issue, lookupInfo }) => `Customer request: ${issue}\\n${await lookupInfo()}`'),
     call: coded ? 'routeRequest(input)' : 'routeRequest(input.issue)', named: coded ? '{ context: input }' : '{ state: input.issue }',
+    toolPrompt: "input.issue",
     toolArgs: coded ? 'input' : '{ state: input.issue }', result: 'return result.answers.team.choice;',
   });
 }
