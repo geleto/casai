@@ -6,6 +6,7 @@ export default function render(options, resources) {
   const policy = "'Report damage within 30 days and include a photo. Replacement shipping is free.'";
   const tool = lookup(options, { name: 'lookupPolicy', description: 'Look up the store returns policy.', value: 'policy' });
   const fields = [
+    ...(has(options, 'asTool') && !coded ? ['// This tool answers the saved request; it accepts no new question.'] : []),
     ...contextField(coded ? ['policy'] : []),
     ...(tools ? [...tool.fields, "instructions: 'Call lookupPolicy before answering the customer.',", 'stopWhen: isStepCount(3),'] : []),
     ...(resume ? ["toolApproval: { lookupPolicy: 'user-approval' },"] : []),
@@ -30,6 +31,7 @@ ${consume('result')}${final('result')}` : (has(options, 'asTool') && !has(option
     typeImports: history ? ['ModelMessage'] : [],
     params: resume ? ['chooseApprovals: (requestIds: string[]) => Promise<string[]>'] : [],
     description: 'Answer the same customer question using the store returns policy.',
+    toolDescription: coded ? 'Answer a customer question using the store returns policy.' : 'Explain how to return the damaged mug in this saved customer request.',
     imports: [...(tools ? tool.imports : []), ...(structured ? ['z'] : [])], aiImports: structured ? ['Output'] : [],
     setup: [`const policy = ${policy};`, "const input = { question: 'My mug arrived cracked. What should I do?' };",
       ...(tools ? [tool.setup] : []),
@@ -38,7 +40,7 @@ ${consume('result')}${final('result')}` : (has(options, 'asTool') && !has(option
     source: source('LLMAgent', 'prompt', options, resources,
       '`Policy: ${policy}\\nQuestion: ${input.question}`',
       '({ policy, question }) => `Policy: ${policy}\\nQuestion: ${question}`'),
-    toolPrompt: "input.question",
+    toolPrompt: coded ? 'input.question' : "'Explain the return steps for the saved damaged-mug request.'",
     toolArgs: coded ? 'input' : '{}', body,
   });
 }

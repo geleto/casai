@@ -4,7 +4,7 @@ export default function render(options, resources) {
   const tool = lookup(options, { name: 'getShipment', description: 'Look up shipping cost and delivery day.',
     value: "({ cost: 4, deliveryDay: 'Friday' })", schema: 'z.object({ cost: z.number(), deliveryDay: z.string() })' });
   return renderExample({ component: 'Script', variable: 'orderSummary', options,
-    description: 'Combine order and shipping information. Independent lookups run concurrently.', imports: tool.imports,
+    description: 'Combine order and shipping information. Independent lookups run concurrently.', toolDescription: 'Look up an order and return its total cost and delivery day.', imports: tool.imports,
     setup: ["const getOrder = async (orderId: string) => ({ orderId, subtotal: 48 });", tool.setup, "const input = { orderId: 'N-1042' };"],
     fields: [...contextField(['getOrder', ...tool.context]), ...tool.fields,
       'schema: z.object({ orderId: z.string(), total: z.number(), deliveryDay: z.string() }),'],

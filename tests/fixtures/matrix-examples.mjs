@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stripTypeScriptTypes } from 'node:module';
 import { components, render, validateOptions, selectOption, visibleGroups } from '../../docs/matrix/matrix.js';
-import { multiline } from '../../docs/matrix/shared.js';
+import { multiline, renderExample } from '../../docs/matrix/shared.js';
 import { checkReference } from './matrix-reference.mjs';
 import { checkBundle } from './matrix-bundle.mjs';
 import { checkPackage } from './matrix-package.mjs';
@@ -30,10 +30,11 @@ export async function generate() {
   assert.equal(relative(await realpath(root), target).replaceAll('\\', '/'), '.cache/matrix', 'Only clear the matrix cache inside this workspace');
   await rm(destination, { recursive: true, force: true });
   const authored = await readdir(new URL('docs/matrix/', root));
-  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
+  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', 'resources.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
   assert.deepEqual(authored.filter(name => /\.(cat|cas)$/.test(name)).sort(), components.flatMap(item => item.resources).sort(), 'No duplicated streaming resources');
   const tricky = '{{ value }}\n${notJavaScript}\n`backticks` \\ slashes';
   assert.equal(Function(`return ${multiline(tricky)}`)(), tricky);
+  assert.throws(() => renderExample({ component: 'Function', options: ['asTool'], description: 'Reader caption', variable: 'task' }), /model-facing toolDescription/);
   const examples = [], ids = new Set();
   for (const component of components) {
     assert.equal(component.groups.some(group => group.choices.some(choice => choice.id === 'run')), !['Config', 'Context'].includes(component.name));
@@ -133,6 +134,17 @@ export async function generate() {
   await checkPackage(root, destination);
   await writeFile(new URL('_contracts.ts', destination), `import { describe, type SelectionExport } from '@casai/matrix/reference';
 import { render, validateOptions } from '@casai/matrix';
+import type { ChoiceId, ComponentName } from '@casai/matrix';
+import type { ConfigSectionId, SDKGroupId } from '@casai/matrix/reference';
+// @ts-expect-error Component names are checked.
+const typoComponent: ComponentName = 'LLMAgentt';
+// @ts-expect-error Choice IDs are checked.
+const typoChoice: ChoiceId = 'strcutured';
+// @ts-expect-error Reference sections are checked.
+const typoSection: ConfigSectionId = 'settings';
+// @ts-expect-error SDK groups are checked.
+const typoGroup: SDKGroupId = 'requests';
+void [typoComponent, typoChoice, typoSection, typoGroup];
 validateOptions('LLMAgent');
 await render('Context');
 const selected: SelectionExport = { schemaVersion: 1, reference: describe('LLMAgent'), example: await render('LLMAgent', [], { readText: async () => '' }) };

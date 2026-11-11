@@ -25,7 +25,7 @@ export function checkIntegrity(catalog, reference, api, common, own, concepts) {
     const base = reference[component.name];
     for (const spec of [base, ...(base.variants ?? [])]) {
       rules(component, spec);
-      for (const name of spec.propertyShapes ?? []) shape(name);
+      for (const name of [...(spec.propertyShapes ?? []), ...(spec.relatedPropertyShapes ?? [])]) shape(name);
       shape(spec.nativeDocs); shape(spec.runShape);
       for (const name of spec.resultShapes ?? (spec.result ? [spec.result] : [])) shape(`${name}_result`);
       for (const id of spec.concepts ?? []) assert(concepts[id], `Unknown matrix concept: ${id}`);

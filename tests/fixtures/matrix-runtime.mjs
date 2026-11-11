@@ -136,6 +136,10 @@ for (const example of examples.filter(example => example.status === 'implemented
     if (example.component === 'LLMAgent') {
       const calls = [...model.doGenerateCalls, ...model.doStreamCalls];
       assert.match(JSON.stringify(calls[0].prompt), /My mug arrived cracked/);
+      if (hosted && !['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'].some(selected)) {
+        assert.match(JSON.stringify(args[1].doGenerateCalls[0].prompt), /saved damaged-mug request/);
+        assert.match(args[1].doGenerateCalls[0].tools.find(tool => tool.name === 'returnsAdvisor').description, /saved customer request/);
+      }
       if (selected('messages')) assert.match(JSON.stringify(calls[0].prompt), /I bought a Trail mug yesterday/);
       if (selected('resume')) {
         const last = calls.at(-1).prompt;

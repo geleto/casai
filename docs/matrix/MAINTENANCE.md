@@ -21,15 +21,17 @@ Later topics should explain tasks and cross-component workflows and link to the 
 
 | Source | Owns | Edit by hand? |
 | --- | --- | --- |
-| `matrix.js` | Component summaries or SDK summary references, groups, choices, example defaults and visibility rules | Yes |
+| `matrix.js` | Component summaries or SDK summary references, groups, choices, example defaults, control/transition data and selection rules | Yes |
 | `<Component>.js` | One example renderer per component family | Yes |
 | `.cat` / `.cas` resources | Canonical template/script text, reused inline and when loaded | Yes |
+| `resources.js` | Embedded copies of canonical `.cat`/`.cas` text for portable rendering | **No**, regenerate |
 | `reference/components.js` | Native operation mapping, API variants, source forms, call/method/result explanations and ordering | Yes |
 | `reference/properties.js` | Casai properties and amendments: requiredness, defaults, invocation, inheritance and adapted behavior | Yes |
 | `reference/details.js` | Links to nested native data shapes and explanations for remaining undocumented members | Yes; fill gaps without replacing accurate native prose |
 | `reference/concepts.js` | Shared explanations inside the matrix | Yes |
 | `reference/api.js` | Pinned public type shapes and native JSDoc descriptions | **No**, regenerate |
 | `reference/sdk-docs.js` | Opening descriptions extracted from the matching SDK documentation | **No**, regenerate |
+| `reference/metadata.js` | Casai/dependency versions and repository URL for lightweight consumers | **No**, regenerate |
 | `matrix.d.ts`, `reference.d.ts` | Consumer types for the catalog, selection helpers, reference and JSON exports | Yes; keep tests tied to the returned fields |
 | `reference.js` | Generic resolver that joins the selected catalog entry, native inventory and local amendments | Only when the data contract needs to change |
 | `package.json` | Private `@casai/matrix` entry points for the separate UI project's file/workspace dependency | Yes; no runtime dependencies |
@@ -38,11 +40,11 @@ Types determine which settings, methods and results exist. The configured compon
 
 Example controls choose teaching scenarios. They do not define API support: turning off `useTools` must not remove `tools` from the configuration reference. `render().configuration` names the factory and properties actually used by the displayed example. `describe()` describes the selected API independently of that example.
 
-A choice’s `properties` lists configuration fields to highlight; only fields present in the selected API are linked.
+A choice's `properties` lists configuration fields to highlight; only fields present in the selected API are linked. `affectsReference` distinguishes API changes from teaching features and highlights. Keep the data defining that distinction current when adding choices, and update the public literal unions. Canonical reference IDs must exclude example-only features.
 
-Use component `variants` for operation/result changes, including method selections. Primary-input overrides belong in `inputTypes` so script, function and loaded forms keep their correct source types. Method `settings: 'run'` references the existing named-call properties, with `omit` for irrelevant settings; do not duplicate their explanations. Add new renderers and resource URLs to the literal import/asset registries in `matrix.js` so bundlers can discover them. `inlineResource` identifies a standalone component's default source; other selections load only their selected template or script.
+Use component `variants` for operation/result changes, including method selections. Primary-input overrides belong in `inputTypes` so script, function and loaded forms keep their correct source types. Method `settings: 'run'` references the existing named-call properties, with `omit` for irrelevant settings; do not duplicate their explanations. Add new renderers to the literal import registry in `matrix.js` so bundlers can discover them. Add canonical resources to the component's `resources` list and regenerate `resources.js`; consumers need no asset configuration. `inlineResource` identifies a standalone component's default source; `sourceDefault` collapses its redundant Default selector choice. Other selections read only their selected template or script.
 
-`requires` maps a group to its allowed choices: any listed choice within a group, all specified groups together. An array of maps allows any alternative. `null` means no choice in that group. `excludes` lists conflicts. Use these data rules instead of component-name branches in the resolver. Keep one choice or none in each group; validate the requested selection at the render boundary. See the [integration contract](README.md) for source/Loads adapters and returned fields.
+`requires` maps a group to its allowed choices: any listed choice within a group, all specified groups together. An array of maps allows any alternative. `null` means no choice in that group. `excludes` lists conflicts. Use these data rules instead of component-name branches in the resolver. Keep one choice or none in each group; validate the requested selection at the render boundary. `getControls()` is the single UI model, with optional unavailable-choice reasons and change previews. Tolerant normalization is only for restored external selections. See the [integration contract](README.md) for these helpers and returned fields.
 
 ### What happened to topics.js?
 
@@ -100,6 +102,8 @@ Longer native guides, provider capability tables and troubleshooting pages shoul
 
 Retain source paths, versions and original prose. Local declarations use file paths without unstable line numbers; dependency links retain their pinned version and line. `sdk-docs.js` records the pinned source and public documentation link; catalog summaries mark verbatim/adapted reuse. The extractor joins wrapped lines and resolves root-relative SDK links without changing wording.
 
+Generated metadata includes the root Casai version. The publishing build supplies its exact checkout revision to `sourceUrl()` and publishes that revision with its version information; do not put moving HEAD into a checked-in freshness snapshot.
+
 Distribute [THIRD_PARTY.md](reference/THIRD_PARTY.md) and the included Apache-2.0/BSD-2-Clause license files with copied data. Record modifications and check for changed notices on upgrades. This reuse covers the inspected licensed SDK repository/package text, not a blanket permission to copy unrelated provider sites, branding or website assets.
 
 ## Writing and formatting
@@ -108,12 +112,14 @@ Follow the SDK's reference style throughout the matrix: a short action-first sum
 
 Use plain words, Markdown paragraphs, backticks for API names, fenced TypeScript for examples and explicit file names for secondary sources. Keep a property name, type, requiredness, description and default easy to scan. Explain conditional requirements next to the property. Preserve useful native detail instead of replacing it with a vague one-line paraphrase. Put scenario explanations in code comments.
 
+Keep reader captions separate from model-facing `toolDescription`. Describe the tool's actual task and accepted input; a fixed-request tool must not imply it accepts an arbitrary question. Retain the complete callable example function and its explicit application dependencies. Property records keep the complete `type` alongside a compact `displayType`; never replace the underlying contract with its abbreviated label. User-facing notices link to available guide content, not internal implementation plans.
+
 Avoid HTML or SDK website-specific MDX components in authored matrix data. Express notes, sections and links as data with Markdown text so another publisher can render them consistently. Preserve experimental and planned notices in every output. Do not use a source link as a substitute for documenting Casai's actual difference.
 
 ## Updating the matrix
 
 1. Inspect the changed public API and its native owner. Check the installed declaration, implementation and relevant tests when a description or contract is uncertain. Do not infer behavior from example toggles or an external review alone.
-2. Run `npm run docs:matrix` after API/dependency changes. Review added/removed fields, types, native prose and operation summaries. Generated files are checked in so consumers need no compiler or installed SDK.
+2. Run `npm run docs:matrix` after API/dependency, package metadata or canonical resource changes. Review added/removed fields, types, native prose, operation summaries and embedded resources. Generated files are checked in so consumers need no compiler or installed SDK. For resource-only edits, `node scripts/update-matrix-resources.mjs` refreshes just that module.
 3. Update only affected catalog rules, component mappings, local amendments and shared concepts. Remove a local paraphrase when the upstream wording now fits. Keep planned and implemented forms distinct.
 4. Update the family renderer and canonical resources if the example needs to change. Preserve the scenario, names and code order across toggles. Reuse the same `.cat`/`.cas` text for inline and loaded forms; do not add files for every combination.
 5. Run `npm run test:matrix`. It runs the generator's `--check` mode to compare the extracted contract and prose, then checks registry integrity, complete configuration inventories, descriptions for displayed nested/method/result fields, declared output fields, reference applicability, example metadata, source transitions/resource reads, consumer types and mock execution. It also checks linked package imports/resources, executes every selection from a browser-targeted bundle and compiles representative actual exports against the consumer declarations. Unrelated implementation comments and local line shifts do not require regeneration; changed public types or documented behavior do. Planned snippets get syntax/shared-source checks, not a claim of working future APIs. No provider calls are made.

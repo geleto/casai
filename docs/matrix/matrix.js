@@ -8,18 +8,17 @@
  * requirement maps. excludes lists conflicting choices. The same rules drive
  * visibility, selection updates and rendering.
  *
- * await render('LLMAgent', ['withTemplate', 'asTool'], {
- *   readText: url => readFile(url, 'utf8'), // Node; browsers default to fetch.
- * });
+ * await render('LLMAgent', ['withTemplate', 'asTool']);
  *
  * Renderers are JavaScript; generated, copyable examples are TypeScript.
- * .cat/.cas files are ordinary source text, reused inline and when loaded.
+ * .cat/.cas files are canonical text; generated resources.js embeds them for
+ * portable rendering without fetch or bundler asset configuration.
  * render() returns { id, component, activeOptions, status, explanations, files }.
  * Planned selections also return a notice and include it in the code comments.
  * A component's planned note uses the same requires rules as choices.
  * Each file has { name, language, code }; save all files in one directory.
  * Names stay stable across toggles; the derived id identifies the selection.
- * Use visibleGroups() to show applicable choices and selectOption() to update
+ * Use getControls() for UI controls and selectOption() to update
  * a valid selection, replacing siblings and clearing dependents when required.
  * render() validates selections; toggles only apply the selection rules.
  * An empty source group uses the component's default source mode.
@@ -35,8 +34,20 @@
  */
 import { exampleId, sourceMode, sourceKind } from './shared.js';
 import sdkDocs from './reference/sdk-docs.js';
+import bundledResources from './resources.js';
+import metadata from './reference/metadata.js';
 
-// Literal imports and asset URLs let bundlers discover the renderer/resources.
+export const versions = metadata.versions;
+export const repository = metadata.repository;
+// The publishing build supplies its pinned Casai commit. Do not bake moving HEAD
+// into generated data, which would become stale after every documentation commit.
+export function sourceUrl(source, revision) {
+  if (!source) return null;
+  if (source.url) return source.url;
+  return revision ? `${repository}/blob/${encodeURIComponent(revision)}/${source.path}` : null;
+}
+
+// Literal imports let bundlers discover every renderer.
 // Keep this execution registry private; the exported catalog remains plain data.
 const renderers = {
   'Config.js': () => import('./Config.js'),
@@ -53,26 +64,6 @@ const renderers = {
   'SpeechGenerator.js': () => import('./SpeechGenerator.js'),
   'Translator.js': () => import('./Translator.js'),
   'VoiceSessionSetup.js': () => import('./VoiceSessionSetup.js'),
-};
-const resourceURLs = {
-  'Template.cat': new URL('./Template.cat', import.meta.url),
-  'Script.cas': new URL('./Script.cas', import.meta.url),
-  'LLMAgent.cat': new URL('./LLMAgent.cat', import.meta.url),
-  'LLMAgent.cas': new URL('./LLMAgent.cas', import.meta.url),
-  'Decision.cat': new URL('./Decision.cat', import.meta.url),
-  'Decision.cas': new URL('./Decision.cas', import.meta.url),
-  'Embedder.cat': new URL('./Embedder.cat', import.meta.url),
-  'Embedder.cas': new URL('./Embedder.cas', import.meta.url),
-  'Reranker.cat': new URL('./Reranker.cat', import.meta.url),
-  'Reranker.cas': new URL('./Reranker.cas', import.meta.url),
-  'ImageGenerator.cat': new URL('./ImageGenerator.cat', import.meta.url),
-  'ImageGenerator.cas': new URL('./ImageGenerator.cas', import.meta.url),
-  'Transcriber.cas': new URL('./Transcriber.cas', import.meta.url),
-  'SpeechGenerator.cat': new URL('./SpeechGenerator.cat', import.meta.url),
-  'SpeechGenerator.cas': new URL('./SpeechGenerator.cas', import.meta.url),
-  'Translator.cas': new URL('./Translator.cas', import.meta.url),
-  'VoiceSessionSetup.cat': new URL('./VoiceSessionSetup.cat', import.meta.url),
-  'VoiceSessionSetup.cas': new URL('./VoiceSessionSetup.cas', import.meta.url),
 };
 
 // Keep upstream wording and provenance together. Supply text only for a real
@@ -107,7 +98,8 @@ const choices = {
 };
 const textSources = ['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'];
 const audioSources = ['withScript', 'withFunction', 'loadScript'];
-const choice = (id, rules = {}) => ({ id, name: choices[id][0], description: choices[id][1], properties: choices[id][2] ?? [], ...rules });
+const referenceChoices = ['asTool', 'asStream', ...textSources, 'prepareSession', 'webRTC'];
+const choice = (id, rules = {}) => ({ id, name: choices[id][0], description: choices[id][1], properties: choices[id][2] ?? [], affectsReference: referenceChoices.includes(id), ...rules });
 const group = (id, name, ids, rules = {}) => ({ id, name, optional: true, choices: ids.map(value => choice(value, rules)) });
 
 // Shared group definitions only supply labels and choices; entries supply rules.
@@ -125,7 +117,7 @@ const experimental = 'Uses an experimental AI SDK operation.';
 
 const component = (name, description, details = {}) => ({
   name, file: `${name}.js`, ...(typeof description === 'string' ? { description } : description),
-  activeOptions: [], resources: [], groups: [], ...details,
+  activeOptions: [], resources: [], groups: [], sourceDefault: 'default', ...details,
 });
 
 export const components = [
@@ -134,11 +126,11 @@ export const components = [
   }),
   component('Context', 'An object containing application values and private helpers available to a component. Declared input fields can be supplied by the caller.'),
   component('Template', 'Turns data into text using the same template syntax as Nunjucks, including variables, loops, conditions and macros. It needs no AI model.', {
-    resources: ['Template.cat'], inlineResource: 'Template.cat',
+    resources: ['Template.cat'], inlineResource: 'Template.cat', sourceDefault: 'template',
     groups: [tool(), source(['withTemplate', 'loadTemplate']), tools(workflowTools), invocation()],
   }),
   component('Script', 'Orchestrates the workflow and implements its logic in Cascada. Independent operations run concurrently, at the same time.', {
-    resources: ['Script.cas'], inlineResource: 'Script.cas',
+    resources: ['Script.cas'], inlineResource: 'Script.cas', sourceDefault: 'script',
     groups: [tool(), source(['withScript', 'loadScript']), tools(workflowTools), invocation()],
   }),
   component('Function', 'Runs JavaScript or TypeScript logic as a component, with shared context and input validation.', {
@@ -207,7 +199,7 @@ export const components = [
     resources: ['Translator.cas'], experimental,
     planned: {
       requires: { stream: [null] },
-      description: 'Planned API: complete Translator is not implemented yet. See docs/streaming-modifiers-plan.md.',
+      description: 'Planned API: complete Translator is not implemented yet. Select streaming translation for the available API.',
     },
     groups: [stream(), source(audioSources), preparerTools(audioSources), invocation()],
   }),
@@ -248,6 +240,23 @@ export function visibleGroups(name, selected = getComponent(name).activeOptions)
 const allChoices = item => item.groups.flatMap(entry => entry.choices);
 const orderedOptions = (item, selected) => allChoices(item).filter(option => selected.includes(option.id)).map(option => option.id);
 
+function prune(item, selected) {
+  const next = [...selected];
+  for (;;) {
+    const invalid = allChoices(item).find(option => next.includes(option.id) && !enabled(item, option, next));
+    if (!invalid) return orderedOptions(item, next);
+    next.splice(next.indexOf(invalid.id), 1);
+  }
+}
+
+// External URL/storage input only. Strict authoring/rendering still rejects errors.
+export function normalizeOptions(name, input = getComponent(name).activeOptions) {
+  const item = getComponent(name);
+  const chosen = item.groups.flatMap(group => input.filter(id => group.choices.some(choice => choice.id === id)).slice(-1));
+  const activeOptions = prune(item, chosen);
+  return { activeOptions, dropped: [...new Set(input)].filter(id => !activeOptions.includes(id)) };
+}
+
 export function validateOptions(name, selected = getComponent(name).activeOptions) {
   const item = getComponent(name);
   const all = allChoices(item);
@@ -261,7 +270,6 @@ export function validateOptions(name, selected = getComponent(name).activeOption
 // Start with a valid selection. Replace siblings and clear obsolete dependents.
 export function selectOption(name, selected, id, active = true) {
   const item = getComponent(name);
-  const all = allChoices(item);
   const owner = item.groups.find(entry => entry.choices.some(option => option.id === id));
   if (!owner) throw new Error(`Unsupported ${name} option: ${id}`);
   let next = selected.filter(value => value !== id && (!active || !owner.choices.some(option => option.id === value)));
@@ -271,24 +279,100 @@ export function selectOption(name, selected, id, active = true) {
     if (!enabled(item, option, next)) throw new Error(`Unmet requirements: ${id}`);
     next.push(id);
   }
-  for (;;) {
-    // Clear one dependent at a time in catalog order, then recheck the rest.
-    const invalid = all.find(option => next.includes(option.id) && !enabled(item, option, next));
-    if (!invalid) return orderedOptions(item, next);
-    next = next.filter(value => value !== invalid.id);
-  }
+  return prune(item, next);
 }
 
-export async function render(name, selected, { readText = async url => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Cannot load ${url}: ${response.status}`);
-  return response.text();
-} } = {}) {
+export const infoSections = [
+  { id: 'summary', name: 'Component' },
+  { id: 'variants', name: 'Variants', groups: ['tool', 'stream'] },
+  { id: 'source', name: 'Source', groups: ['source'] },
+  { id: 'features', name: 'Capabilities and features' },
+  { id: 'invocation', name: 'Invocation', groups: ['invocation', 'conversation'] },
+];
+const sourceKinds = [
+  { id: 'default', name: 'Default', inline: null, loaded: null },
+  { id: 'template', name: 'Template', inline: 'withTemplate', loaded: 'loadTemplate' },
+  { id: 'script', name: 'Script', inline: 'withScript', loaded: 'loadScript' },
+  { id: 'function', name: 'Function', inline: 'withFunction', loaded: null },
+];
+function sourceState(name, selected) {
+  const component = getComponent(name);
+  const group = component.groups.find(group => group.id === 'source');
+  if (!group) return null;
+  const kinds = sourceKinds.filter(kind => kind.id === 'default' ? component.sourceDefault === 'default' : group.choices.some(choice => choice.id === kind.inline));
+  const current = kinds.find(kind => selected.includes(kind.inline) || kind.loaded && selected.includes(kind.loaded)) ?? kinds.find(kind => kind.id === component.sourceDefault);
+  return { id: 'source', name: 'Source', kind: current.id, affectsReference: true,
+    choices: kinds.map(kind => ({ id: kind.id, name: kind.name, description: group.choices.find(choice => choice.id === kind.inline)?.description ?? 'Use the native operation input without rendering it.' })),
+    loads: { id: 'loads', name: 'Loads', active: Boolean(current.loaded && selected.includes(current.loaded)), available: Boolean(current.loaded && group.choices.some(choice => choice.id === current.loaded)), description: 'Load this source from a resource using the configured loader.' },
+    modifier: sourceMode(selected)?.replace(/^load/, 'loads') ?? null,
+    description: 'The source property keeps its name; this choice changes how its value is interpreted.',
+  };
+}
+export function selectSource(name, selected, kind) {
+  const control = sourceState(name, selected);
+  if (!control?.choices.some(choice => choice.id === kind)) throw new Error(`Unsupported ${name} source: ${kind}`);
+  const choice = sourceKinds.find(choice => choice.id === kind);
+  const current = sourceMode(selected);
+  if (kind === 'default' || kind === getComponent(name).sourceDefault && !control.loads.active) return current ? selectOption(name, selected, current, false) : [...selected];
+  return selectOption(name, selected, control.loads.active && choice.loaded ? choice.loaded : choice.inline);
+}
+export function setLoads(name, selected, active) {
+  const control = sourceState(name, selected);
+  if (!control?.loads.available) throw new Error(`Loading is unavailable for the selected ${name} source`);
+  const choice = sourceKinds.find(choice => choice.id === control.kind);
+  if (!active && control.kind === getComponent(name).sourceDefault) return selectOption(name, selected, choice.loaded, false);
+  return selectOption(name, selected, active ? choice.loaded : choice.inline);
+}
+function transition(selected, action) {
+  try {
+    const activeOptions = action();
+    return { activeOptions, cleared: selected.filter(id => !activeOptions.includes(id)), added: activeOptions.filter(id => !selected.includes(id)) };
+  } catch { return null; }
+}
+export function getSourceControl(name, selected = getComponent(name).activeOptions) {
+  const control = sourceState(name, selected);
+  return control && { ...control,
+    choices: control.choices.map(choice => ({ ...choice, transition: transition(selected, () => selectSource(name, selected, choice.id)) })),
+    loads: { ...control.loads, transition: control.loads.available ? transition(selected, () => setLoads(name, selected, !control.loads.active)) : null },
+  };
+}
+function unavailableReasons(component, choice, selected) {
+  if (enabled(component, choice, selected)) return [];
+  const names = ids => ids.map(id => allChoices(component).find(choice => choice.id === id).name).join(', ');
+  const conflicts = choice.excludes?.filter(id => selected.includes(id)) ?? [];
+  const reasons = conflicts.length ? [`Conflicts with: ${names(conflicts)}.`] : [];
+  const alternatives = Array.isArray(choice.requires) ? choice.requires : [choice.requires ?? {}];
+  if (!enabled(component, { requires: choice.requires }, selected)) {
+    reasons.push('Requires ' + alternatives.map(rule => Object.entries(rule).map(([groupId, allowed]) => allowed.map(id => id === null ? `no selection in ${component.groups.find(group => group.id === groupId).name}` : names([id])).join(' or ')).join('; and ')).join('; alternatively, ') + '.');
+  }
+  return reasons;
+}
+// Official UI control model. The raw catalog/visibleGroups retain canonical IDs.
+export function getControls(name, selected = getComponent(name).activeOptions, { unavailable = 'hide' } = {}) {
+  const component = getComponent(name);
+  const grouped = infoSections.flatMap(section => section.groups ?? []);
+  const groups = component.groups.map(group => ({ ...group, choices: group.choices.map(choice => ({ ...choice,
+    active: selected.includes(choice.id), available: enabled(component, choice, selected),
+    unavailableReasons: unavailableReasons(component, choice, selected),
+    transition: transition(selected, () => selectOption(name, selected, choice.id, !selected.includes(choice.id))),
+  })).filter(choice => unavailable === 'include' || choice.available) })).filter(group => unavailable === 'include' || group.choices.length);
+  return infoSections.filter(section => section.id !== 'summary').map(section => ({ id: section.id, name: section.name,
+    ...(section.id === 'source' ? { control: getSourceControl(name, selected) } : { groups: groups.filter(group => section.groups ? section.groups.includes(group.id) : !grouped.includes(group.id)) }),
+  }));
+}
+export function referenceSelection(name, selected = getComponent(name).activeOptions) {
+  const component = getComponent(name);
+  const defaultSource = sourceKinds.find(kind => kind.id === component.sourceDefault).inline;
+  const options = validateOptions(name, selected).filter(id => id !== defaultSource && allChoices(component).find(choice => choice.id === id).affectsReference);
+  return { component: name, id: exampleId(name, options), activeOptions: options };
+}
+
+export async function render(name, selected, { readText } = {}) {
   const item = getComponent(name);
   const options = validateOptions(name, selected);
   const kind = sourceKind(options);
   const files = kind ? item.resources.filter(file => file.endsWith(`.${kind}`)) : !sourceMode(options) && item.inlineResource ? [item.inlineResource] : [];
-  const resources = Object.fromEntries(await Promise.all(files.map(async file => [file, await readText(resourceURLs[file])])));
+  const resources = Object.fromEntries(await Promise.all(files.map(async file => [file, readText ? await readText(new URL(`./${file}`, import.meta.url)) : bundledResources[file]])));
   const module = await renderers[item.file]();
   const example = module.default(options, resources);
   const notice = item.planned && enabled(item, item.planned, options) ? item.planned.description : undefined;

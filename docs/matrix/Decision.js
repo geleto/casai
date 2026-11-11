@@ -5,6 +5,7 @@ export default function render(options, resources) {
   const tool = lookup(options, { description: 'Look up support routing guidance.', value: "'Damaged products go to returns; payment issues go to billing.'" });
   return renderExample({ component: 'Decision', variable: 'routeRequest', options, modelType: 'Experimental_DecisionModel',
     description: 'Choose the team that should handle a damaged-mug request.',
+    toolDescription: 'Route a support request to the returns, billing or delivery team.',
     imports: coded ? tool.imports : [], setup: ["const input = { issue: 'My mug arrived cracked.' };", ...(coded ? [tool.setup] : [])],
     fields: [`questions: {
   team: { type: 'choice', instructions: 'Choose the team best placed to resolve the request.',

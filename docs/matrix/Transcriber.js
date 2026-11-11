@@ -7,6 +7,7 @@ export default function render(options, resources) {
   return renderExample({ component: 'Transcriber', variable: 'transcribeNote', options, modelType: 'TranscriptionModel',
     streamingFactory: 'StreamingTranscriber',
     params: [streaming ? 'pcm24k: Uint8Array' : 'recordingUrl: URL'], description: 'Transcribe the same delivery note. Use complete mode for whole audio files.', imports: coded ? tool.imports : [],
+    toolDescription: coded ? 'Transcribe the available delivery-note recording.' : 'Transcribe a delivery-note recording from its audio URL.',
     setup: [...(streaming ? [audioStreamSetup] : []), ...(coded ? [tool.setup,
       `const recordings = { 'delivery-note': ${streaming ? 'openRecording' : '() => recordingUrl'} };`,
       'const getRecording = (id: string) => recordings[id as keyof typeof recordings]();'] : [])],

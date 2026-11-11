@@ -5,6 +5,7 @@ export default function render(options, resources) {
   const tool = lookup(options, { description: 'Look up the product photography guidelines.', value: "'Keep the mug shape and markings unchanged.'" });
   return renderExample({ component: 'ImageGenerator', variable: 'productScene', options, modelType: 'ImageModel',
     params: [...(reference ? ['referenceImage: Uint8Array'] : []), ...(mask ? ['editMask: Uint8Array'] : [])], description: 'Create a product photo of a Trail mug in a mountain scene.',
+    toolDescription: 'Create a product photo of a Trail mug in the requested scene.',
     imports: coded ? tool.imports : [], setup: ["const input = { scene: 'a picnic table beside a mountain lake' };", ...(coded ? [tool.setup] : ['const prompt = `Place a Trail mug on ${input.scene}. Keep the mug shape and markings unchanged.`;'])],
     fields: [...(reference ? ['// Reference media stays in application configuration.', 'images: [referenceImage],'] : []), ...(mask ? ['mask: editMask,'] : []), ...(has(options, 'count') ? ['n: 3,'] : []), ...(coded ? [...contextField(tool.context), ...tool.fields] : [])],
     schema: coded ? 'z.object({ scene: z.string() })' : has(options, 'asTool') ? 'z.object({ prompt: z.string() })' : undefined,

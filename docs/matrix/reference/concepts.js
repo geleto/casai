@@ -70,7 +70,7 @@ export const concepts = {
   translation: {
     title: 'Speech translation and planned completion',
     paragraphs: ['StreamingTranslator translates speech into target-language audio and text. A finite recording can feed its stream. Ordinary text translation uses LLMAgent with translation instructions.', 'Complete Translator is planned. Its selected contract reuses one native translation execution, collects audio bytes and reads resolved final text and metadata. No completed implementation exists yet; planned reference entries and examples must retain their status.'],
-    link: 'docs/streaming-modifiers-plan.md#recorded-audio-translation',
+    link: 'README.md#streamingtranslator',
   },
   'voice-session': {
     title: 'Voice session ownership',

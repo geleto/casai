@@ -5,6 +5,7 @@ export default function render(options, resources) {
   const tool = lookup(options, { description: 'Look up the product features.', value: "'Insulated steel. Leakproof lid.'" });
   return renderExample({ component: 'Embedder', variable: 'embedProduct', options, modelType: 'EmbeddingModel',
     description: 'Create a search embedding for the same product description.',
+    toolDescription: 'Generate search embeddings for product descriptions.',
     imports: coded ? tool.imports : [], setup: ["const input = { title: 'Trail mug' };", ...(coded ? [tool.setup] : [`const text = ${batch ? "[`${input.title}. Insulated steel. Leakproof lid.`, 'Trail bottle. Insulated steel. Leakproof lid.']" : "`${input.title}. Insulated steel. Leakproof lid.`"};`])],
     fields: coded ? [...contextField([...tool.context, ...(sourceMode(options)?.includes('Script') ? [`batch: ${batch}`] : [])]), ...tool.fields] : [],
     schema: coded ? 'z.object({ title: z.string() })' : has(options, 'asTool') ? `z.object({ input: ${batch ? 'z.array(z.string())' : 'z.string()'} })` : undefined,

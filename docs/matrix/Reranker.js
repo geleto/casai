@@ -5,6 +5,7 @@ export default function render(options, resources) {
   const tool = lookup(options, { description: 'Look up search guidance for the support query.', value: "'Prioritize the replacement policy.'" });
   return renderExample({ component: 'Reranker', variable: 'findPolicy', options, modelType: 'RerankingModel',
     description: 'Rank policy passages by relevance to a damaged-mug question.',
+    toolDescription: 'Find the most relevant store policy passages for a customer question.',
     imports: coded ? tool.imports : [], setup: [`const policies = [
   'Send a photo of a damaged item within 30 days for a free replacement.',
   'Update payment cards from account settings.',

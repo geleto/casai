@@ -63,7 +63,7 @@ export const commonProperties = {
   toolCallId: entry('The actual ID of the incoming realtime tool call.', { section: 'invocation', type: 'string', required: 'Required by executeTool().' }),
   toolName: entry('The registered tool to execute.', { section: 'invocation', type: 'keyof configured tools', required: 'Required by executeTool().' }),
   args: entry('The incoming raw tool arguments, validated by the bound tool runner.', { section: 'invocation', type: 'unknown', required: 'Required by executeTool().' }),
-  _toolOptions: entry('Invocation metadata available inside prepared context.', { section: 'invocation', nested: 'ExecutionOptions', notes: 'Casai injects actual metadata after validation. Ordinary calls have no fabricated toolCallId/messages. Application input and configuration cannot override this binding.' }),
+  _toolOptions: entry('Invocation metadata available inside prepared context.', { section: 'invocation', type: 'ComponentExecutionOptions', default: 'Provided by Casai for each invocation.', override: 'Injected by Casai; callers cannot replace it.', nested: 'ExecutionOptions', notes: 'Casai injects actual metadata after validation. Ordinary calls have no fabricated toolCallId/messages. Application input and configuration cannot override this binding.' }),
 };
 
 export const componentProperties = {

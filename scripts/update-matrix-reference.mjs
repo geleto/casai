@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
+import { updateResources } from './update-matrix-resources.mjs';
 
 const root = new URL('../', import.meta.url);
 const names = ['Template', 'Script', 'Function', 'LLMAgent', 'Decision', 'Embedder', 'Reranker', 'ImageGenerator', 'Transcriber', 'StreamingTranscriber', 'SpeechGenerator', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceSessionSetup'];
@@ -68,7 +69,8 @@ const checker = program.getTypeChecker();
 const source = program.getSourceFile(fileURLToPath(probe));
 const errors = [...program.getSyntacticDiagnostics(source), ...program.getSemanticDiagnostics(source)];
 assert.equal(errors.length, 0, ts.formatDiagnosticsWithColorAndContext(errors, { getCanonicalFileName: value => value, getCurrentDirectory: () => fileURLToPath(root), getNewLine: () => '\n' }));
-const packages = {};
+const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
+const packages = { casai: manifest.version };
 for (const name of ['ai', '@ai-sdk/provider-utils', '@ai-sdk/provider', 'cascada-engine']) packages[name] = JSON.parse(await readFile(new URL(`node_modules/${name}/package.json`, root), 'utf8')).version;
 const properties = {}, shapes = {}, definitions = {}, details = {};
 function literal(type, node) {
@@ -186,3 +188,9 @@ else {
 if (process.argv.includes('--check')) assert((await readFile(summariesDestination, 'utf8')) === summariesOutput, 'Run npm run docs:matrix to refresh SDK summaries.');
 else await writeFile(summariesDestination, summariesOutput);
 console.log(`Matrix reference: ${Object.keys(shapes).length} shapes, ${Object.keys(properties).length} distinct property records (${process.argv.includes('--check') ? 'verified' : 'written'}).`);
+const metadata = { versions: packages, repository: manifest.repository.url.replace(/^git\+/, '').replace(/\.git$/, '') };
+const metadataOutput = '// Generated package and source metadata. Run npm run docs:matrix to update.\nexport default ' + JSON.stringify(metadata, null, 2) + ';\n';
+const metadataDestination = new URL('docs/matrix/reference/metadata.js', root);
+if (process.argv.includes('--check')) assert.equal(await readFile(metadataDestination, 'utf8'), metadataOutput, 'Matrix metadata changed. Run npm run docs:matrix.');
+else await writeFile(metadataDestination, metadataOutput);
+await updateResources(root, process.argv.includes('--check'));

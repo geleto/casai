@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 import { describe, getSourceControl, selectSource, setLoads, configSections } from '../../docs/matrix/reference.js';
-import { components, validateOptions } from '../../docs/matrix/matrix.js';
+import { components, validateOptions, getControls, getSourceControl as catalogSourceControl, normalizeOptions, referenceSelection, versions, sourceUrl, selectOption } from '../../docs/matrix/matrix.js';
 import api from '../../docs/matrix/reference/api.js';
 import sdkDocs from '../../docs/matrix/reference/sdk-docs.js';
 import { componentReference } from '../../docs/matrix/reference/components.js';
@@ -51,6 +51,7 @@ export async function checkReference(examples) {
   brokenRules[0].groups[0].choices[0].requires = { typo: [null] };
   assert.throws(() => integrity(brokenRules), /unknown group typo/);
   assert.throws(() => integrity(components, { ...componentReference, Context: { ...componentReference.Context, propertyShapes: ['Typo'] } }), /Unknown reference shape: Typo/);
+  assert.throws(() => integrity(components, { ...componentReference, Context: { ...componentReference.Context, relatedPropertyShapes: ['Typo'] } }), /Unknown reference shape: Typo/);
   assert.throws(() => integrity(components, componentReference, { ...componentProperties, Embedder: { ...componentProperties.Embedder, typo: {} } }), /Unused local property: Embedder.typo/);
   const usedLocalProperties = new Set();
   const consumerCases = [];
@@ -72,6 +73,23 @@ export async function checkReference(examples) {
     for (const [key, name] of Object.entries({ form: 'ReferenceForm', info: 'ReferenceInfo', config: 'ReferenceConfig', result: 'ReferenceResult' })) contract(name, ref[key]);
     assert.equal(ref.status, example.status, example.id);
     assert.deepEqual(ref.activeOptions, example.activeOptions);
+    assert.deepEqual(getControls(example.component, example.activeOptions), ref.info.controls);
+    assert.deepEqual(catalogSourceControl(example.component, example.activeOptions), getSourceControl(example.component, example.activeOptions));
+    assert.deepEqual(normalizeOptions(example.component, [...example.activeOptions, 'retired-choice']).activeOptions, example.activeOptions);
+    assert.deepEqual(ref.canonical, referenceSelection(example.component, example.activeOptions));
+    validateOptions(example.component, ref.canonical.activeOptions);
+    const canonical = describe(example.component, ref.canonical.activeOptions);
+    for (const field of ['properties', 'sections', 'supportedSources', 'requiredPropertyIds']) assert.deepEqual(ref.config[field], canonical.config[field], `${example.id}: canonical reference preserves ${field}`);
+    assert.deepEqual(ref.result, canonical.result, `${example.id}: canonical reference preserves results`);
+    for (const control of getControls(example.component, example.activeOptions, { unavailable: 'include' })) {
+      for (const group of control.groups ?? []) for (const choice of group.choices) {
+        assert.equal(choice.unavailableReasons.length === 0, choice.available);
+        if (choice.transition) {
+          assert.deepEqual(choice.transition.activeOptions, selectOption(example.component, example.activeOptions, choice.id, !choice.active));
+          assert.deepEqual(choice.transition.cleared, example.activeOptions.filter(id => !choice.transition.activeOptions.includes(id)));
+        }
+      }
+    }
     for (const control of ref.info.controls) {
       if (control.control) for (const choice of control.control.choices) {
         assert(choice.description, `${example.id}: source choice description`);
@@ -100,7 +118,8 @@ export async function checkReference(examples) {
     assert.deepEqual(ids.sort(), Object.keys(ref.config.properties).sort());
     for (const property of Object.values(ref.config.properties)) {
       contract('PropertyReference', property);
-      for (const key of ['name', 'type', 'description', 'default', 'override', 'inheritance', 'scope', 'origin']) assert(property[key], `${example.id}.${property.name}: missing ${key}`);
+      for (const key of ['name', 'type', 'displayType', 'description', 'default', 'override', 'inheritance', 'scope', 'origin']) assert(property[key], `${example.id}.${property.name}: missing ${key}`);
+      assert(property.displayType.length <= 150, `${example.id}.${property.name}: compact type`);
       assert(!property.locations.includes('construction') || property.name !== 'abortSignal');
       if (property.descriptionOrigin === 'ai') assert.equal(property.origin, 'ai-sdk', `${example.id}.${property.name}: SDK ownership survives redeclaration`);
       if (property.origin === 'casai') assert(!property.default.includes('selected operation owns'), `${example.id}.${property.name}: Casai owns its default`);
@@ -138,9 +157,10 @@ export async function checkReference(examples) {
       consumerCases.push(`const case${consumerCases.length} = ${JSON.stringify({ schemaVersion: 1, reference: ref, example: data })} satisfies SelectionExport;`);
     }
   }
-  await writeFile(new URL('.cache/matrix/_data-contracts.ts', root), `import type { SelectionExport } from '../../docs/matrix/reference.js';\n${consumerCases.join('\n')}\n`);
+  await writeFile(new URL('.cache/matrix/_data-contracts.ts', root), `import type { Component } from '../../docs/matrix/matrix.js';\nimport type { SelectionExport } from '../../docs/matrix/reference.js';\nconst catalog = ${JSON.stringify(components)} satisfies Component[];\n${consumerCases.join('\n')}\n`);
   assert.deepEqual([...usedDetails].sort(), Object.keys(api.details).sort(), 'All extracted nested data is reachable by consumers');
   for (const component of components) {
+    assert.deepEqual(component.activeOptions, [], 'Every component starts in its normal form; streaming is opt-in');
     const ref = describe(component.name);
     assert(ref.info.input && ref.info.result);
     for (const concept of ref.concepts) assert(concept.title && concept.paragraphs.length);
@@ -169,7 +189,7 @@ export async function checkReference(examples) {
   assert.equal(describe('SpeechGenerator', ['asStream']).info.description, sdkDocs.experimental_streamSpeech.description);
   assert.equal(describe('Transcriber', ['asStream']).info.description, sdkDocs.experimental_streamTranscribe.description);
   assert.equal(describe('Translator', ['asStream']).info.description, sdkDocs.experimental_streamTranslate.description);
-  assert.notEqual(describe('Translator').info.description, sdkDocs.experimental_streamTranslate.description);
+  assert.notEqual(describe('Translator', []).info.description, sdkDocs.experimental_streamTranslate.description);
   for (const name of ['model', 'headers', 'providerOptions', 'onChunk', 'streamRetries', 'output', 'stopWhen']) {
     assert.equal(llm.config.properties[name].descriptionOrigin, 'ai');
     assert.equal(llm.config.properties[name].description, llm.config.properties[name].upstream.description);
@@ -211,7 +231,8 @@ export async function checkReference(examples) {
   assert(!describe('VoiceSessionSetup').config.properties.model.locations.includes('run'));
   assert(!describe('Decision').config.properties.questions.locations.includes('run'));
   assert.equal(describe('Translator').status, 'planned');
-  assert(describe('Translator').result.additionalProperties.some(property => property.name === 'audio' && property.type === 'Uint8Array'));
+  assert.equal(describe('Translator', []).status, 'planned');
+  assert(describe('Translator', []).result.additionalProperties.some(property => property.name === 'audio' && property.type === 'Uint8Array'));
   assert.equal(describe('Translator', ['asStream']).status, 'implemented');
   for (const [options, type] of [[[], /^Uint8Array/], [['withScript'], /^string \(Cascada source\)$/], [['loadScript'], /^string \(resource name\)$/], [['withFunction'], /^\(context: PreparedContext\) => Uint8Array/]]) {
     assert.match(describe('Translator', options).config.properties.audio.type, type);
@@ -245,6 +266,28 @@ export async function checkReference(examples) {
     assert(!Object.hasOwn(alternative, 'requires'), 'Config alternatives are API shapes, not example selections');
   }
   assert(describe('Context').relatedProperties.some(property => property.name === 'inputSchema'));
+  for (const property of describe('Context').relatedProperties) contract('PropertyReference', property);
+  assert(versions.casai);
+  assert.equal(sourceUrl({ path: 'src/index.ts' }, 'pinned-commit'), 'https://github.com/geleto/casai/blob/pinned-commit/src/index.ts');
+  assert.equal(sourceUrl({ path: 'src/index.ts' }), null);
+  assert.equal(sourceUrl({ path: 'native', url: 'https://example.com/pinned' }, 'local-commit'), 'https://example.com/pinned');
+  assert.deepEqual(getSourceControl('Template').choices.map(choice => choice.id), ['template']);
+  assert.deepEqual(getSourceControl('Script').choices.map(choice => choice.id), ['script']);
+  assert.deepEqual(setLoads('Template', [], true), ['loadTemplate']);
+  assert.deepEqual(setLoads('Template', ['loadTemplate'], false), []);
+  assert.deepEqual(normalizeOptions('LLMAgent', ['old-choice', 'withTemplate', 'loadTemplate', 'run', 'run']), { activeOptions: ['loadTemplate', 'run'], dropped: ['old-choice', 'withTemplate'] });
+  assert.deepEqual(normalizeOptions('Transcriber', ['asTool', 'asStream', 'retired-preparer']).activeOptions, ['asStream']);
+  assert.deepEqual(normalizeOptions('Translator', []).activeOptions, []);
+  assert.deepEqual(normalizeOptions('Translator').activeOptions, []);
+  const streamSwitch = getControls('LLMAgent', ['asTool'], { unavailable: 'include' }).flatMap(section => section.groups ?? []).flatMap(group => group.choices).find(choice => choice.id === 'asStream');
+  assert.equal(streamSwitch.available, false);
+  assert.match(streamSwitch.unavailableReasons[0], /Conflicts with: As a tool/);
+  assert.deepEqual(streamSwitch.transition, { activeOptions: ['asStream'], cleared: ['asTool'], added: ['asStream'] });
+  const sourcePreview = getSourceControl('Transcriber', ['asTool', 'asStream', 'withScript']).choices.find(choice => choice.id === 'default').transition;
+  assert.deepEqual(sourcePreview.activeOptions, ['asStream']);
+  assert.deepEqual(sourcePreview.cleared, ['asTool', 'withScript']);
+  assert.deepEqual(referenceSelection('Template', ['withTemplate', 'run']).activeOptions, []);
+  assert.deepEqual(referenceSelection('LLMAgent', ['withTemplate', 'useTools', 'run', 'structured']).activeOptions, ['withTemplate']);
   const exportJSON = (...args) => JSON.parse(execFileSync(process.execPath, ['scripts/export-matrix.mjs', ...args], { cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }));
   const catalog = exportJSON();
   contract('CatalogExport', catalog);

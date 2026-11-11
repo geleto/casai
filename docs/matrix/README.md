@@ -19,26 +19,28 @@ npm install ../casai/docs/matrix
 This adds a `file:../casai/docs/matrix` dependency named `@casai/matrix`. Keep the Casai checkout available at that path for development and builds; rebuild the UI after updating it. CI can check out both repositories at pinned commits. No SDK, Casai runtime, TypeScript generator or documentation scraping is needed in the UI project. Edit descriptions, examples, rules and reference data here, then rebuild the consumer.
 
 ```js
-import { render, selectOption } from '@casai/matrix';
-import { describe, selectSource, setLoads } from '@casai/matrix/reference';
+import { getControls, render, selectOption, selectSource, setLoads } from '@casai/matrix';
+import { describe } from '@casai/matrix/reference';
 
 let selected = selectSource('LLMAgent', [], 'template');
 selected = setLoads('LLMAgent', selected, true);
 selected = selectOption('LLMAgent', selected, 'useTools');
 
 const reference = describe('LLMAgent', selected);
+const controls = getControls('LLMAgent', selected);
 const example = await render('LLMAgent', selected);
 ```
 
-`describe()` is synchronous and returns plain serializable data. `render()` loads the component renderer and only the resource needed by the selected source. Direct-input and function examples need no resource fetch. In Node, pass `{ readText: url => readFile(url, 'utf8') }` to `render()`. Browsers use `fetch` by default. These modules do not import the Casai runtime or call a model. Omitting the selection uses the component's `activeOptions`.
+`describe()` is synchronous and returns plain serializable data. `render()` loads the selected component renderer. Canonical `.cat`/`.cas` text is included in a generated resource module, so rendering works in Node and browsers without fetching files or configuring assets. An optional `{ readText: url => ... }` overrides resource reading; it is called only for the selected source. These modules do not import the Casai runtime or call a model. Omitting the selection uses the component's `activeOptions`; passing `[]` explicitly chooses no options.
 
-Bundlers can discover the package's literal renderer imports and `new URL` resource references. Configure asset handling for `.cat`/`.cas`; if the bundler leaves URL references unchanged, emit those assets beside the module containing the URLs. The check suite executes an esbuild browser bundle with this copy strategy. Keep the package's third-party notices/licenses with distributed data. The consuming project owns selection state, layout, tabs, syntax highlighting, navigation and persistence. Resolve repository-relative documentation links against the website’s documentation/source base. Generated build artifacts are disposable; do not maintain an authored copy of the data in the UI repository.
+Bundlers can discover the package's literal renderer imports; no custom resource handling is needed. The check suite executes an esbuild browser bundle without copying assets. Importing controls and examples from the main entry does not load the full reference snapshot. Keep the package's third-party notices/licenses with distributed data. The consuming project owns selection state, layout, tabs, syntax highlighting, navigation and persistence. Resolve repository-relative documentation links against the website's documentation/source base. Generated build artifacts are disposable; do not maintain an authored copy of the data in the UI repository.
 
 ## Returned documentation
 
 | Field | Contents |
 | --- | --- |
 | `form` | Actual factory/modifier path, primary property, native operation, source mode and notices |
+| `canonical` | Reference page ID and selection, excluding example-only choices |
 | `info` | Description, input/result summaries and ordered controls |
 | `config.properties` | One full record per applicable property: type, purpose, defaults, requiredness, locations, overrides, merging, scope, origin and source |
 | `config.properties[name].details` | Nested data fields with separate union alternatives, such as timeouts, telemetry, audio formats, decision questions and message/image inputs |
@@ -49,14 +51,16 @@ Bundlers can discover the package's literal renderer imports and `new URL` resou
 | `config.alternatives` | For Config, separate eventual component shapes; never a union of unrelated settings presented as one valid configuration |
 | `result` | Ordinary native result fields, Casai additions and the selected tool projection |
 | `concepts` | Shared explanations within the matrix, with links to the existing guide used to check them |
-| `relatedProperties` | Related configuration concepts, including Context’s defaults/private-input relationships |
-| `status`, `versions` | Implemented/planned availability and the inspected dependency versions |
+| `relatedProperties` | The same full property records for related concepts, including Context's defaults/private-input relationships |
+| `status`, `versions` | Implemented/planned availability, Casai version and inspected dependency versions |
 
 `matrix.d.ts` and `reference.d.ts` describe the public exports, including `ComponentReference`, `Example` and the `MatrixExport` JSON union. Tests compile a consumer and representative real exports against these declarations, and check returned fields across every selection.
 
 `relatedComponents` on Config lists actual implemented factory names. `config.alternatives` maps each one to its matrix family (`component`) and configuration shape (`shape`); for example, `StreamingTranslator` belongs to the `Translator` family. To open its full reference, call `describe(alternative.component, alternative.activeOptions)`. These options are a navigation target, not configuration restrictions; the UI does not need to infer streaming choices from factory names. Deprecated settings carry `deprecated` and `aliasFor` in their property and index entries.
 
 `required.construction` means the selected finished component must have that setting, possibly inherited. `required.operation` means the operation must resolve it by execution; callers may satisfy it through configuration, source preparation or invocation. These flags do not replace the property’s conditional explanation or schema-dependent call types. Type displays are reference notation, not standalone copyable declarations.
+
+Use `displayType` for a compact property/native-member type label and `type` for the complete signature on expansion. Context's `relatedProperties` use the same `PropertyReference` shape as configuration records. Their `locations` are empty because Context is an object, not a callable factory; read their conditional explanations and follow the receiving component's configuration reference.
 
 Scope, origin and applicability are independent. Common settings, capability/family settings and component settings may originate in Casai, Cascada or the SDK. An adapted SDK property retains its upstream description/type separately from the local amendment. Nested rendering options and output specifications are also included where relevant. Result methods retain their native descriptions and signatures.
 
@@ -66,21 +70,33 @@ Every implemented top-level configuration field is checked against the public de
 
 `info.descriptionSource` identifies the SDK operation, original text, pinned source and whether the summary is verbatim or adapted. Configuration records identify the chosen prose through `descriptionOrigin`; `upstream` retains the native text even when the displayed description needs a Casai amendment. A native member's `descriptionSource` identifies supplemental SDK prose when it comes from another documented location; `descriptionOrigin: 'casai'` marks a local fallback. Source wrapping and documentation links may be normalized without changing wording.
 
+`versions.casai` is the root Casai package version, not the private data package's version. For exact source links, have the publishing build record its pinned Casai checkout revision (for example, `git -C ../casai rev-parse HEAD`) and pass it to `sourceUrl(property.source, revision)` from the main entry. Existing pinned SDK URLs are returned unchanged. Local links require that revision; without it the helper returns `null`. A moving HEAD is not embedded in checked-in generated data, which would invalidate itself after each documentation commit. Publish the build's revision alongside the version badge.
+
 ## Source and selections
 
-`getSourceControl()` presents **one source selector plus one Loads toggle**, with descriptions for every choice. `selectSource()` preserves loading when the new source supports it; switching to Function clears loading. `setLoads()` rejects unavailable loading. The resulting modifier uses the actual spelling, such as `.loadsTemplate`.
+`getControls()` from the main entry is the official control API for every view. `describe().info.controls` returns the same data. It orders variant groups, one source selector plus Loads, features and invocation. The raw catalog groups and `visibleGroups()` remain low-level rule data; do not build a second source selector from them.
 
-Canonical example selections retain `withTemplate`, `loadTemplate`, etc., so existing IDs, resources and renderers stay stable. `Default` is the neutral label for the ordinary source form. The complete API reference also documents `withText`/`loadsText` where supported, although the existing example scenarios do not demonstrate those separate choices.
+Unavailable choices are hidden by default, preserving the matrix's original behavior. `getControls(name, selected, { unavailable: 'include' })` retains them with `available` and `unavailableReasons` for a UI that shows disabled choices. Every choice also has a `transition` preview with the resulting `activeOptions`, `added` and `cleared` choices, or `null` when the action is unavailable. A conflicting choice can be unavailable in the current combination but have a valid transition that clears the conflict: LLMAgent can switch directly between tool and stream. The UI can present that switch and explain what will clear. No selection changes until the consumer applies the preview or calls the corresponding selection helper.
+
+`getSourceControl()` exposes the source part separately. Template and Script each have only their own source kind, with Loads available from the initial selection; there is no duplicate Default choice. Other components use Default for ordinary native input. `selectSource()` preserves loading when the new source supports it; switching to Function clears loading. `setLoads()` rejects unavailable loading. The resulting modifier uses the actual spelling, such as `.loadsTemplate`. Source and Loads actions also include transition previews.
+
+Example selections retain `withTemplate`, `loadTemplate`, etc., so existing IDs, resources and renderers stay stable. The complete API reference also documents `withText`/`loadsText` where supported, although the existing example scenarios do not demonstrate those separate choices.
+
+Use `normalizeOptions(name, restoredIds)` at a URL/storage boundary before calling the strict `describe()` or `render()`. It removes unknown IDs, keeps the last restored choice in each group, then removes incompatible choices and dependents in catalog order. It returns both `activeOptions` and `dropped` IDs so the UI can explain the restoration. An omitted selection uses initial options; an explicit empty selection remains empty. Unknown component names still need route handling by the consuming project. Authored examples continue to reject invalid selections rather than silently repairing them.
+
+Choices carry `affectsReference`: variants, source forms and VoiceSessionSetup method choices change the API reference; other choices change examples and highlights. `referenceSelection(name, selected)` supplies the canonical reference ID and options, also returned as `describe().canonical`. It drops example-only choices and redundant inline Template/Script aliases. Use that ID to deduplicate generated reference pages and the existing property/method IDs for anchors. Examples and share links retain the full selection. A static builder can enumerate the finite reference-affecting choices, validate them and deduplicate by canonical ID; it need not enumerate every teaching feature.
 
 Example constraints are independent of API support. In particular, the approval example requires tools but `resume()` supports other continuation cases; the streamed-text example uses direct input but a suitable preparer can return streamed text. Turning off `useTools`, structured output or another feature does not remove its valid properties from Config.
 
 `example.configuration` reports the actual factory, variable and property names used in the primary example construction. Context’s example constructs a Function and identifies that owner explicitly. `highlightedPropertyIds` instead identifies properties related to selected controls; it is not a claim that every highlighted property appears in the code.
 
-Current audio examples target separate `Streaming…` factories. The preview reports those exact names. Complete Translator remains explicitly planned, with separate finite-result documentation. Do not present future `.asStream` audio factories as implemented or combine complete and streaming audio formats.
+Show the complete exported `example()` function. Its arguments make application-supplied models, audio and services explicit; it is a reusable callable example, not hidden test setup. Tests supply mocks from outside the displayed code. Scenario comments explain the example to readers, while each tool has its own task description for the model.
+
+Every component initially shows its normal form; streaming is an optional checkbox. Current audio examples target separate `Streaming…` factories, and the preview reports those exact names. Translator therefore initially shows its explicitly planned complete form, with separate finite-result documentation; selecting streaming shows the implemented form. Do not present future `.asStream` audio factories as implemented or combine complete and streaming audio formats.
 
 VoiceSessionSetup's selected invocation changes `form.operation`, the result summary and result fields: client-secret creation, session configuration or WebRTC negotiation. Its invocation reference always lists all supported methods, their settings and results. LLMAgent's native `generate()` and `stream()` methods likewise retain their own result contracts regardless of the ordinary-call streaming selection.
 
-The handover’s open presentation suggestions remain open: visible-but-disabled unavailable variants, selection persistence/reset/share URLs and a different initial Translator selection. Current visibility and initial choices are preserved. No introduction or simplified main-page content is added.
+Persistence, reset/share controls and the visual treatment of unavailable choices belong to the UI project. This package supplies their selection rules, restoration and transition data. No introduction or simplified main-page content is added.
 
 ## Portable data
 

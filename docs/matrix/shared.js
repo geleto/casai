@@ -91,9 +91,10 @@ return {
 
 export function renderExample({ component, options, variable, params = [], modelType, streamingFactory,
   imports = [], setup = [], fields = [], source: input = { fields: [], files: [] },
-  description, toolDescription = description, schema, toolArgs = '{}', toolCaller = 'agent', toolPrompt,
+  description, toolDescription, schema, toolArgs = '{}', toolCaller = 'agent', toolPrompt,
   call = `${variable}()`, named = '{}', result = 'return result;', body, typeImports = [], aiImports = [] }) {
   const asTool = has(options, 'asTool');
+  if (asTool && !toolDescription) throw new Error(`Supply a model-facing toolDescription for ${component}`);
   // Keep one matrix family while the current audio API has separate factories.
   const separateStream = has(options, 'asStream') && streamingFactory;
   const api = separateStream || component;

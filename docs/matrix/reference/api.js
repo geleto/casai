@@ -2,6 +2,7 @@
 // Modified by Casai: extracted, deduplicated and grouped for documentation. See THIRD_PARTY.md for notices and licenses.
 export default {
   "packages": {
+    "casai": "0.6.2",
     "ai": "7.0.162",
     "@ai-sdk/provider-utils": "5.0.74",
     "@ai-sdk/provider": "4.0.35",

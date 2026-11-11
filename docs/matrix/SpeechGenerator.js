@@ -6,6 +6,7 @@ export default function render(options, resources) {
   return renderExample({ component: 'SpeechGenerator', variable: 'speakUpdate', options, modelType: 'SpeechModel',
     streamingFactory: 'StreamingSpeechGenerator',
     description: 'Turn a delivery update into spoken audio.', imports: coded ? tool.imports : [],
+    toolDescription: 'Generate spoken audio for a customer delivery update.',
     params: has(options, 'voice') ? ['voice: string'] : [],
     setup: ["const input = { name: 'Ada' };", ...(coded ? [tool.setup] : [`const text = ${has(options, 'textStream') ? "[`Hello ${input.name}. `, 'Your Northstar order is due Friday.']" : "`Hello ${input.name}. Your Northstar order is due Friday.`"};`])],
     fields: [...(has(options, 'voice') ? ['voice,'] : []), ...(coded ? [...contextField(tool.context), ...tool.fields] : [])],

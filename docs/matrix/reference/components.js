@@ -18,6 +18,8 @@ export const componentReference = {
   },
   Context: {
     propertyShapes: [],
+    relatedPropertyShapes: ['Template_config', 'Tool'], locations: [],
+    override: 'These are related component settings or injected context values. See the receiving component for its invocation rules.',
     kind: 'concept', input: 'An application object containing public defaults and private dependencies.',
     resultSummary: 'Context is data passed to a component, not a factory or callable component.',
     concepts: ['context', 'schemas', 'effects', 'tools'],
@@ -155,13 +157,6 @@ export const componentReference = {
   },
 };
 
-export const sourceKinds = [
-  { id: 'default', name: 'Default', inline: null, loaded: null },
-  { id: 'template', name: 'Template', inline: 'withTemplate', loaded: 'loadTemplate' },
-  { id: 'script', name: 'Script', inline: 'withScript', loaded: 'loadScript' },
-  { id: 'function', name: 'Function', inline: 'withFunction', loaded: null },
-];
-
 export const sourceModes = {
   text: { name: 'Direct input', value: 'direct', description: 'Use the native operation input without rendering it.' },
   'text-name': { name: 'Loaded text', value: 'resource', description: 'Load a text resource and use its content literally.' },
@@ -172,13 +167,6 @@ export const sourceModes = {
   function: { name: 'Function', value: 'function', description: 'Call a JavaScript function with prepared context; await its returned native operation input.' },
 };
 
-export const infoSections = [
-  { id: 'summary', name: 'Component' },
-  { id: 'variants', name: 'Variants', groups: ['tool', 'stream'] },
-  { id: 'source', name: 'Source', groups: ['source'] },
-  { id: 'features', name: 'Capabilities and features' },
-  { id: 'invocation', name: 'Invocation', groups: ['invocation', 'conversation'] },
-];
 export const configSections = [
   ['variants', 'Variant configuration'], ['essential', 'Primary property and essential setup'],
   ['source', 'Source preparation'], ['common', 'Common Casai configuration'],
