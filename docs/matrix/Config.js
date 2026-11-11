@@ -3,7 +3,8 @@ import { has, lookup, literal } from './shared.js';
 export default function render(options) {
   const tool = lookup(options, { name: 'deliveryDay', description: 'Look up the delivery day.', value: "'Friday'" });
   const imports = has(options, 'useTools') ? 'Config, Function, Template, z' : 'Config, Template, z';
-  return { files: [{ name: 'Config.ts', language: 'typescript', code: `import { ${imports} } from 'casai';
+  return { configuration: { component: 'Config', factory: 'Config', variable: 'shared', properties: ['context', ...(has(options, 'useTools') ? ['tools'] : [])] },
+    files: [{ name: 'Config.ts', language: 'typescript', code: `import { ${imports} } from 'casai';
 
 // Share settings, then override the company for an outlet.
 export async function example() {

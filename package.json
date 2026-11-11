@@ -62,6 +62,8 @@
 		"test:types": "node tests/fixtures/readme2-examples.cjs && npm run typecheck:src && npm run build && node tests/fixtures/component-declarations.cjs && npm run typecheck && npm run typecheck:exact",
 		"test:local": "mocha",
 		"test:matrix": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs",
+		"docs:matrix": "node scripts/update-matrix-reference.mjs",
+		"docs:matrix:export": "node scripts/export-matrix.mjs",
 		"test:component-mutations": "node tests/fixtures/component-review-mutations.cjs",
 		"test:file": "mocha --no-config --node-option import=tsx/esm --node-option conditions=casai-source --require dotenv/config",
 		"test:coverage": "c8 npm run test:local -- --timeout 10000 --reporter dot && c8 check-coverage --include src/runtime/augment-result.ts --per-file --lines 100 --statements 100 --functions 100 --branches 98",

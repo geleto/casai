@@ -34,6 +34,14 @@
  * in docs/streaming-modifiers-plan.md lands. Complete Translator is planned.
  */
 import { exampleId } from './shared.js';
+import sdkDocs from './reference/sdk-docs.js';
+
+// Keep upstream wording and provenance together. Supply text only for a real
+// difference or a family spanning several native operations.
+const sdk = (operation, description) => ({
+  description: description ?? sdkDocs[operation].description,
+  descriptionSource: { operation, ...sdkDocs[operation], reuse: description ? 'adapted' : 'verbatim' },
+});
 
 const choices = {
   asTool: ['As a tool', 'Lets an AI agent or workflow call this component using declared input fields.'],
@@ -77,7 +85,8 @@ const preparerTools = sources => tools({
 const experimental = 'Uses an experimental AI SDK operation.';
 
 const component = (name, description, details = {}) => ({
-  name, file: `${name}.js`, description, activeOptions: [], resources: [], groups: [], ...details,
+  name, file: `${name}.js`, ...(typeof description === 'string' ? { description } : description),
+  activeOptions: [], resources: [], groups: [], ...details,
 });
 
 export const components = [
@@ -96,7 +105,7 @@ export const components = [
   component('Function', 'Runs JavaScript or TypeScript logic as a component, with shared context and input validation.', {
     groups: [tool(), tools(workflowTools), invocation()],
   }),
-  component('LLMAgent', 'Works through tasks using an AI language model. It can answer questions and call tools to take action.', {
+  component('LLMAgent', sdk('generateText'), {
     resources: ['LLMAgent.cat', 'LLMAgent.cas'],
     groups: [
       tool({ excludes: ['asStream', 'messages', 'resume'] }),
@@ -109,25 +118,25 @@ export const components = [
       group('output', 'Result format', ['structured']),
     ],
   }),
-  component('Decision', 'Uses an AI model to choose a category, answer yes or no, assign a score or locate something in an image.', {
+  component('Decision', sdk('experimental_decide', 'Uses an AI model to choose a category, answer yes or no, assign a score or locate something in an image.'), {
     resources: ['Decision.cat', 'Decision.cas'], experimental,
     groups: [tool(), source(textSources), preparerTools(textSources), invocation()],
   }),
-  component('Embedder', 'Turns text into numerical vectors that represent its meaning, for search and similarity.', {
+  component('Embedder', sdk('embed', 'Generates embeddings for one or more texts using an embedding model. Embeddings are numerical vectors used to find similar content.'), {
     resources: ['Embedder.cat', 'Embedder.cas'],
     groups: [
       tool(), source(textSources), preparerTools(textSources), invocation(),
       group('batch', 'Input size', ['batch'], { requires: { source: [null, 'withScript', 'withFunction', 'loadScript'] } }),
     ],
   }),
-  component('Reranker', 'Sorts supplied documents by relevance to a query and selects the best matches.', {
+  component('Reranker', sdk('rerank'), {
     resources: ['Reranker.cat', 'Reranker.cas'],
     groups: [
       tool(), source(textSources), preparerTools(textSources), invocation(),
       group('limit', 'Result count', ['topN']),
     ],
   }),
-  component('ImageGenerator', 'Creates or edits images using a text description and supported reference images or masks.', {
+  component('ImageGenerator', sdk('generateImage'), {
     resources: ['ImageGenerator.cat', 'ImageGenerator.cas'],
     groups: [
       tool(), source(textSources), preparerTools(textSources), invocation(),
@@ -136,7 +145,7 @@ export const components = [
       group('count', 'Result count', ['count']),
     ],
   }),
-  component('Transcriber', 'Turns speech into text, from a recording or a raw-audio stream.', {
+  component('Transcriber', sdk('transcribe', 'Generates a transcript from an audio file or a raw-audio stream.'), {
     resources: ['Transcriber.cas'],
     groups: [
       tool({ requires: [{ stream: [null] }, { source: audioSources }] }),
@@ -145,7 +154,7 @@ export const components = [
       source(audioSources), preparerTools(audioSources), invocation(),
     ],
   }),
-  component('SpeechGenerator', 'Turns text into speech, returning a recording or audio chunks.', {
+  component('SpeechGenerator', sdk('generateSpeech'), {
     resources: ['SpeechGenerator.cat', 'SpeechGenerator.cas'],
     groups: [
       tool({ excludes: ['asStream'] }),
@@ -155,7 +164,7 @@ export const components = [
       group('inputDelivery', 'Text input', ['textStream'], { requires: { stream: ['asStream'], source: [null] } }),
     ],
   }),
-  component('Translator', 'Translates speech into target-language audio and text, with a completed result or incremental events.', {
+  component('Translator', sdk('experimental_streamTranslate', 'Translates speech into target-language audio and text, with a completed result or incremental events.'), {
     resources: ['Translator.cas'], experimental,
     planned: {
       requires: { stream: [null] },
@@ -187,6 +196,9 @@ function enabled(item, option, selected) {
       return allowed.includes(current ?? null);
     }));
 }
+
+// Documentation uses the same selection predicates, with its own applicability data.
+export { enabled as matchesOptions };
 
 export function visibleGroups(name, selected = getComponent(name).activeOptions) {
   const item = getComponent(name);

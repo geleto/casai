@@ -1,5 +1,6 @@
 export default function render() {
-  return { files: [{ name: 'Context.ts', language: 'typescript', code: `import { Function, z } from 'casai';
+  return { configuration: { component: 'Function', factory: 'Function', variable: 'quote', properties: ['context', 'inputSchema', 'execute'] },
+    files: [{ name: 'Context.ts', language: 'typescript', code: `import { Function, z } from 'casai';
 
 // Context holds application values and private dependencies.
 export async function example() {

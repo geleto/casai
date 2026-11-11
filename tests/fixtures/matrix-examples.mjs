@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { stripTypeScriptTypes } from 'node:module';
 import { components, render, validateOptions, selectOption, visibleGroups } from '../../docs/matrix/matrix.js';
 import { multiline } from '../../docs/matrix/shared.js';
+import { checkReference } from './matrix-reference.mjs';
 
 export const root = new URL('../../', import.meta.url);
 export const destination = new URL('.cache/matrix/', root);
@@ -20,7 +21,7 @@ export function selections(component) {
 
 export async function generate() {
   const authored = await readdir(new URL('docs/matrix/', root));
-  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family');
+  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
   assert.deepEqual(authored.filter(name => /\.(cat|cas)$/.test(name)).sort(), components.flatMap(item => item.resources).sort(), 'No duplicated streaming resources');
   const tricky = '{{ value }}\n${notJavaScript}\n`backticks` \\ slashes';
   assert.equal(Function(`return ${multiline(tricky)}`)(), tricky);
@@ -120,6 +121,7 @@ export async function generate() {
     extends: '../../tsconfig.json', compilerOptions: { noEmit: true, customConditions: ['casai-source'] },
     include: [], files: examples.filter(example => example.status === 'implemented').map(example => `${example.id}/${example.files[0].name}`),
   }, null, 2));
+  await checkReference(examples);
   console.log(`Checked ${examples.filter(example => example.status === 'planned').length} planned selections for syntax, shared sources and matching streaming counterparts.`);
   return examples;
 }

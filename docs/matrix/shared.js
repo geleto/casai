@@ -129,7 +129,10 @@ export function renderExample({ component, options, variable, params = [], model
     : `const result = await ${has(options, 'run') ? `${variable}.run(${asTool ? `{ context: ${toolArgs} }` : named})` : call};\n${result}`);
   let code = `${importLines.join('\n')}\n\n// ${description}\nexport async function example(${parameters.join(', ')}) {\n${indent([...setup, declaration, invocation].filter(Boolean).join('\n\n'))}\n}\n`;
   if (input.inlineText !== undefined) code = code.replace('__MATRIX_SOURCE__', () => multiline(input.inlineText));
-  return { id: exampleId(component, options), files: [{ name: `${component}.ts`, language: 'typescript', code }, ...input.files] };
+  return { id: exampleId(component, options),
+    configuration: { component, factory: factory(api, modifiers), variable,
+      properties: config.flatMap(field => field.match(/^([\w$]+)\s*(?=[:,])/)?.slice(1) ?? []) },
+    files: [{ name: `${component}.ts`, language: 'typescript', code }, ...input.files] };
 }
 
 export const audioStreamSetup = `// Open a fresh stream over 24 kHz mono PCM16 little-endian bytes.
