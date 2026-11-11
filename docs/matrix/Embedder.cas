@@ -1,0 +1,6 @@
+var features = lookupInfo()
+var description = title ~ '. ' ~ features
+if batch
+  return [description, 'Trail bottle. ' ~ features]
+endif
+return description

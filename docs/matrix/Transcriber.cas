@@ -1,0 +1,1 @@
+return getRecording(findRecording())

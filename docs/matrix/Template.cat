@@ -1,0 +1,3 @@
+{{ company }} delivery update
+Hello {{ name }}, order {{ orderId }} is due {{ deliveryDay() }}.
+Track it using the link in your order confirmation.

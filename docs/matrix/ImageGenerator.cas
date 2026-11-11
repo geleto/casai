@@ -1,0 +1,1 @@
+return 'Place a Trail mug on ' ~ scene ~ '. ' ~ lookupInfo()

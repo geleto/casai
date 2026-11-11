@@ -1,0 +1,1 @@
+return "Customer request: " ~ issue ~ "\n" ~ lookupInfo()

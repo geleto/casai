@@ -1,0 +1,43 @@
+import { has, prepared, source, lookup, contextField, renderExample } from './shared.js';
+
+export default function render(options, resources) {
+  const coded = prepared(options), tools = has(options, 'useTools'), history = has(options, 'messages');
+  const resume = has(options, 'resume'), stream = has(options, 'asStream'), structured = has(options, 'structured');
+  const policy = "'Report damage within 30 days and include a photo. Replacement shipping is free.'";
+  const tool = lookup(options, { name: 'lookupPolicy', description: 'Look up the store returns policy.', value: 'policy' });
+  const fields = [
+    ...contextField(coded ? ['policy'] : []),
+    ...(tools ? [...tool.fields, "instructions: 'Call lookupPolicy before answering the customer.',", 'stopWhen: isStepCount(3),'] : []),
+    ...(resume ? ["toolApproval: { lookupPolicy: 'user-approval' },"] : []),
+    ...(structured ? ['output: Output.object({ schema: z.object({ answer: z.string(), nextStep: z.string() }) }),'] : []),
+  ];
+  const named = [...(coded ? ['context: input'] : []), ...(history ? ['messageHistory'] : [])];
+  const call = has(options, 'run') ? `returnsAdvisor.run({${named.length ? ' ' + named.join(', ') + ' ' : ''}})`
+    : `returnsAdvisor(${[...(coded ? ['input'] : []), ...(history ? ['messageHistory'] : [])].join(', ')})`;
+  const consume = name => stream ? `for await (const part of ${name}.fullStream) console.log(part);\n` : '';
+  const final = name => `return { output: ${stream ? 'await ' : ''}${name}.output, messageHistory: await ${name}.messageHistory };`;
+  const body = resume ? `const pending = await ${call};
+${consume('pending')}const content = await pending.content;
+const requests = content.flatMap(part => part.type === 'tool-approval-request' ? [part.approvalId] : []);
+if (!requests.length) { ${final('pending')} }
+// Collect a decision for this paused turn; unselected requests are denied.
+const approvedIds = await chooseApprovals(requests);
+const result = await returnsAdvisor.resume(await pending.messageHistory, {
+  approve: approvedIds,${coded ? '\n  context: input,' : ''}
+});
+${consume('result')}${final('result')}` : (has(options, 'asTool') && !has(options, 'run') ? undefined : `const result = await ${call};\n${consume('result')}${final('result')}`);
+  return renderExample({ component: 'LLMAgent', variable: 'returnsAdvisor', options, modelType: 'LanguageModel',
+    typeImports: history ? ['ModelMessage'] : [],
+    params: resume ? ['chooseApprovals: (requestIds: string[]) => Promise<string[]>'] : [],
+    description: 'Answer the same customer question using the store returns policy.',
+    imports: [...(tools ? tool.imports : []), ...(structured ? ['z'] : [])], aiImports: structured ? ['Output'] : [],
+    setup: [`const policy = ${policy};`, "const input = { question: 'My mug arrived cracked. What should I do?' };",
+      ...(tools ? [tool.setup] : []),
+      ...(history ? ["const messageHistory: ModelMessage[] = [\n  { role: 'user', content: 'I bought a Trail mug yesterday.' },\n  { role: 'assistant', content: 'How can I help with your mug?' },\n];"] : [])],
+    fields, schema: coded ? 'z.object({ question: z.string() })' : has(options, 'asTool') ? 'z.object({})' : undefined,
+    source: source('LLMAgent', 'prompt', options, resources,
+      '`Policy: ${policy}\\nQuestion: ${input.question}`',
+      '({ policy, question }) => `Policy: ${policy}\\nQuestion: ${question}`'),
+    toolArgs: coded ? 'input' : '{}', body,
+  });
+}
