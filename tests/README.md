@@ -6,9 +6,10 @@
 | `npm run test:file -- tests/LLMCalls.unit.test.ts` | One selected file; append `--grep "pattern"` to narrow it | Depends on the selected file |
 | `npm run test:watch` | Watch the mock-only suite | No |
 | `npm run test:types` | Source, build, consumer declaration emission, emitted-consumer and exact-optional checks | No |
+| `npm run test:matrix` | Generate matrix selections; type-check and mock-execute current examples, and check planned examples for syntax and shared sources | No |
 | `npm run build` | Incremental package build; reuse unchanged output | No |
 | `npm run test:coverage` | Mock-only runtime coverage and thresholds | No |
-| `npm run check` | All type profiles, type-aware lint and mock coverage | No |
+| `npm run check` | All type profiles, matrix examples, type-aware lint and mock coverage | No |
 | `npm run test:live` | Explicit provider-backed integration tests against source | Yes |
 | `npm run test:package` | Clean tarball consumer using published dependencies | No |
 | `npm run test:package -- --engine C:\Projects\cascada` | Clean consumer using both local package candidates; engine must already be built (a `.tgz` path also works) | No |
@@ -20,6 +21,10 @@ The current mock suite covers LLM requests, tools, approvals, history, streaming
 The paired package check packs the existing engine build without running its scripts, installs both tarballs outside the workspace, and checks declarations, imports and execution without links. Declaration checks include both optional-property modes and native `ToolSet` annotations. It does not publish or change versions. Passing with a development engine candidate does not establish compatibility with the currently published engine or replace checking the final coordinated release candidates and dependency minimum.
 
 ## Where the time goes
+
+The matrix check reads `docs/matrix/matrix.js`, the component renderers and their actual `.cat`/`.cas` sources. Generated files live only in `.cache/matrix`; an explicit file list excludes stale cache entries. The check covers option dependencies, every component's `.run()`, inline/loaded resources, tool execution, history/resume, structured output and audio consumption without provider requests. The demo renderer generates only the selected example; exhaustive enumeration belongs to this test command. As the catalog grows, keep focused interaction coverage rather than treating unlimited exhaustive enumeration as a runtime requirement.
+
+Complete Translator examples are explicitly planned. They receive syntax checks and comparison with their executable streaming counterparts, including unchanged setup, invocation and resource files. Their `status`, notice and code comment are asserted. They are excluded from current API compilation/execution, without a fake Translator implementation or declaration; remove that exclusion when the API lands. All current examples still compile and execute with SDK mocks.
 
 The preceding runs recorded 21Р В Р вЂ Р В РІР‚С™Р Р†Р вЂљРЎС™55 seconds for mock coverage (1,424 tests in the final run). The reported 18-minute full check was dominated by compilation and lint, not model latency. The old type gate started five compiler processes. Type-aware ESLint uses the TS6 compiler API in another process; a previous full lint attempt reached about 6 GB before it was stopped under system memory pressure. These are historical observations, not a fresh timing of the changed commands. All lint rules and file coverage remain enabled.
 

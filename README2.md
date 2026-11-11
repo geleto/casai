@@ -1256,7 +1256,7 @@ const blueWorkshop = await repaint({ color: 'light blue' });
 
 ### Transcriber
 
-`Transcriber` turns a recording into a completed transcript.
+`Transcriber` turns a recording into a completed transcript. Use it for whole prerecorded files; OpenAI handles these through its file-transcription endpoint.
 
 <!-- typecheck: transcriber -->
 ```typescript
@@ -1302,6 +1302,8 @@ The native download path applies target/redirect checks and, on Node, resolved-a
 ### StreamingTranscriber
 
 `StreamingTranscriber` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It uses the AI SDK's experimental `experimental_streamTranscribe` API.
+
+Finite raw bytes are also accepted, but completion follows the provider's streaming session rules. The current OpenAI adapter commits once after input ends and finishes on the first transcription-completed event. This does not establish support for arbitrary long recordings or multiple completed items; use ordinary Transcriber for whole files.
 
 <!-- typecheck: streaming-transcriber -->
 ```typescript
@@ -1437,6 +1439,34 @@ console.log(await translated.translationText);
 Shorthand takes `(audio, inputAudioFormat?, targetLanguage?)`. Configure either secondary input or supply it at invocation; `translate(audioStream, 'es')` can omit a configured format. `.run()` names the same fields and native options, including source language and output format. Script/function preparers can open raw audio; text/template modifiers do not apply to it. Required context remains explicit where its object shape overlaps an audio-format object.
 
 Consume the single `fullStream` before final text/metadata promises when both are needed. Audio parts keep their native bytes-or-base64 form; final source/translation text comes from the SDK's finish data. An audio-only provider may return empty translation text. There is no separate audioStream alias or collected-audio tool mode. Provider language/format validation, errors and cancellation retain native behavior.
+
+#### Recorded audio and optional codecs
+
+Raw-audio components accept a stream or finite raw bytes (`Uint8Array`, including Buffer, or `ArrayBuffer`). Both Translator result modes and streaming transcription accept these inputs. Each call wraps reusable bytes in a fresh stream of bounded chunks. Supply the format required by the model: OpenAI translation requires **24 kHz, mono, signed 16-bit little-endian PCM**. Bytes passed to a raw-audio component are not automatically recognized as MP3 or WAV, including when inherited from a complete Transcriber.
+
+For browser microphone capture, request the provider's rate through Web Audio where supported: `new AudioContext({ sampleRate: 24000 })` for OpenAI translation. Feed the microphone through that context and capture its processed samples. Web Audio matches the source to the context's rate; check `context.sampleRate`, select mono audio and encode the floating-point samples as PCM16 little-endian bytes. The server can forward those bytes without resampling them again. Setting the context rate does not turn MediaRecorder output into raw PCM. Browser resampling implementations and source support vary; handle unsupported setup with explicit audio preparation. See the [Web Audio source-rate contract](https://www.w3.org/TR/webaudio/#MediaStreamAudioSourceNode).
+
+**PCM preparation works without `node-av`.** The helpers exported from `casai` read and write PCM WAV files and use the SDK for supported rate conversion. They handle finite PCM buffers and integer-ratio stream downsampling, including 48-to-24 and 48-to-16 kHz mono PCM16. The stream helper carries incomplete sample groups across chunks and opens its input reader on demand. An unmatched final byte is incomplete PCM16; an odd number of complete samples is valid. Matching audio passes through unchanged.
+
+SDK rate conversion has no anti-aliasing filter. At 48-to-24 kHz it keeps every second sample, so frequencies above 12 kHz can fold into the output band. Rate-conversion helpers depend on the experimental SDK resampler; WAV reading/writing and byte adaptation do not have that experimental dependency.
+
+The converter from `casai/node-av` uses native conversion for sample changes when node-av is installed, including FFmpeg's filtered rate conversion. When the package is absent, it falls back to the supported SDK/local paths above. MP3 decoding and unsupported stream rate changes still require node-av. An installed library's load or conversion error is reported, without retrying through the SDK. Installing node-av can therefore change this converter's output; main-entry helpers always use the SDK/local path. To enable native conversion:
+
+```sh
+npm install node-av
+```
+
+The converter uses the native library API, without an executable path. Its native codec set is bundled; importing fewer JavaScript functions does not select fewer codecs. Check the deployment target and package footprint: version 6.2.0's native packages occupy about 175 MB on Linux x64 and 125 MB on Windows x64, before the additional CLI download. Linux prebuilds target glibc. Consult the package's bundled FFmpeg notices as well as its wrapper license.
+
+A script/function preparer supplies fresh prepared audio for each call. Share one target-format value between preparation and the component's `inputAudioFormat`; provide the original format explicitly for raw audio. Preparation checks format descriptions and available WAV headers, then selects native conversion or a supported fallback before returning a stream. Files and native decoders open on the first read. File/decode failures can therefore reach a streaming result after the provider connection opens; completed translation rejects when that execution fails. Cancelling before the first read acquires no reader or conversion resources.
+
+The prepared result identifies its selected conversion path: local-only preparation, SDK-assisted conversion or native conversion. Local preparation includes pass-through, WAV extraction and supported local sample adaptation. Inspect that metadata when diagnosing differences between environments; installing node-av does not imply that matching audio needed native processing. The metadata is available before consuming the audio.
+
+The main `casai` import can be bundled without node-av and does not check whether it is installed. Bundling `casai/node-av` requires node-av to be installed or marked external in the bundler. Mark it external when deploying that entry with the supported absent-package fallback, in either an ESM or CommonJS Node bundle. An installed package with a missing entry or dependency remains an error.
+
+A component created with `Translator(...)` returns completed `audio` bytes as a `Uint8Array`, together with final source/translated text and native metadata. These bytes carry no assumed file format. If the provider's actual output is known PCM, use the WAV writer with that format to make a playable WAV file. A requested output format is not evidence that the provider used it.
+
+Completed translation follows the SDK's final-result rules. A non-fatal error event does not itself make the call reject or add an errors array. Use `Translator.asStream(...)` and its result's `fullStream` to observe such events. Ordinary Transcriber retains its provider-native recording support without local conversion.
 
 ### VoiceSessionSetup
 
