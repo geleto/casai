@@ -2,7 +2,7 @@
 
 The matrix is the canonical component reference. This repository owns its content, examples, data and selection rules. The separate website/documentation project owns the UI and publishing. Finish the matrix before adding an introduction, topic pages or a simplified main-page version.
 
-Write for people first. The matrix will likely be the main way readers explore Casai. The full documentation must also be a normal, readable guide with clear navigation, explanations, examples and practical topics. Machine-readable formats are additional ways to access that same content, not the organizing principle for the documentation.
+Write for people first. Say Cascada Template or Cascada Script, and explain input handling with concrete values such as text, messages, images or files. Keep each source-mode summary to one short sentence. For standalone Template and Script, describe the property value (text, code or file name); for other components, explain how the source prepares input. Set component-specific wording in `reference/components.js` through `sourceDescriptions`, keyed by source mode. Omit filler such as "as-is" and comparisons with unselected modes. Put format requirements and meaningful limitations in the property details. The matrix will likely be the main way readers explore Casai. The full documentation must also be a normal, readable guide with clear navigation, explanations, examples and practical topics. Machine-readable formats are additional ways to access that same content, not the organizing principle for the documentation.
 
 ## The two future publications
 
@@ -19,13 +19,19 @@ Later topics should explain tasks and cross-component workflows and link to the 
 
 ## Content ownership
 
+Input summaries describe property values, not commands: “The text or array of texts to embed.” Loaded-text descriptions must explain what the file contains and what it is for; author `sourceDescriptions['text-name']` for each component that supports it. Do not generate circular wording such as “a file to use as state.”
+
+Use `sourceModes` and `toolOnly` in shared property metadata for settings whose behavior depends on the selected source or tool form. Check the owning renderer or execution path before adding a restriction. Keep reusable Config fragments broad, and retain common settings independently of example toggles. Required settings belong to the `essential` section; its stable ID is retained for existing links.
+
+`promptType`, `asTool` and LLMAgent `streaming` are public configuration properties, even though modifiers usually set them. Keep modifier precedence explicit. Display `promptType` for the selected source mode rather than copying the extractor's text-mode specialization; reusable Config lists the supported mode values. Invocation-only fields such as `abortSignal` and `messageHistory` must not acquire a construction location. `_toolOptions` is injected context metadata, not a constructor setting.
+
 | Source | Owns | Edit by hand? |
 | --- | --- | --- |
-| `matrix.js` | Component summaries or SDK summary references, groups, choices, example defaults, control/transition data and selection rules | Yes |
+| `matrix.js` | Component short/long descriptions and SDK sources, groups, choices, example defaults, control/transition data and selection rules | Yes |
 | `<Component>.js` | One example renderer per component family | Yes |
-| `.cat` / `.cas` resources | Canonical template/script text, reused inline and when loaded | Yes |
-| `resources.js` | Embedded copies of canonical `.cat`/`.cas` text for portable rendering | **No**, regenerate |
-| `reference/components.js` | Native operation mapping, API variants, source forms, call/method/result explanations and ordering | Yes |
+| `.cat` / `.cas` / `.txt` resources | Canonical template, script and plain text files | Yes |
+| `resources.js` | Embedded copies of canonical `.cat`/`.cas`/`.txt` text for portable rendering | **No**, regenerate |
+| `reference/components.js` | Native operation mapping, API variants and their long descriptions, source forms, call/method/result explanations and ordering | Yes |
 | `reference/properties.js` | Casai properties and amendments: requiredness, defaults, invocation, inheritance and adapted behavior | Yes |
 | `reference/details.js` | Links to nested native data shapes and explanations for remaining undocumented members | Yes; fill gaps without replacing accurate native prose |
 | `reference/concepts.js` | Shared explanations inside the matrix | Yes |
@@ -42,7 +48,7 @@ Example controls choose teaching scenarios. They do not define API support: turn
 
 A choice's `properties` lists configuration fields to highlight; only fields present in the selected API are linked. `affectsReference` distinguishes API changes from teaching features and highlights. Keep the data defining that distinction current when adding choices, and update the public literal unions. Canonical reference IDs must exclude example-only features.
 
-Use component `variants` for operation/result changes, including method selections. Primary-input overrides belong in `inputTypes` so script, function and loaded forms keep their correct source types. Method `settings: 'run'` references the existing named-call properties, with `omit` for irrelevant settings; do not duplicate their explanations. Add new renderers to the literal import registry in `matrix.js` so bundlers can discover them. Add canonical resources to the component's `resources` list and regenerate `resources.js`; consumers need no asset configuration. `inlineResource` identifies a standalone component's default source; `sourceDefault` collapses its redundant Default selector choice. Other selections read only their selected template or script.
+Use component `variants` for operation/result changes, including method selections. Primary-input overrides belong in `inputTypes` so script, function and loaded forms keep their correct source types. Method `settings: 'run'` references the existing named-call properties, with `omit` for irrelevant settings; do not duplicate their explanations. Add new renderers to the literal import registry in `matrix.js` so bundlers can discover them. Add canonical resources to the component's `resources` list and regenerate `resources.js`; consumers need no asset configuration. `inlineResource` identifies a standalone component's default source; `sourceDefault` collapses its redundant Default selector choice. Other selections read only their selected text, template or script file.
 
 `requires` maps a group to its allowed choices: any listed choice within a group, all specified groups together. An array of maps allows any alternative. `null` means no choice in that group. `excludes` lists conflicts. Use these data rules instead of component-name branches in the resolver. Keep one choice or none in each group; validate the requested selection at the render boundary. `getControls()` is the single UI model, with optional unavailable-choice reasons and change previews. Tolerant normalization is only for restored external selections. See the [integration contract](README.md) for these helpers and returned fields.
 
@@ -110,9 +116,15 @@ Distribute [THIRD_PARTY.md](reference/THIRD_PARTY.md) and the included Apache-2.
 
 Follow the SDK's reference style throughout the matrix: a short action-first summary, a small useful example, import/signature, parameters, returns, then relevant notes and links. The matrix's Info/Example/Config views can present the same material in a different layout; layout belongs to the other project.
 
+Keep the original short component summary in `shortDescription`. `description` contains a few plain Markdown paragraphs explaining what the component does, when it is useful, its inputs and its result. Keep detailed settings in the property reference. Adapt the installed SDK guides where they fit and retain their pinned locations in `descriptionSources`; local additions explain Casai's behavior. Streaming variants may override the full description in `reference/components.js`, with their native reference page as the source. Review these manually authored adaptations on SDK changes; the generator does not rewrite them. Preserve planned status in the prose as well as the notice.
+
 Use plain words, Markdown paragraphs, backticks for API names, fenced TypeScript for examples and explicit file names for secondary sources. Keep a property name, type, requiredness, description and default easy to scan. Explain conditional requirements next to the property. Preserve useful native detail instead of replacing it with a vague one-line paraphrase. Put scenario explanations in code comments.
 
-Keep reader captions separate from model-facing `toolDescription`. Describe the tool's actual task and accepted input; a fixed-request tool must not imply it accepts an arbitrary question. Retain the complete callable example function and its explicit application dependencies. Property records keep the complete `type` alongside a compact `displayType`; never replace the underlying contract with its abbreviated label. User-facing notices link to available guide content, not internal implementation plans.
+Keep reader captions separate from model-facing `toolDescription`. Describe the tool's actual task and accepted input; a fixed-request tool must not imply it accepts an arbitrary question. Retain the complete callable example function and its explicit application dependencies. Property records keep the complete `type` alongside a compact `displayType`; never replace the underlying contract with its abbreviated label. `reference/type-display.js` omits outer `undefined` only for optional properties; nested values, callback returns, `null`, and required value unions remain meaningful. Consumers must make the exact type available when the label is abbreviated. User-facing notices link to available guide content, not internal implementation plans.
+
+Give each exported example function a descriptive task name, stable across its options. Feed ready-made strings directly to plain operations; do not build fixed sample prompts with JavaScript interpolation or a redundant `input` object. Pass single-use context objects at the call site. Keep dynamic values where they demonstrate the selected template/script/function source, real external dependencies, or shared input across continuation calls.
+
+Explain unfamiliar type aliases through the shared `reference/type-reference.js` vocabulary, which supplies concrete value shapes and examples in `typeDescription`. Expand short aliases in `displayType` when the expansion is clearer; verify them against the owning declaration. Keep exact `type` values intact. Do not leave readers to guess what names such as PromptValue, DataContent or PreparedContext mean. Source-mode prose belongs in `reference/sources.js`: say what the named input contains, how the context object is used, and what value the component receives. Keep structured message, image and decision rendering rules in each component's `templateNotes`.
 
 Avoid HTML or SDK website-specific MDX components in authored matrix data. Express notes, sections and links as data with Markdown text so another publisher can render them consistently. Preserve experimental and planned notices in every output. Do not use a source link as a substitute for documenting Casai's actual difference.
 

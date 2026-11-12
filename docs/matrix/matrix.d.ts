@@ -1,17 +1,20 @@
 /** Public data contract for the separate matrix/documentation project. */
 export type ComponentName = 'Config' | 'Context' | 'Template' | 'Script' | 'Function' | 'LLMAgent' | 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'SpeechGenerator' | 'Translator' | 'VoiceSessionSetup';
-export type ChoiceId = 'asTool' | 'asStream' | 'useTools' | 'run' | 'prepareSession' | 'webRTC' | 'structured' | 'batch' | 'topN' | 'referenceImage' | 'mask' | 'count' | 'voice' | 'textStream' | 'messages' | 'resume' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadTemplate' | 'loadScript';
+export type ChoiceId = 'asTool' | 'asStream' | 'useTools' | 'run' | 'prepareSession' | 'webRTC' | 'structured' | 'batch' | 'topN' | 'referenceImage' | 'mask' | 'count' | 'voice' | 'textStream' | 'messages' | 'resume' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadText' | 'loadTemplate' | 'loadScript';
 export type GroupId = 'tool' | 'stream' | 'source' | 'tools' | 'invocation' | 'conversation' | 'output' | 'batch' | 'limit' | 'media' | 'mask' | 'count' | 'voice' | 'inputDelivery';
 export type SourceKind = 'default' | 'template' | 'script' | 'function';
+export type ComponentKind = 'component' | 'configuration' | 'concept';
 export type InfoSectionId = 'summary' | 'variants' | 'source' | 'features' | 'invocation';
 export type Requirements = Partial<Record<GroupId, (ChoiceId | null)[]>>;
 export interface Rules { requires?: Requirements | Requirements[]; excludes?: ChoiceId[] }
-export interface Choice extends Rules { id: ChoiceId; name: string; description: string; properties: string[]; affectsReference: boolean; experimental?: string }
+export interface Choice extends Rules { id: ChoiceId; name: string; description: string; properties: string[]; affectsReference: boolean; experimental?: string; defaultControl?: { name: string; description: string } }
 export interface Group { id: GroupId; name: string; description?: string; optional: boolean; choices: Choice[] }
 export interface SourceLocation { path: string; line?: number; package?: string; version?: string; url?: string; documentation?: string }
 export interface DescriptionSource { operation: string; description: string; source: SourceLocation; reuse: 'verbatim' | 'adapted' }
 export interface Component {
-  name: ComponentName; file: string; description: string; descriptionSource?: DescriptionSource;
+  name: ComponentName; kind: ComponentKind; file: string; shortDescription: string; shortDescriptionSource?: DescriptionSource;
+  /** Full component explanation in Markdown; shortDescription retains the original summary. */
+  description: string; descriptionSources: SourceLocation[];
   activeOptions: ChoiceId[]; resources: string[]; inlineResource?: string; groups: Group[]; experimental?: string; sourceDefault: SourceKind;
   planned?: Rules & { description: string };
 }
@@ -49,4 +52,6 @@ export function selectSource(name: ComponentName, selected: ChoiceId[], kind: So
 export function setLoads(name: ComponentName, selected: ChoiceId[], active: boolean): ChoiceId[];
 export function getControls(name: ComponentName, selected?: ChoiceId[], options?: { unavailable?: 'hide' | 'include' }): ControlSection[];
 export function referenceSelection(name: ComponentName, selected?: ChoiceId[]): ReferenceSelection;
+/** All reachable canonical API forms, optionally restricted to one family. No example-only choices. */
+export function referenceSelections(name?: ComponentName): ReferenceSelection[];
 export function render(name: ComponentName, selected?: ChoiceId[], options?: { readText?: (url: URL) => string | Promise<string> }): Promise<Example>;

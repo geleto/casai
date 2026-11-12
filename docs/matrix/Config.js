@@ -7,7 +7,7 @@ export default function render(options) {
     files: [{ name: 'Config.ts', language: 'typescript', code: `import { ${imports} } from 'casai';
 
 // Share settings, then override the company for an outlet.
-export async function example() {
+export async function shareDeliverySettings() {
 ${tool.setup.split('\n').map(line => '  ' + line).join('\n')}
   const shared = Config({
     context: { company: 'Northstar'${has(options, 'useTools') ? '' : ', deliveryDay'} },

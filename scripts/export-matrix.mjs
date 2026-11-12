@@ -8,4 +8,4 @@ const data = name
   ? { reference: describe(name, options), example: await render(name, options) }
   : { components, concepts, versions: referenceVersions };
 
-process.stdout.write(JSON.stringify({ schemaVersion: 1, ...data }, null, 2) + '\n');
+process.stdout.write(JSON.stringify({ schemaVersion: 3, ...data }, null, 2) + '\n');

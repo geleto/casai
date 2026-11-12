@@ -12,20 +12,17 @@ import { componentReference, sourceModes, configSections, sdkGroups } from './re
 import { commonProperties, componentProperties, sdkPropertyGroups } from './reference/properties.js';
 import { concepts } from './reference/concepts.js';
 import { shapeProperties, detailProperties, componentDetails } from './reference/details.js';
+import { compactType } from './reference/type-display.js';
+import { describeType } from './reference/type-reference.js';
+import { sourceDocumentation } from './reference/sources.js';
 
 export { infoSections, configSections, sdkGroups, concepts };
 export { getSourceControl, selectSource, setLoads } from './matrix.js';
 export const referenceVersions = versions;
-function compactType(type, alternative) {
-  if (type.length <= 150) return type;
-  if (alternative && alternative.length <= 150) return alternative;
-  const alias = type.match(/^([\w.$]+)</)?.[1];
-  const optional = type.endsWith(' | undefined') ? ' | undefined' : '';
-  if (alias) return `${alias}<…>${optional}`;
-  if (type.includes('=>')) return `(...arguments) => …${optional}`;
-  if (type.startsWith('{')) return `{ … }${optional}`;
-  return `${type.slice(0, 140)}…`;
-}
+const withTypeDocumentation = property => property.type ? {
+  ...property, displayType: compactType(property.type, { optional: property.optional }),
+  typeDescription: describeType(property.type),
+} : property;
 const records = name => {
   if (name == null) return [];
   if (!api.shapes[name]) throw new Error(`Unknown reference shape: ${name}`);
@@ -34,7 +31,7 @@ const records = name => {
     const local = { ...detailProperties[name.split(':')[0]]?.[property.name], ...shapeProperties[name]?.[property.name] };
     const detail = local.detail ?? commonProperties[property.name]?.detail;
     const prose = api.documentation[name]?.[property.name];
-    return { ...property, displayType: compactType(property.type),
+    return { ...withTypeDocumentation(property),
       ...(!property.description && prose ? prose : {}),
       ...(!property.description && !prose && local.description ? { description: local.description, descriptionOrigin: 'casai' } : {}),
       ...(detail ? { details: typeDetail(detail, local.appliesTo) } : {}),
@@ -70,7 +67,7 @@ function describeProperty(property, spec, { definition, mode, selected, runKeys,
   const sourceTypes = {
     direct: input.direct,
     template: input.template,
-    resource: 'string (resource name)', script: 'string (Cascada source)',
+    resource: 'string', script: 'string',
     function: `(context: PreparedContext) => ${input.prepared ?? 'unknown'} | PromiseLike<${input.prepared ?? 'unknown'}>`,
   };
   const requiredAtCreation = !spec.fragment && (definition?.required.includes(name)
@@ -83,19 +80,24 @@ function describeProperty(property, spec, { definition, mode, selected, runKeys,
   const owner = native?.source?.package ?? property.source?.package;
   const origin = local.origin ?? (owner?.startsWith('cascada') ? 'cascada' : owner ? 'ai-sdk' : 'casai');
   const descriptor = records('Tool').some(record => record.name === name) && !records(definition ? `${spec.types}_settings` : null).some(record => record.name === name);
-  const section = isMain || name === 'model' || requiredAtCreation && !local.section ? 'essential' : local.section ?? (descriptor ? 'variants' : 'sdk');
+  const requiredForOperation = operationRequired.includes(name) || Boolean(definition?.inlineRequired?.includes(name)) || Boolean(isMain && spec.preparedSourceRequired && mode !== 'text');
+  const section = isMain || requiredAtCreation || requiredForOperation ? 'essential' : local.section ?? (descriptor ? 'variants' : 'sdk');
   const sdkGroup = local.sdkGroup ?? Object.entries(sdkPropertyGroups).find(([, names]) => names.includes(name))?.[0] ?? 'operation';
-  const type = local.type ?? (isMain && sourceKind ? sourceTypes[sourceKind.value] : property.type);
+  const modeType = name === 'promptType' ? (definition ? JSON.stringify(mode)
+    : [...new Set(Object.values(api.definitions).flatMap(item => [item.defaultMode, ...Object.values(item.modifiers)]).filter(Boolean))].map(value => JSON.stringify(value)).join(' | ')) : null;
+  const type = local.type ?? modeType ?? (isMain && sourceKind ? sourceTypes[sourceKind.value] : property.type);
+  const sourceDescription = isMain && sourceKind && sourceKind.value !== 'direct' ? sourceDocumentation(mode, definition, spec).description : null;
   return {
-    id: name, name, type, displayType: compactType(type, isMain || local.type ? undefined : native?.type),
-    description: local.description ?? native?.description ?? property.description ?? '',
-    descriptionOrigin: local.description ? 'casai' : native?.source?.package ?? 'casai',
-    default: local.default ?? property.tags?.find(tag => tag.name === 'default')?.text ?? native?.tags?.find(tag => tag.name === 'default')?.text ?? (origin === 'casai' ? 'Not configured.' : 'Omitted; the selected operation owns any default.'),
-    required: { construction: Boolean(requiredAtCreation), operation: operationRequired.includes(name) || Boolean(definition?.inlineRequired?.includes(name)) || Boolean(isMain && spec.preparedSourceRequired && mode !== 'text'), description: local.required ?? (requiredAtCreation ? 'Required when constructing the finished component, possibly inherited.' : isMain ? 'Must resolve from configuration or invocation unless an alternative native input satisfies the operation.' : 'Optional.') },
+    id: name, name, type, displayType: compactType(type, { optional: !requiredAtCreation, alternative: isMain || local.type || modeType ? undefined : native?.type }),
+    typeDescription: describeType(type),
+    description: sourceDescription ?? local.description ?? native?.description ?? property.description ?? '',
+    descriptionOrigin: sourceDescription || local.description ? 'casai' : native?.source?.package ?? 'casai',
+    default: Object.hasOwn(local, 'default') ? local.default : property.tags?.find(tag => ['default', 'defaultValue'].includes(tag.name))?.text ?? native?.tags?.find(tag => ['default', 'defaultValue'].includes(tag.name))?.text ?? null,
+    required: { construction: Boolean(requiredAtCreation), operation: requiredForOperation, description: local.required ?? (requiredAtCreation ? 'Required when constructing the finished component, possibly inherited.' : isMain ? 'Must resolve from configuration or invocation unless an alternative native input satisfies the operation.' : 'Optional.') },
     locations, override: local.override ?? spec.override ?? (runKeys.includes(name) ? 'Supported through .run(); see the property-specific merge/clearing rule.' : 'Fixed at construction; derive a component to replace it.'),
     inheritance: local.inheritance ?? commonInheritance,
     scope: local.scope ?? 'component', origin, adaptation: local.adaptation ?? null,
-    applicability: { component: spec.factory, sourceMode: isMain ? mode : null, operations: local.operations ?? null },
+    applicability: { component: spec.factory, sourceMode: isMain || local.sourceModes ? mode ?? null : null, operations: local.operations ?? null },
     section, sdkGroup, notes: local.notes ?? null,
     sourceMode: isMain ? mode : null,
     relatedOptions: choices.filter(choice => choice.properties.includes(name)).map(choice => choice.id),
@@ -117,8 +119,9 @@ function methodReference(method, properties) {
       ...(method.argumentOverrides?.[property.name]?.description ? { descriptionOrigin: 'casai' } : {}),
     })) : [],
     propertyIds: names.filter(name => properties[name]),
-    properties: names.filter(name => !properties[name]).map(name => ({ name, ...(commonProperties[name] ?? {}) })),
+    properties: names.filter(name => !properties[name]).map(name => withTypeDocumentation({ name, ...(commonProperties[name] ?? {}) })),
     result: method.resultShape ? records(method.resultShape) : [],
+    ...(method.additionalProperties ? { additionalProperties: method.additionalProperties.map(withTypeDocumentation) } : {}),
   };
 }
 
@@ -126,8 +129,8 @@ function invocationMethods(component, spec, definition, properties, options, too
   const callable = Boolean(definition);
   return [
     ...(callable ? [
-      { name: 'call', signature: spec.call, description: 'Positional shorthand. Omit resolved slots only when the next argument identifies its role unambiguously. Use .run() for same-type collisions or longer setting lists.' },
-      { name: 'run', signature: 'component.run({ context?, ...supportedInputsAndOverrides })', description: 'Named invocation. Missing required application input and unresolved operation input remain required. Configuration-only settings cannot be replaced here.', propertyIds: Object.values(properties).filter(property => property.locations.includes('run')).map(property => property.id) },
+      { name: 'call', signature: spec.call, description: 'Call the component directly with its main arguments. You can omit configured values when the remaining argument types are unambiguous. Use .run() to name arguments explicitly.' },
+      { name: 'run', signature: 'component.run({ context?, ...supportedInputsAndOverrides })', description: 'Call the component with named inputs and supported per-call settings. Supply any required values that are missing from its configuration.', propertyIds: Object.values(properties).filter(property => property.locations.includes('run')).map(property => property.id) },
       { name: 'config', signature: 'component.config', description: 'The resolved configuration. Treat it as immutable; construct a new component to replace captured dependencies.' },
     ] : []),
     ...(spec.methods ?? []).filter(method => matchesOptions(component, method, options)).map(method => methodReference(method, properties)),
@@ -138,11 +141,12 @@ function invocationMethods(component, spec, definition, properties, options, too
   ];
 }
 
-function sourceForms(definition, tool) {
+function sourceForms(definition, tool, spec) {
   return definition && definition.defaultMode !== null ? [
     { modifier: null, mode: definition.defaultMode, ...sourceModes[definition.defaultMode] },
     ...Object.entries(definition.modifiers).map(([modifier, mode]) => ({ modifier, mode, ...sourceModes[mode] })),
-  ].map(form => ({ ...form, toolSupported: definition.toolModes.includes(form.mode), applicable: !tool || definition.toolModes.includes(form.mode) })) : [];
+  ].map(form => ({ ...form, ...sourceDocumentation(form.mode, definition, spec),
+    toolSupported: definition.toolModes.includes(form.mode), applicable: !tool || definition.toolModes.includes(form.mode) })) : [];
 }
 
 export function describe(name, selected = getComponent(name).activeOptions) {
@@ -162,16 +166,17 @@ export function describe(name, selected = getComponent(name).activeOptions) {
     : [...settings.filter(name => !definition?.fixedSettings?.includes(name)), ...sharedCallFields];
   if (definition) config.abortSignal = { name: 'abortSignal', type: 'AbortSignal', tags: [] };
   if (spec.runShape) config.messageHistory = { name: 'messageHistory', type: 'readonly ModelMessage[]', tags: [] };
-  const properties = Object.values(config).filter(property => !spec.omit?.includes(property.name))
+  const properties = Object.values(config).filter(property => {
+    const local = { ...commonProperties[property.name], ...componentProperties[spec.types]?.[property.name], ...spec.overrides?.[property.name] };
+    return !spec.omit?.includes(property.name) && (spec.fragment || ((!local.sourceModes || local.sourceModes.includes(mode)) && (!local.toolOnly || tool)));
+  })
     .map(property => describeProperty(property, spec, { definition, mode, selected: options, runKeys, operationRequired, choices: component.groups.flatMap(group => group.choices) }));
   const map = byName(properties);
   const methods = invocationMethods(component, spec, definition, map, options, tool);
-  const variantGroups = infoSections.find(section => section.id === 'variants').groups;
-  const variantOptions = component.groups.filter(group => variantGroups.includes(group.id)).flatMap(group => group.choices).map(choice => choice.id).filter(id => options.includes(id));
   const controls = getControls(name, options);
   const notices = [component.experimental, component.planned && matchesOptions(component, component.planned, options) ? component.planned.description : null,
     ...component.groups.flatMap(group => group.choices).filter(choice => options.includes(choice.id)).map(choice => choice.experimental)].filter(Boolean);
-  const forms = sourceForms(definition, tool);
+  const forms = sourceForms(definition, tool, spec);
   const resultShapes = spec.resultShapes ?? (spec.result ? [spec.result] : []);
   const conceptsForComponent = [...new Set(['configuration', ...(spec.concepts ?? [])])];
   const summary = sdkDocs[spec.summaryOperation];
@@ -180,14 +185,15 @@ export function describe(name, selected = getComponent(name).activeOptions) {
     component: name, activeOptions: options, canonical: referenceSelection(name, options), status: spec.status, versions: referenceVersions,
     form: { factory: definition ? factory(spec.factory, options.filter(id => id !== 'asStream' || spec.streamModifier)) : null,
       primaryProperty: definition?.main ?? null, operation: spec.operation ?? null, sourceMode: mode ?? null, sourceModifier: modifier ?? null, notices },
-    info: { description: summary?.description ?? component.description,
-      descriptionSource: summary ? { operation: spec.summaryOperation, ...summary, reuse: 'verbatim' } : component.descriptionSource ?? null,
-      kind: spec.kind ?? 'component', input: spec.input, result: spec.resultSummary, controls },
+    info: { shortDescription: summary?.description ?? component.shortDescription,
+      shortDescriptionSource: summary ? { operation: spec.summaryOperation, ...summary, reuse: 'verbatim' } : component.shortDescriptionSource ?? null,
+      description: spec.description ?? component.description,
+      descriptionSources: spec.descriptionSources ?? component.descriptionSources,
+      kind: component.kind, input: spec.input, result: spec.resultSummary, controls },
     config: {
       properties: map,
       sections: configSections.map(section => ({ ...section, propertyIds: properties.filter(property => property.section === section.id).map(property => property.id),
-        ...(section.id === 'variants' ? { references: properties.filter(property => property.section !== 'variants' && variantOptions.length && (property.required.construction || property.required.operation || property.relatedOptions.some(id => variantOptions.includes(id)))).map(property => property.id),
-          notes: [tool ? spec.toolResult : null, options.includes('asStream') ? spec.resultDescription ?? spec.resultSummary : null].filter(Boolean) } : {}),
+        ...(section.id === 'variants' && tool ? { name: 'Tool configuration' } : {}),
         ...(section.id === 'sdk' ? { groups: sdkGroups.map(group => ({ ...group, propertyIds: properties.filter(property => property.section === 'sdk' && property.sdkGroup === group.id).map(property => property.id) })) } : {}),
         ...(section.id === 'invocation' ? { methods } : {}),
       })),
@@ -202,11 +208,11 @@ export function describe(name, selected = getComponent(name).activeOptions) {
     },
     result: { description: spec.resultDescription ?? spec.resultSummary, tool: tool ? spec.toolResult ?? null : null,
       shapes: resultShapes.map(result => ({ name: result, properties: records(`${result}_result`) })),
-      additionalProperties: spec.additionalResults ?? [] },
+      additionalProperties: (spec.additionalResults ?? []).map(withTypeDocumentation) },
     concepts: conceptsForComponent.map(id => ({ id, ...concepts[id] })),
-    relatedComponents: spec.kind === 'configuration' ? Object.keys(api.definitions) : [],
+    relatedComponents: component.kind === 'configuration' ? Object.keys(api.definitions) : [],
     relatedProperties: (spec.relatedProperties ?? []).map(name => describeProperty(related[name] ?? { name, type: commonProperties[name]?.type ?? 'unknown', tags: [] }, spec, { definition: undefined, mode: undefined, selected: [], runKeys: [], operationRequired: [], choices: [] })),
     example: { constraints: component.groups.flatMap(group => group.choices).filter(choice => choice.requires || choice.excludes).map(choice => ({ id: choice.id, requires: choice.requires, excludes: choice.excludes })),
-      note: 'Example constraints choose a teaching scenario. They do not define the complete API contract. Highlights identify related properties; render().configuration separately names the actual factory and properties used in the example’s main construction.' },
+      note: 'Customize this example to explore one workflow. The configuration reference covers the full API; highlighted settings relate to your selected options.' },
   };
 }

@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 import { describe, getSourceControl, selectSource, setLoads, configSections } from '../../docs/matrix/reference.js';
-import { components, validateOptions, getControls, getSourceControl as catalogSourceControl, normalizeOptions, referenceSelection, versions, sourceUrl, selectOption } from '../../docs/matrix/matrix.js';
+import { components, validateOptions, getControls, getSourceControl as catalogSourceControl, normalizeOptions, referenceSelection, referenceSelections, versions, sourceUrl, selectOption } from '../../docs/matrix/matrix.js';
 import api from '../../docs/matrix/reference/api.js';
 import sdkDocs from '../../docs/matrix/reference/sdk-docs.js';
 import { componentReference } from '../../docs/matrix/reference/components.js';
@@ -11,10 +11,69 @@ import { commonProperties, componentProperties } from '../../docs/matrix/referen
 import { concepts } from '../../docs/matrix/reference/concepts.js';
 import { shapeProperties, detailProperties, componentDetails } from '../../docs/matrix/reference/details.js';
 import { checkIntegrity } from './matrix-integrity.mjs';
+import { compactType } from '../../docs/matrix/reference/type-display.js';
+import { describeType, typeReference } from '../../docs/matrix/reference/type-reference.js';
 
 const root = new URL('../../', import.meta.url);
 
 export async function checkReference(examples) {
+  const defaults = describe('LLMAgent').config.properties;
+  assert.equal(defaults.model.default, null);
+  assert.equal(defaults.context.default, null);
+  assert.equal(defaults.temperature.default, null);
+  assert.equal(defaults.debug.default, 'false');
+  assert.equal(defaults.maxRetries.default, '2');
+  const fragmentMode = describe('Config').config.properties.promptType;
+  assert.match(fragmentMode.type, /"text".*"function"/);
+  assert.match(fragmentMode.notes, /public configuration property/);
+  assert.equal(describe('Context').relatedProperties.find(property => property.name === '_toolOptions').locations.length, 0);
+  const template = describe('Template').config.supportedSources.find(form => !form.modifier);
+  assert.equal(template.description, 'The template text.');
+  assert.match(template.explanation, /`template` value contains Cascada Template text/);
+  assert.match(template.explanation, /`context: \{ name: "Ada" \}` produces `Hello Ada`/);
+  assert.equal(defaults.prompt.displayType, 'string | ModelMessage | ModelMessage[]');
+  assert.match(defaults.prompt.typeDescription, /role.*content/s);
+  assert.equal(compactType('DataContent | URL'), 'string | Uint8Array | ArrayBuffer | Buffer | URL');
+  assert.equal(describeType('"PromptValue"'), null, 'Do not treat a string literal as a type alias');
+  assert.match(describeType('(context: PreparedContext) => PromptValue'), /inputSchema/);
+  assert.match(describeType('(context: PreparedContext) => PromptValue'), /message object/);
+  // These concise expansions must stay equivalent to the actual declarations.
+  for (const [file, alias] of [['src/types/prompt.ts', 'PromptValue'], ['node_modules/@ai-sdk/provider-utils/dist/index.d.ts', 'DataContent']]) {
+    const source = ts.createSourceFile(file, await readFile(new URL(file, root), 'utf8'), ts.ScriptTarget.Latest, true);
+    const declaration = source.statements.find(node => ts.isTypeAliasDeclaration(node) && node.name.text === alias);
+    assert.equal(typeReference[alias].display.replace(/\s/g, ''), declaration.type.getText(source).replace(/\s/g, ''), `${alias}: readable expansion follows its owning declaration`);
+  }
+  for (const [type, expected] of [
+    ['number | undefined', 'number'],
+    ['undefined | string | null', 'string | null'],
+    ['Record<string, string | undefined> | undefined', 'Record<string, string | undefined>'],
+    ['((value: string) => number | undefined) | undefined', '((value: string) => number | undefined)'],
+    ['(value: string) => number | undefined', '(value: string) => number | undefined'],
+    ['T extends string ? number : boolean | undefined', 'T extends string ? number : boolean | undefined'],
+    ['{ value?: string | undefined } | undefined', '{ value?: string | undefined }'],
+    ['[string | undefined, number] | undefined', '[string | undefined, number]'],
+    ['"literal | undefined" | undefined', '"literal | undefined"'],
+    ['string | Model | (string & Model) | (Model & string)', 'string | Model'],
+    ['string | (Model & Provider)', 'string | (Model & Provider)'],
+    ['undefined', 'undefined'],
+  ]) assert.equal(compactType(type, { optional: true }), expected, `Readable optional type: ${type}`);
+  assert.equal(compactType('string | undefined'), 'string | undefined', 'Required values retain explicit undefined');
+  assert.equal(compactType(`Collection<${'LongName, '.repeat(30)}Value> | null | undefined`, { optional: true }), 'Collection<…> | null');
+  const publishedForms = referenceSelections();
+  const expectedForms = new Set(examples.map(example => referenceSelection(example.component, example.activeOptions).id));
+  assert.deepEqual(new Set(publishedForms.map(form => form.id)), expectedForms, 'Static publications cover every canonical reference reachable from all valid examples');
+  assert.equal(publishedForms.length, expectedForms.size, 'Reference forms are deduplicated');
+  for (const component of components) {
+    assert.deepEqual(referenceSelections(component.name), publishedForms.filter(form => form.component === component.name));
+    assert.equal(describe(component.name).info.kind, component.kind);
+    for (const concept of describe(component.name).concepts) {
+      assert.deepEqual(concept, { id: concept.id, ...concepts[concept.id] }, `${component.name} reuses the canonical ${concept.id} note`);
+    }
+  }
+  assert.equal(components.find(component => component.name === 'Context').kind, 'concept');
+  assert.equal(components.find(component => component.name === 'Config').kind, 'configuration');
+  for (const form of publishedForms) assert.deepEqual(form, referenceSelection(form.component, form.activeOptions));
+  assert.throws(() => referenceSelections('Missing'), /Unknown matrix component/);
   // Compare the extracted contract, not unrelated implementation edits or lines.
   execFileSync(process.execPath, ['scripts/update-matrix-reference.mjs', '--check'], { cwd: root, stdio: 'inherit' });
   const integrity = (catalog = components, reference = componentReference, own = componentProperties) => checkIntegrity(catalog, reference, api, commonProperties, own, concepts);
@@ -77,6 +136,7 @@ export async function checkReference(examples) {
     assert.deepEqual(catalogSourceControl(example.component, example.activeOptions), getSourceControl(example.component, example.activeOptions));
     assert.deepEqual(normalizeOptions(example.component, [...example.activeOptions, 'retired-choice']).activeOptions, example.activeOptions);
     assert.deepEqual(ref.canonical, referenceSelection(example.component, example.activeOptions));
+    assert(ref.info.description && ref.info.description !== ref.info.shortDescription, `${example.id}: full explanation alongside the short summary`);
     validateOptions(example.component, ref.canonical.activeOptions);
     const canonical = describe(example.component, ref.canonical.activeOptions);
     for (const field of ['properties', 'sections', 'supportedSources', 'requiredPropertyIds']) assert.deepEqual(ref.config[field], canonical.config[field], `${example.id}: canonical reference preserves ${field}`);
@@ -85,7 +145,11 @@ export async function checkReference(examples) {
       for (const group of control.groups ?? []) for (const choice of group.choices) {
         assert.equal(choice.unavailableReasons.length === 0, choice.available);
         if (choice.transition) {
-          assert.deepEqual(choice.transition.activeOptions, selectOption(example.component, example.activeOptions, choice.id, !choice.active));
+          const current = group.choices.find(option => example.activeOptions.includes(option.id));
+          assert.equal(choice.active, choice.defaultControl ? !current : example.activeOptions.includes(choice.id));
+          assert.deepEqual(choice.transition.activeOptions, choice.defaultControl && current
+            ? selectOption(example.component, example.activeOptions, current.id, false)
+            : selectOption(example.component, example.activeOptions, choice.id, !example.activeOptions.includes(choice.id)));
           assert.deepEqual(choice.transition.cleared, example.activeOptions.filter(id => !choice.transition.activeOptions.includes(id)));
         }
       }
@@ -111,6 +175,9 @@ export async function checkReference(examples) {
       completeNativeProperties(method.result ?? [], `${example.id}.${method.name}.result`);
     }
     for (const shape of ref.result.shapes) completeNativeProperties(shape.properties, `${example.id}.result`);
+    for (const section of ref.config.sections) for (const note of section.notes ?? []) {
+      assert(![ref.info.result, ref.result.description, ref.result.tool].includes(note), `${example.id}: return explanations belong in result, not configuration`);
+    }
     assert.deepEqual(ref.config.sections.map(section => section.id), configSections.map(section => section.id));
     const ids = ref.config.sections.flatMap(section => section.propertyIds);
     for (const id of [...Object.keys(ref.config.properties), ...ref.relatedProperties.map(property => property.name), ...ref.config.sections.flatMap(section => section.methods ?? []).flatMap(method => method.properties ?? []).map(property => property.name)]) usedLocalProperties.add(id);
@@ -118,23 +185,39 @@ export async function checkReference(examples) {
     assert.deepEqual(ids.sort(), Object.keys(ref.config.properties).sort());
     for (const property of Object.values(ref.config.properties)) {
       contract('PropertyReference', property);
-      for (const key of ['name', 'type', 'displayType', 'description', 'default', 'override', 'inheritance', 'scope', 'origin']) assert(property[key], `${example.id}.${property.name}: missing ${key}`);
+      assert(!property.name.startsWith('_'), `${example.id}.${property.name}: internal fields are not configuration options`);
+      assert(!property.upstream?.tags?.some(tag => ['internal', 'private', 'protected'].includes(tag.name)), `${example.id}.${property.name}: public visibility`);
+      if (['abortSignal', 'messageHistory'].includes(property.name)) assert(!property.locations.includes('construction'), `${example.id}.${property.name}: invocation only`);
+      if (property.name === 'promptType' && ref.form.sourceMode) {
+        assert.equal(property.type, JSON.stringify(ref.form.sourceMode), `${example.id}: source mode type matches the displayed factory`);
+        assert.deepEqual(property.locations, ['construction']);
+      }
+      for (const key of ['name', 'type', 'displayType', 'description', 'override', 'inheritance', 'scope', 'origin']) assert(property[key], `${example.id}.${property.name}: missing ${key}`);
+      assert(property.default === null || typeof property.default === 'string' && property.default.length > 0, `${example.id}.${property.name}: documented default or null`);
       assert(property.displayType.length <= 150, `${example.id}.${property.name}: compact type`);
       assert(!property.locations.includes('construction') || property.name !== 'abortSignal');
       if (property.descriptionOrigin === 'ai') assert.equal(property.origin, 'ai-sdk', `${example.id}.${property.name}: SDK ownership survives redeclaration`);
-      if (property.origin === 'casai') assert(!property.default.includes('selected operation owns'), `${example.id}.${property.name}: Casai owns its default`);
+      if (property.origin === 'casai') assert(!property.default?.includes('selected operation owns'), `${example.id}.${property.name}: Casai owns its default`);
       if (property.aliasFor) { assert(property.deprecated); assert(ref.config.properties[property.aliasFor]); }
       completeNativeProperties(property.nested, `${example.id}.${property.name}`);
       if (property.details) completeDetail(property.details, `${example.id}.${property.name}`);
     }
-    // Every implemented config field must survive the presentation resolver.
+    // Every applicable field must survive; broad factory types also admit settings
+    // retained for later derived components that the selected source does not use.
     const factory = ref.form.factory?.split('.')[0];
     if (ref.status === 'implemented' && factory) {
       const expected = api.shapes[`${factory}_config`].map(id => api.properties[id].name);
       expected.push('abortSignal');
       if (componentReference[example.component].runShape) expected.push('messageHistory');
       if (example.activeOptions.includes('asTool')) expected.push(...api.shapes.Tool.map(id => api.properties[id].name));
-      assert.deepEqual(Object.keys(ref.config.properties).sort(), [...new Set(expected)].sort(), `${example.id}: complete config inventory`);
+      const cascadaSource = ref.form.sourceMode?.startsWith('async-');
+      const applicable = expected.filter(name => {
+        if (name === 'filters' || name === 'renderOptions') return cascadaSource;
+        if (name === 'loader') return cascadaSource || ref.form.sourceMode === 'text-name';
+        if (name === 'toolContextSchema') return example.activeOptions.includes('asTool');
+        return true;
+      });
+      assert.deepEqual(Object.keys(ref.config.properties).sort(), [...new Set(applicable)].sort(), `${example.id}: complete applicable config inventory`);
     }
     const target = example.configuration;
     if (ref.form.factory) assert.equal(ref.form.factory, target.factory, example.id);
@@ -154,7 +237,7 @@ export async function checkReference(examples) {
     if (!example.activeOptions.length || example.activeOptions.length === 1 && ['asStream', 'asTool', 'withFunction', 'prepareSession', 'webRTC'].includes(example.activeOptions[0])) {
       const data = { ...example };
       delete data.url;
-      consumerCases.push(`const case${consumerCases.length} = ${JSON.stringify({ schemaVersion: 1, reference: ref, example: data })} satisfies SelectionExport;`);
+      consumerCases.push(`const case${consumerCases.length} = ${JSON.stringify({ schemaVersion: 3, reference: ref, example: data })} satisfies SelectionExport;`);
     }
   }
   await writeFile(new URL('.cache/matrix/_data-contracts.ts', root), `import type { Component } from '../../docs/matrix/matrix.js';\nimport type { SelectionExport } from '../../docs/matrix/reference.js';\nconst catalog = ${JSON.stringify(components)} satisfies Component[];\n${consumerCases.join('\n')}\n`);
@@ -162,6 +245,9 @@ export async function checkReference(examples) {
   for (const component of components) {
     assert.deepEqual(component.activeOptions, [], 'Every component starts in its normal form; streaming is opt-in');
     const ref = describe(component.name);
+    assert(component.description && component.description !== component.shortDescription, `${component.name}: catalog long description`);
+    assert.equal(ref.info.shortDescription, component.shortDescription, `${component.name}: preserve the existing short summary`);
+    assert.equal(ref.info.description, component.description);
     assert(ref.info.input && ref.info.result);
     for (const concept of ref.concepts) assert(concept.title && concept.paragraphs.length);
   }
@@ -177,19 +263,37 @@ export async function checkReference(examples) {
   assert.deepEqual(selectSource('LLMAgent', ['loadScript'], 'function'), ['withFunction']);
   assert.deepEqual(setLoads('LLMAgent', ['withTemplate', 'run'], true), ['loadTemplate', 'run']);
   assert.deepEqual(setLoads('LLMAgent', ['loadTemplate'], false), ['withTemplate']);
+  assert.deepEqual(setLoads('Reranker', [], true), ['loadText']);
+  assert.deepEqual(setLoads('Reranker', ['loadText'], false), []);
+  assert.deepEqual(selectSource('Reranker', ['loadTemplate'], 'default'), ['loadText']);
+  assert.deepEqual(selectSource('Reranker', ['loadText'], 'script'), ['loadScript']);
+  assert.deepEqual(selectSource('Reranker', ['loadText'], 'function'), ['withFunction']);
+  assert.throws(() => setLoads('Transcriber', [], true), /unavailable/);
+  assert.equal(describe('Reranker', ['loadText']).form.factory, 'Reranker.loadsText');
+  assert.match(describe('Reranker').config.supportedSources.find(source => source.mode === 'text').description, /The search text used to rank the candidate documents/);
   assert.throws(() => setLoads('LLMAgent', ['withFunction'], true), /unavailable/);
   assert.throws(() => selectSource('Transcriber', [], 'template'), /Unsupported/);
   assert.equal(getSourceControl('Function'), null);
   assert.deepEqual(selectSource('Transcriber', ['asTool', 'asStream', 'loadScript'], 'default'), ['asStream']);
   validateOptions('Transcriber', selectSource('Transcriber', ['asStream', 'loadScript'], 'function'));
   const llm = describe('LLMAgent');
-  assert.equal(llm.info.description, sdkDocs.generateText.description);
-  assert.equal(llm.info.descriptionSource.reuse, 'verbatim');
-  assert.equal(describe('LLMAgent', ['asStream']).info.description, sdkDocs.streamText.description);
-  assert.equal(describe('SpeechGenerator', ['asStream']).info.description, sdkDocs.experimental_streamSpeech.description);
-  assert.equal(describe('Transcriber', ['asStream']).info.description, sdkDocs.experimental_streamTranscribe.description);
-  assert.equal(describe('Translator', ['asStream']).info.description, sdkDocs.experimental_streamTranslate.description);
-  assert.notEqual(describe('Translator', []).info.description, sdkDocs.experimental_streamTranslate.description);
+  assert.equal(llm.info.shortDescription, sdkDocs.generateText.description);
+  assert.equal(llm.info.shortDescriptionSource.reuse, 'verbatim');
+  assert.equal(describe('LLMAgent', ['asStream']).info.shortDescription, sdkDocs.streamText.description);
+  assert.equal(describe('SpeechGenerator', ['asStream']).info.shortDescription, sdkDocs.experimental_streamSpeech.description);
+  assert.equal(describe('Transcriber', ['asStream']).info.shortDescription, sdkDocs.experimental_streamTranscribe.description);
+  assert.equal(describe('Translator', ['asStream']).info.shortDescription, sdkDocs.experimental_streamTranslate.description);
+  assert.notEqual(describe('Translator', []).info.shortDescription, sdkDocs.experimental_streamTranslate.description);
+  for (const name of ['LLMAgent', 'Transcriber', 'SpeechGenerator', 'Translator']) {
+    const streaming = describe(name, ['asStream']).info;
+    assert.notEqual(streaming.description, describe(name).info.description, `${name}: explain the selected streaming form`);
+    assert.deepEqual(streaming.descriptionSources, [streaming.shortDescriptionSource.source]);
+  }
+  for (const source of components.flatMap(component => component.descriptionSources)) {
+    assert.equal(source.version, api.packages.ai);
+    assert(source.url.includes(`ai@${source.version}/docs/`));
+    assert((await readFile(new URL(source.path, root), 'utf8')).length, 'Attribution points to the installed SDK documentation');
+  }
   for (const name of ['model', 'headers', 'providerOptions', 'onChunk', 'streamRetries', 'output', 'stopWhen']) {
     assert.equal(llm.config.properties[name].descriptionOrigin, 'ai');
     assert.equal(llm.config.properties[name].description, llm.config.properties[name].upstream.description);
@@ -199,7 +303,7 @@ export async function checkReference(examples) {
   assert(llm.config.properties.prompt.upstream.description, 'Keep the upstream text beside a Casai amendment');
   assert(llm.config.properties.tools, 'Unchecked useTools does not remove a supported property');
   assert(llm.config.sections.at(-1).methods.some(method => method.name === 'resume'), 'resume reference does not require the approval example');
-  assert(llm.config.properties.prompt.description.includes('message array'));
+  assert(llm.config.properties.prompt.description.includes('array of messages'));
   assert(llm.config.properties.messageHistory && !llm.config.properties.messageHistory.locations.includes('construction'));
   assert(llm.config.properties.messageHistory.locations.includes('ordinary'));
   const llmMethods = llm.config.sections.at(-1).methods;
@@ -217,6 +321,19 @@ export async function checkReference(examples) {
   }
   assert(llm.config.supportedSources.some(source => source.modifier === 'loadsText'));
   assert(describe('LLMAgent', ['asStream']).config.properties.stopWhen);
+  assert.equal(describe('Decision', ['loadText']).config.properties.state.description, 'A file containing the text to evaluate against the configured questions.');
+  assert.equal(describe('Embedder').config.supportedSources[0].description, 'The text or array of texts to embed.');
+  for (const form of publishedForms) {
+    const reference = describe(form.component, form.activeOptions);
+    for (const source of reference.config.supportedSources) {
+      assert(source.description && source.explanation && !source.explanation.includes('undefined'), `${form.id}: complete source documentation`);
+    }
+    for (const id of reference.config.sections.find(section => section.id === 'essential').propertyIds) {
+      const property = reference.config.properties[id];
+      assert(id === reference.form.primaryProperty || property.required.construction || property.required.operation, `${form.id}.${id}: required settings contain required properties`);
+    }
+  }
+  assert(describe('Config').config.properties.filters, 'Reusable fragments may configure a future Cascada component');
   assert(!describe('LLMAgent', ['asTool']).config.sections.at(-1).methods.some(method => method.name === 'resume'));
   assert(describe('LLMAgent', ['asTool']).config.sections.at(-1).methods.some(method => method.name === 'bindToolContext'));
   assert(describe('SpeechGenerator').config.properties.outputFormat.type.includes('"mp3"'));
@@ -234,7 +351,7 @@ export async function checkReference(examples) {
   assert.equal(describe('Translator', []).status, 'planned');
   assert(describe('Translator', []).result.additionalProperties.some(property => property.name === 'audio' && property.type === 'Uint8Array'));
   assert.equal(describe('Translator', ['asStream']).status, 'implemented');
-  for (const [options, type] of [[[], /^Uint8Array/], [['withScript'], /^string \(Cascada source\)$/], [['loadScript'], /^string \(resource name\)$/], [['withFunction'], /^\(context: PreparedContext\) => Uint8Array/]]) {
+  for (const [options, type] of [[[], /^Uint8Array/], [['withScript'], /^string$/], [['loadScript'], /^string$/], [['withFunction'], /^\(context: PreparedContext\) => Uint8Array/]]) {
     assert.match(describe('Translator', options).config.properties.audio.type, type);
   }
   assert.match(describe('Translator', ['asStream', 'withFunction']).config.properties.audio.type, /^\(context: PreparedContext\) => ReadableStream/);
@@ -291,7 +408,7 @@ export async function checkReference(examples) {
   const exportJSON = (...args) => JSON.parse(execFileSync(process.execPath, ['scripts/export-matrix.mjs', ...args], { cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }));
   const catalog = exportJSON();
   contract('CatalogExport', catalog);
-  assert.equal(catalog.schemaVersion, 1);
+  assert.equal(catalog.schemaVersion, 3);
   assert.deepEqual(catalog.components.map(component => component.name), components.map(component => component.name));
   assert(catalog.concepts.context.paragraphs.length);
   const exported = exportJSON('LLMAgent', 'loadTemplate', 'asTool');

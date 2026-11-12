@@ -2,6 +2,8 @@
 
 `api.js` contains descriptions and type information extracted from installed dependency declarations, plus selected result descriptions from the matching SDK reference pages. Casai modifies their organization by extracting, deduplicating and grouping records, following exported aliases, separating nested union alternatives and reusing builder parameter descriptions. `sdk-docs.js` contains opening descriptions from the SDK's packaged MDX reference pages; Casai extracts the paragraphs, joins wrapped lines and resolves root-relative documentation links. Local explanations and adaptations are maintained separately in `matrix.js`, `properties.js`, `components.js`, `details.js` and `concepts.js`; they do not replace the attributed native description stored in each record.
 
+Full component `description` text adapts the SDK's text-generation, decision, embedding, reranking, image, transcription, speech, realtime and streaming documentation to Casai. The `descriptionSources` records retain pinned SDK guide/reference locations. Casai adds its own workflow, configuration, continuation and planned-API explanations. These adaptations remain separate from the original summaries in `shortDescription` and their `shortDescriptionSource` attribution.
+
 ## AI SDK
 
 Copyright 2023 Vercel, Inc.

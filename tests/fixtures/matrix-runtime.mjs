@@ -77,6 +77,12 @@ function fixture(name) {
 }
 
 const originalLog = console.log;
+async function runExample(url, ...args) {
+  const exported = Object.values(await import(url.href));
+  assert.equal(exported.length, 1, 'Each example exports one descriptively named entry point');
+  assert.equal(typeof exported[0], 'function');
+  return exported[0](...args);
+}
 let passed = 0;
 for (const example of examples.filter(example => example.status === 'implemented')) {
   const selected = id => example.activeOptions.includes(id);
@@ -86,16 +92,17 @@ for (const example of examples.filter(example => example.status === 'implemented
   const hosted = selected('asTool') && !selected('run') && example.component !== 'Embedder';
   if (hosted) {
     const prepared = ['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'].some(selected);
+    const loadedText = selected('loadText');
     args.push(languageModel(true, {
       deliveryUpdate: { name: 'Ada', orderId: 'N-1042' },
       orderSummary: { orderId: 'N-1042' },
       deliveryQuote: { weightKg: 2, service: 'express' },
       returnsAdvisor: prepared ? { question: 'My mug arrived cracked. What should I do?' } : {},
-      routeRequest: prepared ? { issue: 'My mug arrived cracked.' } : { state: 'My mug arrived cracked.' },
-      findPolicy: prepared ? { question: 'How do I replace a damaged mug?' } : { query: 'How do I replace a damaged mug?' },
-      productScene: prepared ? { scene: 'a picnic table beside a mountain lake' } : { prompt: 'Place a Trail mug on a picnic table beside a mountain lake. Keep the mug shape and markings unchanged.' },
+      routeRequest: prepared ? { issue: 'My mug arrived cracked.' } : loadedText ? {} : { state: 'My mug arrived cracked.' },
+      findPolicy: prepared ? { question: 'How do I replace a damaged mug?' } : loadedText ? {} : { query: 'How do I replace a damaged mug?' },
+      productScene: prepared ? { scene: 'a picnic table beside a mountain lake' } : loadedText ? {} : { prompt: 'Place a Trail mug on a picnic table beside a mountain lake. Keep the mug shape and markings unchanged.' },
       transcribeNote: prepared ? {} : { audio: recording.href },
-      speakUpdate: prepared ? { name: 'Ada' } : { text: 'Hello Ada. Your Northstar order is due Friday.' },
+      speakUpdate: prepared ? { name: 'Ada' } : loadedText ? {} : { text: 'Hello Ada. Your Northstar order is due Friday.' },
     }));
   }
   if (selected('referenceImage')) args.push(png);
@@ -108,8 +115,7 @@ for (const example of examples.filter(example => example.status === 'implemented
   if (selected('resume')) args.push(async ids => { assert.equal(ids.length, 1); approvals++; return ids; });
   try {
     console.log = () => {};
-    const module = await import(example.url.href);
-    const result = await module.example(...args);
+    const result = await runExample(example.url, ...args);
     assert.equal(approvals, selected('resume') ? 1 : 0);
     if (hosted) {
       assert.equal(result.text, 'done');
@@ -177,10 +183,9 @@ for (const streaming of [false, true]) {
   const example = examples.find(item => item.component === 'LLMAgent'
     && item.activeOptions.length === (streaming ? 3 : 2)
     && item.activeOptions.includes('resume') && item.activeOptions.includes('asStream') === streaming);
-  const module = await import(example.url.href);
   try {
     console.log = () => {};
-    const result = await module.example(languageModel(false), () => assert.fail('No approval request was made'));
+    const result = await runExample(example.url, languageModel(false), () => assert.fail('No approval request was made'));
     assert.equal(result.output, 'done');
   } finally { console.log = originalLog; }
 }

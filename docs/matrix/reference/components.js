@@ -1,4 +1,6 @@
 // Documentation choices describe API contracts, independently of example constraints.
+import sdkDocs from './sdk-docs.js';
+export { sourceModes } from './sources.js';
 const native = (operation, result, details = {}) => ({ operation, result, ...details });
 const nativeContext = { options: { description: 'Application input for Casai context validation. Required exactly when configured public defaults do not satisfy inputSchema.' } };
 const historyResult = [{ name: 'messageHistory', type: 'ModelMessage[]', description: 'Original conversation plus native response messages. This is the only result property added by Casai.' }];
@@ -6,10 +8,10 @@ const streamedHistoryResult = [{ name: 'messageHistory', type: 'Promise<ModelMes
 const recordedAudio = 'Uint8Array | ArrayBuffer | ReadableStream<string | Uint8Array>';
 export const componentReference = {
   Config: {
-    kind: 'configuration', input: 'A partial configuration and an optional compatible parent.',
-    resultSummary: 'A reusable configuration object. It performs no model or workflow execution.',
+    input: 'A partial configuration and an optional compatible parent.',
+    resultSummary: 'A reusable configuration object.',
     concepts: ['inheritance', 'configuration', 'schemas'],
-    propertyShapes: ['Template_config'], omit: ['template', 'promptType'],
+    propertyShapes: ['Template_config'], omit: ['template'],
     fragment: true,
     methods: [
       { name: 'Config', signature: 'Config(settings, parent?)', description: 'Creates a reusable fragment. Missing required settings are checked on the eventual component; the merged settings must fit one compatible component shape.' },
@@ -20,22 +22,24 @@ export const componentReference = {
     propertyShapes: [],
     relatedPropertyShapes: ['Template_config', 'Tool'], locations: [],
     override: 'These are related component settings or injected context values. See the receiving component for its invocation rules.',
-    kind: 'concept', input: 'An application object containing public defaults and private dependencies.',
-    resultSummary: 'Context is data passed to a component, not a factory or callable component.',
+    input: 'An application object containing public defaults and private dependencies.',
+    resultSummary: 'Application data passed to a component.',
     concepts: ['context', 'schemas', 'effects', 'tools'],
     relatedProperties: ['context', 'inputSchema', 'toolContextSchema', 'toolsContext', '_toolOptions'],
     methods: [],
   },
   Template: {
-    input: 'A Cascada template and application context.', resultSummary: 'A completed string.',
-    resultDescription: 'Renders Nunjucks-style variables, loops, conditions and macros. Independent expressions may run concurrently. Template streaming is not implemented.',
+    input: 'Cascada Template text and a context object supplying its variables.', resultSummary: 'The rendered text.',
+    sourceDescriptions: { 'async-template': 'The template text.', 'async-template-name': 'The template file name.' },
+    resultDescription: 'Renders variables, loops, conditions and macros in a Cascada Template. Independent expressions may run at the same time. Template streaming is not implemented.',
     toolResult: 'The rendered string.', concepts: ['sources', 'context', 'effects', 'inheritance', 'tools'],
     call: 'template(context?) or template(source, context?)', coded: true,
   },
   Script: {
-    input: 'A Cascada script and application context.', resultSummary: 'The returned value, parsed by schema when supplied.',
+    input: 'Cascada Script code and a context object whose fields become script variables.', resultSummary: 'The returned value, validated by schema when supplied.',
+    sourceDescriptions: { 'async-script': 'The script source code.', 'async-script-name': 'The script file name.' },
     resultDescription: 'Script implements workflow logic. Independent operations run concurrently. A returned JavaScript iterable can use streamSchema or textStreamSchema; native Cascada stream channels are not exposed here.',
-    toolResult: 'The parsed return value. A declared finite root stream is collected into a string or array.',
+    toolResult: 'The validated return value. If its schema declares a stream, the tool collects it into a string or array; the stream must end.',
     concepts: ['sources', 'context', 'effects', 'streams', 'inheritance', 'tools'], call: 'script(context?) or script(source, context?)', coded: true,
   },
   Function: {
@@ -45,7 +49,9 @@ export const componentReference = {
     concepts: ['context', 'schemas', 'streams', 'effects', 'inheritance', 'tools'], call: 'fn(context?)', coded: true, fixedImplementation: true,
   },
   LLMAgent: {
-    ...native('generateText', 'LLMAgent'), input: 'New prompt content, application context and optional literal conversation history.',
+    ...native('generateText', 'LLMAgent'), input: 'A prompt, values from context and optional conversation history.',
+    sourceDescriptions: { text: 'The text or messages to send to the model.', 'text-name': 'A file containing the prompt text to send to the model.' },
+    templateNotes: 'For a message object or array of messages, templates are rendered in text content. Images, files and other message parts are passed through unchanged.',
     resultSummary: 'The native SDK result with parsed output and Casai messageHistory.',
     resultDescription: 'output is text unless an SDK Output specification selects another value. Casai adds messageHistory; other result fields and methods retain native behavior. Output validity does not prove that every tool task finished.',
     toolResult: 'The completed parsed output. Paused, unfinished or stop-condition-cut-off inner workflows fail tool execution. Ordinary calls on the tool still return the native result.',
@@ -54,6 +60,8 @@ export const componentReference = {
     runShape: 'AgentRun', nativeDocs: 'StreamSettings',
     additionalResults: historyResult,
     variants: [{ requires: { stream: ['asStream'] }, operation: 'streamText', summaryOperation: 'streamText', result: 'LLMAgentStream', streamModifier: true,
+      descriptionSources: [sdkDocs.streamText.source],
+      description: 'Generate a response while making text, structured-output updates and tool events available as they arrive. Streaming is useful for chat and other interactive interfaces where readers should see progress before the full response is ready. Prompts, input preparation and tool calling work with the same underlying AI SDK generation flow.\n\nConsume the parts your application needs and await the final output or messageHistory when the response is complete. Partial structured values are still being built and do not establish that the finished output matches its schema. The stream and final values belong to the same execution.',
       resultSummary: 'A live SDK result; consume its streams and await final output and history.',
       resultDescription: 'textStream, partialOutputStream, elementStream and execution events share one native execution. Partial values do not establish whole-result validity. messageHistory resolves independently of output parsing.',
       additionalResults: streamedHistoryResult }],
@@ -67,46 +75,60 @@ export const componentReference = {
     ],
   },
   Decision: {
-    ...native('experimental_decide', 'Decision'), input: 'A state and configured named questions.',
+    ...native('experimental_decide', 'Decision'), input: 'Content to evaluate and named questions to answer.',
+    sourceDescriptions: { text: 'The text, JSON object or content parts to evaluate.', 'text-name': 'A file containing the text to evaluate against the configured questions.' },
+    templateNotes: 'In an array of parts, only objects with type "text" contain templates. File and JSON parts are passed through unchanged.',
     resultSummary: 'Typed answers and native decision metadata.',
     resultDescription: 'Question definitions select classification, boolean, score or spatial answers. The actual question types and supported state parts belong to the selected model.',
     toolResult: 'The answers object.', concepts: ['sources', 'context', 'tools', 'inheritance'], call: 'decide(state) or decide(context)',
   },
   Embedder: {
     ...native('embed / embedMany', 'Embedder'), input: 'One text or an array of texts.', resultSummary: 'One embedding or a list of embeddings, plus native metadata.',
-    resultDescription: 'A string selects embed and returns embedding. An array selects embedMany and returns embeddings. Source preparation does not select the operation; its resulting input does.',
+    sourceDescriptions: { text: 'The text or array of texts to embed.', 'text-name': 'A file containing the text to embed as one vector.' },
+    resultDescription: 'A string selects embed and returns embedding. An array selects embedMany and returns embeddings.',
     resultShapes: ['Embedder', 'EmbedderBatch'], toolResult: 'The vector or array of vectors.',
     concepts: ['sources', 'context', 'tools', 'inheritance'], call: 'embed(input) or embed(context)',
   },
   Reranker: {
     ...native('rerank', 'Reranker'), input: 'A query, candidate documents and optional result limit.', resultSummary: 'Native ranking entries with original indexes, documents and relevance scores.',
+    sourceDescriptions: { text: 'The search text used to rank the candidate documents.', 'text-name': 'A file containing the search query used to rank the candidate documents.' },
     toolResult: 'The ranking entries.', concepts: ['sources', 'context', 'tools', 'inheritance'],
     call: 'rank(query, documents?, topN?) or rank(context, documents?, topN?)', positional: ['documents', 'topN'],
   },
   ImageGenerator: {
     ...native('generateImage', 'ImageGenerator'), input: 'Text or a native image prompt, with optional reference images, mask and count.',
-    resultSummary: 'Generated images and the native generation metadata.', toolResult: 'Files as { mediaType, base64 }[]. The model receives image content unless toModelOutput changes the projection.',
+    sourceDescriptions: { text: 'An image description, or an object with text, reference images and an optional mask.', 'text-name': 'A file containing the description of the image to generate.' },
+    templateNotes: 'For an object prompt, the text field contains the template. Images and the mask are passed through unchanged.',
+    resultSummary: 'Generated images and the native generation metadata.', toolResult: 'Files as { mediaType, base64 }[]. The calling model receives the images; use toModelOutput to customize what it sees.',
     concepts: ['sources', 'context', 'image-media', 'tools', 'inheritance'],
     call: 'draw(text?, images?, mask?, n?) or draw(context, images?, mask?, n?)', positional: ['images', 'mask', 'n'],
   },
   Transcriber: {
     ...native('transcribe', 'Transcriber'), input: 'A recording as encoded data or a URL.', resultSummary: 'Transcript text, segments, language, duration and native metadata.',
+    sourceDescriptions: { text: 'The recording to transcribe, as encoded audio data or a URL.' },
     toolResult: 'Only text, segments, language and durationInSeconds; the model receives transcript text.',
     concepts: ['sources', 'context', 'audio', 'tools', 'inheritance'], call: 'transcribe(audio) or transcribe(context)',
     variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingTranscriber', types: 'StreamingTranscriber', activeOptions: ['asStream'],
+      descriptionSources: [sdkDocs.experimental_streamTranscribe.source],
+      description: 'Produce transcript updates while raw audio is arriving, using a transcription model with streaming support. This is useful for live captions, voice input and other interfaces that need text before a recording ends. Supply a fresh audio stream and the format of its chunks.\n\nThe result exposes transcript events and promises for the final transcript and metadata. A recording can also feed a stream, but use complete Transcriber for ordinary whole-file transcription. Supported raw-audio formats depend on the provider; an encoded audio file is not interchangeable with a stream of raw samples.',
       summaryOperation: 'experimental_streamTranscribe', ...native('experimental_streamTranscribe', 'StreamingTranscriber'),
       input: 'A fresh raw-audio stream and its input format.',
+      sourceDescriptions: { text: 'A fresh stream of raw audio chunks to transcribe.' },
       resultSummary: 'Native transcription events and final transcript promises.',
-      resultDescription: 'Ordinary calls return the live result. Prepared tool execution opens bounded audio and returns the completed transcript. For whole recordings prefer complete Transcriber.',
+      resultDescription: 'Ordinary calls return the live result. When called as a tool, a script or function opens an audio stream that ends, then the tool returns the completed transcript. For whole recordings prefer complete Transcriber.',
       call: 'transcribe(audio, inputAudioFormat?) or transcribe(context, inputAudioFormat?)', positional: ['inputAudioFormat'],
     }],
   },
   SpeechGenerator: {
     ...native('generateSpeech', 'SpeechGenerator'), input: 'A complete text string and optional voice.', resultSummary: 'A generated audio file and native metadata.',
+    sourceDescriptions: { text: 'The text to read aloud.', 'text-name': 'A file containing the text to read aloud.' },
     toolResult: 'A file as { mediaType, base64 }; the model receives a short confirmation.',
     concepts: ['sources', 'context', 'audio', 'tools', 'inheritance'], call: 'speak(text, voice?) or speak(context, voice?)', positional: ['voice'],
     variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingSpeechGenerator', types: 'StreamingSpeechGenerator', activeOptions: ['asStream'],
+      descriptionSources: [sdkDocs.experimental_streamSpeech.source],
+      description: 'Generate speech in chunks so an application can begin playback before all the audio is ready. Supply a complete text string or feed text incrementally, for example from a language model response. The selected speech model must support streaming.\n\nThe result exposes audio chunks, stream events and final metadata. Your application consumes the chunks and handles playback or delivery. Choose a supported voice and output format; streaming audio formats use their own format object, separate from the format string used by complete speech generation.',
       summaryOperation: 'experimental_streamSpeech', ...native('experimental_streamSpeech', 'StreamingSpeechGenerator'), input: 'A text string, iterable or stream of text deltas/parts; optional voice.',
+      sourceDescriptions: { text: 'The text to read aloud, supplied as a string, iterable or stream.', 'text-name': 'A file containing the text to read aloud.' },
       resultSummary: 'Live audio events and final native metadata.',
       resultDescription: 'outputFormat is a native audio-format object, not the complete operation’s format string. Suitable script/function preparers may return streamed text even though the example uses direct text input.',
     }],
@@ -114,7 +136,8 @@ export const componentReference = {
   Translator: {
     ...native('experimental_streamTranslate (one execution, collected)', null), types: 'StreamingTranslator',
     status: 'planned', input: 'Finite prerecorded raw audio bytes or a stream that ends, its format and target language.',
-    resultSummary: 'Planned: completed audio bytes, final source/translated text and native final metadata.',
+    sourceDescriptions: { text: 'Raw audio bytes or a finite stream of audio chunks to translate.' },
+    resultSummary: 'Completed audio bytes, final source/translated text and native final metadata.',
     resultDescription: 'The planned complete adapter consumes one native fullStream before reading final values. It collects audio as Uint8Array and preserves native error/completion semantics. It adds no errors array and infers no media type.',
     concepts: ['sources', 'context', 'audio', 'translation', 'inheritance'],
     call: 'translate(audio, inputAudioFormat?, targetLanguage?) or translate(context, inputAudioFormat?, targetLanguage?)', positional: ['inputAudioFormat', 'targetLanguage'],
@@ -125,16 +148,20 @@ export const componentReference = {
       { name: 'audio', type: 'Uint8Array', description: 'Collected translated audio bytes. Empty on a native text-only success; no media type is inferred.' },
       { name: 'sourceText', type: 'string', description: 'The authoritative final source text from the same native execution.' },
       { name: 'translationText', type: 'string', description: 'The authoritative final translated text.' },
-      ...['durationInSeconds', 'usage', 'warnings', 'response', 'providerMetadata'].map(name => ({ name, type: `Awaited<Experimental_StreamTranslationResult['${name}']>`, description: 'The resolved native final field, without a second execution or a new result contract.' })),
+      ...['durationInSeconds', 'usage', 'warnings', 'response', 'providerMetadata'].map(name => ({ name, type: `Awaited<Experimental_StreamTranslationResult['${name}']>`, description: 'The final value from the same translation call.' })),
     ],
     variants: [{ requires: { stream: ['asStream'] }, factory: 'StreamingTranslator', status: 'implemented', activeOptions: ['asStream'], omit: [], overrides: {}, inputTypes: {}, additionalResults: [],
+      descriptionSources: [sdkDocs.experimental_streamTranslate.source],
+      description: 'Translate speech into target-language audio and text as raw audio arrives. Use it when an application needs an ongoing translation instead of waiting for a complete recording. Supply an audio stream, its input format and the target language to a model that supports speech translation.\n\nConsume the stream to receive translated audio and text events, then read the final source text, translated text and metadata. The input may come from live capture or a recording supplied as a raw-audio stream. Supported languages and formats belong to the provider; written-text translation uses LLMAgent.',
       summaryOperation: 'experimental_streamTranslate', ...native('experimental_streamTranslate', 'StreamingTranslator'), input: 'A fresh raw-audio stream, its format and a target language.',
+      sourceDescriptions: { text: 'A fresh stream of raw audio chunks to translate.' },
       resultSummary: 'Live translated audio/text events and native final promises.',
-      resultDescription: 'Use one consumer of fullStream. Reading a final promise first can consume the underlying stream. Current input is a native stream; finite-byte admission is planned.',
+      resultDescription: 'Use one consumer of fullStream. Reading a final promise first can consume the underlying stream. Pass a raw-audio stream; passing a byte array directly is planned.',
     }],
   },
   VoiceSessionSetup: {
     ...native('doCreateClientSecret', 'VoiceSessionSetup'), input: 'Server-owned instructions, model, session preferences and optional tools.',
+    sourceDescriptions: { text: 'Instructions defining how the voice assistant should respond.', 'text-name': 'A file containing instructions for the voice assistant.' },
     resultSummary: 'Client-secret information plus prepared tool definitions.',
     resultDescription: 'Ordinary calls and run create a client secret where the model supports it. Token, WebRTC and Live capabilities differ by provider. The application owns transport, authentication and matching server context.',
     concepts: ['sources', 'context', 'voice-session', 'tools', 'inheritance'], call: 'setup(instructions?) or setup(context)', preparedSourceRequired: true,
@@ -151,24 +178,14 @@ export const componentReference = {
     ],
     methods: [
       { name: 'prepareSessionConfig', signature: 'setup.prepareSessionConfig(settings?)', description: 'Prepares instructions and tool definitions without opening a provider session. Empty tool definitions are omitted.', settings: 'run', omit: ['expiresAfterSeconds'], resultShape: 'SessionConfig' },
-      { name: 'createWebRTCSession', signature: 'setup.createWebRTCSession({ sdp, ...settings })', description: 'Answers a browser SDP offer using the configured model. Unsupported providers retain their native error.', settings: 'run', omit: ['expiresAfterSeconds'], properties: ['sdp'], resultShape: 'VoiceWebRTC_result' },
+      { name: 'createWebRTCSession', signature: 'setup.createWebRTCSession({ sdp, ...settings })', description: 'Answers a browser SDP offer using the configured model.', settings: 'run', omit: ['expiresAfterSeconds'], properties: ['sdp'], resultShape: 'VoiceWebRTC_result' },
       { name: 'executeTool', signature: 'setup.executeTool({ toolCallId, toolName, args }, { toolsContext?, abortSignal? }?)', description: 'Validates and executes a registered tool with the real call metadata. Returns the tool execution value without language-model toModelOutput formatting. Applications own HTTP transport and map undefined results to JSON null.', properties: ['toolCallId', 'toolName', 'args', 'toolsContext', 'abortSignal'] },
     ],
   },
 };
 
-export const sourceModes = {
-  text: { name: 'Direct input', value: 'direct', description: 'Use the native operation input without rendering it.' },
-  'text-name': { name: 'Loaded text', value: 'resource', description: 'Load a text resource and use its content literally.' },
-  'async-template': { name: 'Template', value: 'template', description: 'Render explicit text slots using Cascada’s Nunjucks-style syntax. Non-text native parts keep their shape.' },
-  'async-template-name': { name: 'Loaded template', value: 'resource', description: 'Load a .cat resource and render it with the application context.' },
-  'async-script': { name: 'Script', value: 'script', description: 'Run Cascada orchestration logic; independent operations run concurrently. Return the native operation input.' },
-  'async-script-name': { name: 'Loaded script', value: 'resource', description: 'Load a .cas resource and run its logic to produce the operation input.' },
-  function: { name: 'Function', value: 'function', description: 'Call a JavaScript function with prepared context; await its returned native operation input.' },
-};
-
 export const configSections = [
-  ['variants', 'Variant configuration'], ['essential', 'Primary property and essential setup'],
+  ['variants', 'Component behavior'], ['essential', 'Required settings'],
   ['source', 'Source preparation'], ['common', 'Common Casai configuration'],
   ['adapted', 'Component-specific and adapted behavior'], ['sdk', 'Remaining AI SDK properties'], ['invocation', 'Invocation reference'],
 ].map(([id, name]) => ({ id, name }));

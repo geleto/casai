@@ -31,12 +31,17 @@ export async function generate() {
   await rm(destination, { recursive: true, force: true });
   const authored = await readdir(new URL('docs/matrix/', root));
   assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', 'resources.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
-  assert.deepEqual(authored.filter(name => /\.(cat|cas)$/.test(name)).sort(), components.flatMap(item => item.resources).sort(), 'No duplicated streaming resources');
+  assert.deepEqual(authored.filter(name => /\.(cat|cas|txt)$/.test(name)).sort(), components.flatMap(item => item.resources).sort(), 'No duplicated streaming resources');
   const tricky = '{{ value }}\n${notJavaScript}\n`backticks` \\ slashes';
   assert.equal(Function(`return ${multiline(tricky)}`)(), tricky);
   assert.throws(() => renderExample({ component: 'Function', options: ['asTool'], description: 'Reader caption', variable: 'task' }), /model-facing toolDescription/);
   const examples = [], ids = new Set();
   for (const component of components) {
+    const defaultCode = (await render(component.name)).files[0].code;
+    const functionName = defaultCode.match(/export async function (\w+)\(/)?.[1];
+    assert(functionName && !['example', 'undefined'].includes(functionName), `${component.name}: use a descriptive entry point`);
+    assert(!defaultCode.includes('const input ='), `${component.name}: inline single-use example input`);
+    assert(!defaultCode.includes('${'), `${component.name}: pass ready-made strings in the default example`);
     assert.equal(component.groups.some(group => group.choices.some(choice => choice.id === 'run')), !['Config', 'Context'].includes(component.name));
     for (const options of selections(component)) {
       // Toggles maintain valid, ordered selections without full runtime validation.
@@ -48,7 +53,7 @@ export async function generate() {
       }
       const reads = [];
       const example = await render(component.name, options, { readText: url => { reads.push(fileURLToPath(url).split(/[\\/]/).at(-1)); return readText(url); } });
-      const expectedResource = options.some(id => ['withTemplate', 'loadTemplate'].includes(id)) ? `${component.name}.cat`
+      const expectedResource = options.includes('loadText') ? `${component.name}.txt` : options.some(id => ['withTemplate', 'loadTemplate'].includes(id)) ? `${component.name}.cat`
         : options.some(id => ['withScript', 'loadScript'].includes(id)) ? `${component.name}.cas`
         : !options.includes('withFunction') && ['Template', 'Script'].includes(component.name) ? `${component.name}.${component.name === 'Template' ? 'cat' : 'cas'}` : null;
       assert.deepEqual(reads, expectedResource ? [expectedResource] : [], `${component.name}: load only the selected source`);
@@ -57,6 +62,7 @@ export async function generate() {
       assert.equal(example.explanations.length, options.length);
       assert.equal(example.files[0].name, `${component.name}.ts`);
       assert(!example.files[0].code.includes('__MATRIX_'), example.id);
+      assert(example.files[0].code.includes(`export async function ${functionName}(`), `${example.id}: keep the scenario name across options`);
       const planned = component.name === 'Translator' && !options.includes('asStream');
       assert.equal(example.status, planned ? 'planned' : 'implemented', example.id);
       if (planned) {
@@ -147,7 +153,7 @@ const typoGroup: SDKGroupId = 'requests';
 void [typoComponent, typoChoice, typoSection, typoGroup];
 validateOptions('LLMAgent');
 await render('Context');
-const selected: SelectionExport = { schemaVersion: 1, reference: describe('LLMAgent'), example: await render('LLMAgent', [], { readText: async () => '' }) };
+const selected: SelectionExport = { schemaVersion: 3, reference: describe('LLMAgent'), example: await render('LLMAgent', [], { readText: async () => '' }) };
 const origin: 'casai' | 'cascada' | 'ai-sdk' = selected.reference.config.properties.model.origin;
 void origin;
 // @ts-expect-error A missing/renamed reference field must not silently become any.

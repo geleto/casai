@@ -4,7 +4,7 @@
 export const concepts = {
   configuration: {
     title: 'Construction and reusable configuration',
-    paragraphs: ['Factories take settings and an optional compatible parent. Required settings can be inherited. Config fragments may be incomplete, but every finished component must contain settings that shorthand cannot supply, such as model, Function execute and loaded-source loader.', 'The effective settings must match one component configuration shape. Native runtime delegation does not relax TypeScript compatibility. Ordinary calls and run return promises; invalid construction throws synchronously. Configuration is immutable by authoring contract; create a new component to replace captured bindings.'],
+    paragraphs: ['Factories take settings and an optional compatible parent. Required settings can be inherited. Config fragments may be incomplete, but every finished component must contain settings that shorthand cannot supply, such as model, Function execute and loaded-source loader.', 'The combined settings must be valid for the chosen component. Ordinary calls and run return promises; invalid construction throws synchronously. Treat configuration as read-only; create a new component to change its settings or dependencies.'],
     link: 'README.md#common-component-contracts',
   },
   inheritance: {
@@ -14,17 +14,17 @@ export const concepts = {
   },
   context: {
     title: 'Application input, defaults and private context',
-    paragraphs: ['Declare public application fields with inputSchema. Their configured context values act as defaults. Bound tool defaults override configured public defaults; explicit payload fields win next. Parse the shallow-merged application object once, then execute with parsed values plus selected private bindings.', 'Other configured names are private dependencies and cannot be replaced by caller/model data. Without an input schema, ordinary components can accept unrelated fields, while configured names remain private. Authored source and settings are not application payload, even when names coincide.'],
+    paragraphs: ['Declare public application fields with inputSchema. Their configured context values act as defaults. Bound tool defaults override configured public defaults; explicit payload fields win next. Casai combines these values, validates them once, then passes them to the component alongside its private helpers.', 'Other configured names are private dependencies and cannot be replaced by caller/model data. Without an input schema, ordinary components can accept unrelated fields, while configured names remain private. A context field named prompt, for example, is separate from the prompt source in configuration.'],
     link: 'README.md#input-defaults-and-private-context',
   },
   schemas: {
-    title: 'Schema boundaries',
+    title: 'Input and output validation',
     paragraphs: ['Casai accepts Zod 4 Classic/Mini, SDK schemas and Standard Schema. Direct Zod 3 schemas are rejected. Calls and configured defaults use schema input types; implementations and consumers use parsed output types.', 'Schema callbacks must be pure. Native copying, reference sharing, readonly freezing and default behavior are preserved; Casai does not deep-clone data to compensate. Prefer fresh structured defaults. Script/Function schema validates application output; LLMAgent output uses the SDK Output contract.'],
     link: 'README.md#input-defaults-and-private-context',
   },
   sources: {
-    title: 'Source preparation and loading',
-    paragraphs: ['The primary property keeps its name while the modifier changes its meaning: literal input, template, script, preparation function or resource name. Loaded modes require a loader at construction. Template/Script sources and Function callbacks are trusted application code, not a sandbox.', 'Cascada uses Nunjucks-style variables, loops, macros and conditions, and runs independent work concurrently. Only explicit text slots of native multimodal objects are rendered. AI preparers disable HTML escaping. Input preparers can call registered helpers; this does not give a specialized model a tool loop.'],
+    title: 'Text, templates, scripts and files',
+    paragraphs: ['Use input directly, render a Cascada Template, run a Cascada Script, or call a JavaScript function. The property name stays the same: for example, Reranker uses query in every mode. With .loadsText, .loadsTemplate or .loadsScript, supply a file name and a loader. Templates, scripts and functions are application code and must come from a trusted source.', 'A Cascada Template fills in variables and supports loops, conditions and macros. In messages and image prompts, it renders text fields; images, files and other non-text content pass through unchanged. AI input templates do not escape HTML characters. Independent expressions can run at the same time. Templates, scripts and functions can call registered tools while building the input; specialized AI models do not call those tools themselves.'],
     link: 'README.md#sources-loaders-and-rendering',
   },
   effects: {
@@ -33,8 +33,8 @@ export const concepts = {
     link: 'README.md#common-component-contracts',
   },
   tools: {
-    title: 'Expose a tool versus use tools',
-    paragraphs: ['asTool publishes this component through an SDK Tool descriptor. tools registers other tools callable by the model, workflow or preparer. Every Casai tool requires explicitly declared public root fields; dynamic dictionaries belong inside one declared field.', 'Ordinary calls and run retain their component result. SDK descriptor execution and injected helpers return the tool projection. Model-backed providerOptions configures the inner operation; coded tool providerOptions configures the descriptor. toolContextSchema maps to native contextSchema and validates trusted binding data separately.', 'Tools expose completed application results. Script/Function collect declared finite root streams. A streaming transcription tool needs an explicit preparer. LLMAgent tools cannot expose resumable inner pauses; incomplete work fails the tool call.'],
+    title: 'Expose this component or call other tools',
+    paragraphs: ['.asTool lets an AI agent or workflow call this component. tools registers other tools for the component to call. Declare the public arguments in inputSchema. Put dynamic key/value data inside a named field rather than accepting arbitrary top-level arguments.', 'Direct calls and .run() return the usual component result. An agent or workflow calling the tool receives the value described under Input & return. On AI components, providerOptions configures the model operation; on Template, Script and Function tools, it configures the SDK tool. toolContextSchema validates trusted tool context separately from public arguments.', 'Tool calls return completed results. Script and Function collect a returned stream when its schema declares one, so that stream must end. Streaming transcription tools need a script or function to open the audio stream. An LLMAgent tool fails if its work is unfinished or paused for approval.'],
     link: 'README.md#using-components-as-tools',
   },
   history: {
@@ -44,7 +44,7 @@ export const concepts = {
   },
   hooks: {
     title: 'Request and step preparation',
-    paragraphs: ['prepareCall(request, config, context) receives the resolved editable request and returns a complete replacement. It runs after application context preparation. prepareStep(step, config, context) runs only when the SDK schedules a step and returns native partial overrides.', 'Fixed output/contracts, explicit cancellation, composed observers and approval/telemetry policy retain protected handling. Hooks must return replacements without mutating shared settings. They do not perform source rendering again or rewrite retained history.'],
+    paragraphs: ['prepareCall(request, config, context) receives the resolved editable request and returns a complete replacement. It runs after application context preparation. prepareStep(step, config, context) runs only when the SDK schedules a step and returns native partial overrides.', 'Hooks cannot replace fixed output settings, remove explicit cancellation, or disable registered callbacks, approval rules or telemetry policy. Hooks must return replacements without mutating shared settings. They do not perform source rendering again or rewrite retained history.'],
     link: 'README.md#hooks',
   },
   steps: {
@@ -54,27 +54,27 @@ export const concepts = {
   },
   streams: {
     title: 'Application streams',
-    paragraphs: ['Script/Function may return async iterables. streamSchema parses each complete element lazily; textStreamSchema validates text chunks. Awaiting the call obtains the iterable, not a fully validated collection.', 'collectStream and collectTextStream collect explicitly. toReadableStream adapts an iterable. makeSharedIterable shares one validated source with explicit retention/disposal responsibilities. No automatic replay or whole-result validity is promised. Tool execution collects only a declared finite root stream.'],
+    paragraphs: ['Script/Function may return async iterables. streamSchema parses each complete element lazily; textStreamSchema validates text chunks. Awaiting the call obtains the iterable, not a fully validated collection.', 'collectStream and collectTextStream collect explicitly. toReadableStream adapts an iterable. makeSharedIterable shares one validated source with explicit retention/disposal responsibilities. No automatic replay or whole-result validity is promised. A tool collects the stream returned directly by the function or script when its schema declares one. That stream must end.'],
     link: 'README.md#streams-from-function-and-script',
   },
   audio: {
     title: 'Audio input, output and stream ownership',
-    paragraphs: ['Complete and streaming operations have distinct settings. Complete Transcriber accepts encoded recordings; current streaming transcription/translation require raw streams with format metadata. Complete speech uses a string outputFormat; streaming speech uses a native audio-format object.', 'Use fresh streams for independent invocations. Casai rejects a repeated ReadableStream identity handed to its live SDK path; it does not promise to detect external consumption or replay arbitrary iterators. Native results own stream completion, errors and cleanup. Consume event streams before awaiting final values where the native single-consumer contract requires it.', 'Provider capabilities still apply. Format metadata does not decode WAV/MP3 or resample PCM. The optional conversion helpers and finite-byte admission described in the streaming plan are not implemented yet.'],
+    paragraphs: ['Complete and streaming operations have distinct settings. Complete Transcriber accepts encoded recordings; current streaming transcription/translation require raw streams with format metadata. Complete speech uses a string outputFormat; streaming speech uses a native audio-format object.', 'Use fresh streams for independent invocations. Casai rejects reusing the same ReadableStream for live audio, but cannot detect whether other code has already read it. Native results own stream completion, errors and cleanup. Consume event streams before awaiting final values where the native single-consumer contract requires it.', 'Provider capabilities still apply. Format metadata does not decode WAV/MP3 or resample PCM. Audio conversion helpers and support for passing byte arrays directly to streaming components are planned.'],
     link: 'README.md#specialized-ai-components',
   },
   'image-media': {
-    title: 'Image prompts and media precedence',
-    paragraphs: ['Native prompt bundles own their media. Separate configured images/mask are defaults for split text/prepared sources. Explicit invocation images or mask override a resolved bundle. Text-only updates retain existing references.', 'New invocation images, including an empty array, drop the prior mask unless the call supplies one. Mask-only updates retain images. Constructor inheritance follows ordinary shallow merging; it differs from invocation replacement. An untouched native empty image array retains native SDK meaning.'],
+    title: 'Image descriptions, references and masks',
+    paragraphs: ['An image prompt object may contain text, images and a mask. When using a text prompt, template, script or function, you can configure images and mask separately as defaults. Images or a mask supplied in a call override the prompt object. Changing only the text keeps existing reference images.', 'Supplying new images in a call clears the old mask unless you also supply a new one. An empty images array clears the references. Changing only the mask keeps the images. Inherited configuration merges differently: replacing configured images does not automatically clear an inherited mask. An unchanged prompt object keeps the AI SDK behavior for empty image arrays.'],
     link: 'README.md#imagegenerator',
   },
   translation: {
     title: 'Speech translation and planned completion',
-    paragraphs: ['StreamingTranslator translates speech into target-language audio and text. A finite recording can feed its stream. Ordinary text translation uses LLMAgent with translation instructions.', 'Complete Translator is planned. Its selected contract reuses one native translation execution, collects audio bytes and reads resolved final text and metadata. No completed implementation exists yet; planned reference entries and examples must retain their status.'],
+    paragraphs: ['StreamingTranslator translates speech into target-language audio and text. A finite recording can feed its stream. Ordinary text translation uses LLMAgent with translation instructions.', 'Complete Translator is planned. Its selected contract reuses one native translation execution, collects audio bytes and reads resolved final text and metadata. This component is not implemented yet.'],
     link: 'README.md#streamingtranslator',
   },
   'voice-session': {
-    title: 'Voice session ownership',
-    paragraphs: ['VoiceSessionSetup prepares instructions and tools, creates supported client secrets or answers WebRTC offers. The native model determines capabilities. Use the model directly for relay connection information.', 'Applications own HTTP transport, authentication and server context. executeTool is a thin validated runner using real call metadata; it adds no session store, approval loop or audio loop. Its result is execution JSON, not the language-model toModelOutput projection.'],
+    title: 'Setting up a voice session',
+    paragraphs: ['VoiceSessionSetup prepares instructions and tools, creates client secrets or answers WebRTC offers, depending on the model. Use the model directly for relay connection information.', 'Your application handles HTTP requests, authentication and server context. executeTool validates and runs a registered tool using the incoming call ID and arguments. It returns the tool result without formatting it for a language model. Session storage, approvals and audio transport remain application responsibilities.'],
     link: 'README.md#voicesessionsetup',
   },
   errors: {

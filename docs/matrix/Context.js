@@ -3,7 +3,7 @@ export default function render() {
     files: [{ name: 'Context.ts', language: 'typescript', code: `import { Function, z } from 'casai';
 
 // Context holds application values and private dependencies.
-export async function example() {
+export async function quoteDeliveryWithContext() {
   const context = {
     currency: 'GBP',
     shipping: (weightKg: number) => 4 + Math.ceil(weightKg) * 0.5,

@@ -4,7 +4,7 @@ export default function render(options, resources) {
   const coded = prepared(options), streaming = has(options, 'asStream');
   const audio = streaming ? 'openRecording()' : 'recordingUrl';
   const tool = lookup(options, { name: 'findRecording', description: 'Find the available delivery recording.', value: "'delivery-note'" });
-  return renderExample({ component: 'Transcriber', variable: 'transcribeNote', options, modelType: 'TranscriptionModel',
+  return renderExample({ component: 'Transcriber', variable: 'transcribeNote', functionName: 'transcribeDeliveryNote', options, modelType: 'TranscriptionModel',
     streamingFactory: 'StreamingTranscriber',
     params: [streaming ? 'pcm24k: Uint8Array' : 'recordingUrl: URL'], description: 'Transcribe the same delivery note. Use complete mode for whole audio files.', imports: coded ? tool.imports : [],
     toolDescription: coded ? 'Transcribe the available delivery-note recording.' : 'Transcribe a delivery-note recording from its audio URL.',

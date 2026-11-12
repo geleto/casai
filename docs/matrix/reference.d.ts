@@ -6,6 +6,8 @@ export type SDKGroupId = 'operation' | 'model' | 'output' | 'tools' | 'callbacks
 
 export interface NativeProperty {
   name: string; type: string; displayType: string; optional: boolean; description: string;
+  /** Concrete values and examples for named types in the signature. */
+  typeDescription?: string | null;
   tags: { name: string; text: string }[]; source?: SourceLocation;
   descriptionSource?: SourceLocation; descriptionOrigin?: string; details?: TypeDetail;
 }
@@ -15,7 +17,10 @@ export interface TypeDetail {
   variants: { type: string; properties: NativeProperty[] }[];
 }
 export interface PropertyReference {
-  id: string; name: string; type: string; displayType: string; description: string; descriptionOrigin: string; default: string;
+  id: string; name: string; type: string; displayType: string; description: string; descriptionOrigin: string;
+  typeDescription?: string | null;
+  /** Documented default, or null when no default is specified. */
+  default: string | null;
   required: { construction: boolean; operation: boolean; description: string };
   locations: ('construction' | 'run' | 'ordinary')[]; override: string; inheritance: string;
   scope: string; origin: 'casai' | 'cascada' | 'ai-sdk'; adaptation: string | null;
@@ -26,10 +31,11 @@ export interface PropertyReference {
   deprecated: string | null; aliasFor: string | null;
 }
 export interface Concept { title: string; paragraphs: string[]; link: string }
-export interface SourceForm { modifier: string | null; mode: string; name: string; value: string; description: string; toolSupported: boolean; applicable: boolean }
+export interface SourceForm { modifier: string | null; mode: string; name: string; value: string; description: string; explanation: string; toolSupported: boolean; applicable: boolean }
 /** Method-only inputs may have local explanatory fields without a native type. */
 export interface LocalProperty {
-  name: string; description?: string; type?: string; default?: string; required?: string;
+  name: string; description?: string; type?: string; default?: string | null; required?: string;
+  displayType?: string; typeDescription?: string | null;
   notes?: string; inheritance?: string; origin?: string; scope?: string; section?: string;
   adaptation?: string; nested?: NativeProperty[];
 }
@@ -37,7 +43,7 @@ export interface MethodReference extends Rules {
   name: string; signature: string; description: string; kind?: string;
   shape?: string; resultShape?: string; argumentOverrides?: Record<string, Partial<NativeProperty>>;
   arguments?: NativeProperty[]; propertyIds?: string[]; properties?: LocalProperty[]; result?: NativeProperty[];
-  additionalProperties?: { name: string; type: string; description: string }[];
+  additionalProperties?: { name: string; type: string; description: string; displayType?: string; typeDescription?: string | null }[];
 }
 export interface Section { id: string; name: string }
 export interface ConfigSection extends Section {
@@ -50,7 +56,9 @@ export interface ReferenceForm {
   sourceMode: string | null; sourceModifier: string | null; notices: string[];
 }
 export interface ReferenceInfo {
-  description: string; descriptionSource: DescriptionSource | null; kind: 'component' | 'configuration' | 'concept'; input: string; result: string;
+  shortDescription: string; shortDescriptionSource: DescriptionSource | null; kind: 'component' | 'configuration' | 'concept'; input: string; result: string;
+  /** Full explanation for the selected form. */
+  description: string; descriptionSources: SourceLocation[];
   controls: ControlSection[];
 }
 export interface ReferenceConfig {
@@ -61,7 +69,7 @@ export interface ReferenceConfig {
 }
 export interface ReferenceResult {
   description: string; tool: string | null; shapes: { name: string; properties: NativeProperty[] }[];
-  additionalProperties: { name: string; type: string; description: string }[];
+  additionalProperties: { name: string; type: string; description: string; displayType?: string; typeDescription?: string | null }[];
 }
 export interface ComponentReference {
   component: ComponentName; activeOptions: ChoiceId[]; canonical: ReferenceSelection; status: 'implemented' | 'planned'; versions: Record<string, string>;
@@ -71,8 +79,8 @@ export interface ComponentReference {
   relatedComponents: string[]; relatedProperties: PropertyReference[];
   example: { constraints: (Rules & { id: string })[]; note: string };
 }
-export interface CatalogExport { schemaVersion: 1; components: Component[]; concepts: Record<string, Concept>; versions: Record<string, string> }
-export interface SelectionExport { schemaVersion: 1; reference: ComponentReference; example: Example }
+export interface CatalogExport { schemaVersion: 3; components: Component[]; concepts: Record<string, Concept>; versions: Record<string, string> }
+export interface SelectionExport { schemaVersion: 3; reference: ComponentReference; example: Example }
 export type MatrixExport = CatalogExport | SelectionExport;
 
 export const configSections: (Section & { id: ConfigSectionId })[];

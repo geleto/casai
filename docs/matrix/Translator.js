@@ -3,7 +3,7 @@ import { has, prepared, source, lookup, contextField, renderExample, audioStream
 export default function render(options, resources) {
   const coded = prepared(options), streaming = has(options, 'asStream');
   const tool = lookup(options, { name: 'findRecording', description: 'Find a finite delivery-note recording.', value: "'delivery-note'" });
-  return renderExample({ component: 'Translator', variable: 'translateNote', options,
+  return renderExample({ component: 'Translator', variable: 'translateNote', functionName: 'translateDeliveryNote', options,
     streamingFactory: 'StreamingTranslator',
     modelType: "Parameters<typeof import('ai').experimental_streamTranslate>[0]['model']",
     params: ['pcm24k: Uint8Array'], description: 'Translate the same spoken delivery note into French.',

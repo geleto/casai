@@ -1,9 +1,9 @@
 // These helpers generate source text; they never execute a displayed example.
 export const has = (options, name) => options.includes(name);
-export const sourceModes = ['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'];
+export const sourceModes = ['withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
 export const sourceMode = options => sourceModes.find(name => has(options, name));
-export const sourceKind = options => sourceMode(options)?.includes('Template') ? 'cat' : sourceMode(options)?.includes('Script') ? 'cas' : undefined;
-export const prepared = options => Boolean(sourceMode(options));
+export const sourceKind = options => sourceMode(options)?.includes('Template') ? 'cat' : sourceMode(options)?.includes('Script') ? 'cas' : has(options, 'loadText') ? 'txt' : undefined;
+export const prepared = options => Boolean(sourceMode(options)) && !has(options, 'loadText');
 export const literal = value => JSON.stringify(value);
 export const indent = (text, spaces = 2) => text.split('\n').map(line => line ? ' '.repeat(spaces) + line : '').join('\n');
 
@@ -37,7 +37,7 @@ export function source(component, field, options, resources, plain, fn, defaultK
       "loader: new FileSystemLoader(fileURLToPath(new URL('.', import.meta.url))),",
       `${field}: ${literal(name)},`,
     ],
-    files: [{ name, language: kind === 'cat' ? 'jinja' : 'cascada', code }],
+    files: [{ name, language: kind === 'cat' ? 'jinja' : kind === 'cas' ? 'cascada' : 'text', code }],
     loaded: true,
   };
   return { fields: [`${field}: __MATRIX_SOURCE__,`], files: [], loaded: false, inlineText: code };
@@ -89,7 +89,7 @@ return {
 };`;
 }
 
-export function renderExample({ component, options, variable, params = [], modelType, streamingFactory,
+export function renderExample({ component, options, variable, functionName, params = [], modelType, streamingFactory,
   imports = [], setup = [], fields = [], source: input = { fields: [], files: [] },
   description, toolDescription, schema, toolArgs = '{}', toolCaller = 'agent', toolPrompt,
   call = `${variable}()`, named = '{}', result = 'return result;', body, typeImports = [], aiImports = [] }) {
@@ -128,7 +128,7 @@ export function renderExample({ component, options, variable, params = [], model
   const declaration = `const ${variable} = ${factory(api, modifiers)}({\n${indent(config.join('\n'))}\n});`;
   const invocation = body ?? (asTool && !has(options, 'run') ? toolUse(variable, toolArgs, toolCaller, toolPrompt)
     : `const result = await ${has(options, 'run') ? `${variable}.run(${asTool ? `{ context: ${toolArgs} }` : named})` : call};\n${result}`);
-  let code = `${importLines.join('\n')}\n\n// ${description}\nexport async function example(${parameters.join(', ')}) {\n${indent([...setup, declaration, invocation].filter(Boolean).join('\n\n'))}\n}\n`;
+  let code = `${importLines.join('\n')}\n\n// ${description}\nexport async function ${functionName}(${parameters.join(', ')}) {\n${indent([...setup, declaration, invocation].filter(Boolean).join('\n\n'))}\n}\n`;
   if (input.inlineText !== undefined) code = code.replace('__MATRIX_SOURCE__', () => multiline(input.inlineText));
   return { id: exampleId(component, options),
     configuration: { component, factory: factory(api, modifiers), variable,
