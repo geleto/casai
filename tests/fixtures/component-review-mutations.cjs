@@ -6,8 +6,26 @@ const { spawnSync } = require('node:child_process');
 const workspace = path.resolve(__dirname, '../..');
 const temporary = fs.mkdtempSync(path.join(workspace, '.component-review-mutations-'));
 const filter = new RegExp(process.argv[2] ?? '');
-const tests = ['tests/ComponentBoundaryReview.unit.test.ts', 'tests/ClaudeRuntimeReview.unit.test.ts', 'tests/StructuredSources.unit.test.ts', 'tests/ComponentCalls.unit.test.ts', 'tests/VoiceSessionSetup.unit.test.ts'];
+const tests = ['tests/ComponentBoundaryReview.unit.test.ts', 'tests/ClaudeRuntimeReview.unit.test.ts', 'tests/StructuredSources.unit.test.ts', 'tests/ComponentCalls.unit.test.ts', 'tests/VoiceSessionSetup.unit.test.ts', 'tests/ConfigModifiers.unit.test.ts'];
 const mutations = [
+  ['Config source selection', 'src/factories/Config.ts',
+    'if (mode !== undefined) Object.assign(merged, { [sourceMode]: mode });', '',
+    'inherits withScript with ordinary|replaces source modes without changing parents'],
+  ['Config tool selection', 'src/factories/Config.ts',
+    'if (asTool) merged.asTool = true;', '',
+    'inherits withTemplate with asTool'],
+  ['Config stream selection', 'src/factories/Config.ts',
+    'if (streaming) merged.streaming = true;', '',
+    'inherits withTemplate with asStream'],
+  ['Config private source selector', 'src/config/source-mode.ts',
+    "'promptType' in settings", 'false',
+    'rejects authored promptType before modifiers'],
+  ['Config source SDK projection', 'src/runtime/llm-agent.ts',
+    "'toolContextSchema', sourceMode, 'filters'", "'toolContextSchema', 'filters'",
+    'strips internal source metadata before the SDK request hook'],
+  ['Config invocation source control', 'src/runtime/agent-settings-policy.ts',
+    "'promptType', sourceMode, 'filters'", "'promptType', 'filters'",
+    'rejects copied source metadata on every agent invocation entry'],
   ['plain shorthand keyword boundary', 'src/runtime/component-call.ts',
     "if (keywords) throw new ValidationError('Use .run() for named operation arguments.');", '',
     'keeps plain non-tool shorthand source-first'],
@@ -93,7 +111,7 @@ try {
   // Only production source and the selected mock suites are needed; dependencies resolve from the workspace.
   fs.cpSync(path.join(workspace, 'src'), path.join(temporary, 'src'), { recursive: true });
   fs.mkdirSync(path.join(temporary, 'tests/fixtures'), { recursive: true });
-  for (const file of [...tests, 'tests/cascada.ts', 'tests/fixtures/runtime-call.ts']) fs.copyFileSync(path.join(workspace, file), path.join(temporary, file));
+  for (const file of [...tests, 'tests/cascada.ts', 'tests/fixtures/runtime-call.ts', 'tests/fixtures/source-modes.ts', 'tests/fixtures/phase2-security-sdk.ts']) fs.copyFileSync(path.join(workspace, file), path.join(temporary, file));
   fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({ name: 'casai', type: 'module',
     exports: { '.': { 'casai-source': './src/index.ts', default: './src/index.ts' } } }));
   const selected = mutations.filter(([name]) => filter.test(name));

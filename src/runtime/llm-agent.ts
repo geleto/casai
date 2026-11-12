@@ -1,3 +1,4 @@
+import { sourceMode, sourceSettingsError } from '../config/source-mode.js';
 import type { LanguageModel, ModelMessage, OutputInterface, StopCondition, ToolSet } from 'ai';
 import { isStepCount } from 'ai';
 import type { CascadaConfig } from '../types/config.js';
@@ -22,7 +23,7 @@ type StepHook = (step: PrepareStepOptions, config: RuntimeAgentConfig, context: 
 export type RuntimeAgentConfig = ExecutionConfig & CascadaConfig & Fields & {
 	model: LanguageModel;
 	prompt?: AnyPromptSource;
-	promptType: PromptType;
+	[sourceMode]: PromptType;
 	streaming?: true;
 	output?: OutputInterface;
 	prepareCall?: CallHook;
@@ -30,7 +31,7 @@ export type RuntimeAgentConfig = ExecutionConfig & CascadaConfig & Fields & {
 	abortSignal?: AbortSignal;
 };
 
-export const componentSettings = ['prompt', 'messageHistory', 'context', 'inputSchema', 'toolContextSchema', 'promptType', 'filters',
+export const componentSettings = ['prompt', 'messageHistory', 'context', 'inputSchema', 'toolContextSchema', sourceMode, 'filters',
 	'renderOptions', 'loader', 'id', 'streaming', 'asTool', 'debug', 'prepareCall', ...descriptorKeys.filter(key => key !== 'providerOptions')] as const;
 
 /** Positional calls select source, context, then history. Only marked Cascada keywords may follow history. */
@@ -88,7 +89,7 @@ export function createLLMAgent(config: RuntimeAgentConfig): object {
 			validateAgentSettings(raw, ValidationError);
 		}
 		const invalid = [...fixedSettings, ...agentSourceConflicts, ...(native ? [] : retiredSettings)].filter(key => Object.hasOwn(raw, key));
-		if (invalid.length) throw new ValidationError(`Unsupported LLMAgent settings: ${invalid.join(', ')}.`);
+		if (invalid.length) throw new ValidationError(sourceSettingsError(raw, true) ?? `Unsupported LLMAgent settings: ${invalid.map(String).join(', ')}.`);
 		if (native) literal = messages(supplied.messages !== undefined ? supplied.messages : supplied.prompt);
 		delete supplied.messages;
 		if (native) delete supplied.prompt;

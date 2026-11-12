@@ -94,7 +94,9 @@ function location(declaration) {
 }
 function extractShape(type, statement, name) {
   // Primitive branches have no configuration fields (not String/Number methods).
-  shapes[name] = (type.flags & ts.TypeFlags.Object || type.isIntersection() || type.isUnion() ? checker.getPropertiesOfType(type) : []).map(symbol => {
+  shapes[name] = (type.flags & ts.TypeFlags.Object || type.isIntersection() || type.isUnion() ? checker.getPropertiesOfType(type) : []).filter(symbol => !symbol.declarations?.some(declaration =>
+    declaration.name && ts.isComputedPropertyName(declaration.name)
+    && (checker.getTypeAtLocation(declaration.name.expression).flags & ts.TypeFlags.ESSymbolLike))).map(symbol => {
     const documented = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
     const declaration = documented.valueDeclaration ?? documented.declarations?.[0];
     const property = {

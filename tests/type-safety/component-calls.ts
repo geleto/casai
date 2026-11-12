@@ -1,3 +1,4 @@
+import { sourceModes } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import type { EmbedResult, EmbedManyResult, Experimental_RealtimeModel } from 'ai';
 import type { EmbeddingModelV4, ImageModelV4, RerankingModelV4, TranscriptionModelV4, SpeechModelV4 } from '@ai-sdk/provider';
@@ -215,7 +216,7 @@ void create.SpeechGenerator({ model: speech })('hi', 'voice', 'mp3');
 // @ts-expect-error Signals belong to invocations.
 create.Transcriber({ model: transcription, abortSignal: new AbortController().signal });
 // @ts-expect-error Inheritance cannot add a template mode to audio sources.
-create.Transcriber({ model: transcription, promptType: 'async-template', audio: 'template' });
+create.Transcriber({ model: transcription, ...sourceModes["async-template"].config, audio: 'template' });
 
 declare const realtime: Experimental_RealtimeModel;
 const voice = create.VoiceSessionSetup({ model: realtime });

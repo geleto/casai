@@ -1,5 +1,6 @@
 // Documentation choices describe API contracts, independently of example constraints.
 import sdkDocs from './sdk-docs.js';
+import { configSourceForms } from './sources.js';
 export { sourceModes } from './sources.js';
 const native = (operation, result, details = {}) => ({ operation, result, ...details });
 const nativeContext = { options: { description: 'Application input for Casai context validation. Required exactly when configured public defaults do not satisfy inputSchema.' } };
@@ -12,9 +13,17 @@ export const componentReference = {
     resultSummary: 'A reusable configuration object.',
     concepts: ['inheritance', 'configuration', 'schemas'],
     propertyShapes: ['Template_config'], omit: ['template'],
-    fragment: true,
+    fragment: true, streamModifier: true, sourceForms: configSourceForms,
+    selectionNote: 'The inheriting component must support every selected modifier and setting. Streaming and tool mode cannot be combined.',
+    exampleNote: 'LLMAgent supports every Config selection shown here. It inherits the shared settings and overrides its instructions. Other components must support the modifiers and settings you pass to them.',
     methods: [
       { name: 'Config', signature: 'Config(settings, parent?)', description: 'Creates a reusable fragment. Missing required settings are checked on the eventual component; the merged settings must fit one compatible component shape.' },
+      ...['withText', 'withTemplate', 'withScript', 'withFunction', 'loadsText', 'loadsTemplate', 'loadsScript'].map(modifier => ({
+        name: modifier, signature: `Config.${modifier}(settings, parent?)`,
+        description: `Selects the same source interpretation as the component's .${modifier} modifier. The explicit selection replaces an inherited source mode. A fragment may leave the source or loader for its consuming component.`,
+      })),
+      { name: 'asTool', signature: 'Config[.sourceModifier].asTool(settings, parent?)', description: 'Enables tool mode on the consuming component. For example, Config.withTemplate.asTool combines template preparation with tool adaptation. The fragment itself is not executable; the completed component must supply a closed inputSchema and its other tool requirements.' },
+      { name: 'asStream', signature: 'Config[.sourceModifier].asStream(settings, parent?)', description: 'Enables streaming on a compatible consuming component. For example, Config.withFunction.asStream prepares a streaming LLMAgent prompt with a function. Current streaming and tool flags cannot be combined. Select the source first, then .asTool or .asStream; reverse chains are not provided.' },
       { name: 'config', signature: 'fragment.config', description: 'The resolved reusable fragment. Pass the fragment as a parent; treat captured configuration as immutable.' },
     ],
   },

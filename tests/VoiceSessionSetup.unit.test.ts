@@ -1,3 +1,4 @@
+import { sourceModes } from './fixtures/source-modes.js';
 import assert from 'node:assert/strict';
 import { createOpenAI } from '@ai-sdk/openai';
 import { tool, UnsupportedFunctionalityError } from 'ai';
@@ -50,8 +51,8 @@ describe('experimental voice session setup', () => {
 		const { openai } = provider();
 		const model = openai.experimental_realtime('gpt-realtime');
 		for (const prepared of [false, true]) {
-			const config = prepared ? { model, promptType: 'function' as const, instructions: () => 'ready' }
-				: { model, promptType: 'text' as const };
+			const config = prepared ? { model, ...sourceModes.function.config, instructions: () => 'ready' }
+				: { model, ...sourceModes.text.config };
 			const session = create.VoiceSessionSetup(config);
 			const settings = await session.prepareSessionConfig({ voice: 'alloy' });
 			assert.equal(settings.voice, 'alloy');

@@ -1,5 +1,8 @@
 // Generated from canonical .cat/.cas/.txt files. Run npm run docs:matrix after editing them.
 export default {
+  "Config.cas": "return 'Write a delivery update for ' ~ name ~ '.'\n",
+  "Config.cat": "Write a delivery update for {{ name }}.\n",
+  "Config.txt": "Write a delivery update for Ada.\n",
   "Decision.cas": "return \"Customer request: \" ~ issue ~ \"\\n\" ~ lookupInfo()\n",
   "Decision.cat": "Customer request: {{ issue }}\n{{ lookupInfo() }}\n",
   "Decision.txt": "My mug arrived cracked.\n",

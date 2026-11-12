@@ -1,3 +1,4 @@
+import { sourceModes } from './fixtures/source-modes.js';
 import assert from 'node:assert/strict';
 import { asSchema, generateImage, generateText } from 'ai';
 import { validateTypes } from '@ai-sdk/provider-utils';
@@ -62,10 +63,10 @@ describe('ImageGenerator: native dispatch and public tool boundary', () => {
 		const { model, requests } = fixture();
 		const inputSchema = z.object({ text: z.string(), images: z.array(z.instanceof(Uint8Array)) });
 		for (const template of [false, true]) {
-			const config = template ? { model, promptType: 'async-template' as const, prompt: { text: '{{ text }}', images: [png] }, inputSchema }
-				: { model, promptType: 'text' as const, context: { text: 'private binding' } };
+			const config = template ? { model, ...sourceModes["async-template"].config, prompt: { text: '{{ text }}', images: [png] }, inputSchema }
+				: { model, ...sourceModes.text.config, context: { text: 'private binding' } };
 			await create.ImageGenerator(config)({ text: 'new', images: [png] });
-			if (!template) assert.equal(config.context?.text, 'private binding');
+			if ('context' in config) assert.equal(config.context?.text, 'private binding');
 		}
 		assert.deepEqual(requests.map(request => [request.prompt, request.files?.length]), [['new', 1], ['new', 1]]);
 	});

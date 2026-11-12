@@ -1,3 +1,4 @@
+import { type SourceMode } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import { Output } from 'ai';
 import type { LanguageModel, EmbeddingModel, RerankingModel, InferToolInput, InferToolOutput, ModelMessage } from 'ai';
@@ -148,8 +149,8 @@ create.LLMAgent({ model, prompt: 'Fixed' }, { config: badDescriptor });
 
 // An ordinary script alternative cannot widen the SDK result of a function tool.
 declare const modeEmbedConfig:
-	| { model: EmbeddingModel; promptType: 'async-script'; input: string; asTool?: undefined }
-	| { model: EmbeddingModel; promptType: 'function'; input: () => string; inputSchema: typeof empty; asTool: true };
+	| (SourceMode<'async-script'> & { model: EmbeddingModel; input: string; asTool?: undefined })
+	| (SourceMode<'function'> & { model: EmbeddingModel; input: () => string; inputSchema: typeof empty; asTool: true });
 const modeEmbed = create.Embedder({}, { config: modeEmbedConfig });
 void modeEmbed();
 if ('execute' in modeEmbed) {
@@ -162,8 +163,8 @@ if ('execute' in modeEmbed) {
 }
 
 declare const modeRankConfig:
-	| { model: RerankingModel; promptType: 'async-script'; query: string; asTool?: undefined }
-	| { model: RerankingModel; promptType: 'function'; query: () => { query: string; documents: { tool: true }[] }; inputSchema: typeof empty; asTool: true };
+	| (SourceMode<'async-script'> & { model: RerankingModel; query: string; asTool?: undefined })
+	| (SourceMode<'function'> & { model: RerankingModel; query: () => { query: string; documents: { tool: true }[] }; inputSchema: typeof empty; asTool: true });
 const modeRank = create.Reranker({}, { config: modeRankConfig });
 void modeRank();
 if ('execute' in modeRank) {
@@ -172,8 +173,8 @@ if ('execute' in modeRank) {
 
 // A script that can actually run as the tool retains its native, untyped result alternatives.
 declare const scriptToolConfig:
-	| { model: EmbeddingModel; promptType: 'function'; input: () => string; asTool?: undefined }
-	| { model: EmbeddingModel; promptType: 'async-script'; input: string; inputSchema: typeof empty; asTool: true };
+	| (SourceMode<'function'> & { model: EmbeddingModel; input: () => string; asTool?: undefined })
+	| (SourceMode<'async-script'> & { model: EmbeddingModel; input: string; inputSchema: typeof empty; asTool: true });
 const scriptTool = create.Embedder({}, { config: scriptToolConfig });
 if ('execute' in scriptTool) expectEqual<InferToolOutput<typeof scriptTool>, number[] | number[][]>();
 

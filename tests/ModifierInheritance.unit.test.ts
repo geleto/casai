@@ -12,7 +12,7 @@ describe('modifier inheritance', () => {
 		// Erased inputs exercise runtime enforcement independently of types.
 		assert.throws(() => create.LLMAgent.asTool({} as never, streaming), /generation-only/);
 		assert.throws(() => create.LLMAgent.asStream({} as never, tool), /generation-only/);
-		assert.throws(() => create.LLMAgent({} as never, create.Config({ streaming: true }, tool)), /generation-only/);
+		assert.throws(() => create.LLMAgent({} as never, create.Config({ streaming: true } as never, tool)), /asStream.*asTool/);
 		assert.throws(() => create.LLMAgent({ ...config, asTool: true, streaming: true } as never), /generation-only/);
 	});
 	it('inherits loaded Template and Script sources through Config and supports explicit inline sources', async () => {
@@ -39,19 +39,24 @@ describe('modifier inheritance', () => {
 		assert.throws(() => create.Function({ inputSchema: undefined } as never, fn), ConfigError);
 	});
 
-	it('inherits an LLMAgent source and generation tool mode', () => {
-		const parent = create.LLMAgent.withTemplate.asTool({ model: new MockLanguageModelV3(), inputSchema: z.object({}), prompt: 'hello' });
+	it('inherits an LLMAgent source and generation tool mode', async () => {
+		const model = modelFor(undefined);
+		const parent = create.LLMAgent.withTemplate.asTool({ model, inputSchema: z.object({}), prompt: 'hello {{ name }}', context: { name: 'Ada' } });
 		const child = create.LLMAgent({}, create.Config({ asTool: undefined }, parent));
-		assert.equal(child.config.promptType, 'async-template');
 		assert.equal('streaming' in child.config, false);
 		assert.equal(child.config.asTool, true);
 		assert.equal(typeof child.execute, 'function');
 		assert.equal('generate' in child, false);
 		assert.equal('id' in child, false);
 		const literal = create.LLMAgent.withText({}, child);
-		assert.equal(literal.config.promptType, 'text');
 		assert.equal(literal.config.asTool, true);
 		assert.equal('streaming' in literal.config, false);
+		await child();
+		await literal();
+		assert.deepEqual(model.doGenerateCalls.map(call => call.prompt[0].content), [
+			[{ type: 'text', text: 'hello Ada' }],
+			[{ type: 'text', text: 'hello {{ name }}' }],
+		]);
 		assert.throws(() => create.LLMAgent({ inputSchema: undefined } as never, parent), ConfigError);
 	});
 	it('inherits function preparation and parses input before an overriding callback', async () => {
@@ -63,15 +68,15 @@ describe('modifier inheritance', () => {
 		assert.equal((await parent({ amount: '3' })).messageHistory[0].content, '3');
 	});
 
-	it('rejects unsupported inherited modes and allows explicit source selection', () => {
-		const templateSource = create.Config({ promptType: 'async-template' });
-		const scriptSource = create.Config({ promptType: 'async-script' });
+	it('rejects unsupported inherited modes and allows explicit source selection', async () => {
+		const templateSource = create.Config.withTemplate({ });
+		const scriptSource = create.Config.withScript({ });
 		// @ts-expect-error The base factory preserves an incompatible inherited source.
 		assert.throws(() => create.Template({ template: 'hello' }, scriptSource), /Template source modifier/);
 		// @ts-expect-error The base factory preserves an incompatible inherited source.
 		assert.throws(() => create.Script({ script: 'return 1' }, templateSource), /Script source modifier/);
-		assert.equal(create.Template.withTemplate({ template: 'hello' }, scriptSource).config.promptType, 'async-template');
-		assert.equal(create.Script.withScript({ script: 'return 1' }, templateSource).config.promptType, 'async-script');
+		assert.equal(await create.Template.withTemplate({ template: 'hello' }, scriptSource)(), 'hello');
+		assert.equal(await create.Script.withScript({ script: 'return 1' }, templateSource)(), 1);
 		assert.throws(() => create.Function({ execute: () => 1, streaming: true } as never), ConfigError);
 		assert.throws(() => create.Function({ execute: () => 1, asTool: false } as never), ConfigError);
 	});

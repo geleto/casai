@@ -86,10 +86,10 @@ async function runExample(url, ...args) {
 let passed = 0;
 for (const example of examples.filter(example => example.status === 'implemented')) {
   const selected = id => example.activeOptions.includes(id);
-  const operation = selected('asStream') && ['SpeechGenerator', 'Transcriber', 'Translator'].includes(example.component) ? `Streaming${example.component}` : example.component;
+  const operation = example.component === 'Config' ? 'LLMAgent' : selected('asStream') && ['SpeechGenerator', 'Transcriber', 'Translator'].includes(example.component) ? `Streaming${example.component}` : example.component;
   const { model, requests } = fixture(operation);
   const args = model ? [model] : [];
-  const hosted = selected('asTool') && !selected('run') && example.component !== 'Embedder';
+  const hosted = selected('asTool') && !selected('run') && !['Embedder', 'Config'].includes(example.component);
   if (hosted) {
     const prepared = ['withTemplate', 'withScript', 'withFunction', 'loadTemplate', 'loadScript'].some(selected);
     const loadedText = selected('loadText');
@@ -121,7 +121,14 @@ for (const example of examples.filter(example => example.status === 'implemented
       assert.equal(result.text, 'done');
       assert.equal(result.toolResults.length, 1);
       assert.equal(result.toolResults[0].type, 'tool-result');
-    } else if (example.component === 'Config') assert.match(result.outlet, /Northstar Outlet/);
+    } else if (example.component === 'Config') {
+      assert.equal(result, 'done');
+      const calls = [...model.doGenerateCalls, ...model.doStreamCalls];
+      assert.match(JSON.stringify(calls[0].prompt), /Write a delivery update for Ada/);
+      assert.match(JSON.stringify(calls[0].prompt), /Northstar Outlet/);
+      assert.equal(Boolean(calls[0].tools?.length), selected('useTools'));
+      assert.equal(model.doStreamCalls.length > 0, selected('asStream'));
+    }
     else if (example.component === 'Context') assert.deepEqual(result, { amount: 5, currency: 'GBP' });
     else if (example.component === 'Template') { assert.match(result, /Ada/); assert.match(result, /Friday/); }
     else if (example.component === 'Script') assert.deepEqual(result, { orderId: 'N-1042', total: 52, deliveryDay: 'Friday' });
@@ -136,7 +143,7 @@ for (const example of examples.filter(example => example.status === 'implemented
     else if (example.component === 'VoiceSessionSetup' && selected('useTools')) {
       assert.deepEqual(await result.executeTool({ toolCallId: 'actual-call', toolName: 'lookupOrder', args: { orderId: 'N-1042' } }), { orderId: 'N-1042', deliveryDay: 'Friday' });
     }
-    if (model && example.component !== 'LLMAgent') assert.equal(requests.length, selected('prepareSession') ? 0 : 1);
+    if (model && !['LLMAgent', 'Config'].includes(example.component)) assert.equal(requests.length, selected('prepareSession') ? 0 : 1);
     if (selected('voice')) assert.equal(requests[0].voice, 'test-voice');
     const request = requests[0];
     if (example.component === 'LLMAgent') {

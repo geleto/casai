@@ -81,6 +81,10 @@ import { MockLanguageModelV3, MockEmbeddingModelV4, convertArrayToReadableStream
 import { makeSharedIterable as nativeSharedIterable, raceLoaders as nativeRaceLoaders } from 'cascada-engine';
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 assert.notEqual(create.Function, foreignCreate.Function);
+const foreignSource = foreignCreate.Config.withFunction({ input: () => 'packed' });
+const foreignEmbedding = create.Embedder({ model: new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) }) }, create.Config({}, foreignSource));
+assert.deepEqual((await foreignEmbedding()).embedding, [6]);
+assert.equal(await create.Template({ template: 'entry', loader: { load: () => '{{ value }}' }, context: { value: 'rendered' } }, foreignCreate.Config.loadsTemplate({}))(), 'rendered');
 for (const name of ['Decision', 'StreamingTranscriber', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceSessionSetup']) {
   assert.equal(typeof casai[name], 'function');
   assert.equal(casai[name], create[name]);
@@ -166,6 +170,9 @@ const loadedValue: Promise<string> = loaded();
 create.Template.loadsTemplate({ loader: [loaderInput], template: 'main' });
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 const foreignTool = foreignCreate.Function.asTool({ inputSchema: z.object({ factor: z.number() }), context: { factor: 3, db: () => 'private' }, execute: input => input.factor });
+const foreignSource = foreignCreate.Config.withFunction({ inputSchema: z.object({ value: z.string() }), input: ({ value }) => value });
+const sourceOwner = create.Embedder({ model: {} as import('ai').EmbeddingModel }, create.Config({}, foreignSource));
+const sourceResult: Promise<import('ai').EmbedResult> = sourceOwner({ value: 'packed' });
 const foreignOwner = create.Function({ tools: { foreignTool }, toolsContext: { foreignTool: { factor: 5 } }, execute: ({ foreignTool }) => foreignTool({}) });
 const foreignResult: Promise<number> = foreignOwner();
 // @ts-expect-error Foreign private dependencies retain their type through binding.

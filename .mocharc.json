@@ -53,7 +53,8 @@
 		"tests/Workflow.unit.test.ts",
 		"tests/messages-unit.test.ts",
 		"tests/LLMAgent.unit.test.ts",
-		"tests/ModifierInheritance.unit.test.ts"
+		"tests/ModifierInheritance.unit.test.ts",
+		"tests/ConfigModifiers.unit.test.ts"
 	],
 	"ignore": "tests/type-safety/**/*.ts",
 	"node-option": [

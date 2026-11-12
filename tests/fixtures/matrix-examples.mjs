@@ -30,7 +30,7 @@ export async function generate() {
   assert.equal(relative(await realpath(root), target).replaceAll('\\', '/'), '.cache/matrix', 'Only clear the matrix cache inside this workspace');
   await rm(destination, { recursive: true, force: true });
   const authored = await readdir(new URL('docs/matrix/', root));
-  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', 'resources.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
+  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', 'resources.js', 'introduction.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
   assert.deepEqual(authored.filter(name => /\.(cat|cas|txt)$/.test(name)).sort(), components.flatMap(item => item.resources).sort(), 'No duplicated streaming resources');
   const tricky = '{{ value }}\n${notJavaScript}\n`backticks` \\ slashes';
   assert.equal(Function(`return ${multiline(tricky)}`)(), tricky);

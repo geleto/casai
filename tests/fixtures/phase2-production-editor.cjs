@@ -11,6 +11,9 @@ const source = `
 import { create, z, textStreamSchema } from 'casai';
 import { tool, Output } from 'ai';
 import type { LanguageModel } from 'ai';
+const modeFragments = {"text": create.Config.withText({}),"async-template": create.Config.withTemplate({}),"async-script": create.Config.withScript({}),"function": create.Config.withFunction({}),"text-name": create.Config.loadsText({}),"async-template-name": create.Config.loadsTemplate({}),"async-script-name": create.Config.loadsScript({})};
+type SourceMode<P extends keyof typeof modeFragments> = (typeof modeFragments)[P]["config"];
+
 const presenceInput = z.object({ value: z.string().transform(Number), count: z.number().default(1) });
 declare const optionalSchema: { inputSchema?: typeof presenceInput };
 declare const schemaEnabled: boolean;
@@ -301,8 +304,8 @@ declare const rankingModel: import('ai').RerankingModel;
 const preciseRanker = create.Reranker({ model: rankingModel, query: 'q', documents: [{ original: true }] });
 preciseRanker(undefined, ['replacement']).then(result => result.ranking[0].document./*rankedDocumentMembers*/toUpperCase());
 declare const rankedAlternatives:
-  | { model: import('ai').RerankingModel; promptType: 'function'; query: () => { query: string; documents: { prepared: boolean }[] }; documents: { ignored: boolean }[] }
-  | { model: import('ai').RerankingModel; promptType: 'function'; query: () => string; documents: { fallback: boolean }[] };
+  | (SourceMode<'function'> & { model: import('ai').RerankingModel;  query: () => { query: string; documents: { prepared: boolean }[] }; documents: { ignored: boolean }[] })
+  | (SourceMode<'function'> & { model: import('ai').RerankingModel;  query: () => string; documents: { fallback: boolean }[] });
 create.Reranker(rankedAlternatives)().then(result => result.ranking[0].document/*rankedAlternativeValue*/);
 const callbackEmbedding = create.Embedder.withTemplate({ model: embeddingModel, input: '{{ map(factor) }}', context: { factor: '3', secret: true },
   inputSchema: z.object({ factor: z.string(), map: z.custom<(value: number) => number>() }) });
@@ -323,7 +326,7 @@ create.Embedder({}); // expected: model
 create.Embedder({}, create.Config({ input: 'x' })); // expected: model
 create.Embedder({ modle: embeddingModel }); // expected: modle
 create.Embedder.asTool({ model: embeddingModel, inputSchema: z.object({ custom: z.string() }) }); // expected: preparer
-const preparedConfig = create.Config({ promptType: 'function', inputSchema: z.object({ text: z.string().transform(value => value.length) }), input: context => {
+const preparedConfig = create.Config.withFunction({  inputSchema: z.object({ text: z.string().transform(value => value.length) }), input: context => {
   context.text/*fragmentPreparedValue*/;
   return String(context.text);
 } });
@@ -337,19 +340,19 @@ create.Embedder.withFunction({ context: { prefix: 42 }, input: context => {
   return context.prefix/*replacementPrivateValue*/.toFixed(1);
 } }, privateEmbedding);
 create.Embedder({ experimental_onEnd: event => { event.runtimeContext.requestId/*nativeAliasValue*/; } }, create.Config({ model: embeddingModel, runtimeContext: { requestId: 'r' } }));
-declare const mixedModes: { model: typeof embeddingModel; promptType: 'text'; input: string }
-  | { model: typeof embeddingModel; promptType: 'function'; input: () => string };
+declare const mixedModes: (SourceMode<'text'> & { model: typeof embeddingModel;  input: string })
+  | (SourceMode<'function'> & { model: typeof embeddingModel;  input: () => string });
 const mixedComponent = create.Embedder(mixedModes);
 mixedComponent();
 mixedComponent.run({ /*mixedRunSettings*/ });
 mixedComponent('replacement'); // error
 mixedComponent.run({ input: 'replacement' }); // error
 const modeSchema = z.object({ map: z.custom<(value: number) => number>() });
-declare const renderedModes: { model: typeof embeddingModel; promptType: 'async-template' | 'async-script'; input: string; inputSchema: typeof modeSchema };
+declare const renderedModes: (SourceMode<'async-template' | 'async-script'> & { model: typeof embeddingModel;  input: string; inputSchema: typeof modeSchema });
 create.Embedder(renderedModes)({ map: value => value/*mixedCallbackValue*/ * 2 });
 const literalModeAnnotation: import('casai').LLMAgentConfig<Record<never, never>, Record<never, never>, string> = { model, prompt: 'ready' };
 const literalModeAgent = create.LLMAgent(literalModeAnnotation);
-literalModeAgent.config.promptType/*annotatedLiteralMode*/;
+literalModeAgent.config.prompt/*annotatedLiteralMode*/;
 literalModeAgent('replacement');
 const maskedImage = create.ImageGenerator.withFunction({ model: imageModel, images: [new Uint8Array()],
   inputSchema: z.object({ subject: z.string().transform(value => value.length) }), prompt: ({ subject }) => String(subject) });
@@ -501,7 +504,7 @@ async function check(sourceMode, exactOptionalPropertyTypes) {
     assert.ok((await completions(at('replacementPrivateMembers'))).has('prefix'), 'Replacement preparer lost its final private bindings');
     assert.ok((await completions(at('mixedRunSettings'))).has('headers'), 'Mixed source modes lost shared run settings');
     assert.match(await hover(at('mixedCallbackValue') - 1), /value: number/);
-    assert.match(await hover(at('annotatedLiteralMode') - 1), /promptType: "text"/);
+    assert.match(await hover(at('annotatedLiteralMode') - 1), /prompt\??: string/);
     assert.match(await hover(at('embeddingCallbackValue') - 1), /value: number/);
     assert.match(await hover(at('imagePreparerValue') - 1), /subject: number/);
     assert.ok((await completions(at('imageMaskContext'))).has('subject'), 'Binary mask displaced application-context completion');

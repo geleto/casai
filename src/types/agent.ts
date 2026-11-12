@@ -1,3 +1,4 @@
+import type { sourceMode, AnnotatedSourceMode } from '../config/source-mode.js';
 import type { Agent, AgentCallParameters, AgentStreamParameters, LanguageModel, ModelMessage, OutputInterface, PrepareStepFunction, Tool, ToolSet } from 'ai';
 import type { protectedSettings, incompatibleAgentSettings, fixedSettings } from '../runtime/agent-settings-policy.js';
 import type { AIOutput, StreamRequest } from './sdk.js';
@@ -50,7 +51,7 @@ export type AgentSettings<TOOLS extends ToolSet = ToolSet, INPUT extends Record<
 		streaming?: true | undefined;
 		output?: OUTPUT | undefined;
 		prompt?: PROMPT | undefined;
-		promptType?: PromptType | undefined;
+		[sourceMode]?: PromptType | undefined;
 		inputSchema?: SchemaType<INPUT> | undefined;
 		tools?: { [K in keyof TOOLS]: TOOLS[K] | null | undefined } | undefined;
 		toolsContext?: ToolContexts<TOOLS> | undefined;
@@ -63,14 +64,12 @@ type HookConfig<T> = Omit<AgentSettings<ToolsFromConfig<T>, any, import('./promp
 	& { context?: HookContext<T>; inputSchema?: ConfigValue<T, 'inputSchema'> }
 	& import('./config.js').ModifierConfig & { abortSignal?: AbortSignal | undefined; prepareCall?: PrepareCall<T> | undefined; prepareStep?: PrepareStep<T> | undefined };
 
-type WithAgentCallbacks<T> = Omit<T, ConfigCallbackKeys> & AgentCallbacks<Pick<T, Extract<keyof T, 'tools' | 'inputSchema' | 'context' | 'output' | 'runtimeContext' | 'toolsContext'>>>;
-type AnnotatedPromptMode = { promptType?: 'text' | undefined }
-	| { [P in Exclude<PromptType, 'text'>]: { promptType: P } }[Exclude<PromptType, 'text'>];
-/** A discriminated annotation preserves the selected mode; omitted mode means literal text. */
+export type WithAgentCallbacks<T> = Omit<T, ConfigCallbackKeys> & AgentCallbacks<Pick<T, Extract<keyof T, 'tools' | 'inputSchema' | 'context' | 'output' | 'runtimeContext' | 'toolsContext'>>>;
+/** Annotate authored settings; select their interpretation with a factory or Config source modifier. */
 export type LLMAgentConfig<TOOLS extends ToolSet = ToolSet, INPUT extends Record<string, any> = Record<string, any>,
 	PROMPT = PromptValue, OUTPUT extends AIOutput = AIOutput, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
-	WithAgentCallbacks<AgentSettings<TOOLS, INPUT, PROMPT, OUTPUT, RUNTIME_CONTEXT>>
-	& AnnotatedPromptMode;
+	WithAgentCallbacks<Omit<AgentSettings<TOOLS, INPUT, PROMPT, OUTPUT, RUNTIME_CONTEXT>, typeof sourceMode>>
+	& AnnotatedSourceMode<PromptType, 'text'>;
 
 export type AgentCallbacks<T, AsTool extends boolean = false,
 	SDK = StreamRequest<ToolsFromConfig<T>, RuntimeContextFromConfig<T>, SDKOutput<T>>> = {

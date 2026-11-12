@@ -192,12 +192,27 @@ To interchange model and coded implementations in a workflow, have a small adapt
 - **Calls and composition:** Every callable has `.run()` for named inputs and supported execution settings, with the same result contract as its ordinary call. Put components or application functions in context to [call them from workflows](#calling-tools-from-coded-components).
 - **Invocation isolation:** Casai's merging, preparation and execution leave shared configuration and caller data intact. Derive a component or use call overrides to select different settings.
 - **Effects:** Schema callbacks stay pure. Component bodies may operate on authorized application state or perform external effects; sequence effectful Cascada calls with `!`. Independent invocations need application-level coordination for shared state.
-- **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. An explicit source modifier replaces the inherited source mode; a base factory preserves it. Use `.withText`, `.withTemplate` or `.withScript` to return to inline source. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded.
+- **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. `Config` also exposes `.withText`, `.withTemplate`, `.withScript`, `.withFunction` and the three `.loads…` selectors, followed by compatible streaming/tool modifiers. For example, `Config.withTemplate.asTool(...)` prepares a reusable tool fragment. An explicit source modifier replaces the inherited source mode; plain `Config(...)` preserves it without choosing a default. Source selection uses modifiers, not an authored `promptType` field. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded. In the current API, a fragment cannot enable both streaming and tool mode.
 - **Configuration unions:** A call must work in every possible source mode. An Embedder with configured text/function alternatives supports `embedder()` and `.run({ headers })`; text/template alternatives also accept shared string replacements. You do not need to narrow the configuration before constructing the component.
 - **Streaming:** LLMAgent and Template inherit streaming mode, and `.asStream` enables it. Script/Function declare stream output through `schema`; independently invoked components keep their own modes. See [streaming](#streaming).
 - **Tool adaptation:** `.asTool` exposes completed application output to a model, collecting declared finite streams where necessary. Direct calls retain their normal result and mode. See [using components as tools](#using-components-as-tools).
 
 Template, Script and Function keep these native value contracts. LLMAgent's non-tool forms additionally implement the [SDK Agent and chat UI protocol](#ai-sdk-agent-interface-and-ui-integration).
+
+Select reusable source and tool behavior on `Config` itself. Both agents below render the template and expose a tool interface:
+
+<!-- typecheck: config-source-tool-modifiers -->
+```typescript
+const shared = create.Config.withTemplate.asTool({
+  model,
+  inputSchema: z.object({ topic: z.string() }),
+  prompt: 'Explain {{ topic }}.',
+});
+const beginner = create.LLMAgent({ instructions: 'Use everyday language.' }, shared);
+const technical = create.LLMAgent({ instructions: 'Use technical terminology.' }, shared);
+await beginner({ topic: 'solar power' });
+await technical({ topic: 'solar power' });
+```
 
 ### Creating and Calling Components
 

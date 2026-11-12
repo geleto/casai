@@ -1,3 +1,4 @@
+import type { sourceMode, ResolvedSourceMode, WithoutSourceMode } from '../config/source-mode.js';
 import type { AgentCallbacks, AgentFactoryShape, AgentOutput, AgentRequiredSettings, LLMAgentComponent, PromptCallback } from '../types/agent.js';
 import type { AIOutput } from '../types/sdk.js';
 import type { CallbackConfigShape, ConfigCallbackKeys, DescriptorInput, ParentToolSelectionInput, ToolSettingsInput, ToolSelectionKeys, ValidateDescriptor, ValidateToolCallbackNames, ValidateToolSelectionNames } from '../types/callbacks.js';
@@ -20,12 +21,13 @@ export const definition = {
 type Settings = import('../types/agent.js').AgentSettings;
 type Config<P extends PromptType> = AgentFactoryShape<P, false>;
 type ConfigShape<Tools extends import('ai').ToolSet, Input extends Record<string, any>, Output> =
-	import('../types/agent.js').LLMAgentConfig<Tools, Input, import('../types/prompt.js').AnyPromptSource>
+	import('../types/agent.js').WithAgentCallbacks<import('../types/agent.js').AgentSettings<Tools, Input, import('../types/prompt.js').AnyPromptSource>>
 	& Partial<Omit<import('../types/config.js').ToolConfig<Input, Output>, 'inputSchema'>>;
 
 type Mode = PromptType | undefined;
 type Resolved<P extends Mode, S extends boolean, T> = T extends unknown
-	? (Extract<keyof T, 'promptType' | (S extends true ? 'streaming' : never)> extends never ? T : Omit<T, 'promptType' | (S extends true ? 'streaming' : never)>) & (S extends true ? { promptType: SourceMode<T, P, typeof definition.defaultMode>; streaming: true } : { promptType: SourceMode<T, P, typeof definition.defaultMode> }) : never;
+	? (Extract<keyof T, typeof sourceMode | (S extends true ? 'streaming' : never)> extends never ? T : WithoutSourceMode<S extends true ? Omit<T, 'streaming'> : T>)
+		& ResolvedSourceMode<SourceMode<T, P, typeof definition.defaultMode>> & (S extends true ? { streaming: true } : unknown) : never;
 type Shape<P extends Mode, A extends boolean> = AgentFactoryShape<P extends PromptType ? P : PromptType, A>;
 type InferShape<P extends Mode, A extends boolean> = CallbackConfigShape<Omit<Partial<Shape<P, A>>, 'prompt'>>
 	& (P extends 'function' ? { prompt?: unknown } : Pick<Partial<Shape<P, A>>, 'prompt'>);
@@ -63,14 +65,15 @@ type ValidateBranch<C, T, P extends PromptType, A extends boolean,
 		& ValidateDescriptor<C, T, CompletedOutput<AgentOutput<T>>> : unknown)>;
 
 type ConfigChecks<C, T, P extends PromptType, A extends boolean> = T extends unknown
-	? (checks: CommonInputs<{ [M in Extract<ConfigValue<T, 'promptType'>, P>]: ValidateBranch<C, T, M, ToolMode<T, A>> }>) => void : never;
+	? (checks: CommonInputs<{ [M in Extract<ConfigValue<T, typeof sourceMode>, P>]: ValidateBranch<C, T, M, ToolMode<T, A>> }>) => void : never;
 type Validate<C, T, P extends PromptType, A extends boolean> =
 	(ConfigChecks<C, T, P, A> extends (checks: infer Checks) => void ? Checks : never)
 	& ([Extract<UnionKeys<T>, 'tools' | 'toolsContext'>] extends [never] ? unknown : ValidateToolsContext<C, T>);
 
 type AgentFactory<P extends Mode, A extends boolean = false, S extends boolean = false> = <
 	C extends object & Provisional<InferShape<P, A>>,
-	ParentConfig extends object = never,
+	Parent extends ConfigProvider<object> = never,
+	ParentConfig extends object = Parent['config'],
 	SchemaPresence extends object = object, Input = never, ToolContext = never,
 	SettingPresence extends object = object,
 	Context extends Record<string, any> | undefined = never,
@@ -85,11 +88,11 @@ type AgentFactory<P extends Mode, A extends boolean = false, S extends boolean =
 	& { output?: Output | ConfigValue<C, 'output'> }
 	& NoInfer<IsUnion<C> extends true ? unknown : [keyof C & ConfigCallbackKeys] extends [never] ? unknown : AgentCallbacks<Captured, EffectiveTool>>
 	& NoInfer<ToolSettingsInput<CallbackParent<ParentConfig>, Tools, Runtime>>
-	& (ConfigValue<Complete, 'promptType'> extends 'function' ? NoInfer<PromptCallback<Captured, EffectiveTool>> : unknown)
+	& (ConfigValue<Complete, typeof sourceMode> extends 'function' ? NoInfer<PromptCallback<Captured, EffectiveTool>> : unknown)
 	& (true extends EffectiveTool ? DescriptorInput<ConfigSchemas<SchemaPresence, Input, never, ToolContext>, CallbackParent<ParentConfig>, CompletedOutput<AgentOutput<Captured>>> : unknown)
-	& Validate<C, Complete, Extract<ConfigValue<Complete, 'promptType'>, PromptType>, A>,
-	...parent: [ParentConfig] extends [never] ? [] : [parent: ConfigProvider<ParentConfig & ParentToolSelectionInput<ParentConfig, Tools>>]
-) => NoInfer<LLMAgentComponent<Complete, Extract<ConfigValue<Complete, 'promptType'>, PromptType>, EffectiveTool>>;
+	& Validate<C, Complete, Extract<ConfigValue<Complete, typeof sourceMode>, PromptType>, A>,
+	...parent: [Parent] extends [never] ? [] : [parent: Parent & NoInfer<ConfigProvider<ParentToolSelectionInput<ParentConfig, Tools>>>]
+) => NoInfer<LLMAgentComponent<Complete, Extract<ConfigValue<Complete, typeof sourceMode>, PromptType>, EffectiveTool>>;
 
 type FactoryModes<P extends Mode> = AgentFactory<P> & {
 	asTool: AgentFactory<P, true>;

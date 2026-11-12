@@ -9,7 +9,7 @@ export const definition = {
 	modifiers: { withTemplate: 'async-template', loadsTemplate: 'async-template-name' },
 	toolModes: ['async-template', 'async-template-name'], required: [], inlineRequired: ['template'], keys: ['template'],
 } as const satisfies import('./component-factory.js').ComponentDefinition<Settings>;
-type Settings = TemplateConfig<Record<string, any>>;
+type Settings = configs.TemplateSettings<Record<string, any>>;
 
 type Factory = import('./component-factory.js').RendererFactory<'Template'>;
 export const Template = createComponentFactory(definition, createCodedComponent) as Factory;
@@ -18,8 +18,8 @@ export interface Types<T, A extends boolean, Input> {
 	definition: typeof definition;
 	settings: Settings;
 	component: RendererComponent<'Template', T, A>;
-	config: Settings;
-	configShape: configs.TemplateConfig<Extract<Input, Record<string, any>>> | configs.TemplateToolConfig<Extract<Input, Record<string, any>>>;
+	config: TemplateConfig<Record<string, any>>;
+	configShape: configs.TemplateSettings<Extract<Input, Record<string, any>>> | configs.TemplateToolSettings<Extract<Input, Record<string, any>>>;
 	result: string;
 	toolResult: string;
 }

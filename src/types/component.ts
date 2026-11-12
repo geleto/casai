@@ -1,3 +1,4 @@
+import type { sourceMode } from '../config/source-mode.js';
 import type { CascadaConfig, ConfigValue, ToolContextSchemaConfig, ToolProperties, ToolRegistry, RuntimeContextFromConfig, ModifierConfig } from './config.js';
 import type { SchemaType } from './schema.js';
 import type { PromptType } from './prompt.js';
@@ -28,7 +29,7 @@ export type SourceComponentConfig<K extends ComponentKind, P extends PromptType 
 	Omit<Partial<ComponentSettings[K]>, Main<K> | 'abortSignal'> & Pick<ComponentSettings[K], RequiredConfigKeys<K>> & Partial<Record<Main<K>, Source<K, P>>>
 	& CascadaConfig & ToolContextSchemaConfig & {
 		inputSchema?: SchemaType<Record<string, any>>;
-		tools?: ToolRegistry; toolsContext?: Record<string, unknown>; promptType?: P;
+		tools?: ToolRegistry; toolsContext?: Record<string, unknown>; [sourceMode]?: P;
 	}>;
 export type ComponentConfig<K extends ComponentKind, P extends PromptType = 'text'> = K extends unknown ? Configs<P>[K] : never;
 export type ComponentFactoryShape<K extends ComponentKind, P extends PromptType, A extends boolean> = SourceComponentConfig<K, P>

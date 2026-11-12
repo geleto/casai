@@ -1,3 +1,4 @@
+import { sourceMode, type SourceModeSetting } from '../config/source-mode.js';
 import type { ComponentKind, Main, Source, ComponentFactoryShape, Component, ToolInput, ToolResultFromConfig, ComponentSettings, RequiredComponentKeys } from '../types/component.js';
 import type { PromptType } from '../types/prompt.js';
 import type { ConfigProvider, ConfigValue, ToolRegistry, RuntimeContextFromConfig } from '../types/config.js';
@@ -44,7 +45,8 @@ export interface ComponentDefinition<Settings> {
 type Mode = PromptType | undefined;
 type AllowedMode<K extends ComponentKind> = Definitions[K]['defaultMode'] | Definitions[K]['modifiers'][keyof Definitions[K]['modifiers']];
 type Shape<K extends ComponentKind, P extends Mode, A extends boolean> = ComponentFactoryShape<K, P extends PromptType ? P : PromptType, A>;
-type InferShape<K extends ComponentKind, P extends Mode, A extends boolean> = CallbackConfigShape<Partial<Omit<Shape<K, P, A>, Main<K>>>>
+// A copied source selection may be replaced by the explicit factory modifier.
+type InferShape<K extends ComponentKind, P extends Mode, A extends boolean> = CallbackConfigShape<Partial<Omit<Shape<K, undefined, A>, Main<K>>>>
 	& Partial<Record<Main<K>, P extends 'function' | undefined ? unknown : Source<K, Extract<P, PromptType>> | undefined>>;
 type ToolAllowed<K extends ComponentKind, P extends PromptType> = P extends Definitions[K]['toolModes'][number] ? true : false;
 type SourceCallback<K extends ComponentKind, P extends PromptType, T, A extends boolean> = P extends 'function' ? Partial<Record<Main<K>,
@@ -72,13 +74,14 @@ type ValidateBranch<K extends ComponentKind, P extends PromptType, T, C, A exten
 	: `Config Error: Unknown ${K} properties: '${Unknown & string}'.`>;
 
 type ConfigChecks<K extends ComponentKind, P extends PromptType, T, C, A extends boolean> = T extends unknown
-	? (checks: CommonInputs<{ [M in Extract<ConfigValue<T, 'promptType'>, P>]: ValidateBranch<K, M, T, C, ToolMode<T, A>> }>) => void : never;
+	? (checks: CommonInputs<{ [M in Extract<ConfigValue<T, typeof sourceMode>, P>]: ValidateBranch<K, M, T, C, ToolMode<T, A>> }>) => void : never;
 type Validate<K extends ComponentKind, P extends PromptType, T, C, A extends boolean> =
 	(ConfigChecks<K, P, T, C, A> extends (checks: infer Checks) => void ? Checks : never) & ValidateToolsContext<C, T>;
 
 type Factory<K extends ComponentKind, P extends Mode, A extends boolean = false> = <
 	C extends object & Provisional<InferShape<K, P, A>>,
-	Par extends object = never,
+	Parent extends ConfigProvider<object> = never,
+	Par extends object = Parent['config'],
 	SP extends object = object, Input = never, TC = never, Keys extends string = never,
 	RegistryPresence extends object = object,
 	Context extends Record<string, any> | undefined = never, Tools extends ToolRegistry | undefined = never, ToolContexts extends object | undefined = never,
@@ -86,7 +89,7 @@ type Factory<K extends ComponentKind, P extends Mode, A extends boolean = false>
 	ToolFlag extends true | undefined = undefined,
 	Captured = CapturedConfig<Par, Omit<ResolvedConfig<C>, 'context' | 'inputSchema' | 'toolContextSchema' | 'tools' | 'toolsContext' | 'asTool'>
 		& ConfigSchemas<SP, Input, never, TC> & ConfigRegistry<RegistryPresence, Tools, ToolContexts> & { context: Context; asTool: ToolFlag }>,
-	Complete = SourceModeConfig<ToolModeConfig<FinalConfig<Par, C>, A>, P, Definitions[K]['defaultMode']>, M extends PromptType = Extract<ConfigValue<Complete, 'promptType'>, PromptType>,
+	Complete = SourceModeConfig<ToolModeConfig<FinalConfig<Par, C>, A>, P, Definitions[K]['defaultMode']>, M extends PromptType = Extract<ConfigValue<Complete, typeof sourceMode>, PromptType>,
 	AsTool extends boolean = ToolMode<Complete, A>,
 // eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style -- The direct mapped form keeps key inference within the measured compiler budget.
 >(config: C & { [Key in Keys]?: unknown } & SchemaConfigInferShape<SP, Input, never, TC> & RegistryConfigInferShape<RegistryPresence, Tools, ToolContexts> & { context?: Context; runtimeContext?: Runtime; asTool?: ToolFlag }
@@ -96,7 +99,7 @@ type Factory<K extends ComponentKind, P extends Mode, A extends boolean = false>
 	& (true extends AsTool ? DescriptorInput<ConfigSchemas<SP, Input, never, TC>, CallbackParent<Par>, ToolResultFromConfig<K, Extract<SourceMode<Captured, P, Definitions[K]['defaultMode']>, PromptType>, Captured>> : unknown)
 	// An empty argument retains C's provisional constraint; its final config still needs validation.
 	& Validate<K, M, Complete, [Keys] extends [never] ? EmptyMap : C, A>,
-	...parent: [Par] extends [never] ? [] : [parent: ConfigProvider<Par>]
+	...parent: [Parent] extends [never] ? [] : [parent: Parent]
 ) => NoInfer<Component<K, M, Complete, AsTool>>;
 
 type Modes<K extends ComponentKind, P extends Mode> = Factory<K, P> & (ToolAllowed<K, P extends PromptType ? P : Extract<Definitions[K]['defaultMode'], PromptType>> extends true ? { asTool: Factory<K, P, true> } : EmptyMap);
@@ -106,23 +109,26 @@ export type SourceFactory<K extends ComponentKind> = Modes<K, undefined> & {
 
 type RendererKind = 'Template' | 'Script';
 type RendererSettings<K extends RendererKind, AsTool extends boolean> = (AsTool extends true ? {
-	Template: configs.TemplateToolConfig<Record<string, any>>;
-	Script: configs.ScriptToolConfig<Record<string, any>, unknown>;
+	Template: configs.TemplateToolSettings<Record<string, any>>;
+	Script: configs.ScriptToolSettings<Record<string, any>, unknown>;
 } : {
-	Template: configs.TemplateConfig<Record<string, any>>;
-	Script: configs.ScriptConfig<Record<string, any>, unknown>;
-})[K];
+	Template: configs.TemplateSettings<Record<string, any>>;
+	Script: configs.ScriptSettings<Record<string, any>, unknown>;
+})[K] & SourceModeSetting<AllowedMode<K> | undefined>;
 type RendererConfig<K extends RendererKind, Named extends boolean, AsTool extends boolean> =
 	RendererSettings<K, AsTool> & (Named extends true ? configs.LoaderConfig : EmptyMap);
+type RendererInferShape<K extends RendererKind, AsTool extends boolean> =
+	Omit<configs.ParentToolConfigInferShape<RendererConfig<K, false, AsTool>>, typeof sourceMode> & SourceModeSetting<PromptType | undefined>;
 type RendererFinalShape<K extends RendererKind> = Partial<configs.ToolConfigShape<RendererSettings<K, false> & configs.ToolContextSchemaConfig<any>>>;
 type RendererConfigChecks<K extends RendererKind, Config, Final> = Final extends unknown
 	? (check: ValidateRendererConfig<K, Config, Final, RendererConfig<K,
-		Extract<configs.ConfigValue<Final, 'promptType'>, `${string}-name`> extends never ? false : true,
+		Extract<configs.ConfigValue<Final, typeof sourceMode>, `${string}-name`> extends never ? false : true,
 		ToolMode<Final, false>>>) => void : never;
 
 type RendererSignature<K extends RendererKind, Source extends PromptType | undefined, AsTool extends boolean = false> = <
-	TConfig extends object & configs.ToolConfigInferShape<RendererConfig<K, false, AsTool>>,
-	TParentConfig extends object & NoInfer<Omit<configs.ParentToolConfigInferShape<RendererConfig<K, false, AsTool>>, 'promptType'> & { promptType?: PromptType }> = never,
+	TConfig extends object & Provisional<RendererInferShape<K, AsTool>>,
+	TParent extends ConfigProvider<object> = never,
+	TParentConfig extends object = TParent['config'],
 	TSchemaPresence extends object = object,
 	TSchemaInput = never,
 	TSchemaOutput = never,
@@ -136,8 +142,8 @@ type RendererSignature<K extends RendererKind, Source extends PromptType | undef
 		& ValidateToolsContext<ResolvedConfig<TConfig>, Final>
 		& ValidateResolved<TConfig, [Final] extends [RendererFinalShape<K>]
 			? unknown : 'Config Error: Invalid renderer settings.'>,
-	...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig>]
-) => Components<Extract<configs.ConfigValue<Final, 'promptType'>, PromptType>, Final, EffectiveTool>[K];
+	...parent: [TParent] extends [never] ? [] : [parent: TParent & NoInfer<ConfigProvider<RendererInferShape<K, AsTool>>>]
+) => Components<Extract<configs.ConfigValue<Final, typeof sourceMode>, PromptType>, Final, EffectiveTool>[K];
 
 type RendererModes<K extends RendererKind, P extends PromptType | undefined> = RendererSignature<K, P> & { asTool: RendererSignature<K, P, true> };
 export type RendererFactory<K extends RendererKind> = RendererModes<K, undefined> & {
@@ -147,10 +153,11 @@ export type RendererFactory<K extends RendererKind> = RendererModes<K, undefined
 /** Definition-owned rules apply to every completed component, after ordinary configuration merging. */
 function validateComponentConfig(config: Record<string, unknown>, definition: ComponentDefinition<Record<string, unknown>>): void {
 	validateConstructionConfig(config);
-	const mode = config.promptType as PromptType | undefined;
+	if (config.streaming === true && !definition.asStream) throw new ConfigError(`${definition.name} does not support .asStream.`);
+	const mode = (config as import('../config/source-mode.js').SourceModeSetting)[sourceMode];
 	if (mode !== definition.defaultMode && !Object.values(definition.modifiers).includes(mode!)) throw new ConfigError(`Unsupported ${definition.name} source modifier.`);
 	if (definition.keys) {
-		const allowed = [...definition.keys, ...preparationKeys, ...(definition.defaultMode === undefined ? [] : ['promptType', 'loader', 'filters', 'renderOptions']), ...(config.asTool ? descriptorKeys : ['description'])];
+		const allowed = [...definition.keys, ...preparationKeys, ...(definition.defaultMode === undefined ? [] : ['loader', 'filters', 'renderOptions']), ...(config.asTool ? descriptorKeys : ['description'])];
 		const unknown = Object.keys(config).filter(key => !allowed.includes(key));
 		if (unknown.length) throw new ConfigError(`Unknown ${definition.name} properties: ${unknown.join(', ')}.`);
 	}
@@ -169,8 +176,8 @@ export function createComponentFactory<D extends ComponentDefinition<Record<stri
 ): unknown {
 	function factory(mode?: PromptType, asTool = false, streaming = false) {
 		return (config: Record<string, unknown>, parent?: ConfigProvider<Record<string, unknown>>) => {
-			const merged: Record<string, unknown> & ExecutionConfig = mergeConfigs(parent?.config ?? {}, config);
-			if (definition.defaultMode !== undefined) merged.promptType = mode ?? merged.promptType ?? definition.defaultMode;
+			const merged: Record<string, unknown> & ExecutionConfig & { [sourceMode]?: PromptType } = mergeConfigs(parent?.config ?? {}, config);
+			if (definition.defaultMode !== undefined) merged[sourceMode] = mode ?? merged[sourceMode] ?? definition.defaultMode;
 			if (asTool) merged.asTool = true;
 			if (streaming) merged.streaming = true;
 			validateComponentConfig(merged, definition);

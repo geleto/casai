@@ -83,12 +83,10 @@ function describeProperty(property, spec, { definition, mode, selected, runKeys,
   const requiredForOperation = operationRequired.includes(name) || Boolean(definition?.inlineRequired?.includes(name)) || Boolean(isMain && spec.preparedSourceRequired && mode !== 'text');
   const section = isMain || requiredAtCreation || requiredForOperation ? 'essential' : local.section ?? (descriptor ? 'variants' : 'sdk');
   const sdkGroup = local.sdkGroup ?? Object.entries(sdkPropertyGroups).find(([, names]) => names.includes(name))?.[0] ?? 'operation';
-  const modeType = name === 'promptType' ? (definition ? JSON.stringify(mode)
-    : [...new Set(Object.values(api.definitions).flatMap(item => [item.defaultMode, ...Object.values(item.modifiers)]).filter(Boolean))].map(value => JSON.stringify(value)).join(' | ')) : null;
-  const type = local.type ?? modeType ?? (isMain && sourceKind ? sourceTypes[sourceKind.value] : property.type);
+  const type = local.type ?? (isMain && sourceKind ? sourceTypes[sourceKind.value] : property.type);
   const sourceDescription = isMain && sourceKind && sourceKind.value !== 'direct' ? sourceDocumentation(mode, definition, spec).description : null;
   return {
-    id: name, name, type, displayType: compactType(type, { optional: !requiredAtCreation, alternative: isMain || local.type || modeType ? undefined : native?.type }),
+    id: name, name, type, displayType: compactType(type, { optional: !requiredAtCreation, alternative: isMain || local.type ? undefined : native?.type }),
     typeDescription: describeType(type),
     description: sourceDescription ?? local.description ?? native?.description ?? property.description ?? '',
     descriptionOrigin: sourceDescription || local.description ? 'casai' : native?.source?.package ?? 'casai',
@@ -134,7 +132,7 @@ function invocationMethods(component, spec, definition, properties, options, too
       { name: 'config', signature: 'component.config', description: 'The resolved configuration. Treat it as immutable; construct a new component to replace captured dependencies.' },
     ] : []),
     ...(spec.methods ?? []).filter(method => matchesOptions(component, method, options)).map(method => methodReference(method, properties)),
-    ...(tool ? [
+    ...(tool && callable ? [
       { name: 'bindToolContext', signature: 'component.bindToolContext(trustedContext)', description: 'Returns { tool, context } with validated trusted bindings and declared public defaults. Use the bound descriptor and matching context for SDK execution.' },
       { name: 'execute', signature: 'tool.execute(parsedInput, nativeToolOptions)', description: 'Native SDK descriptor entry: input is already parsed by the owning SDK path. Ordinary component calls validate raw input; do not use descriptor execution to bypass that boundary.' },
     ] : []),
@@ -142,11 +140,30 @@ function invocationMethods(component, spec, definition, properties, options, too
 }
 
 function sourceForms(definition, tool, spec) {
+  if (spec.sourceForms) return spec.sourceForms;
   return definition && definition.defaultMode !== null ? [
     { modifier: null, mode: definition.defaultMode, ...sourceModes[definition.defaultMode] },
     ...Object.entries(definition.modifiers).map(([modifier, mode]) => ({ modifier, mode, ...sourceModes[mode] })),
   ].map(form => ({ ...form, ...sourceDocumentation(form.mode, definition, spec),
     toolSupported: definition.toolModes.includes(form.mode), applicable: !tool || definition.toolModes.includes(form.mode) })) : [];
+}
+
+function fragmentAlternatives(options, mode) {
+  return Object.values(api.definitions).flatMap(definition => {
+    const source = sourceMode(options);
+    if (source && mode !== definition.defaultMode && !Object.values(definition.modifiers).includes(mode)) return [];
+    if (options.includes('asTool') && !definition.toolModes.includes(source ? mode : definition.defaultMode)) return [];
+    if (options.includes('asStream') && !definition.asStream) return [];
+    const [name, reference] = Object.entries(componentReference).find(([name, reference]) =>
+      (reference.factory ?? name) === definition.name || reference.variants?.some(variant => variant.factory === definition.name));
+    const variant = reference.variants?.find(variant => variant.factory === definition.name);
+    const selected = [...(variant?.activeOptions ?? []), ...options.filter(id => ['asTool', 'asStream'].includes(id)),
+      ...(source && mode !== definition.defaultMode ? [source] : [])];
+    const activeOptions = referenceSelection(name, selected).activeOptions;
+    const spec = selectedSpec(getComponent(name), activeOptions);
+    return [{ component: name, factory: factory(spec.factory, activeOptions.filter(id => id !== 'asStream' || spec.streamModifier)),
+      shape: `${definition.name}_config`, activeOptions }];
+  });
 }
 
 export function describe(name, selected = getComponent(name).activeOptions) {
@@ -155,7 +172,7 @@ export function describe(name, selected = getComponent(name).activeOptions) {
   const spec = selectedSpec(component, options);
   const definition = api.definitions[spec.types];
   const modifier = sourceMode(options)?.replace(/^load/, 'loads');
-  const mode = definition?.modifiers[modifier] ?? definition?.defaultMode;
+  const mode = definition?.modifiers[modifier] ?? definition?.defaultMode ?? spec.sourceForms?.find(form => form.modifier === (modifier ?? null))?.mode ?? null;
   const tool = options.includes('asTool');
   const config = byName((spec.propertyShapes ?? [`${spec.types}_config`]).flatMap(records));
   if (tool) for (const property of records('Tool')) config[property.name] ??= property;
@@ -183,12 +200,13 @@ export function describe(name, selected = getComponent(name).activeOptions) {
   const related = byName((spec.relatedPropertyShapes ?? []).flatMap(records));
   return {
     component: name, activeOptions: options, canonical: referenceSelection(name, options), status: spec.status, versions: referenceVersions,
-    form: { factory: definition ? factory(spec.factory, options.filter(id => id !== 'asStream' || spec.streamModifier)) : null,
+    form: { factory: definition || spec.fragment ? factory(spec.factory, options.filter(id => id !== 'asStream' || spec.streamModifier)) : null,
       primaryProperty: definition?.main ?? null, operation: spec.operation ?? null, sourceMode: mode ?? null, sourceModifier: modifier ?? null, notices },
     info: { shortDescription: summary?.description ?? component.shortDescription,
       shortDescriptionSource: summary ? { operation: spec.summaryOperation, ...summary, reuse: 'verbatim' } : component.shortDescriptionSource ?? null,
       description: spec.description ?? component.description,
       descriptionSources: spec.descriptionSources ?? component.descriptionSources,
+      ...(spec.selectionNote ? { selectionNote: spec.selectionNote } : {}),
       kind: component.kind, input: spec.input, result: spec.resultSummary, controls },
     config: {
       properties: map,
@@ -201,10 +219,7 @@ export function describe(name, selected = getComponent(name).activeOptions) {
       highlightedPropertyIds: properties.filter(property => property.relatedOptions.some(option => options.includes(option))).map(property => property.id),
       requiredPropertyIds: properties.filter(property => property.required.construction || property.required.operation).map(property => property.id),
       supportedSources: forms,
-      alternatives: spec.fragment ? Object.keys(api.definitions).map(factory => {
-        const [component, reference] = Object.entries(componentReference).find(([name, reference]) => (reference.factory ?? name) === factory || reference.variants?.some(variant => variant.factory === factory));
-        return { component, factory, shape: `${factory}_config`, activeOptions: reference.variants?.find(variant => variant.factory === factory)?.activeOptions ?? [] };
-      }) : [],
+      alternatives: spec.fragment ? fragmentAlternatives(options, mode) : [],
     },
     result: { description: spec.resultDescription ?? spec.resultSummary, tool: tool ? spec.toolResult ?? null : null,
       shapes: resultShapes.map(result => ({ name: result, properties: records(`${result}_result`) })),
@@ -213,6 +228,6 @@ export function describe(name, selected = getComponent(name).activeOptions) {
     relatedComponents: component.kind === 'configuration' ? Object.keys(api.definitions) : [],
     relatedProperties: (spec.relatedProperties ?? []).map(name => describeProperty(related[name] ?? { name, type: commonProperties[name]?.type ?? 'unknown', tags: [] }, spec, { definition: undefined, mode: undefined, selected: [], runKeys: [], operationRequired: [], choices: [] })),
     example: { constraints: component.groups.flatMap(group => group.choices).filter(choice => choice.requires || choice.excludes).map(choice => ({ id: choice.id, requires: choice.requires, excludes: choice.excludes })),
-      note: 'Customize this example to explore one workflow. The configuration reference covers the full API; highlighted settings relate to your selected options.' },
+      note: spec.exampleNote ?? 'Customize this example to explore one workflow. The configuration reference covers the full API; highlighted settings relate to your selected options.' },
   };
 }

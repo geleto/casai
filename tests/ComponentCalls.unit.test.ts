@@ -1,3 +1,4 @@
+import { sourceModes } from './fixtures/source-modes.js';
 import assert from 'node:assert/strict';
 import type { Tool } from 'ai';
 import { asSchema, embed, rerank, tool, ToolLoopAgent, isStepCount, experimental_decide, experimental_streamSpeech, UnsupportedFunctionalityError, Experimental_DecisionRefusalError } from 'ai';
@@ -214,10 +215,10 @@ describe('shared component call rules', () => {
 	it('resolves renderer requirements independently for inline and loaded branches', async () => {
 		const loader = { load: (name: string) => name === 'template' ? 'ready' : 'return "ready"' };
 		for (const loaded of [false, true]) {
-			const template = loaded ? { promptType: 'async-template-name' as const, template: 'template', loader }
-				: { promptType: 'async-template' as const, template: 'ready' };
-			const script = loaded ? { promptType: 'async-script-name' as const, script: 'script', loader }
-				: { promptType: 'async-script' as const, script: 'return "ready"' };
+			const template = loaded ? { ...sourceModes["async-template-name"].config, template: 'template', loader }
+				: { ...sourceModes["async-template"].config, template: 'ready' };
+			const script = loaded ? { ...sourceModes["async-script-name"].config, script: 'script', loader }
+				: { ...sourceModes["async-script"].config, script: 'return "ready"' };
 			assert.equal(await create.Template(template)(), 'ready');
 			assert.equal(await create.Script(script)(), 'ready');
 		}
@@ -226,21 +227,21 @@ describe('shared component call rules', () => {
 	it('keeps safe calls usable across literal, prepared and loaded source alternatives', async () => {
 		const model = new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) });
 		for (const prepared of [false, true]) {
-			const config = prepared ? { model, promptType: 'function' as const, input: () => 'ready' }
-				: { model, promptType: 'text' as const, input: 'ready' };
+			const config = prepared ? { model, ...sourceModes.function.config, input: () => 'ready' }
+				: { model, ...sourceModes.text.config, input: 'ready' };
 			const component = create.Embedder(config);
 			for (const result of [await component(), await component(undefined), await component.run({}), await component.run({ input: undefined, headers: { trace: 'test' } })]) {
 				assert.deepEqual(result.embedding, [5]);
 			}
 		}
 		for (const promptType of ['text', 'async-template'] as const) {
-			const component = create.Embedder({ model, promptType, input: 'ready' });
+			const component = create.Embedder({ model, ...sourceModes[promptType].config, input: 'ready' });
 			assert.deepEqual((await component('replacement')).embedding, [11]);
 			assert.deepEqual((await component.run({ input: 'replacement' })).embedding, [11]);
 		}
 		for (const loaded of [false, true]) {
-			const config = loaded ? { model, promptType: 'text-name' as const, input: 'ready', loader: { load: (name: string) => name } }
-				: { model, promptType: 'text' as const, input: 'ready' };
+			const config = loaded ? { model, ...sourceModes["text-name"].config, input: 'ready', loader: { load: (name: string) => name } }
+				: { model, ...sourceModes.text.config, input: 'ready' };
 			assert.deepEqual((await create.Embedder(config)('source')).embedding, [6]);
 		}
 	});
@@ -252,8 +253,8 @@ describe('shared component call rules', () => {
 			return { audio: 'AQI=', warnings: [], response: { timestamp: new Date(0), modelId: 'speech' } };
 		} });
 		for (const prepared of [false, true]) {
-			const config = prepared ? { model, promptType: 'function' as const, text: () => 'ready' }
-				: { model, promptType: 'text' as const, text: 'ready' };
+			const config = prepared ? { model, ...sourceModes.function.config, text: () => 'ready' }
+				: { model, ...sourceModes.text.config, text: 'ready' };
 			await create.SpeechGenerator(config)('alloy');
 		}
 		assert.deepEqual(requests, [{ text: 'alloy', voice: undefined }, { text: 'ready', voice: 'alloy' }]);
@@ -263,8 +264,8 @@ describe('shared component call rules', () => {
 		const model = new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) });
 		const inputSchema = z.object({ input: z.string().transform(value => value + '!') });
 		for (const prepared of [false, true]) {
-			const config = prepared ? { model, inputSchema, promptType: 'function' as const, input: ({ input }: { input: string }) => input }
-				: { model, inputSchema, promptType: 'text' as const, input: 'configured' };
+			const config = prepared ? { model, inputSchema, ...sourceModes.function.config, input: ({ input }: { input: string }) => input }
+				: { model, inputSchema, ...sourceModes.text.config, input: 'configured' };
 			const component = create.Embedder.asTool(config);
 			assert.deepEqual((await component.run({ context: { input: 'call' } })).embedding, [5]);
 			const parsed = await asSchema(component.inputSchema).validate!({ input: 'call' });
@@ -371,7 +372,7 @@ describe('shared component call rules', () => {
 	});
 
 	it('infers and executes reusable preparers with parsed application values and private context', async () => {
-		const fragment = create.Config({ promptType: 'function', inputSchema: z.object({ count: z.string().transform(Number) }),
+		const fragment = create.Config.withFunction({ inputSchema: z.object({ count: z.string().transform(Number) }),
 			context: { prefix: 'n=' }, input: ({ count, prefix }) => prefix + count.toFixed(1) });
 		const model = new MockEmbeddingModelV4({ doEmbed: async ({ values }) => {
 			assert.deepEqual(values, ['n=2.0']);
@@ -668,6 +669,6 @@ describe('component SDK calls', () => {
 		const model = new MockSpeechModelV4();
 		const parent = create.SpeechGenerator.asTool({ model, inputSchema: z.object({ text: z.string() }) });
 		assert.throws(() => Reflect.apply(create.StreamingSpeechGenerator, undefined, [{}, parent]), ConfigError);
-		assert.throws(() => Reflect.apply(create.Transcriber, undefined, [{ model: new MockTranscriptionModelV4(), promptType: 'async-template', audio: 'source' }]), ConfigError);
+		assert.throws(() => Reflect.apply(create.Transcriber, undefined, [{ model: new MockTranscriptionModelV4(), ...sourceModes["async-template"].config, audio: 'source' }]), ConfigError);
 	});
 });

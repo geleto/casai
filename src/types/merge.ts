@@ -1,5 +1,6 @@
 import type { EmptyMap, UnionKeys } from './utils.js';
 import type { LoaderGroup } from 'cascada-engine';
+import type { sourceMode, RetainedSourceMode, ResolvedSourceMode, SourceModeSetting } from '../config/source-mode.js';
 
 // These maps merge by key. Values within each map are replaced, not deep-merged.
 export const configMapKeys = ['context', 'filters', 'tools', 'toolsContext'] as const;
@@ -31,7 +32,10 @@ type ReadableMap<T, Keys extends PropertyKey = UnionKeys<T>> = T extends unknown
 type MergedMap<A, B, Result = MergedProperties<MapValue<A>, MapValue<B>>> = undefined extends A | B ? ReadableMap<Result> : Result;
 
 type ProcessedValue<K, T> = K extends 'loader' ? LoaderGroup | (undefined extends T ? undefined : never) : T;
-export type ProcessedConfig<T> = { [K in keyof T]: ProcessedValue<K, T[K]> };
+export type ProcessedConfig<T> = T extends unknown
+	? typeof sourceMode extends keyof T
+		? { [K in keyof T as K extends typeof sourceMode ? never : K]: ProcessedValue<K, T[K]> } & RetainedSourceMode<T>
+		: 'loader' extends keyof T ? { [K in keyof T]: ProcessedValue<K, T[K]> } : T : never;
 
 type LoaderValue<T> = 'loader' extends keyof T ? T['loader'] : undefined;
 
@@ -45,8 +49,13 @@ type MergedValue<A, B, K extends PropertyKey> = K extends 'loader'
 	: SpreadValue<A, B, K>;
 
 /** The shared config merge policy per union branch, matching mergeConfigs at runtime. */
+type MergedSourceMode<A, B> = typeof sourceMode extends keyof A | keyof B
+	? A extends Record<typeof sourceMode, unknown> ? ResolvedSourceMode<MergedValue<A, B, typeof sourceMode>>
+	: B extends Record<typeof sourceMode, unknown> ? ResolvedSourceMode<MergedValue<A, B, typeof sourceMode>>
+	: SourceModeSetting<MergedValue<A, B, typeof sourceMode>> : unknown;
+
 export type MergedConfig<A, B> = A extends unknown ? B extends unknown ? {
-	[K in keyof A]: MergedValue<A, B, K>;
+	[K in keyof A as K extends typeof sourceMode ? never : K]: MergedValue<A, B, K>;
 } & {
-	[K in keyof B]: MergedValue<A, B, K>;
-} : never : never;
+	[K in keyof B as K extends typeof sourceMode ? never : K]: MergedValue<A, B, K>;
+} & MergedSourceMode<A, B> : never : never;

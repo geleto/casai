@@ -1,3 +1,4 @@
+import { sourceMode } from '../src/config/source-mode.js';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';
@@ -547,7 +548,7 @@ describe('Template and Script deterministic coverage', () => {
 			it(promptType + ' consumes prepared context without remerging configuration', async () => {
 				let validations = 0;
 				const config = { context: { value: 'raw' }, inputSchema: z.object({ value: z.string() }).refine(() => { validations++; return true; }),
-					renderOptions: { autoescape: true }, promptType,
+					renderOptions: { autoescape: true }, [sourceMode]: promptType,
 					prompt: promptType === 'async-template' ? '{{ value }}' : promptType === 'async-script' ? 'return value' : (context: Record<string, unknown>) => String(context.value) };
 				const render = createPromptRenderer(config);
 				expect(await render(undefined, { value: '<prepared>' })).to.equal('<prepared>');
@@ -555,15 +556,15 @@ describe('Template and Script deterministic coverage', () => {
 			});
 		}
 		it('loads an override without replacing its configured source', async () => {
-			const render = createPromptRenderer({ loader: memoryLoader({ initial: 'return "Initial " ~ name', alternate: 'return "Alternate " ~ name' }), prompt: 'initial', promptType: 'async-script-name' });
+			const render = createPromptRenderer({ loader: memoryLoader({ initial: 'return "Initial " ~ name', alternate: 'return "Alternate " ~ name' }), prompt: 'initial', [sourceMode]: 'async-script-name' });
 			expect(await render('alternate', { name: 'Ada' })).to.equal('Alternate Ada');
 			expect(await render(undefined, { name: 'Ada' })).to.equal('Initial Ada');
 		});
 		it('accepts prepared message arrays and rejects invalid prompt outputs', async () => {
-			const render = createPromptRenderer({ promptType: 'async-script', prompt: 'return [{ role: "user", content: "Hello" }]' });
+			const render = createPromptRenderer({ [sourceMode]: 'async-script', prompt: 'return [{ role: "user", content: "Hello" }]' });
 			expect(await render(undefined, {})).to.deep.equal([{ role: 'user', content: 'Hello' }]);
 			await rejects(async () => await render('return 42', {}), /validation failed/);
-			const fn = createPromptRenderer({ promptType: 'function', prompt: () => 42 });
+			const fn = createPromptRenderer({ [sourceMode]: 'function', prompt: () => 42 });
 			await rejects(async () => await fn(undefined, {}), /validation failed/);
 		});
 	});

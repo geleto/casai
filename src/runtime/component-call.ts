@@ -1,3 +1,4 @@
+import { sourceMode } from '../config/source-mode.js';
 import type { Tool } from 'ai';
 import type { ComponentDefinition } from '../factories/component-factory.js';
 import type { PromptType } from '../types/prompt.js';
@@ -10,10 +11,10 @@ import { createSourceRenderer } from '../renderers/prompt-renderers.js';
 import { mergeConfigs } from '../config/config-utils.js';
 import { defineTool, definedSettings, descriptorKeys, invocationKeys, isContextArgument, namedArguments, prepareExecution, runSettings } from './execution.js';
 
-export type RuntimeComponentConfig = ExecutionConfig & CascadaConfig & Fields & { promptType?: PromptType };
+export type RuntimeComponentConfig = ExecutionConfig & CascadaConfig & Fields & { [sourceMode]?: PromptType };
 type InvokeComponent = (settings: Fields, tool?: ToolInvocation) => Promise<unknown>;
 
-const configurationKeys = ['inputSchema', 'toolContextSchema', 'tools', 'asTool', 'debug', 'promptType', 'loader', 'filters', 'renderOptions',
+const configurationKeys = ['inputSchema', 'toolContextSchema', 'tools', 'asTool', 'debug', 'promptType', sourceMode, 'loader', 'filters', 'renderOptions',
 	...descriptorKeys.filter(key => key !== 'providerOptions')];
 
 /** Read the common source/context prefix. Components identify their own extra source forms. */
@@ -56,12 +57,12 @@ export interface PreparedComponentCall extends ToolInvocation {
 /** Bind the component's construction facts for all invocation paths. */
 export function createComponentRuntime(config: RuntimeComponentConfig, definition: ComponentDefinition<Fields>, render = createSourceRenderer(config, config[definition.main], definition.structured)) {
 	const { main } = definition;
-	const toolInputField = config.promptType === 'text' && config.asTool ? main : undefined;
+	const toolInputField = config[sourceMode] === 'text' && config.asTool ? main : undefined;
 	const runKeys = definition.keys && [...definition.keys.filter(key => !definition.fixedSettings?.includes(key)), ...invocationKeys];
 	function readRun(args: readonly unknown[]) {
 		const settings = runSettings(args, runKeys);
 		const fixed = [...configurationKeys, ...definition.fixedSettings ?? []].filter(key => Object.hasOwn(settings, key));
-		if (fixed.length) throw new ValidationError(`Configuration-only settings: ${fixed.join(', ')}.`);
+		if (fixed.length) throw new ValidationError(`Configuration-only settings: ${fixed.map(String).join(', ')}.`);
 		return settings;
 	}
 	return {
@@ -77,7 +78,7 @@ export function createComponentRuntime(config: RuntimeComponentConfig, definitio
 			return { supplied, settings, ...prepared };
 		},
 		runSettings: readRun,
-		arguments: (args: readonly unknown[], forms?: Parameters<typeof sourceArguments>[3]) => sourceArguments(args, config.promptType!, definition, forms, config.asTool),
+		arguments: (args: readonly unknown[], forms?: Parameters<typeof sourceArguments>[3]) => sourceArguments(args, config[sourceMode]!, definition, forms, config.asTool),
 		request(prepared: PreparedComponentCall, omit: readonly string[] = []): Fields {
 			const request: Fields = { ...prepared.settings, abortSignal: prepared.context._toolOptions.abortSignal };
 			for (const key of [...configurationKeys, 'context', 'toolsContext', ...omit]) Reflect.deleteProperty(request, key);

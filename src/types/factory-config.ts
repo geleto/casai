@@ -1,3 +1,4 @@
+import type { sourceMode, ResolvedSourceMode, WithoutSourceMode } from '../config/source-mode.js';
 import type { EmptyMap } from './utils.js';
 import type { PromptType as ComponentPromptType, PromptFunction, PromptValue } from './prompt.js';
 import type { MergedConfig, ProcessedConfig } from './merge.js';
@@ -7,26 +8,28 @@ import type { Definitions } from './component-map.js';
 import type { ExecutionContext, ToolExecutionContext } from './execution.js';
 
 type PreparerKeys = Exclude<Definitions[keyof Definitions]['main'], 'execute' | 'template' | 'script'>;
+// A source field on one owner may be an ordinary native setting on another.
+type NonSourceValue<Key extends PreparerKeys> = { [K in keyof Definitions]: Key extends Definitions[K]['main'] ? never : ConfigValue<import('./component-map.js').ComponentSettings[K], Key> }[keyof Definitions];
 // Keep native literal contextual types; infer function parameters from application context below.
 export type ConfigSourceInferShape<T> = T extends unknown ? { [K in keyof T]: K extends PreparerKeys
 	? Exclude<T[K], (...args: never[]) => unknown> | (Extract<T[K], (...args: never[]) => unknown> extends never ? never : CallableFunction) : T[K] } : never;
 
 // The completed owner checks the native result and ordinary/tool context contract.
 export type ConfigPreparerContext<T, Mode> = [Mode] extends [never] ? EmptyMap : Mode extends 'function'
-	? Partial<Record<PreparerKeys, { prepare(context: ExecutionContext<T> | ToolExecutionContext<T>): unknown }['prepare']>> : EmptyMap;
+	? { [K in PreparerKeys]?: { prepare(context: ExecutionContext<T> | ToolExecutionContext<T>): unknown }['prepare'] | NonSourceValue<K> } : EmptyMap;
 
 export type ToolMode<T, Explicit extends boolean> = Explicit extends true ? true
 	: true extends ConfigValue<ResolvedConfig<T>, 'asTool'> ? undefined extends ConfigValue<ResolvedConfig<T>, 'asTool'> ? boolean : true : false;
 export type ToolModeConfig<T, Explicit extends boolean> = Explicit extends true
 	? T extends unknown ? Omit<T, 'asTool'> & { asTool: true } : never : T;
 export type SourceMode<T, Explicit, Default> = Explicit extends undefined
-	? Exclude<ConfigValue<T, 'promptType'>, undefined> | (undefined extends ConfigValue<T, 'promptType'> ? Default : never) : Explicit;
+	? Exclude<ConfigValue<T, typeof sourceMode>, undefined> | (undefined extends ConfigValue<T, typeof sourceMode> ? Default : never) : Explicit;
 export type SourceModeConfig<T, Explicit, Default> = T extends unknown
-	? Omit<T, 'promptType'> & { promptType: SourceMode<T, Explicit, Default> } : never;
+	? WithoutSourceMode<T> & ResolvedSourceMode<SourceMode<T, Explicit, Default>> : never;
 
 // A fixed mode can override configuration. Only multiple possible modes need branch selection.
-export type ConfigForMode<T, Mode, Modes = Mode> = [Modes] extends [Mode] ? T : T extends unknown ? 'promptType' extends keyof T
-	? Mode extends T['promptType'] ? T : never : T : never;
+export type ConfigForMode<T, Mode, Modes = Mode> = [Modes] extends [Mode] ? T : T extends unknown ? typeof sourceMode extends keyof T
+	? Mode extends T[typeof sourceMode] ? T : never : T : never;
 // SDK capabilities select their configurations; ordinary calls retain every alternative.
 export type ConfigForToolMode<T, Mode extends boolean, Modes = Mode> = [Modes] extends [Mode] ? T : T extends unknown
 	? Mode extends ToolMode<T, false> ? T : never : never;

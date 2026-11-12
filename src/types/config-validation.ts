@@ -1,4 +1,5 @@
-import type { EmptyMap, NamedKeys, UnionKeys, InvalidUnionMembers } from './utils.js';
+import type { sourceMode } from '../config/source-mode.js';
+import type { EmptyMap, NamedKeys, UnionKeys, InvalidUnionMembers, StrictUnionSubtype } from './utils.js';
 import type { ConfigValue, ContextFromConfig, InputConfigAlternatives, InputSchemaFromConfig, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig, ToolsFromConfig } from './config.js';
 import type { MergedConfig } from './merge.js';
 import type { HasOpenRootInput, HasRootSchemaAlternatives, InputDeclarationKind, SchemaInputNames, SchemaOutputNames, ValidateContextSchema, ValidateToolContextSchema } from './schema-shape.js';
@@ -61,9 +62,16 @@ export type ValidateRunConfig<TRunConfig, TConfig, TShape, Keys extends Property
 
 // A fragment may be incomplete, but it must fit one component's config, and an execute must match the
 // schemas and context the fragment declares. Its context map must match the tools it knows about.
-type ValidPromptSource<T> = T extends { promptType: infer P extends import('./prompt.js').PromptType }
-	? Pick<T, 'prompt' & keyof T> extends { prompt?: import('./factory-config.js').PromptSource<P> | import('./component.js').Source<'ImageGenerator', P> | undefined } ? unknown
-	: 'Config Error: The prompt does not match its source mode.' : unknown;
+// Coded sources keep one input shape; native owners vary theirs with the selector.
+type SourceKind = Exclude<import('./component.js').ComponentKind, 'Function' | 'Template' | 'Script'>;
+type FragmentSourceOwners<T, P extends import('./prompt.js').PromptType, K extends SourceKind = SourceKind> = K extends unknown
+	? Pick<T, keyof T & import('./component.js').Main<K>> extends Partial<Record<import('./component.js').Main<K>, import('./component.js').Source<K, P> | undefined>>
+		? StrictUnionSubtype<T, CallbackConfigShape<Partial<import('./component-map.js').ConfigShapes<import('ai').ToolSet, Record<string, any>, unknown>[K]>>
+			& import('../config/source-mode.js').SourceModeSetting<import('./prompt.js').PromptType | undefined>> : never : never;
+type InvalidSourceModes<T, P = Extract<ConfigValue<T, typeof sourceMode>, import('./prompt.js').PromptType>> = P extends import('./prompt.js').PromptType
+	? [FragmentSourceOwners<T, P>] extends [never] ? T : never : never;
+// Keep source choices paired with their own configuration. Successful branches must not erase failures.
+type InvalidFragmentSources<T> = T extends unknown ? [keyof T & import('./component.js').Main<SourceKind>] extends [never] ? never : InvalidSourceModes<T> : never;
 
 // Derive each alternative's callback contract before collecting incompatible implementations.
 type InvalidFragmentExecute<T> = T extends unknown
@@ -78,7 +86,7 @@ export type ValidateConfigFragment<TConfig, TFinalConfig, TShape> = ValidateReso
 		: 'Config Error: The execute function does not match the schemas and context declared in this configuration.'
 	: 'Config Error: These properties do not belong to any single component configuration.'> & ValidateConfiguredSignal<TFinalConfig>
 	& ValidateResolved<TConfig, ValidateToolCallbackNames<TFinalConfig, true> & ValidateToolSelectionNames<TFinalConfig, true>>
-	& NoInfer<ValidPromptSource<TFinalConfig>>;
+	& NoInfer<[InvalidFragmentSources<TFinalConfig>] extends [never] ? unknown : 'Config Error: The source does not match its source mode.'>;
 
 type RequiredKeys<T> = { [K in keyof T]-?: EmptyMap extends Pick<T, K> ? never : K }[keyof T];
 type MissingKeys<TFinal, TExpected> = Exclude<RequiredKeys<TExpected>, keyof TFinal>;
@@ -110,7 +118,7 @@ export type ValidateFinalConfig<TConfig, TFinal, Explicit extends boolean = fals
 
 export type ValidateRendererConfig<K extends 'Template' | 'Script', Config, Final, Shape,
 	Result = import('./component-map.js').ToolResults<Final, never>[K],
-	Missing = MissingRequiredKeys<Final, Record<import('./component.js').RequiredComponentKeys<K, ConfigValue<Final, 'promptType'>, true extends ToolMode<Final, false> ? true : false>, unknown>>> =
+	Missing = MissingRequiredKeys<Final, Record<import('./component.js').RequiredComponentKeys<K, ConfigValue<Final, typeof sourceMode>, true extends ToolMode<Final, false> ? true : false>, unknown>>> =
 	ValidateResolved<Config, Exclude<UnionKeys<Final>, keyof Shape | 'asTool'> extends never
 		? [Missing] extends [never] ? Config
 			: `Config Error: Missing required property '${Missing & string}' in the final configuration.`

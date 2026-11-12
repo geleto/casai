@@ -39,6 +39,9 @@ export interface VoiceMethods<P extends PromptType, T> {
 	): Promise<unknown>;
 }
 
+export type VoiceComponent<P extends PromptType, T, A extends boolean> =
+	CallableComponent<'VoiceSessionSetup', P, T, A, { [M in P]: Calls<M, ConfigForMode<T, M, P>> }> & VoiceMethods<P, T>;
+
 async function voiceConfig(request: Fields, registry: PreparedToolRegistry): Promise<Experimental_RealtimeSessionConfig> {
 	const { model: _model, expiresAfterSeconds: _expiry, ...settings } = request;
 	const tools = await experimental_getRealtimeToolDefinitions({ tools: registry.tools, toolsContext: registry.toolsContext });
@@ -48,7 +51,7 @@ async function voiceConfig(request: Fields, registry: PreparedToolRegistry): Pro
 export interface Types<P extends PromptType, T, A extends boolean> {
 	definition: typeof definition;
 	settings: Settings;
-	component: CallableComponent<'VoiceSessionSetup', P, T, A, { [M in P]: Calls<M, ConfigForMode<T, M, P>> }> & VoiceMethods<P, T>;
+	component: VoiceComponent<P, T, A>;
 	result: VoiceSetupResult;
 	toolResult: never;
 }

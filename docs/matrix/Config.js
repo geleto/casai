@@ -1,23 +1,37 @@
-import { has, lookup, literal } from './shared.js';
+import { has, factory, prepared, source, lookup, literal, multiline, indent } from './shared.js';
 
-export default function render(options) {
+export default function render(options, resources) {
+  const coded = prepared(options), asTool = has(options, 'asTool'), stream = has(options, 'asStream');
+  const useTools = has(options, 'useTools');
+  const input = source('Config', 'prompt', options, resources, literal('Write a delivery update for Ada.'),
+    "({ name }: { name: string }) => 'Write a delivery update for ' + name + '.'");
   const tool = lookup(options, { name: 'deliveryDay', description: 'Look up the delivery day.', value: "'Friday'" });
-  const imports = has(options, 'useTools') ? 'Config, Function, Template, z' : 'Config, Template, z';
-  return { configuration: { component: 'Config', factory: 'Config', variable: 'shared', properties: ['context', ...(has(options, 'useTools') ? ['tools'] : [])] },
-    files: [{ name: 'Config.ts', language: 'typescript', code: `import { ${imports} } from 'casai';
-
-// Share settings, then override the company for an outlet.
-export async function shareDeliverySettings() {
-${tool.setup.split('\n').map(line => '  ' + line).join('\n')}
-  const shared = Config({
-    context: { company: 'Northstar'${has(options, 'useTools') ? '' : ', deliveryDay'} },
-${has(options, 'useTools') ? '    tools: { deliveryDay },\n' : ''}  });
-  const update = Template({
-    inputSchema: z.object({ name: z.string() }),
-    template: ${literal('{{ company }}: Hello {{ name }}! Your order arrives {{ deliveryDay() }}.')},
-  }, shared);
-  const outlet = Template({ context: { company: 'Northstar Outlet' } }, update);
-  return { main: await update({ name: 'Ada' }), outlet: await outlet({ name: 'Ada' }) };
+  const imports = ['Config', 'LLMAgent', ...(asTool ? ['Script'] : []), ...(useTools ? ['Function'] : []), ...(coded || asTool || useTools ? ['z'] : []), ...(input.loaded ? ['FileSystemLoader'] : [])];
+  const instruction = company => `${company}: ${useTools ? 'Call deliveryDay before writing' : 'Write'} a short delivery update.`;
+  const fields = ['model,', `instructions: ${literal(instruction('Northstar'))},`, ...input.fields,
+    ...(coded ? ["context: { name: 'Ada' },"] : []),
+    ...(coded || asTool ? [`inputSchema: z.object(${coded ? '{ name: z.string() }' : '{}'}),`] : []),
+    ...(asTool ? ["description: 'Write a customer delivery update.',"] : []),
+    ...(useTools ? ['tools: { deliveryDay },', 'stopWhen: isStepCount(3),'] : [])];
+  const call = asTool ? `// The inherited tool modifier makes the completed agent callable by a workflow.
+const workflow = Script({ tools: { outlet }, script: 'return outlet({})' });
+return await workflow();` : `const result = await outlet();
+${stream ? 'for await (const text of result.textStream) console.log(text);\n' : ''}return ${stream ? 'await ' : ''}result.text;`;
+  let code = `import { ${imports.join(', ')} } from 'casai';
+import { ${useTools ? 'isStepCount, ' : ''}type LanguageModel } from 'ai';
+${input.loaded ? "import { fileURLToPath } from 'node:url';\n" : ''}
+// Every inheriting component must support the selected modifiers and settings.
+export async function shareDeliverySettings(model: LanguageModel) {
+${useTools ? indent(tool.setup) + '\n' : ''}  const shared = ${factory('Config', options)}({
+${indent(fields.join('\n'), 4)}
+  });
+  // LLMAgent supports this selection; override just the outlet's instructions.
+  const outlet = LLMAgent({ instructions: ${literal(instruction('Northstar Outlet'))} }, shared);
+${indent(call)}
 }
-` }] };
+`;
+  if (input.inlineText !== undefined) code = code.replace('__MATRIX_SOURCE__', () => multiline(input.inlineText));
+  return { configuration: { component: 'Config', factory: factory('Config', options), variable: 'shared',
+    properties: fields.flatMap(field => field.match(/^([\w$]+)\s*(?=[:,])/)?.slice(1) ?? []) },
+    files: [{ name: 'Config.ts', language: 'typescript', code }, ...input.files] };
 }

@@ -337,7 +337,6 @@ export default {
     "Template_config": [
       "template-902b6327f5ff",
       "inputSchema-f335a5a81f68",
-      "promptType-adaae62fa855",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -350,7 +349,6 @@ export default {
     "Template_settings": [
       "template-902b6327f5ff",
       "inputSchema-f335a5a81f68",
-      "promptType-adaae62fa855",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -369,7 +367,6 @@ export default {
       "script-3ee7336160ef",
       "schema-288e8cf2b21a",
       "inputSchema-f335a5a81f68",
-      "promptType-4e6960d1ae5c",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -383,7 +380,6 @@ export default {
       "script-3ee7336160ef",
       "schema-288e8cf2b21a",
       "inputSchema-f335a5a81f68",
-      "promptType-4e6960d1ae5c",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -425,7 +421,6 @@ export default {
     ],
     "LLMAgent_config": [
       "inputSchema-d2ab2b864d21",
-      "promptType-a87a79942498",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -545,7 +540,6 @@ export default {
       "streaming-7ebe1c1cd17f",
       "output-960376aadf77",
       "prompt-dbcb70464d4d",
-      "promptType-a87a79942498",
       "inputSchema-d2ab2b864d21",
       "tools-d8cac053f1e9",
       "toolsContext-be97e33328f3"
@@ -577,8 +571,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "Decision_settings": [
       "runtimeContext-0add664a522c",
@@ -624,8 +617,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "Embedder_settings": [
       "runtimeContext-b82193f21760",
@@ -673,8 +665,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "Reranker_settings": [
       "runtimeContext-bfeb4849a32a",
@@ -720,8 +711,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "ImageGenerator_settings": [
       "providerOptions-d0dcb86a4b4b",
@@ -760,8 +750,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "Transcriber_settings": [
       "providerOptions-6fb067a708e2",
@@ -795,8 +784,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "StreamingTranscriber_settings": [
       "providerOptions-0e700395c4b1",
@@ -834,8 +822,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "SpeechGenerator_settings": [
       "text-ec806897822a",
@@ -877,8 +864,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "StreamingSpeechGenerator_settings": [
       "text-730665458c8e",
@@ -918,8 +904,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "StreamingTranslator_settings": [
       "providerOptions-629f88d39640",
@@ -959,8 +944,7 @@ export default {
       "toolContextSchema-d7c206b57ff4",
       "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010",
-      "promptType-fcb30516c7a6"
+      "toolsContext-a026c14e3010"
     ],
     "VoiceSessionSetup_settings": [
       "providerOptions-017504595b6e",
@@ -1868,16 +1852,6 @@ export default {
         "path": "src/types/config.ts"
       }
     },
-    "promptType-adaae62fa855": {
-      "name": "promptType",
-      "type": "TemplatePromptType | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts"
-      }
-    },
     "filters-e21828790709": {
       "name": "filters",
       "type": "Record<string, (input: any, ...args: any[]) => any> | undefined",
@@ -1999,16 +1973,6 @@ export default {
         "path": "src/types/config.ts"
       }
     },
-    "promptType-4e6960d1ae5c": {
-      "name": "promptType",
-      "type": "ScriptPromptType | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts"
-      }
-    },
     "direct-b5cef17f1666": {
       "name": "direct",
       "type": "string | undefined",
@@ -2080,16 +2044,6 @@ export default {
     "inputSchema-d2ab2b864d21": {
       "name": "inputSchema",
       "type": "SchemaType<Record<string, any>> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/agent.ts"
-      }
-    },
-    "promptType-a87a79942498": {
-      "name": "promptType",
-      "type": "PromptType | undefined",
       "optional": true,
       "description": "",
       "tags": [],
@@ -3192,16 +3146,6 @@ export default {
     "toolsContext-a026c14e3010": {
       "name": "toolsContext",
       "type": "Record<string, unknown> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/component.ts"
-      }
-    },
-    "promptType-fcb30516c7a6": {
-      "name": "promptType",
-      "type": "\"text\" | undefined",
       "optional": true,
       "description": "",
       "tags": [],

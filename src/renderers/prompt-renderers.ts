@@ -1,3 +1,4 @@
+import { sourceMode } from '../config/source-mode.js';
 import type { PromptValue, PromptType } from '../types/prompt.js';
 import type { ModelMessage } from 'ai';
 import type { Context } from '../types/utils.js';
@@ -18,10 +19,10 @@ async function validatePromptOutput(value: unknown): Promise<string | ModelMessa
 }
 
 /** Prepare a native operation input. Only the owning operation validates its output. */
-export function createSourceRenderer(config: CascadaConfig & { promptType?: PromptType }, configured: unknown,
+export function createSourceRenderer(config: CascadaConfig & { [sourceMode]?: PromptType }, configured: unknown,
 	structured?: 'messages' | 'parts' | 'image') {
 	const environment = { loader: config.loader, filters: config.filters, renderOptions: { ...config.renderOptions, autoescape: false } };
-	const promptType = config.promptType;
+	const promptType = config[sourceMode];
 	switch (promptType) {
 		case 'text':
 			return (source: unknown = configured) => source;
@@ -70,11 +71,11 @@ export function createSourceRenderer(config: CascadaConfig & { promptType?: Prom
 	}
 }
 
-export function createPromptRenderer(config: CascadaConfig & { promptType?: PromptType; prompt?: unknown }) {
+export function createPromptRenderer(config: CascadaConfig & { [sourceMode]?: PromptType; prompt?: unknown }) {
 	const render = createSourceRenderer(config, config.prompt, 'messages');
 	return async (source: unknown, context: Context): Promise<string | ModelMessage[]> => {
 		const output = await render(source, context);
-		return config.promptType === 'function' || config.promptType?.startsWith('async-script') || typeof output !== 'string'
+		return config[sourceMode] === 'function' || config[sourceMode]?.startsWith('async-script') || typeof output !== 'string'
 			? validatePromptOutput(output) : output;
 	};
 }

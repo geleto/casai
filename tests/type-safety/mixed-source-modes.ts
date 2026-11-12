@@ -1,3 +1,4 @@
+import { type SourceMode, type SourceModeOf } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import type { LLMAgentConfig } from 'casai';
 import type { EmbedResult, EmbeddingModel, ImageModel, LanguageModel, ModelMessage, RerankingModel, SpeechModel, TranscriptionModel, Experimental_RealtimeModel } from 'ai';
@@ -7,8 +8,8 @@ declare const model: LanguageModel;
 declare const speech: SpeechModel;
 declare const transcription: TranscriptionModel;
 declare const history: ModelMessage[];
-declare const sourceModes: { model: EmbeddingModel; promptType: 'text'; input: string }
-	| { model: EmbeddingModel; promptType: 'function'; input: () => string };
+declare const sourceModes: (SourceMode<'text'> & { model: EmbeddingModel; input: string })
+	| (SourceMode<'function'> & { model: EmbeddingModel; input: () => string });
 
 const mixed = create.Embedder(sourceModes);
 const _configured = mixed();
@@ -34,8 +35,8 @@ void mixed(replacement);
 void mixed({});
 
 const _toolInput = z.object({ input: z.string().transform(value => value.toUpperCase()) });
-declare const toolModes: { model: EmbeddingModel; promptType: 'text'; input: string; inputSchema: typeof _toolInput }
-	| { model: EmbeddingModel; promptType: 'function'; input: (context: { input: string }) => string; inputSchema: typeof _toolInput };
+declare const toolModes: (SourceMode<'text'> & { model: EmbeddingModel; input: string; inputSchema: typeof _toolInput })
+	| (SourceMode<'function'> & { model: EmbeddingModel; input: (context: { input: string }) => string; inputSchema: typeof _toolInput });
 const mixedTool = create.Embedder.asTool(toolModes);
 expectEqual<Awaited<ReturnType<typeof mixedTool.execute>>, number[]>();
 void mixedTool.run({ context: { input: 'value' } });
@@ -53,42 +54,42 @@ void literal(['replacement']);
 void literal.run({ input: 'replacement' });
 
 // A mode property can itself be a union, including an omitted mode's default.
-declare const stringModes: { model: EmbeddingModel; promptType: 'text' | 'async-template'; input: string };
+declare const stringModes: (SourceMode<'text' | 'async-template'> & { model: EmbeddingModel; input: string });
 const rendered = create.Embedder(stringModes);
 void rendered();
 void rendered('replacement');
 void rendered.run({ input: 'replacement' });
 void rendered.run({ headers: {} });
-declare const optionalMode: { model: EmbeddingModel; promptType?: 'async-template'; input: string };
+declare const optionalMode: (Partial<SourceMode<'async-template'>> & { model: EmbeddingModel; input: string });
 const optional = create.Embedder(optionalMode);
-expectEqual<typeof optional.config.promptType, 'text' | 'async-template'>();
+expectEqual<SourceModeOf<typeof optional.config>, 'text' | 'async-template'>();
 void optional();
 void optional('replacement');
 // @ts-expect-error An omitted mode defaults to literal input and cannot consume positional context.
 void optional({});
-declare const optionalFunction: { model: EmbeddingModel; promptType?: 'function' };
+declare const optionalFunction: (Partial<SourceMode<'function'>> & { model: EmbeddingModel; });
 const unresolved = create.Embedder(optionalFunction);
 // @ts-expect-error This is a literal source on one possible branch only.
 void unresolved('replacement');
 // @ts-expect-error This is a function source on one possible branch only.
 void unresolved(() => 'replacement');
 
-declare const unpaired: { model: EmbeddingModel; promptType: 'text' | 'function'; input: string | (() => string) };
+declare const unpaired: (SourceMode<'text' | 'function'> & { model: EmbeddingModel; input: string | (() => string) });
 // @ts-expect-error Independent field unions do not guarantee a source compatible with the chosen mode.
 create.Embedder(unpaired);
-declare const invalidBranch: { model: EmbeddingModel; promptType: 'text'; input: string }
-	| { model: EmbeddingModel; promptType: 'function'; input: string };
+declare const invalidBranch: (SourceMode<'text'> & { model: EmbeddingModel; input: string })
+	| (SourceMode<'function'> & { model: EmbeddingModel; input: string });
 // @ts-expect-error A valid literal branch cannot conceal a malformed function branch.
 create.Embedder(invalidBranch);
 const _loader = { load: (name: string) => name };
-declare const loaded: { model: EmbeddingModel; promptType: 'text'; input: string }
-	| { model: EmbeddingModel; promptType: 'text-name'; input: string; loader: typeof _loader };
+declare const loaded: (SourceMode<'text'> & { model: EmbeddingModel; input: string })
+	| (SourceMode<'text-name'> & { model: EmbeddingModel; input: string; loader: typeof _loader });
 const loading = create.Embedder(loaded);
 void loading();
 void loading('source');
 void loading.run({ input: 'source' });
-declare const partialModes: { model: EmbeddingModel; promptType: 'text' }
-	| { model: EmbeddingModel; promptType: 'function'; input: () => string };
+declare const partialModes: (SourceMode<'text'> & { model: EmbeddingModel; })
+	| (SourceMode<'function'> & { model: EmbeddingModel; input: () => string });
 const partial = create.Embedder(partialModes);
 // @ts-expect-error Only one possible branch has a configured source.
 void partial();
@@ -98,10 +99,11 @@ void partial.run({});
 // Explicit modifiers select one mode, including when inheriting a mixed-mode parent.
 void create.Embedder.withFunction({ input: () => 'replacement' }, { config: sourceModes })();
 void create.Embedder.withText({ input: 'replacement' }, { config: sourceModes })();
-if (sourceModes.promptType === 'text') void create.Embedder(sourceModes)('replacement');
+declare const narrowedsourceModes: Extract<typeof sourceModes, SourceMode<'text'>>;
+void create.Embedder(narrowedsourceModes)('replacement');
 
-declare const agentModes: { model: LanguageModel; promptType: 'text'; prompt: string }
-	| { model: LanguageModel; promptType: 'function'; prompt: () => string };
+declare const agentModes: (SourceMode<'text'> & { model: LanguageModel; prompt: string })
+	| (SourceMode<'function'> & { model: LanguageModel; prompt: () => string });
 const agent = create.LLMAgent(agentModes);
 void agent();
 void agent(history);
@@ -119,26 +121,26 @@ void agent('replacement');
 void agent(() => 'replacement');
 // @ts-expect-error Named sources must also work in every possible mode.
 void agent.run({ prompt: 'replacement' });
-declare const invalidAgent: { model: LanguageModel; promptType: 'text'; prompt: string }
-	| { model: LanguageModel; promptType: 'function'; prompt: string };
+declare const invalidAgent: (SourceMode<'text'> & { model: LanguageModel; prompt: string })
+	| (SourceMode<'function'> & { model: LanguageModel; prompt: string });
 // @ts-expect-error LLMAgent checks each configured source against its own mode too.
 create.LLMAgent(invalidAgent);
-declare const agentLoaded: { model: LanguageModel; promptType: 'text'; prompt: string }
-	| { model: LanguageModel; promptType: 'text-name'; prompt: string; loader: typeof _loader };
+declare const agentLoaded: (SourceMode<'text'> & { model: LanguageModel; prompt: string })
+	| (SourceMode<'text-name'> & { model: LanguageModel; prompt: string; loader: typeof _loader });
 void create.LLMAgent(agentLoaded)('source');
-declare const agentStrings: { model: LanguageModel; promptType: 'text' | 'async-template'; prompt: string };
+declare const agentStrings: (SourceMode<'text' | 'async-template'> & { model: LanguageModel; prompt: string });
 const stringAgent = create.LLMAgent(agentStrings);
 void stringAgent('replacement');
 void stringAgent('replacement', {}, history);
 void stringAgent.run({ prompt: 'replacement', messageHistory: history });
-const annotated: LLMAgentConfig<EmptyMap, EmptyMap, () => string> = { model, promptType: 'function', prompt: () => 'ready' };
-void create.LLMAgent(annotated)(() => 'replacement');
+const annotated: LLMAgentConfig<EmptyMap, EmptyMap, () => string> = { model, prompt: () => 'ready' };
+void create.LLMAgent.withFunction(annotated)(() => 'replacement');
 const annotatedLiteral: LLMAgentConfig<EmptyMap, EmptyMap, string> = { model, prompt: 'ready' };
 void create.LLMAgent(annotatedLiteral)('replacement');
 
 const _input = z.object({ name: z.string() });
-declare const schemaModes: { model: EmbeddingModel; promptType: 'text'; input: string; inputSchema: typeof _input }
-	| { model: EmbeddingModel; promptType: 'async-template'; input: string; inputSchema: typeof _input };
+declare const schemaModes: (SourceMode<'text'> & { model: EmbeddingModel; input: string; inputSchema: typeof _input })
+	| (SourceMode<'async-template'> & { model: EmbeddingModel; input: string; inputSchema: typeof _input });
 const withContext = create.Embedder(schemaModes);
 void withContext.run({ context: { name: 'Ada' } });
 // @ts-expect-error Required context must be present regardless of the selected mode.
@@ -146,13 +148,13 @@ void withContext.run({});
 // @ts-expect-error Literal shorthand cannot carry required context.
 void withContext({ name: 'Ada' });
 const _callbacks = z.object({ factor: z.number(), map: z.custom<(value: number) => number>() });
-declare const preparedModes: { model: EmbeddingModel; promptType: 'async-template' | 'async-script'; input: string; inputSchema: typeof _callbacks; context: { factor: number } };
+declare const preparedModes: (SourceMode<'async-template' | 'async-script'> & { model: EmbeddingModel; input: string; inputSchema: typeof _callbacks; context: { factor: number } });
 const prepared = create.Embedder(preparedModes);
 void prepared({ map: value => { expectEqual<typeof value, number>(); return value * 2; } });
 void prepared.run({ context: { map: value => { expectEqual<typeof value, number>(); return value * 2; } } });
 
-declare const rankModes: { model: RerankingModel; promptType: 'text'; query: string; documents: string[] }
-	| { model: RerankingModel; promptType: 'function'; query: () => { query: string; documents: { id: number }[] } };
+declare const rankModes: (SourceMode<'text'> & { model: RerankingModel; query: string; documents: string[] })
+	| (SourceMode<'function'> & { model: RerankingModel; query: () => { query: string; documents: { id: number }[] } });
 const rank = create.Reranker(rankModes);
 const _ranked = rank();
 expectEqual<Awaited<typeof _ranked>['ranking'][number]['document'], string | { id: number }>();
@@ -162,8 +164,8 @@ void rank.run({ documents: ['replacement'], topN: 1 });
 // @ts-expect-error A string cannot replace the query preparer.
 void rank('replacement');
 
-declare const imageModes: { model: ImageModel; promptType: 'text'; images: Uint8Array[] }
-	| { model: ImageModel; promptType: 'function'; prompt: () => string; images: Uint8Array[] };
+declare const imageModes: (SourceMode<'text'> & { model: ImageModel; images: Uint8Array[] })
+	| (SourceMode<'function'> & { model: ImageModel; prompt: () => string; images: Uint8Array[] });
 const draw = create.ImageGenerator(imageModes);
 void draw();
 void draw(2);
@@ -177,13 +179,13 @@ void draw('mask.png');
 // @ts-expect-error Named prompt is always a source replacement, never a mask.
 void draw.run({ prompt: 'replacement' });
 const _media = z.object({ text: z.string(), images: z.array(z.instanceof(Uint8Array)) });
-declare const imageContextModes: { model: ImageModel; promptType: 'text'; context: { text: string } }
-	| { model: ImageModel; promptType: 'async-template'; prompt: string; inputSchema: typeof _media };
+declare const imageContextModes: (SourceMode<'text'> & { model: ImageModel; context: { text: string } })
+	| (SourceMode<'async-template'> & { model: ImageModel; prompt: string; inputSchema: typeof _media });
 // This object is authored source in the literal branch and declared public context in the template branch.
 void create.ImageGenerator(imageContextModes)({ text: 'new', images: [new Uint8Array([1])] });
 
-declare const voiceModes: { model: SpeechModel; promptType: 'text'; text: string }
-	| { model: SpeechModel; promptType: 'function'; text: () => string };
+declare const voiceModes: (SourceMode<'text'> & { model: SpeechModel; text: string })
+	| (SourceMode<'function'> & { model: SpeechModel; text: () => string });
 const speak = create.SpeechGenerator(voiceModes);
 void speak();
 // A single string is text on the literal branch and voice on the function branch; both calls are valid.
@@ -193,23 +195,23 @@ void speak.run({ voice: 'alloy' });
 void speak.run({ text: 'alloy' });
 
 interface AudioFormat { type: string; rate: number }
-declare const audioModes: { model: TranscriptionModel; promptType: 'text'; audio: ReadableStream<Uint8Array>; inputAudioFormat: AudioFormat }
-	| { model: TranscriptionModel; promptType: 'function'; audio: () => ReadableStream<Uint8Array>; inputAudioFormat: AudioFormat };
+declare const audioModes: (SourceMode<'text'> & { model: TranscriptionModel; audio: ReadableStream<Uint8Array>; inputAudioFormat: AudioFormat })
+	| (SourceMode<'function'> & { model: TranscriptionModel; audio: () => ReadableStream<Uint8Array>; inputAudioFormat: AudioFormat });
 const transcribe = create.StreamingTranscriber(audioModes);
 void transcribe();
 void transcribe.run({ inputAudioFormat: { type: 'audio/pcm', rate: 24000 } });
 // @ts-expect-error Audio streams cannot replace a function preparer.
 void transcribe(new ReadableStream<Uint8Array>());
 
-declare const recordedModes: { model: TranscriptionModel; promptType: 'text'; audio: URL }
-	| { model: TranscriptionModel; promptType: 'function'; audio: () => URL };
+declare const recordedModes: (SourceMode<'text'> & { model: TranscriptionModel; audio: URL })
+	| (SourceMode<'function'> & { model: TranscriptionModel; audio: () => URL });
 const recorded = create.Transcriber(recordedModes);
 void recorded();
 // @ts-expect-error Native URLs cannot become preparation context.
 void recorded(new URL('https://example.test/audio'));
 void create.Transcriber({ model: transcription })(new URL('https://example.test/audio'));
-declare const speechModes: { model: SpeechModel; promptType: 'text'; text: string }
-	| { model: SpeechModel; promptType: 'function'; text: () => string };
+declare const speechModes: (SourceMode<'text'> & { model: SpeechModel; text: string })
+	| (SourceMode<'function'> & { model: SpeechModel; text: () => string });
 const liveSpeech = create.StreamingSpeechGenerator(speechModes);
 void liveSpeech();
 // @ts-expect-error Native text generators cannot become preparation context.
@@ -219,8 +221,8 @@ void liveSpeech((async function* () { yield 'hello'; })());
 void create.StreamingSpeechGenerator({ model: speech })((function* () { yield 'hello'; })());
 void create.StreamingSpeechGenerator({ model: speech })((async function* () { yield 'hello'; })());
 
-declare const sessions: { model: Experimental_RealtimeModel; promptType: 'text' }
-	| { model: Experimental_RealtimeModel; promptType: 'function'; instructions: () => string };
+declare const sessions: (SourceMode<'text'> & { model: Experimental_RealtimeModel; })
+	| (SourceMode<'function'> & { model: Experimental_RealtimeModel; instructions: () => string });
 const session = create.VoiceSessionSetup(sessions);
 void session();
 void session.run({});
@@ -232,23 +234,23 @@ void session.prepareSessionConfig({ instructions: 'replacement' });
 void session.createWebRTCSession({ sdp: 'offer', instructions: 'replacement' });
 
 // Renderer requirements belong to each branch, even when the source types coincide.
-declare const templateOptions: { promptType: 'async-template'; template: string }
-	| { promptType: 'async-template-name'; loader: typeof _loader };
-declare const scriptOptions: { promptType: 'async-script'; script: string }
-	| { promptType: 'async-script-name'; loader: typeof _loader };
+declare const templateOptions: (SourceMode<'async-template'> & { template: string })
+	| (SourceMode<'async-template-name'> & { loader: typeof _loader });
+declare const scriptOptions: (SourceMode<'async-script'> & { script: string })
+	| (SourceMode<'async-script-name'> & { loader: typeof _loader });
 void create.Template(templateOptions)('entry');
 void create.Script(scriptOptions)('entry');
 // @ts-expect-error A loaded branch still needs its unresolved source.
 void create.Template(templateOptions)();
 // @ts-expect-error A loaded branch still needs its unresolved source.
 void create.Script(scriptOptions)();
-declare const completeTemplates: { promptType: 'async-template'; template: string }
-	| { promptType: 'async-template-name'; template: string; loader: typeof _loader };
-declare const completeScripts: { promptType: 'async-script'; script: string }
-	| { promptType: 'async-script-name'; script: string; loader: typeof _loader };
+declare const completeTemplates: (SourceMode<'async-template'> & { template: string })
+	| (SourceMode<'async-template-name'> & { template: string; loader: typeof _loader });
+declare const completeScripts: (SourceMode<'async-script'> & { script: string })
+	| (SourceMode<'async-script-name'> & { script: string; loader: typeof _loader });
 void create.Template(completeTemplates)();
 void create.Script(completeScripts)();
-declare const missingLoader: { promptType: 'async-template'; template: string }
-	| { promptType: 'async-template-name'; template: string };
+declare const missingLoader: (SourceMode<'async-template'> & { template: string })
+	| (SourceMode<'async-template-name'> & { template: string });
 // @ts-expect-error Checking branches separately must retain the loaded branch's requirement.
 create.Template(missingLoader);

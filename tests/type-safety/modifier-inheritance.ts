@@ -1,3 +1,4 @@
+import { type SourceModeOf } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import type { Agent, LanguageModel, Tool } from 'ai';
 import { expectEqual, expectType } from './assert.js';
@@ -34,9 +35,9 @@ expectType<Tool<{ name: string }, string, undefined>>(childTemplate);
 expectType<Tool<{ name: string }, string, undefined>>(childScript);
 expectType<Tool<{ name: string }, string, undefined>>(childFunction);
 expectType<Tool<{ name: string }, string, undefined>>(childAgent);
-expectEqual<typeof childTemplate.config.promptType, 'async-template-name'>();
-expectEqual<typeof childScript.config.promptType, 'async-script-name'>();
-expectEqual<typeof childAgent.config.promptType, 'async-template'>();
+expectEqual<SourceModeOf<typeof childTemplate.config>, 'async-template-name'>();
+expectEqual<SourceModeOf<typeof childScript.config>, 'async-script-name'>();
+expectEqual<SourceModeOf<typeof childAgent.config>, 'async-template'>();
 // @ts-expect-error Generation tools have no inherited streaming mode.
 expectType<unknown>(childAgent.config.streaming);
 expectEqual<typeof childFunction.config.asTool, true>();
@@ -57,9 +58,9 @@ create.Script({ loader: undefined }, script);
 const inlineTemplate = create.Template.withTemplate({ template: '{{ name }}' }, template);
 const inlineScript = create.Script.withScript({ script: 'return name' }, script);
 const literalAgent = create.LLMAgent.withText({}, agent);
-expectEqual<typeof inlineTemplate.config.promptType, 'async-template'>();
-expectEqual<typeof inlineScript.config.promptType, 'async-script'>();
-expectEqual<typeof literalAgent.config.promptType, 'text'>();
+expectEqual<SourceModeOf<typeof inlineTemplate.config>, 'async-template'>();
+expectEqual<SourceModeOf<typeof inlineScript.config>, 'async-script'>();
+expectEqual<SourceModeOf<typeof literalAgent.config>, 'text'>();
 // @ts-expect-error Source replacement does not add streaming.
 expectType<unknown>(literalAgent.config.streaming);
 expectEqual<typeof literalAgent.config.asTool, true>();

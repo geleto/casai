@@ -1,3 +1,4 @@
+import { sourceMode } from '../config/source-mode.js';
 import type { PromptType } from '../types/prompt.js';
 import type { FilePayload } from '../types/result.js';
 import type { OptionalUndefined } from '../types/utils.js';
@@ -69,7 +70,7 @@ function createImageGenerator(config: RuntimeComponentConfig) {
 		const call = runtime.arguments(args, {
 			literal: first => first === undefined || typeof first === 'string' || isPlainObject(first),
 			prepared: values => isPlainObject(values[0]) && isContextArgument(values[1]),
-			objectSource: config.promptType === 'async-template',
+			objectSource: config[sourceMode] === 'async-template',
 		});
 		call.take('images', Array.isArray);
 		call.take('mask', value => typeof value === 'string' || value instanceof Uint8Array || value instanceof ArrayBuffer);

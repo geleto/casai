@@ -18,6 +18,7 @@ const fixtures = {
   'async-prompt': {},
   'run-overrides': { includes: ['quick-start'], prelude: false },
   'config-inheritance': {},
+  'config-source-tool-modifiers': {},
   'config-inspection': { includes: ['config-inheritance'] },
   template: {},
   'loaded-template': {},

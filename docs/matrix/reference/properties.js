@@ -46,12 +46,6 @@ export const commonProperties = {
     inheritance: 'Child loaders run before parent loaders. undefined preserves the chain. raceParent and overrideParent explicitly change composition.',
     notes: 'An array tries loaders in order. raceLoaders tries loaders concurrently. FileSystemLoader, WebLoader, PrecompiledLoader and custom loaders remain application choices.',
   }),
-  promptType: entry('Selects the source mode when constructing a component. Source modifiers set it automatically.', {
-    default: 'Inherited mode, otherwise the factory default.', section: 'source', scope: 'capability',
-    override: 'Construction only; .run() cannot change the source mode.',
-    inheritance: 'An explicit source modifier wins over this setting. Without a modifier, the child setting wins over the inherited mode, then the factory default is used.',
-    notes: 'This is a public configuration property, also accepted by Config. Prefer .withTemplate, .withScript, .withFunction or the supported .loads… modifier. For example, promptType: "async-template" selects Cascada Template input on a base factory that supports it.',
-  }),
   asTool: entry('Selects a component that can be exposed as an SDK tool.', { section: 'variants', scope: 'tool', default: 'false', notes: 'Prefer .asTool. Derived components retain tool mode; there is no reverse modifier. Ordinary calls still have their ordinary result contract.' }),
   streaming: entry('Selects the live result for ordinary LLMAgent calls, .run() and resume().', { section: 'variants', scope: 'family', default: 'Generation.', notes: 'Prefer .asStream. Native generate() and stream() remain available on non-tool agents regardless of this default.' }),
   schema: entry('Parses the Script or Function return value. Stream schemas parse each complete element lazily.', { section: 'adapted', scope: 'family', type: 'Supported output schema | streamSchema(elementSchema) | textStreamSchema()', default: null, notes: 'This is not LLMAgent output, and there is no common outputSchema setting. Declared root streams are collected only during tool execution.' }),

@@ -9,7 +9,7 @@ const temporary = fs.mkdtempSync(path.join(workspace, '.phase2-production-mutati
 const runtimeFiles = ['tests/Phase2.integration.test.ts', 'tests/ToolLifecycle.unit.test.ts', 'tests/Registry.unit.test.ts', 'tests/FactoryInference.test.ts', 'tests/cascada.ts',
   'tests/ComponentCalls.unit.test.ts', 'tests/ImageGenerator.unit.test.ts', 'tests/StructuredSources.unit.test.ts', 'tests/VoiceSessionSetup.unit.test.ts',
   'tests/SchemaIdentity.unit.test.ts', 'tests/ComponentInterop.unit.test.ts', 'tests/LLMCalls.unit.test.ts', 'tests/LLMSurface.unit.test.ts', 'tests/ReviewCorrections.unit.test.ts', 'tests/Streams.unit.test.ts', 'tests/SchemaPreparation.unit.test.ts',
-  'tests/LLMAgent.unit.test.ts', 'tests/ModifierInheritance.unit.test.ts', 'tests/Engines.unit.test.ts', 'tests/LoaderComposition.unit.test.ts', 'tests/fixtures/runtime-call.ts', 'tests/ClosedToolInput.unit.test.ts', 'tests/ConfigValidation.test.ts', 'tests/fixtures/phase2-api-schemas.ts', 'tests/fixtures/phase2-security-sdk.ts'];
+  'tests/LLMAgent.unit.test.ts', 'tests/ModifierInheritance.unit.test.ts', 'tests/Engines.unit.test.ts', 'tests/LoaderComposition.unit.test.ts', 'tests/fixtures/runtime-call.ts', 'tests/ClosedToolInput.unit.test.ts', 'tests/ConfigValidation.test.ts', 'tests/fixtures/phase2-api-schemas.ts', 'tests/fixtures/phase2-security-sdk.ts', 'tests/fixtures/source-modes.ts'];
 function run(args, expected, label) {
   const result = spawnSync(process.execPath, args, { cwd: temporary, encoding: 'utf8', timeout: 180000 });
   assert.equal(result.error, undefined);
@@ -42,8 +42,10 @@ try {
     ['plain tool parsed payload', 'tool.input[main]', 'prepared.context[main]',
       'selects plain tool input from parsed payload', 'src/runtime/component-call.ts'],
     ['prepared secondary string roles', "typeof first === 'string' && mode !== 'function'", "typeof first === 'string'", 'keeps prepared context distinct', 'src/runtime/component-call.ts'],
-    ['component factory source inheritance', 'mode ?? merged.promptType ?? definition.defaultMode', 'mode ?? definition.defaultMode',
+    ['component factory source inheritance', 'mode ?? merged[sourceMode] ?? definition.defaultMode', 'mode ?? definition.defaultMode',
       'inherits loaded Template and Script sources|inherits an LLMAgent source', 'src/factories/component-factory.ts'],
+    ['component factory explicit source replacement', 'mode ?? merged[sourceMode] ?? definition.defaultMode', 'merged[sourceMode] ?? mode ?? definition.defaultMode',
+      'inherits an LLMAgent source', 'src/factories/component-factory.ts'],
     ['component factory explicit tool mode', 'if (asTool) merged.asTool = true;', '',
       'inherits tool mode on every coded component', 'src/factories/component-factory.ts'],
     ['component factory validation', 'validate?.(merged, definition);', '',

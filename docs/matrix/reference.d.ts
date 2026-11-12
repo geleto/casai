@@ -59,6 +59,8 @@ export interface ReferenceInfo {
   shortDescription: string; shortDescriptionSource: DescriptionSource | null; kind: 'component' | 'configuration' | 'concept'; input: string; result: string;
   /** Full explanation for the selected form. */
   description: string; descriptionSources: SourceLocation[];
+  /** A compact constraint that remains visible beside the selection controls. */
+  selectionNote?: string;
   controls: ControlSection[];
 }
 export interface ReferenceConfig {

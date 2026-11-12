@@ -405,7 +405,7 @@ void text.run({ enum: ['YES'] });
 void stream.run({ inputSchema });
 // @ts-expect-error A run cannot introduce an SDK tool context schema.
 void text.run({ toolContextSchema: inputSchema });
-// @ts-expect-error A run cannot change its prompt rendering mode.
+// @ts-expect-error promptType has been removed; source selection uses factory modifiers.
 void text.run({ promptType: 'async-template' });
 // @ts-expect-error A run cannot introduce a loader.
 void stream.run({ loader: { load: (name: string) => name } });

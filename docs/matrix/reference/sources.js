@@ -8,6 +8,20 @@ export const sourceModes = {
   function: { name: 'Function', value: 'function' },
 };
 
+// Config selects interpretation for a future component; it has no input of its own.
+export const configSourceForms = [
+  ...[
+    ['withText', 'text', 'The receiving component uses its primary input directly.'],
+    ['withTemplate', 'async-template', 'The receiving component renders its primary input as a Cascada Template, using variables from context.'],
+    ['withScript', 'async-script', 'The receiving component runs its primary input as a Cascada Script, using variables from context.'],
+    ['withFunction', 'function', 'The receiving component calls the function supplied as its primary input, passing context. The function may be asynchronous.'],
+    ['loadsText', 'text-name', 'The receiving component loads its primary input from a text file using loader.'],
+    ['loadsTemplate', 'async-template-name', 'The receiving component loads a Cascada Template using loader and renders it using context.'],
+    ['loadsScript', 'async-script-name', 'The receiving component loads a Cascada Script using loader and runs it using context.'],
+  ].map(([modifier, mode, description]) => ({ modifier, mode, ...sourceModes[mode], description,
+    explanation: `${description} This explicit selection replaces an inherited source mode. The source value and any required loader may be supplied by the completed component.` })),
+].map(form => ({ ...form, toolSupported: true, applicable: true }));
+
 // Explain the authored value before explaining what Casai does with it. The
 // same mode prose feeds the input overview, property description and mode list.
 export function sourceDocumentation(mode, definition, spec) {

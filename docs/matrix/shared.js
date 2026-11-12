@@ -1,9 +1,9 @@
 // These helpers generate source text; they never execute a displayed example.
 export const has = (options, name) => options.includes(name);
-export const sourceModes = ['withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
+export const sourceModes = ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
 export const sourceMode = options => sourceModes.find(name => has(options, name));
 export const sourceKind = options => sourceMode(options)?.includes('Template') ? 'cat' : sourceMode(options)?.includes('Script') ? 'cas' : has(options, 'loadText') ? 'txt' : undefined;
-export const prepared = options => Boolean(sourceMode(options)) && !has(options, 'loadText');
+export const prepared = options => Boolean(sourceMode(options)) && !has(options, 'loadText') && !has(options, 'withText');
 export const literal = value => JSON.stringify(value);
 export const indent = (text, spaces = 2) => text.split('\n').map(line => line ? ' '.repeat(spaces) + line : '').join('\n');
 

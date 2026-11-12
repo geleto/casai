@@ -1,3 +1,4 @@
+import type { SourceModeSetting, AnnotatedSourceMode } from '../config/source-mode.js';
 import type { ContextFromSchema, InferSchema, SchemaType } from './schema.js';
 import type { EmptyMap, Fields } from './utils.js';
 import type { LoaderInput } from '../loaders.js';
@@ -85,41 +86,43 @@ export interface LoaderConfig {
 }
 
 // Only for use in Template
-export interface TemplateConfig<
+export interface TemplateSettings<
 	INPUT extends Record<string, any>,
 > extends CascadaConfig, RegistryConfig {
 	template: string;
 	inputSchema?: SchemaType<INPUT> | undefined;
-	promptType?: TemplatePromptType;
 }
+export type TemplateConfig<INPUT extends Record<string, any>> = TemplateSettings<INPUT> & AnnotatedSourceMode<TemplatePromptType, 'async-template'>;
 
 // Config for a Tool that uses the Template engine
-export interface TemplateToolConfig<
+export interface TemplateToolSettings<
 	INPUT extends Record<string, any>,
 	TOOL_CONTEXT = unknown,
-> extends ModifierConfig, Omit<TemplateConfig<INPUT>, 'description'>, ToolContextSchemaConfig<TOOL_CONTEXT>, ToolProperties<INPUT, string, TOOL_CONTEXT> {
+> extends ModifierConfig, Omit<TemplateSettings<INPUT>, 'description'>, ToolContextSchemaConfig<TOOL_CONTEXT>, ToolProperties<INPUT, string, TOOL_CONTEXT> {
 	inputSchema: SchemaType<INPUT>;//required
 }
+export type TemplateToolConfig<INPUT extends Record<string, any>, TOOL_CONTEXT = unknown> = TemplateToolSettings<INPUT, TOOL_CONTEXT> & AnnotatedSourceMode<TemplatePromptType, 'async-template'>;
 
 // Only for use in Script
-export interface ScriptConfig<
+export interface ScriptSettings<
 	INPUT extends Record<string, any>,
 	OUTPUT
 > extends CascadaConfig, RegistryConfig {
 	script?: string;
 	schema?: SchemaType<OUTPUT> | undefined;
 	inputSchema?: SchemaType<INPUT> | undefined;
-	promptType?: ScriptPromptType;
 };
+export type ScriptConfig<INPUT extends Record<string, any>, OUTPUT> = ScriptSettings<INPUT, OUTPUT> & AnnotatedSourceMode<ScriptPromptType, 'async-script'>;
 
 // Config for a Tool that uses the Script engine
-export interface ScriptToolConfig<
+export interface ScriptToolSettings<
 	INPUT extends Record<string, any>,
 	OUTPUT,
 	TOOL_CONTEXT = unknown,
-> extends ModifierConfig, Omit<ScriptConfig<INPUT, OUTPUT>, 'description'>, ToolContextSchemaConfig<TOOL_CONTEXT>, ToolProperties<INPUT, OUTPUT, TOOL_CONTEXT> {
+> extends ModifierConfig, Omit<ScriptSettings<INPUT, OUTPUT>, 'description'>, ToolContextSchemaConfig<TOOL_CONTEXT>, ToolProperties<INPUT, OUTPUT, TOOL_CONTEXT> {
 	inputSchema: SchemaType<INPUT>;//required
 }
+export type ScriptToolConfig<INPUT extends Record<string, any>, OUTPUT, TOOL_CONTEXT = unknown> = ScriptToolSettings<INPUT, OUTPUT, TOOL_CONTEXT> & AnnotatedSourceMode<ScriptPromptType, 'async-script'>;
 
 // The default accepts schemas before inference; concrete tools default to undefined context.
 export interface ToolContextSchemaConfig<TOOL_CONTEXT = unknown> { toolContextSchema?: SchemaType<TOOL_CONTEXT> | undefined }
@@ -166,8 +169,19 @@ export interface FunctionToolConfig<
 }
 
 // Every component contributes its own configuration shape to reusable fragments.
+type Definition<K extends import('./component.js').ComponentKind> = import('./component-map.js').Definitions[K];
+type FragmentModifiers<K extends import('./component.js').ComponentKind,
+	Modes = Definition<K>['defaultMode'] | Definition<K>['modifiers'][keyof Definition<K>['modifiers']],
+	ToolModes = Definition<K>['toolModes'][number]> = [Exclude<Modes, ToolModes>] extends [never]
+	? SourceModeSetting<Modes | undefined> & (Definition<K> extends { asStream: true }
+		? { asTool?: undefined; streaming?: true | undefined } | { asTool?: true | undefined; streaming?: undefined }
+		: { asTool?: true | undefined })
+	: (SourceModeSetting<Modes | undefined> & { asTool?: undefined })
+		| ([ToolModes] extends [never] ? never : SourceModeSetting<ToolModes | undefined> & { asTool?: true | undefined });
+type FragmentConfig<K extends import('./component.js').ComponentKind, T> = T & FragmentModifiers<K>;
+
 export type AnyConfig<TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT> =
-	import('./component-map.js').ConfigShapes<TOOLS, INPUT, OUTPUT>[import('./component.js').ComponentKind];
+	{ [K in import('./component.js').ComponentKind]: FragmentConfig<K, import('./component-map.js').ConfigShapes<TOOLS, INPUT, OUTPUT>[K]> }[import('./component.js').ComponentKind];
 
 // Function settings admitted by AnyConfig. Schema-dependent callbacks are checked separately.
 export type FunctionConfigShape = Omit<FunctionToolConfig<SchemaType<Record<string, any>>, SchemaType<any> | undefined,

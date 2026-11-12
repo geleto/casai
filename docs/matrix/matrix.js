@@ -98,6 +98,7 @@ const choices = {
   messages: ['Message history', 'Supplies previous conversation messages and returns the updated history.', ['messageHistory']],
   resume: ['Approval and resume()', 'Pauses a tool call for approval, then resumes the conversation.', ['messageHistory', 'toolApproval']],
   withTemplate: ['Inline template', 'The input text is a Cascada Template; the context object supplies its variables.'],
+  withText: ['Text', 'Explicitly selects direct text input for the inheriting component.'],
   withScript: ['Inline script', 'Runs a Cascada Script to prepare input or coordinate workflow steps.'],
   withFunction: ['JavaScript function', 'Prepares input with a JavaScript function that can await application services.'],
   loadTemplate: ['Template file', 'Loads a Cascada Template from the accompanying .cat file.', ['loader']],
@@ -106,7 +107,7 @@ const choices = {
 };
 const textSources = ['withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
 const audioSources = ['withScript', 'withFunction', 'loadScript'];
-const referenceChoices = ['asTool', 'asStream', ...textSources, 'prepareSession', 'webRTC'];
+const referenceChoices = ['asTool', 'asStream', 'withText', ...textSources, 'prepareSession', 'webRTC'];
 const choice = (id, rules = {}) => ({ id, name: choices[id][0], description: choices[id][1], properties: choices[id][2] ?? [], affectsReference: referenceChoices.includes(id), ...rules });
 const group = (id, name, ids, rules = {}) => ({ id, name, optional: true, choices: ids.map(value => choice(value, rules)) });
 
@@ -131,9 +132,13 @@ const component = (name, shortDescription, details = {}) => ({
 
 export const components = [
   component('Config', 'Shares settings such as context and tools between components.', {
-    description: 'Define common settings once and pass them as a parent when creating components. For example, several agents can share a model and tools, while each supplies its own instructions. A child inherits omitted settings and can replace individual values. Context and tool maps merge by key.\n\nA Config is a reusable settings object; it does not execute a task. It may leave settings incomplete until a component is created. The combined settings must fit that component, so unrelated options from different component types cannot be mixed.',
-    kind: 'configuration',
-    groups: [tools()],
+    description: 'Define common settings once and pass them as a parent when creating components. For example, several agents can share a model and tools, while each supplies its own instructions. A child inherits omitted settings and can replace individual values. Context and tool maps merge by key.\n\nConfig supports the same source selectors as components, followed by compatible .asTool or .asStream modifiers. For example, Config.withTemplate.asTool selects template preparation and tool mode for its consuming component. Plain Config preserves an inherited mode without selecting a default.\n\nA Config is a reusable settings object; it does not execute a task. It may leave settings incomplete until a component is created. The combined settings must fit that component, so unrelated options from different component types cannot be mixed. Source selection belongs to modifiers; promptType is not a configuration property.',
+    kind: 'configuration', sourceDefault: null, resources: ['Config.cat', 'Config.cas', 'Config.txt'],
+    groups: [
+      tool({ excludes: ['asStream'], description: 'The inheriting component becomes a tool and must meet its tool requirements.' }),
+      stream({ excludes: ['asTool'], description: 'The inheriting component must support streaming, as LLMAgent does. Streaming and tool mode cannot currently be combined.' }),
+      source(['withText', ...textSources]), tools(),
+    ],
   }),
   component('Context', 'An object containing application values and private helpers available to a component. Declared input fields can be supplied by the caller.', {
     kind: 'concept',
@@ -326,6 +331,7 @@ export const infoSections = [
 ];
 const sourceKinds = [
   { id: 'default', name: 'Direct input', inline: null, loaded: 'loadText' },
+  { id: 'text', name: 'Text', inline: 'withText', loaded: 'loadText' },
   { id: 'template', name: 'Template', inline: 'withTemplate', loaded: 'loadTemplate' },
   { id: 'script', name: 'Script', inline: 'withScript', loaded: 'loadScript' },
   { id: 'function', name: 'Function', inline: 'withFunction', loaded: null },
@@ -334,21 +340,22 @@ function sourceState(name, selected) {
   const component = getComponent(name);
   const group = component.groups.find(group => group.id === 'source');
   if (!group) return null;
-  const kinds = sourceKinds.filter(kind => kind.id === 'default' ? component.sourceDefault === 'default' : group.choices.some(choice => choice.id === kind.inline));
+  const kinds = sourceKinds.filter(kind => kind.inline === null ? component.sourceDefault === kind.id : group.choices.some(choice => choice.id === kind.inline));
   const current = kinds.find(kind => selected.includes(kind.inline) || kind.loaded && selected.includes(kind.loaded)) ?? kinds.find(kind => kind.id === component.sourceDefault);
-  return { id: 'source', name: 'Source', kind: current.id, affectsReference: true,
+  return { id: 'source', name: 'Source', kind: current?.id ?? null, affectsReference: true,
     choices: kinds.map(kind => ({ id: kind.id, name: kind.id === 'default' && group.choices.some(choice => choice.id === 'loadText') ? 'Text' : kind.name,
       description: group.choices.find(choice => choice.id === kind.inline)?.description ?? 'Use the supplied input.' })),
-    loads: { id: 'loads', name: 'Load from file', active: Boolean(current.loaded && selected.includes(current.loaded)), available: Boolean(current.loaded && group.choices.some(choice => choice.id === current.loaded)), description: 'Read the source file using the configured loader.' },
+    loads: { id: 'loads', name: 'Load from file', active: Boolean(current?.loaded && selected.includes(current.loaded)), available: Boolean(current?.loaded && group.choices.some(choice => choice.id === current.loaded)), description: 'Read the source file using the configured loader.' },
     modifier: sourceMode(selected)?.replace(/^load/, 'loads') ?? null,
     description: 'The source property keeps its name; this choice changes how its value is interpreted.',
   };
 }
 export function selectSource(name, selected, kind) {
   const control = sourceState(name, selected);
+  const current = sourceMode(selected);
+  if (control && kind === null && getComponent(name).sourceDefault === null) return current ? selectOption(name, selected, current, false) : [...selected];
   if (!control?.choices.some(choice => choice.id === kind)) throw new Error(`Unsupported ${name} source: ${kind}`);
   const choice = sourceKinds.find(choice => choice.id === kind);
-  const current = sourceMode(selected);
   const group = getComponent(name).groups.find(group => group.id === 'source');
   const loaded = control.loads.active && group.choices.some(option => option.id === choice.loaded);
   if (!loaded && kind === getComponent(name).sourceDefault) return current ? selectOption(name, selected, current, false) : [...selected];
@@ -370,7 +377,8 @@ function transition(selected, action) {
 export function getSourceControl(name, selected = getComponent(name).activeOptions) {
   const control = sourceState(name, selected);
   return control && { ...control,
-    choices: control.choices.map(choice => ({ ...choice, transition: transition(selected, () => selectSource(name, selected, choice.id)) })),
+    choices: control.choices.map(choice => ({ ...choice, transition: transition(selected, () => selectSource(name, selected,
+      getComponent(name).sourceDefault === null && control.kind === choice.id ? null : choice.id)) })),
     loads: { ...control.loads, transition: control.loads.available ? transition(selected, () => setLoads(name, selected, !control.loads.active)) : null },
   };
 }
@@ -407,7 +415,7 @@ export function getControls(name, selected = getComponent(name).activeOptions, {
 }
 export function referenceSelection(name, selected = getComponent(name).activeOptions) {
   const component = getComponent(name);
-  const defaultSource = sourceKinds.find(kind => kind.id === component.sourceDefault).inline;
+  const defaultSource = sourceKinds.find(kind => kind.id === component.sourceDefault)?.inline;
   const options = validateOptions(name, selected).filter(id => id !== defaultSource && allChoices(component).find(choice => choice.id === id).affectsReference);
   return { component: name, id: exampleId(name, options), activeOptions: options };
 }

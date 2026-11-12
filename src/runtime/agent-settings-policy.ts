@@ -1,4 +1,5 @@
 import type { GenerateRequest, StreamRequest } from '../types/sdk.js';
+import { sourceMode } from '../config/source-mode.js';
 
 // Casai's overlapping policies for SDK dispatch, configuration validation and hook types.
 type NativeSetting = keyof StreamRequest;
@@ -16,5 +17,5 @@ export const streamingSettings = ['onChunk', 'onAbort', 'onError', 'experimental
 export const retiredSettings = ['enum', 'schemaName', 'schemaDescription', 'callOptionsSchema', 'system', 'experimental_telemetry',
 	'experimental_repairToolCall', 'experimental_include', 'includeRawChunks', 'repairText', 'experimental_repairText', '_internal', ...Object.values(aliases)] as const;
 export const agentSourceConflicts = ['template', 'script', 'execute', 'schema'] as const;
-export const fixedSettings = ['output', 'inputSchema', 'toolContextSchema', 'promptType', 'filters', 'renderOptions', 'loader', 'id', 'streaming', 'asTool'] as const;
+export const fixedSettings = ['output', 'inputSchema', 'toolContextSchema', 'promptType', sourceMode, 'filters', 'renderOptions', 'loader', 'id', 'streaming', 'asTool'] as const;
 export const incompatibleAgentSettings = ['messages', 'options', 'mode', ...retiredSettings, ...agentSourceConflicts] as const;

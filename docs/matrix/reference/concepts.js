@@ -9,7 +9,7 @@ export const concepts = {
   },
   inheritance: {
     title: 'Inheritance, overrides and clearing',
-    paragraphs: ['Child scalar settings replace parent settings; explicit undefined can clear an ordinary constructor value. context, filters, tools and toolsContext merge shallowly by key. A null tool removes that entry. Loader chains combine with child priority, unless explicitly overridden or raced.', 'Derived components retain source/tool/stream modifiers. Explicit source modifiers replace the source mode. Reusable Config callbacks need explicit types; a completed component checks inherited callback compatibility. Invocation overrides are local and never mutate the component’s config.'],
+    paragraphs: ['Child scalar settings replace parent settings; explicit undefined can clear an ordinary constructor value. context, filters, tools and toolsContext merge shallowly by key. A null tool removes that entry. Loader chains combine with child priority, unless explicitly overridden or raced.', 'Config and component factories support source selectors followed by compatible .asStream or .asTool modifiers. Derived components retain these modifiers; an explicit source selector replaces the inherited source mode. Plain Config preserves an inherited source without choosing a default. Select sources through modifiers; promptType is not an authored setting. Reusable Config callbacks need explicit types; a completed component checks inherited callback compatibility. Invocation overrides are local and never mutate the component’s config.'],
     link: 'README.md#configuration-and-inheritance',
   },
   context: {

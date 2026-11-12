@@ -12,7 +12,7 @@ type AgentSettings = keyof AgentFactoryShape<PromptType, true>;
 type CasaiOnlySettings = Exclude<AgentSettings, keyof StreamRequest>;
 expectEqual<Exclude<CasaiOnlySettings, typeof componentSettings[number]>, never>();
 expectEqual<Exclude<typeof componentSettings[number], AgentSettings | 'messageHistory'>, never>();
-expectEqual<Exclude<typeof fixedSettings[number], AgentSettings>, never>();
+expectEqual<Exclude<typeof fixedSettings[number], AgentSettings | 'promptType'>, never>();
 
 // Every native event callback needs an observer, alias or editable-error policy.
 type NativeObservers = Extract<keyof StreamRequest, `on${string}` | `experimental_on${string}`>;

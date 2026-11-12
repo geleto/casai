@@ -1,3 +1,4 @@
+import { type SourceMode } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import { experimental_decide, experimental_streamSpeech } from 'ai';
 import type { EmbeddingModel, Experimental_DecisionModel, Experimental_DecisionStatePart, RerankingModel, InferToolOutput, Experimental_RealtimeModel, LanguageModel, ModelMessage } from 'ai';
@@ -39,6 +40,10 @@ void speak(chunks);
 void speak.run({ text: chunks });
 declare const streamOrArray: ReadableStream<string> | AsyncIterable<string> | string[];
 void speak(streamOrArray);
+declare const transcription: import('ai').TranscriptionModel;
+declare const audioOrUrl: Uint8Array | URL;
+const transcribeTool = create.Transcriber.asTool({ model: transcription, inputSchema: z.object({ audio: z.custom<Uint8Array | URL>() }), context: { audio: new Uint8Array() } });
+void transcribeTool(audioOrUrl);
 const prepared = create.StreamingSpeechGenerator.withFunction({ model: speech, text: ({ subject }) => subject,
 	inputSchema: z.object({ subject: z.string() }), context: { subject: 'default', secret: 'private' } });
 void prepared(({ subject }) => subject, { subject: 'valid' });
@@ -53,8 +58,8 @@ void prepared(sourceOrPrivateContext);
 // A complete prepared bundle hides that branch's configured fallback documents.
 declare const ranking: RerankingModel;
 declare const rankedConfig:
-	| { model: RerankingModel; promptType: 'function'; query: () => { query: string; documents: { prepared: boolean }[] }; documents: { ignored: boolean }[] }
-	| { model: RerankingModel; promptType: 'function'; query: () => string; documents: { fallback: boolean }[] };
+	| (SourceMode<'function'> & { model: RerankingModel; query: () => { query: string; documents: { prepared: boolean }[] }; documents: { ignored: boolean }[] })
+	| (SourceMode<'function'> & { model: RerankingModel; query: () => string; documents: { fallback: boolean }[] });
 const rank = create.Reranker(rankedConfig);
 const _ranked = rank();
 expectEqual<Awaited<typeof _ranked>['ranking'][number]['document'], { prepared: boolean } | { fallback: boolean }>();
@@ -88,8 +93,8 @@ expectEqual<Awaited<typeof _runChoice>['ranking'][number]['document'], { prepare
 
 // An absent source override cannot introduce another mode's result into this branch.
 declare const sourceModes:
-	| { promptType: 'function'; query: () => { query: string; documents: { prepared: true }[] }; documents: { ignored: true }[] }
-	| { promptType: 'async-template'; query: string; documents: { fallback: true }[] };
+	| (SourceMode<'function'> & { query: () => { query: string; documents: { prepared: true }[] }; documents: { ignored: true }[] })
+	| (SourceMode<'async-template'> & { query: string; documents: { fallback: true }[] });
 const mixedRanker = create.Reranker({ model: ranking }, { config: sourceModes });
 const _mixedDefault = mixedRanker();
 const _mixedRun = mixedRanker.run({});

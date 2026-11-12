@@ -1,3 +1,4 @@
+import { sourceModes, type SourceMode } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import type { EmbeddingModel, ImageModel, RerankingModel, TranscriptionModel, SpeechModel, experimental_streamTranslate, Experimental_DecisionModel, Experimental_RealtimeModel } from 'ai';
 import { expectEqual } from './assert.js';
@@ -22,7 +23,7 @@ create.Embedder({}, { config: { input: 'text' } });
 create.Decision({}, create.Config({ model: decision }));
 // @ts-expect-error Inherited settings must belong to the completed component.
 create.Embedder({}, create.Config({ model: 'provider/model', temperature: 0.2 }));
-const incompatible = { config: { model: embedding, promptType: 'function' as const,
+const incompatible = { config: { model: embedding, ...sourceModes.function.config,
 	inputSchema: z.object({ value: z.string() }), input: ({ value }: { value: number }) => value.toFixed(2) } };
 // @ts-expect-error Empty children must check inherited preparers against parsed input.
 create.Embedder({}, incompatible);
@@ -93,7 +94,7 @@ create.Reranker({ model: ranking, runtimeContext: { requestId: 'r' },
 create.Decision({ model: decision, questions: {}, runtimeContext: { requestId: 'r' },
 	onEnd: _event => { expectEqual<typeof _event.runtimeContext.requestId, string>(); } });
 
-const fragment = create.Config({ promptType: 'function', inputSchema: z.object({ count: z.string().transform(Number) }),
+const fragment = create.Config.withFunction({ inputSchema: z.object({ count: z.string().transform(Number) }),
 	context: { prefix: 'private' }, input: ({ count, prefix }) => {
 		expectEqual<typeof count, number>();
 		expectEqual<typeof prefix, string>();
@@ -163,10 +164,11 @@ const combined = create.Embedder(sameMode);
 void combined('replacement');
 void combined(['replacement']);
 void combined.run({ input: 'replacement' });
-declare const modes: { model: EmbeddingModel; promptType: 'text'; input: string }
-	| { model: EmbeddingModel; promptType: 'function'; input: () => string };
+declare const modes: (SourceMode<'text'> & { model: EmbeddingModel; input: string })
+	| (SourceMode<'function'> & { model: EmbeddingModel; input: () => string });
 void create.Embedder.withFunction({ input: () => 'replacement' }, { config: modes })();
-if (modes.promptType === 'text') void create.Embedder(modes)('replacement');
+declare const narrowedmodes: Extract<typeof modes, SourceMode<'text'>>;
+void create.Embedder(narrowedmodes)('replacement');
 
 // Plain tools need a parsed native input or a configured fallback.
 // @ts-expect-error Empty application input supplies no native embedding input.

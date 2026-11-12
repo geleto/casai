@@ -1,6 +1,6 @@
 # Maintaining the matrix
 
-The matrix is the canonical component reference. This repository owns its content, examples, data and selection rules. The separate website/documentation project owns the UI and publishing. Finish the matrix before adding an introduction, topic pages or a simplified main-page version.
+The matrix is the canonical component reference. This repository owns its content, shared introduction, examples, data and selection rules. The separate website/documentation project owns the UI and publishing. The introduction is now part of the matrix page; topic pages and a simplified main-page version remain separate work.
 
 Write for people first. Say Cascada Template or Cascada Script, and explain input handling with concrete values such as text, messages, images or files. Keep each source-mode summary to one short sentence. For standalone Template and Script, describe the property value (text, code or file name); for other components, explain how the source prepares input. Set component-specific wording in `reference/components.js` through `sourceDescriptions`, keyed by source mode. Omit filler such as "as-is" and comparisons with unselected modes. Put format requirements and meaningful limitations in the property details. The matrix will likely be the main way readers explore Casai. The full documentation must also be a normal, readable guide with clear navigation, explanations, examples and practical topics. Machine-readable formats are additional ways to access that same content, not the organizing principle for the documentation.
 
@@ -23,11 +23,12 @@ Input summaries describe property values, not commands: “The text or array of 
 
 Use `sourceModes` and `toolOnly` in shared property metadata for settings whose behavior depends on the selected source or tool form. Check the owning renderer or execution path before adding a restriction. Keep reusable Config fragments broad, and retain common settings independently of example toggles. Required settings belong to the `essential` section; its stable ID is retained for existing links.
 
-`promptType`, `asTool` and LLMAgent `streaming` are public configuration properties, even though modifiers usually set them. Keep modifier precedence explicit. Display `promptType` for the selected source mode rather than copying the extractor's text-mode specialization; reusable Config lists the supported mode values. Invocation-only fields such as `abortSignal` and `messageHistory` must not acquire a construction location. `_toolOptions` is injected context metadata, not a constructor setting.
+Source modes are selected only with factory/Config modifiers; `promptType` is not a public configuration field. Internal symbol metadata must not appear in the reference inventory. Config supports every source selector, optionally followed by `.asTool` or `.asStream`; it remains a fragment and requires a compatible completed component. `asTool` and LLMAgent `streaming` remain supported flags, with modifiers preferred. Invocation-only fields such as `abortSignal` and `messageHistory` must not acquire a construction location. `_toolOptions` is injected context metadata, not a constructor setting.
 
 | Source | Owns | Edit by hand? |
 | --- | --- | --- |
 | `matrix.js` | Component short/long descriptions and SDK sources, groups, choices, example defaults, control/transition data and selection rules | Yes |
+| `introduction.js` | Shared introduction and principles for the matrix and full documentation; examples belong in the component reference | Yes |
 | `<Component>.js` | One example renderer per component family | Yes |
 | `.cat` / `.cas` / `.txt` resources | Canonical template, script and plain text files | Yes |
 | `resources.js` | Embedded copies of canonical `.cat`/`.cas`/`.txt` text for portable rendering | **No**, regenerate |

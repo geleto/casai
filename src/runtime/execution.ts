@@ -3,6 +3,7 @@ import type { FlexibleSchema, Tool, ToolSet } from 'ai';
 import { executeTool, isExecutableTool, isRecord } from '@ai-sdk/provider-utils';
 import type { ExecutableTool } from '@ai-sdk/provider-utils';
 import { ConfigError, ValidationError } from '../errors.js';
+import { sourceSettingsError } from '../config/source-mode.js';
 import { contextNames, inputNames, requireContextObject, ownKeys, parseSchema, projectInput, sameContext, selectFields, snapshot } from '../schema.js';
 import type { Fields } from '../types/utils.js';
 import { toolOutput } from '../streams.js';
@@ -50,6 +51,8 @@ export function runSettings(args: readonly unknown[], allowed?: readonly string[
 	const { values: normalized } = namedArguments(args);
 	if (normalized.length > 1) throw new ValidationError('A component run accepts one settings object.');
 	const settings = { ...requireContextObject(normalized[0] === undefined ? {} : normalized[0]) };
+	const sourceError = sourceSettingsError(settings, true);
+	if (sourceError) throw new ValidationError(sourceError);
 	const unknown = allowed ? Object.keys(settings).filter(key => !allowed.includes(key)) : [];
 	if (unknown.length) throw new ValidationError(`Unknown run settings: ${unknown.join(', ')}. Put application data in context.`);
 	return settings;

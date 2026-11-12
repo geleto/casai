@@ -1,3 +1,4 @@
+import { sourceModes } from './fixtures/source-modes.js';
 import { runtimeRun } from './fixtures/runtime-call.js';
 import { Output } from 'ai';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
@@ -61,8 +62,8 @@ describe('LLM call contracts without providers', () => {
 		const model = mockModel('answer');
 		const history: ModelMessage[] = [{ role: 'user', content: 'earlier' }];
 		for (const prepared of [false, true]) {
-			const config = prepared ? { model, promptType: 'function' as const, prompt: () => 'ready' }
-				: { model, promptType: 'text' as const, prompt: 'ready' };
+			const config = prepared ? { model, ...sourceModes.function.config, prompt: () => 'ready' }
+				: { model, ...sourceModes.text.config, prompt: 'ready' };
 			const agent = create.LLMAgent(config);
 			for (const result of [await agent(), await agent({}, history), await agent.run({ messageHistory: history })]) {
 				expect(result.text).to.equal('answer');

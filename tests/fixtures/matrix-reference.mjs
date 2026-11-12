@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 import { describe, getSourceControl, selectSource, setLoads, configSections } from '../../docs/matrix/reference.js';
-import { components, validateOptions, getControls, getSourceControl as catalogSourceControl, normalizeOptions, referenceSelection, referenceSelections, versions, sourceUrl, selectOption } from '../../docs/matrix/matrix.js';
+import { components, render, validateOptions, getControls, getSourceControl as catalogSourceControl, normalizeOptions, referenceSelection, referenceSelections, versions, sourceUrl, selectOption } from '../../docs/matrix/matrix.js';
 import api from '../../docs/matrix/reference/api.js';
 import sdkDocs from '../../docs/matrix/reference/sdk-docs.js';
 import { componentReference } from '../../docs/matrix/reference/components.js';
@@ -23,9 +23,7 @@ export async function checkReference(examples) {
   assert.equal(defaults.temperature.default, null);
   assert.equal(defaults.debug.default, 'false');
   assert.equal(defaults.maxRetries.default, '2');
-  const fragmentMode = describe('Config').config.properties.promptType;
-  assert.match(fragmentMode.type, /"text".*"function"/);
-  assert.match(fragmentMode.notes, /public configuration property/);
+  assert.equal(describe('Config').config.properties.promptType, undefined);
   assert.equal(describe('Context').relatedProperties.find(property => property.name === '_toolOptions').locations.length, 0);
   const template = describe('Template').config.supportedSources.find(form => !form.modifier);
   assert.equal(template.description, 'The template text.');
@@ -188,10 +186,7 @@ export async function checkReference(examples) {
       assert(!property.name.startsWith('_'), `${example.id}.${property.name}: internal fields are not configuration options`);
       assert(!property.upstream?.tags?.some(tag => ['internal', 'private', 'protected'].includes(tag.name)), `${example.id}.${property.name}: public visibility`);
       if (['abortSignal', 'messageHistory'].includes(property.name)) assert(!property.locations.includes('construction'), `${example.id}.${property.name}: invocation only`);
-      if (property.name === 'promptType' && ref.form.sourceMode) {
-        assert.equal(property.type, JSON.stringify(ref.form.sourceMode), `${example.id}: source mode type matches the displayed factory`);
-        assert.deepEqual(property.locations, ['construction']);
-      }
+      assert.notEqual(property.name, 'promptType');
       for (const key of ['name', 'type', 'displayType', 'description', 'override', 'inheritance', 'scope', 'origin']) assert(property[key], `${example.id}.${property.name}: missing ${key}`);
       assert(property.default === null || typeof property.default === 'string' && property.default.length > 0, `${example.id}.${property.name}: documented default or null`);
       assert(property.displayType.length <= 150, `${example.id}.${property.name}: compact type`);
@@ -205,7 +200,7 @@ export async function checkReference(examples) {
     // Every applicable field must survive; broad factory types also admit settings
     // retained for later derived components that the selected source does not use.
     const factory = ref.form.factory?.split('.')[0];
-    if (ref.status === 'implemented' && factory) {
+    if (ref.status === 'implemented' && factory && ref.info.kind !== 'configuration') {
       const expected = api.shapes[`${factory}_config`].map(id => api.properties[id].name);
       expected.push('abortSignal');
       if (componentReference[example.component].runShape) expected.push('messageHistory');
@@ -372,6 +367,41 @@ export async function checkReference(examples) {
     }
   }
   const fragments = describe('Config');
+  assert.equal(fragments.form.factory, 'Config');
+  assert.equal(fragments.form.sourceMode, null);
+  assert.match(fragments.info.selectionNote, /inheriting component must support every selected modifier and setting/);
+  assert.deepEqual(getSourceControl('Config').choices.map(choice => choice.id), ['text', 'template', 'script', 'function']);
+  assert.equal(getSourceControl('Config').kind, null);
+  assert.equal(getSourceControl('Config').loads.available, false);
+  assert.deepEqual(selectSource('Config', ['loadScript'], null), []);
+  for (const kind of ['text', 'template', 'script', 'function']) {
+    const selected = selectSource('Config', ['asTool', 'useTools'], kind);
+    const source = getSourceControl('Config', selected);
+    assert.deepEqual(source.choices.find(choice => choice.id === kind).transition.activeOptions, ['asTool', 'useTools']);
+    if (source.loads.available) {
+      const loaded = getSourceControl('Config', setLoads('Config', selected, true));
+      assert.deepEqual(loaded.choices.find(choice => choice.id === kind).transition.activeOptions, ['asTool', 'useTools']);
+    }
+  }
+  assert.deepEqual(setLoads('Config', ['loadText'], false), ['withText']);
+  assert.throws(() => validateOptions('Config', ['asTool', 'asStream']));
+  assert.deepEqual(describe('Config', ['asStream', 'loadTemplate']).config.alternatives.map(item => item.factory), ['LLMAgent.loadsTemplate.asStream']);
+  for (const selection of referenceSelections('Config')) {
+    const ref = describe('Config', selection.activeOptions);
+    assert.equal(ref.form.factory, (await render('Config', selection.activeOptions)).configuration.factory);
+    const methodNames = ref.config.sections.flatMap(section => section.methods ?? []).map(method => method.name);
+    for (const method of ['call', 'run', 'execute', 'bindToolContext']) assert(!methodNames.includes(method), 'Config remains a non-callable fragment');
+    for (const alternative of ref.config.alternatives) {
+      const target = describe(alternative.component, alternative.activeOptions);
+      assert.equal(target.form.factory, alternative.factory);
+      if (ref.form.sourceMode !== null) assert.equal(target.form.sourceMode, ref.form.sourceMode);
+      if (selection.activeOptions.includes('asTool')) assert(target.activeOptions.includes('asTool'));
+      if (selection.activeOptions.includes('asStream')) assert(target.activeOptions.includes('asStream'));
+    }
+  }
+  const templateTools = describe('Config', ['withTemplate', 'asTool']).config.alternatives;
+  assert(templateTools.some(item => item.factory === 'Template.asTool'));
+  assert(!templateTools.some(item => ['Function', 'Transcriber', 'VoiceSessionSetup', 'Translator'].includes(item.component)));
   assert.deepEqual(fragments.config.alternatives.map(item => item.factory), Object.keys(api.definitions));
   assert.deepEqual(fragments.relatedComponents, Object.keys(api.definitions));
   for (const alternative of fragments.config.alternatives) {

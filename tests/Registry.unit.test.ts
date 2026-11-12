@@ -412,8 +412,9 @@ describe('Owned tool registries', () => {
 		const generator = create.LLMAgent({ model, prompt: 'ready' });
 		const streamer = create.LLMAgent.asStream({ model, prompt: 'ready' });
 		for (const key of ['inputSchema', 'toolContextSchema', 'schema', 'output', 'enum', 'promptType', 'loader', 'filters', 'renderOptions']) {
-			await assert.rejects(generator.run({ [key]: undefined } as never), /Unsupported (LLMAgent settings|configuration properties)/);
-			await assert.rejects(streamer.run({ [key]: undefined } as never), /Unsupported (LLMAgent settings|configuration properties)/);
+			const expected = key === 'promptType' ? /'promptType' is not a setting/ : /Unsupported (LLMAgent settings|configuration properties)/;
+			await assert.rejects(generator.run({ [key]: undefined } as never), expected);
+			await assert.rejects(streamer.run({ [key]: undefined } as never), expected);
 		}
 		assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 0);
 	});

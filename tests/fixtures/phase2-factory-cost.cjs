@@ -29,9 +29,11 @@ const workloads = {
   LLMAgentMethods: [componentImportLimit, 8000, 4500, i => `const c${i} = F({ model, inputSchema: z.object({ n${i}: z.number() }), output: Output.object({ schema: z.object({ a${i}: z.string() }) }) }); void c${i}.generate({ prompt: 'Hi', options: { n${i}: 1 } }); void c${i}.stream({ messages: [], options: { n${i}: 1 } });`],
   NativeAgentMethods: [500000, 3500, 1000, i => `const c${i} = new F({ model, callOptionsSchema: z.object({ n${i}: z.number() }), output: Output.object({ schema: z.object({ a${i}: z.string() }) }) }); void c${i}.generate({ prompt: 'Hi', options: { n${i}: 1 } }); void c${i}.stream({ messages: [], options: { n${i}: 1 } });`],
   Config: [1000000, 39000, 16000, i => `const c${i} = F({ inputSchema: z.object({ n${i}: z.number() }), context: { n${i}: 1 } }); void c${i}.config;`],
-  Embedder: [componentImportLimit, 22000, 13000, i => `const c${i} = F.withFunction({ model, inputSchema: z.object({ n${i}: z.string() }), context: { prefix: 'private' }, input: ({ n${i}, prefix }) => prefix + n${i} }); void c${i}({ n${i}: 'x' });`],
+  // Config source-owner checks add shared setup; before/after measurements are in tests/README.md.
+  Embedder: [455000, 22000, 13000, i => `const c${i} = F.withFunction({ model, inputSchema: z.object({ n${i}: z.string() }), context: { prefix: 'private' }, input: ({ n${i}, prefix }) => prefix + n${i} }); void c${i}({ n${i}: 'x' });`],
   // Supporting images/count without a mask adds a measured tail branch (marginal 6020 -> 6454).
-  ImageGenerator: [componentImportLimit, 12000, 6500, i => `const c${i} = F.withTemplate.asTool({ model, inputSchema: z.object({ n${i}: z.string() }), prompt: 'Draw {{ n${i} }}', images: [] }); void c${i}({ n${i}: 'x' });`],
+  // Config's modifier contracts add shared import work; same-workload comparison is in tests/README.md.
+  ImageGenerator: [460000, 12000, 6500, i => `const c${i} = F.withTemplate.asTool({ model, inputSchema: z.object({ n${i}: z.string() }), prompt: 'Draw {{ n${i} }}', images: [] }); void c${i}({ n${i}: 'x' });`],
 };
 try {
   assert.ok(Object.keys(workloads).some(name => filter.test(name)), `No factory workloads match ${filter}.`);

@@ -112,11 +112,27 @@ await concise(); // still renders the inherited template
 - Ordinary properties replace inherited values. An explicit `undefined` can clear an ordinary constructor setting; omitted settings inherit.
 - `context`, `filters`, `tools`, and `toolsContext` merge by key. Their entries replace rather than deep-merge. A `null` tool entry removes that tool.
 - Loader chains combine, with the child's loaders taking priority. `undefined` does not remove an inherited loader chain.
-- Every component inherits modifiers, including through `Config`. A base factory preserves source mode; an explicit source modifier replaces it. Use `.withText`, `.withTemplate`, or `.withScript` to select inline source where supported.
+- Every component inherits modifiers, including through `Config`. A base factory preserves source mode; an explicit source modifier replaces it. `Config` supports `.withText`, `.withTemplate`, `.withScript`, `.withFunction`, `.loadsText`, `.loadsTemplate` and `.loadsScript`, optionally followed by `.asTool` or `.asStream`. For example, `Config.withTemplate.asTool(...)` creates a fragment for a template-prepared tool. Plain `Config(...)` leaves source selection to its parent or consuming component. Use modifiers to select sources; `promptType` is not an authored configuration property.
+- A modifier-bearing fragment may remain incomplete, but its settings must fit one compatible component configuration. The finished component checks its own support and required settings. Current streaming and tool modifiers cannot be combined. Select the source first, then `.asTool` or `.asStream`; reverse chains are not provided.
 - Configuration unions keep their source modes. A call must work in every possible mode: an Embedder with configured text/function alternatives supports `embedder()` and `.run({ headers })`; text/template alternatives also accept shared string replacements. You do not need to narrow the configuration before constructing the component.
 - `.asTool` and LLMAgent `.asStream` remain enabled in derived components. Their resolved metadata is `asTool: true` and `streaming: true`; there are no reverse modifiers. Unsupported inherited settings are rejected.
 
 Reusable `Config` fragments may be incomplete. Their runtime checks cover common configuration structure; the completed component validates its supported settings. TypeScript also checks known fragment incompatibilities during authoring. A finished callable must already have settings that its shorthand call cannot supply: an LLMAgent needs a model, loaded sources need a loader, and tools need an `inputSchema` plus any source/implementation their selected form requires.
+
+Select reusable source and tool behavior on `Config` itself. Both agents below render the template and expose a tool interface:
+
+<!-- typecheck: config-source-tool-modifiers -->
+```typescript
+const shared = create.Config.withTemplate.asTool({
+  model,
+  inputSchema: z.object({ topic: z.string() }),
+  prompt: 'Explain {{ topic }}.',
+});
+const beginner = create.LLMAgent({ instructions: 'Use everyday language.' }, shared);
+const technical = create.LLMAgent({ instructions: 'Use technical terminology.' }, shared);
+await beginner({ topic: 'solar power' });
+await technical({ topic: 'solar power' });
+```
 
 SDK callbacks stored in `Config` need explicit parameter or function types: a fragment does not select the component that owns events such as `onEnd`. The completed component validates inherited callbacks and infers callbacks supplied as overrides. For example, an Embedder's `onEnd: event => ...` override receives the native embedding event, including its configured `runtimeContext` type. Schema-driven `execute` callbacks and function-mode source preparers still infer application context from the fragment's schemas and context.
 

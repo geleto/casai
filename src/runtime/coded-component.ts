@@ -1,3 +1,4 @@
+import { sourceMode } from '../config/source-mode.js';
 import type { Fields } from '../types/utils.js';
 import type { CascadaConfig } from '../types/config.js';
 import type { ScriptPromptType, TemplatePromptType, PromptType } from '../types/prompt.js';
@@ -12,7 +13,7 @@ import { createComponentRuntime } from './component-call.js';
 import type { RuntimeComponentConfig } from './component-call.js';
 
 type RuntimeCodedConfig = CascadaConfig & ExecutionConfig & {
-	promptType?: PromptType; template?: string; script?: string;
+	[sourceMode]?: PromptType; template?: string; script?: string;
 	schema?: SchemaType<unknown>; execute?: (context: Fields) => unknown;
 };
 
@@ -21,7 +22,7 @@ export function createCodedComponent(merged: RuntimeCodedConfig, definition: Def
 	const kind = definition.name;
 	const source = definition.main === 'execute' ? undefined : definition.main;
 	if (merged.debug) console.log(`[DEBUG] ${kind} created with config:`, merged);
-	const render = source ? createCascadaRenderer(merged, merged.promptType as ScriptPromptType | TemplatePromptType, merged[source]) : undefined;
+	const render = source ? createCascadaRenderer(merged, merged[sourceMode] as ScriptPromptType | TemplatePromptType, merged[source]) : undefined;
 	const runtime = createComponentRuntime(merged as RuntimeComponentConfig, definition,
 		(override: unknown, context: Fields) => render ? render(override as string | undefined, context) : merged.execute!(context));
 	const invoke = async (settings: Fields, tool?: ToolInvocation) => {

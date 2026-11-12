@@ -33,7 +33,8 @@ type FactoryInferShape = Provisional<configs.ConfigShape<FactoryConfig>>;
 // wrapping config or parent types can hide union correlations from registry consumers.
 type FunctionSignature<AsTool extends boolean, RequiredContext extends boolean> = <
 	TConfig extends object & FactoryInferShape,
-	TParentConfig extends object & NoInfer<FactoryConfig> = never,
+	TParent extends configs.ConfigProvider<object> = never,
+	TParentConfig extends object = TParent['config'],
 
 	TSchemaPresence extends object = object,
 	TSchemaInput = never,
@@ -57,7 +58,8 @@ type FunctionSignature<AsTool extends boolean, RequiredContext extends boolean> 
 		& ValidateResolved<TConfig, ComponentAdmission<Final>>
 		& ([Extract<UnionKeys<Final>, 'tools' | 'toolsContext'>] extends [never] ? unknown : ValidateToolsContext<TConfig, Final>)
 		& ValidateFinalConfig<TConfig, Final, AsTool>,
-	...parent: [TParentConfig] extends [never] ? [] : [parent: configs.ConfigProvider<TParentConfig>]
+	...parent: [TParent] extends [never] ? [] : [parent: TParent & NoInfer<[TParentConfig] extends [FactoryConfig]
+		? unknown : 'Config Error: Invalid parent configuration.'>]
 ) => NoInfer<EffectiveTool extends true ? ToolCallSignature<Final, ToolConfig> : FunctionCallSignature<Final>>;
 
 type FunctionFactory<AsTool extends boolean = false> = FunctionSignature<AsTool, true> & FunctionSignature<AsTool, false>;

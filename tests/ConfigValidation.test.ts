@@ -24,9 +24,9 @@ describe('Config validation', () => {
 	});
 
 	it('checks named literal sources when constructing an agent', () => {
-		assert.equal(create.Config({ promptType: 'text-name', prompt: 'question.txt' }).config.prompt, 'question.txt');
-		const fragment = create.Config({ promptType: 'text-name', prompt: [] } as never);
-		assert.throws(() => create.LLMAgent({ model }, fragment), ConfigError);
+		assert.equal(create.Config.loadsText({ prompt: 'question.txt' }).config.prompt, 'question.txt');
+		const fragment = create.Config.loadsText({ prompt: [] } as never);
+		assert.throws(() => create.LLMAgent({ model } as never, fragment), ConfigError);
 	});
 
 	it('inherits, replaces and clears complete output specifications', () => {
@@ -108,10 +108,10 @@ describe('Config validation', () => {
 		}
 
 		it('should defer a function prompt and named loader until component creation', () => {
-			const functionPrompt = create.Config({ promptType: 'function', context: { name: 'Alice' } });
+			const functionPrompt = create.Config.withFunction({ context: { name: 'Alice' } });
 			expect(create.LLMAgent.withFunction({ model, prompt: ({ name }) => `Hello ${name}` }, functionPrompt)).to.be.a('function');
 			expect(create.LLMAgent.withFunction({ model }, functionPrompt)).to.be.a('function');
-			const templateName = create.Config({ template: 'greeting', promptType: 'async-template-name' });
+			const templateName = create.Config.loadsTemplate({ template: 'greeting', });
 			expect(templateName.config.template).to.equal('greeting');
 			expect(() => create.Template.loadsTemplate({} as never, templateName)).to.throw(ConfigError);
 		});

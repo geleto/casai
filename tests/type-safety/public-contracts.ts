@@ -39,7 +39,7 @@ expectEqual<keyof typeof LLMAgent.asTool, never>();
 expectEqual<keyof typeof Template, 'withTemplate' | 'loadsTemplate' | 'asTool'>();
 expectEqual<keyof typeof Script, 'withScript' | 'loadsScript' | 'asTool'>();
 expectEqual<keyof typeof FunctionFactory, 'asTool'>();
-expectEqual<keyof typeof Config, never>();
+expectEqual<keyof typeof Config, 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript' | 'asTool' | 'asStream'>();
 type GeneratorToolModifiers<T> = { [K in keyof T & PromptModifiers]: keyof T[K] }[keyof T & PromptModifiers];
 expectEqual<GeneratorToolModifiers<typeof LLMAgent>, 'asTool' | 'asStream'>();
 expectEqual<typeof create.Config, typeof Config>();
