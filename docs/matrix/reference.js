@@ -127,8 +127,8 @@ function invocationMethods(component, spec, definition, properties, options, too
   const callable = Boolean(definition);
   return [
     ...(callable ? [
-      { name: 'call', signature: spec.call, description: 'Call the component directly with its main arguments. You can omit configured values when the remaining argument types are unambiguous. Use .run() to name arguments explicitly.' },
-      { name: 'run', signature: 'component.run({ context?, ...supportedInputsAndOverrides })', description: 'Call the component with named inputs and supported per-call settings. Supply any required values that are missing from its configuration.', propertyIds: Object.values(properties).filter(property => property.locations.includes('run')).map(property => property.id) },
+      { name: 'call', signature: spec.call, description: 'Shorthand invocation: pass the main arguments directly in the order shown. `component(input)` and the corresponding `component.run({ ... })` call execute the same component and return the same kind of result. You can omit configured arguments when the remaining argument types are unambiguous.' },
+      { name: 'run', signature: 'component.run({ context?, ...supportedInputsAndOverrides })', description: 'Pass the component\'s input properties by name, such as `prompt`, `input`, `text` or `audio`. Pass structured application data under `context`. You can also include supported per-call settings, such as `abortSignal`, without changing the reusable configuration. Supply required values that are not already configured.', propertyIds: Object.values(properties).filter(property => property.locations.includes('run')).map(property => property.id) },
       { name: 'config', signature: 'component.config', description: 'The resolved configuration. Treat it as immutable; construct a new component to replace captured dependencies.' },
     ] : []),
     ...(spec.methods ?? []).filter(method => matchesOptions(component, method, options)).map(method => methodReference(method, properties)),

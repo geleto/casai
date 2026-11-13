@@ -81,34 +81,34 @@ const sdkGuide = page => ({
 });
 
 const choices = {
-  asTool: ['As a tool', 'Lets an AI agent or workflow call this component using declared input fields.', ['asTool', 'inputSchema', 'toolContextSchema', 'description', 'toModelOutput', 'strict', 'inputExamples']],
-  asStream: ['Stream results', 'Returns the live AI SDK result so you can consume output as it arrives.', ['streaming', 'inputAudioFormat', 'outputFormat', 'outputAudioFormat', 'onChunk', 'onError', 'onAbort', 'streamRetries']],
-  useTools: ['Use tools', 'Registers tools that this component can call from its model, workflow or input preparer.', ['tools', 'toolsContext', 'toolChoice', 'stopWhen']],
-  run: ['.run() call', 'Calls this component with named inputs. For an asTool component, demonstrates direct invocation rather than a host agent calling it.'],
-  prepareSession: ['Session configuration', 'Prepares instructions and tool definitions without opening a provider session.'],
-  webRTC: ['WebRTC session', 'Answers a browser SDP offer using a model that supports WebRTC setup.'],
-  structured: ['Structured output', 'Returns an object matching a declared schema.', ['output']],
-  batch: ['Several texts', 'Embeds an array of texts in one call and returns one vector per text.', ['input', 'maxParallelCalls']],
-  topN: ['Top matches only', 'Returns the two most relevant documents from the supplied list.', ['topN']],
-  referenceImage: ['Reference image', 'Uses an existing image to guide generation or editing. Requires a model supporting image input.', ['images']],
-  mask: ['Edit mask', 'Supplies a mask with the reference image. Mask conventions depend on the selected model.', ['mask']],
-  count: ['Several images', 'Requests three variations of the same scene.', ['n']],
-  voice: ['Select voice', 'Passes a voice supported by the selected speech model.', ['voice']],
-  textStream: ['Streamed text input', 'Feeds text in chunks while the model produces speech.', ['text']],
-  messages: ['Message history', 'Supplies previous conversation messages and returns the updated history.', ['messageHistory']],
-  resume: ['Approval and resume()', 'Pauses a tool call for approval, then resumes the conversation.', ['messageHistory', 'toolApproval']],
-  withTemplate: ['Inline template', 'The input text is a Cascada Template; the context object supplies its variables.'],
-  withText: ['Text', 'Explicitly selects direct text input for the inheriting component.'],
-  withScript: ['Inline script', 'Runs a Cascada Script to prepare input or coordinate workflow steps.'],
-  withFunction: ['JavaScript function', 'Prepares input with a JavaScript function that can await application services.'],
-  loadTemplate: ['Template file', 'Loads a Cascada Template from the accompanying .cat file.', ['loader']],
-  loadScript: ['Script file', 'Loads a Cascada Script from the accompanying .cas file.', ['loader']],
-  loadText: ['Text file', 'Reads text from the accompanying .txt file.', ['loader']],
+  asTool: { name: 'As a tool', shortDescription: 'Let other components call it as a [tool](property:asTool).', description: 'Lets an AI agent or workflow call this component using declared input fields.', properties: ['asTool', 'inputSchema', 'toolContextSchema', 'description', 'toModelOutput', 'strict', 'inputExamples'] },
+  asStream: { name: 'Stream results', shortDescription: 'Streaming data.', description: 'Returns the live AI SDK result so you can consume output as it arrives.', properties: ['streaming', 'inputAudioFormat', 'outputFormat', 'outputAudioFormat', 'onChunk', 'onError', 'onAbort', 'streamRetries'] },
+  useTools: { name: 'Use tools', shortDescription: 'Call registered [tools](property:tools).', description: 'Registers tools that this component can call from its model, workflow or input preparer.', properties: ['tools', 'toolsContext', 'toolChoice', 'stopWhen'] },
+  run: { name: '.run() call', shortDescription: 'Use named inputs.', description: 'Calls this component with named inputs. For an asTool component, demonstrates direct invocation rather than a host agent calling it.' },
+  prepareSession: { name: 'Session configuration', shortDescription: 'Prepare [instructions](property:instructions) and [tools](property:tools).', description: 'Prepares instructions and tool definitions without opening a provider session.' },
+  webRTC: { name: 'WebRTC session', shortDescription: 'Set up a browser voice connection.', description: 'Answers a browser SDP offer using a model that supports WebRTC setup.' },
+  structured: { name: 'Structured output', shortDescription: 'Return an object matching a [schema](property:output).', description: 'Returns an object matching a declared schema.', properties: ['output'] },
+  batch: { name: 'Several texts', shortDescription: 'Embed several [texts](property:input) in one call.', description: 'Embeds an array of texts in one call and returns one vector per text.', properties: ['input', 'maxParallelCalls'] },
+  topN: { name: 'Top matches only', shortDescription: 'Return the [two best matches](property:topN).', description: 'Returns the two most relevant documents from the supplied list.', properties: ['topN'] },
+  referenceImage: { name: 'Reference image', shortDescription: 'Guide generation with an [image](property:images).', description: 'Uses an existing image to guide generation or editing. Requires a model supporting image input.', properties: ['images'] },
+  mask: { name: 'Edit mask', shortDescription: 'Mark the [area to edit](property:mask).', description: 'Supplies a mask with the reference image. Mask conventions depend on the selected model.', properties: ['mask'] },
+  count: { name: 'Several images', shortDescription: 'Generate [three variations](property:n).', description: 'Requests three variations of the same scene.', properties: ['n'] },
+  voice: { name: 'Select voice', shortDescription: 'Choose a supported [voice](property:voice).', description: 'Passes a voice supported by the selected speech model.', properties: ['voice'] },
+  textStream: { name: 'Streamed text input', shortDescription: 'Speak while [text](property:text) is arriving.', description: 'Feeds text in chunks while the model produces speech.', properties: ['text'] },
+  messages: { name: 'Message history', shortDescription: 'Continue an earlier [conversation](property:messageHistory).', description: 'Supplies previous conversation messages and returns the updated history.', properties: ['messageHistory'] },
+  resume: { name: 'Approval and resume()', shortDescription: '[Approve a tool call](property:toolApproval), then continue.', description: 'Pauses a tool call for approval, then resumes the conversation.', properties: ['messageHistory', 'toolApproval'] },
+  withTemplate: { name: 'Inline template', description: 'The input text is a Cascada Template; the context object supplies its variables.' },
+  withText: { name: 'Text', description: 'Explicitly selects direct text input for the inheriting component.' },
+  withScript: { name: 'Inline script', description: 'Runs a Cascada Script to prepare input or coordinate workflow steps.' },
+  withFunction: { name: 'JavaScript function', description: 'Prepares input with a JavaScript function that can await application services.' },
+  loadTemplate: { name: 'Template file', description: 'Loads a Cascada Template from the accompanying .cat file.', properties: ['loader'] },
+  loadScript: { name: 'Script file', description: 'Loads a Cascada Script from the accompanying .cas file.', properties: ['loader'] },
+  loadText: { name: 'Text file', description: 'Reads text from the accompanying .txt file.', properties: ['loader'] },
 };
 const textSources = ['withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
 const audioSources = ['withScript', 'withFunction', 'loadScript'];
 const referenceChoices = ['asTool', 'asStream', 'withText', ...textSources, 'prepareSession', 'webRTC'];
-const choice = (id, rules = {}) => ({ id, name: choices[id][0], description: choices[id][1], properties: choices[id][2] ?? [], affectsReference: referenceChoices.includes(id), ...rules });
+const choice = (id, rules = {}) => ({ id, properties: [], ...choices[id], affectsReference: referenceChoices.includes(id), ...rules });
 const group = (id, name, ids, rules = {}) => ({ id, name, optional: true, choices: ids.map(value => choice(value, rules)) });
 
 // Shared group definitions only supply labels and choices; entries supply rules.
@@ -117,10 +117,11 @@ const stream = rules => group('stream', 'Result delivery', ['asStream'], rules);
 const source = ids => group('source', 'Input preparation', ids);
 const tools = rules => group('tools', 'Call other tools', ['useTools'], rules);
 const invocation = (ids = ['run']) => ({ ...group('invocation', 'Invocation', ids), choices: ids.map(id => choice(id,
-  id === 'run' ? { defaultControl: { name: 'Shorthand call', description: 'Use component(input). Turn off to show component.run({ ... }) with named inputs. Tool examples show an agent or workflow calling the tool; .run() calls it directly.' } } : {})) });
-const workflowTools = { description: 'Makes registered tools available as functions inside this component.' };
+  id === 'run' ? { defaultControl: { name: 'Shorthand call', shortDescription: 'Use [`component(input)`](method:call) instead of [`component.run({...})`](method:run?option=run).', description: 'Use component(input). Turn off to show component.run({ ... }) with named inputs. Tool examples show an agent or workflow calling the tool; .run() calls it directly.' } } : {})) });
+const workflowTools = { shortDescription: 'Call registered [tools](property:tools) from code.', description: 'Makes registered tools available as functions inside this component.' };
 const preparerTools = sources => tools({
   requires: { source: sources.filter(id => id !== 'loadText') },
+  shortDescription: 'Call [tools](property:tools) to prepare input.',
   description: 'Lets the template, script or function call registered tools to build the input.',
 });
 const experimental = 'Uses an experimental AI SDK operation.';
@@ -135,7 +136,7 @@ export const components = [
     description: 'Define common settings once and pass them as a parent when creating components. For example, several agents can share a model and tools, while each supplies its own instructions. A child inherits omitted settings and can replace individual values. Context and tool maps merge by key.\n\nConfig supports the same source selectors as components, followed by compatible .asTool or .asStream modifiers. For example, Config.withTemplate.asTool selects template preparation and tool mode for its consuming component. Plain Config preserves an inherited mode without selecting a default.\n\nA Config is a reusable settings object; it does not execute a task. It may leave settings incomplete until a component is created. The combined settings must fit that component, so unrelated options from different component types cannot be mixed. Source selection belongs to modifiers; promptType is not a configuration property.',
     kind: 'configuration', sourceDefault: null, resources: ['Config.cat', 'Config.cas', 'Config.txt'],
     groups: [
-      tool({ excludes: ['asStream'], description: 'The inheriting component becomes a tool and must meet its tool requirements.' }),
+      tool({ excludes: ['asStream'], shortDescription: 'Expose inheriting components as [tools](property:asTool).', description: 'The inheriting component becomes a tool and must meet its tool requirements.' }),
       stream({ excludes: ['asTool'], description: 'The inheriting component must support streaming, as LLMAgent does. Streaming and tool mode cannot currently be combined.' }),
       source(['withText', ...textSources]), tools(),
     ],
@@ -345,7 +346,7 @@ function sourceState(name, selected) {
   return { id: 'source', name: 'Source', kind: current?.id ?? null, affectsReference: true,
     choices: kinds.map(kind => ({ id: kind.id, name: kind.id === 'default' && group.choices.some(choice => choice.id === 'loadText') ? 'Text' : kind.name,
       description: group.choices.find(choice => choice.id === kind.inline)?.description ?? 'Use the supplied input.' })),
-    loads: { id: 'loads', name: 'Load from file', active: Boolean(current?.loaded && selected.includes(current.loaded)), available: Boolean(current?.loaded && group.choices.some(choice => choice.id === current.loaded)), description: 'Read the source file using the configured loader.' },
+    loads: { id: 'loads', name: 'Load from file', active: Boolean(current?.loaded && selected.includes(current.loaded)), available: Boolean(current?.loaded && group.choices.some(choice => choice.id === current.loaded)), shortDescription: 'Use the configured [loader](property:loader).', description: 'Read the source file using the configured loader.' },
     modifier: sourceMode(selected)?.replace(/^load/, 'loads') ?? null,
     description: 'The source property keeps its name; this choice changes how its value is interpreted.',
   };

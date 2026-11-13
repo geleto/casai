@@ -7,7 +7,8 @@ export type ComponentKind = 'component' | 'configuration' | 'concept';
 export type InfoSectionId = 'summary' | 'variants' | 'source' | 'features' | 'invocation';
 export type Requirements = Partial<Record<GroupId, (ChoiceId | null)[]>>;
 export interface Rules { requires?: Requirements | Requirements[]; excludes?: ChoiceId[] }
-export interface Choice extends Rules { id: ChoiceId; name: string; description: string; properties: string[]; affectsReference: boolean; experimental?: string; defaultControl?: { name: string; description: string } }
+/** shortDescription is inline Markdown; property:/method: links target configuration with the control enabled. */
+export interface Choice extends Rules { id: ChoiceId; name: string; description: string; shortDescription?: string; properties: string[]; affectsReference: boolean; experimental?: string; defaultControl?: { name: string; description: string; shortDescription?: string } }
 export interface Group { id: GroupId; name: string; description?: string; optional: boolean; choices: Choice[] }
 export interface SourceLocation { path: string; line?: number; package?: string; version?: string; url?: string; documentation?: string }
 export interface DescriptionSource { operation: string; description: string; source: SourceLocation; reuse: 'verbatim' | 'adapted' }
@@ -31,7 +32,7 @@ export interface ControlGroup extends Omit<Group, 'choices'> { choices: ControlC
 export interface SourceControl {
   id: 'source'; name: string; kind: SourceKind | null; affectsReference: true;
   choices: { id: SourceKind; name: string; description: string; transition: Transition | null }[];
-  loads: { id: 'loads'; name: string; active: boolean; available: boolean; description: string; transition: Transition | null };
+  loads: { id: 'loads'; name: string; active: boolean; available: boolean; description: string; shortDescription?: string; transition: Transition | null };
   modifier: string | null; description: string;
 }
 export type ControlSection = { id: 'source'; name: string; control: SourceControl | null } | { id: 'variants' | 'features' | 'invocation'; name: string; groups: ControlGroup[] };
