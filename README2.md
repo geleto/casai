@@ -139,14 +139,12 @@ Choose a component by the operation you need. `Config` supplies shared settings 
 | [Embedder](#embedder) | Embed one or many texts | String or string array РІвЂ вЂ™ [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
 | [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` РІвЂ вЂ™ [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
 | [ImageGenerator](#imagegenerator) | Generate or edit images | `prompt` and optional editing inputs РІвЂ вЂ™ [.images](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#returns) | [Images](https://ai-sdk.dev/docs/ai-sdk-core/image-generation) |
-| [Transcriber](#transcriber) | Transcribe a recording | `audio` РІвЂ вЂ™ [.text, .segments](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) | [Transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription) |
-| [StreamingTranscriber](#streamingtranscriber) | Transcribe live audio | Audio stream and format РІвЂ вЂ™ [.fullStream, final .text](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-transcribe#returns) | [Streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription) |
-| [SpeechGenerator](#speechgenerator) | Generate spoken audio | `text` РІвЂ вЂ™ [.audio](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech#returns) | [Speech](https://ai-sdk.dev/docs/ai-sdk-core/speech) |
-| [StreamingSpeechGenerator](#streamingspeechgenerator) | Stream spoken audio from text | String/text stream РІвЂ вЂ™ native `.audioStream` or `.fullStream` | [Streaming speech](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) |
-| [StreamingTranslator](#streamingtranslator) | Translate live speech | Raw audio, format and target language РІвЂ вЂ™ `.fullStream`, final `.translationText` | [Streaming translation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate) |
+| [Transcriber](#transcriber) | Transcribe recorded or live audio | Completed text/segments, or `.fullStream` and final promises with `.asStream` | [Transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription) |
+| [SpeechGenerator](#speechgenerator) | Generate spoken audio | Completed audio, or native `.audioStream`/`.fullStream` with `.asStream` | [Speech](https://ai-sdk.dev/docs/ai-sdk-core/speech) |
+| [Translator](#translator) | Translate recorded or live speech | Raw audio, format and target language; completed audio/text, or `.fullStream` with `.asStream` | [Speech translation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate) |
 | [VoiceSessionSetup](#voicesessionsetup) | Prepare a browser voice session and execute server tools | Instructions/context РІвЂ вЂ™ session setup; separate `executeTool()` calls | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
 
-Decision, StreamingTranscriber, StreamingSpeechGenerator, StreamingTranslator and VoiceSessionSetup depend on experimental AI SDK contracts. They use the same plain names in named imports and on `create`; their documentation identifies the experimental dependency.
+Decision, Translator and VoiceSessionSetup depend on experimental AI SDK contracts. Transcriber and SpeechGenerator also depend on experimental SDK operations when using native streaming, including collected streaming for completed results. Their native complete operations retain their SDK status. The same factory names are available through named imports and `create`.
 
 ### Common Component Contracts
 
@@ -192,9 +190,9 @@ To interchange model and coded implementations in a workflow, have a small adapt
 - **Calls and composition:** Every callable has `.run()` for named inputs and supported execution settings, with the same result contract as its ordinary call. Put components or application functions in context to [call them from workflows](#calling-tools-from-coded-components).
 - **Invocation isolation:** Casai's merging, preparation and execution leave shared configuration and caller data intact. Derive a component or use call overrides to select different settings.
 - **Effects:** Schema callbacks stay pure. Component bodies may operate on authorized application state or perform external effects; sequence effectful Cascada calls with `!`. Independent invocations need application-level coordination for shared state.
-- **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. `Config` also exposes `.withText`, `.withTemplate`, `.withScript`, `.withFunction` and the three `.loads…` selectors, followed by compatible streaming/tool modifiers. For example, `Config.withTemplate.asTool(...)` prepares a reusable tool fragment. An explicit source modifier replaces the inherited source mode; plain `Config(...)` preserves it without choosing a default. Source selection uses modifiers, not an authored `promptType` field. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded. In the current API, a fragment cannot enable both streaming and tool mode.
+- **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. `Config` also exposes `.withText`, `.withTemplate`, `.withScript`, `.withFunction` and the three `.loads…` selectors, plus `.loadsAudio` for audio owners, followed by compatible streaming/tool modifiers. For example, `Config.withTemplate.asTool(...)` prepares a reusable tool fragment. An explicit source modifier replaces the inherited source mode; plain `Config(...)` preserves it without choosing a default. Source selection uses modifiers, not an authored `promptType` field. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded. A fragment cannot enable both streaming and tool mode.
 - **Configuration unions:** A call must work in every possible source mode. An Embedder with configured text/function alternatives supports `embedder()` and `.run({ headers })`; text/template alternatives also accept shared string replacements. You do not need to narrow the configuration before constructing the component.
-- **Streaming:** LLMAgent and Template inherit streaming mode, and `.asStream` enables it. Script/Function declare stream output through `schema`; independently invoked components keep their own modes. See [streaming](#streaming).
+- **Streaming:** LLMAgent, Template, Transcriber, SpeechGenerator and Translator inherit streaming mode, and `.asStream` enables it. Script/Function declare stream output through `schema`; independently invoked components keep their own modes. See [streaming](#streaming).
 - **Tool adaptation:** `.asTool` exposes completed application output to a model, collecting declared finite streams where necessary. Direct calls retain their normal result and mode. See [using components as tools](#using-components-as-tools).
 
 Template, Script and Function keep these native value contracts. LLMAgent's non-tool forms additionally implement the [SDK Agent and chat UI protocol](#ai-sdk-agent-interface-and-ui-integration).
@@ -241,11 +239,9 @@ The ordinary call, `component(...)`, takes the main input first, including objec
 | Embedder | `input`, a string or string array | None |
 | Reranker | `query` | `documents`, `topN` |
 | ImageGenerator | `prompt`; split text/images/mask input is also accepted | `n` |
-| Transcriber | `audio` | None |
-| StreamingTranscriber | `audio` | `inputAudioFormat` |
-| SpeechGenerator | `text` | `voice` |
-| StreamingSpeechGenerator | `text` | `voice` |
-| StreamingTranslator | `audio` | `inputAudioFormat`, `targetLanguage` |
+| Transcriber | `audio` | `inputAudioFormat` for raw audio |
+| SpeechGenerator | `text` or native text stream/parts | `voice` |
+| Translator | `audio` | `inputAudioFormat`, `targetLanguage` |
 | VoiceSessionSetup | `instructions` | None |
 
 A Function's callback can't be replaced per call, so a Function is called with its context alone. VoiceSessionSetup's main property is its session `instructions`; an LLMAgent's `instructions` setting is separate and never rendered.
@@ -290,10 +286,11 @@ Modifiers are properties of the factory, applied before creating the component: 
 - [`.loadsText`](#text-and-template-modifiers): Load literal text from a named resource through the configured loader.
 - [`.loadsTemplate`](#text-and-template-modifiers): Load a named Cascada template through the configured loader, then render it with context.
 - [`.loadsScript`](#script-and-function-modifiers): Load a named Cascada script through the configured loader, then execute it to prepare input.
-- [`.asStream`](#streaming): Make an LLMAgent or Template stream: its calls return a live stream result.
+- [`.loadsAudio`](#loading-media-and-format-auto-detection): Open a media file/URL and prepare its selected audio through the required native backend.
+- [`.asStream`](#streaming): Make an LLMAgent, Template, Transcriber, SpeechGenerator or Translator stream: its calls return a live stream result.
 - [`.asTool`](#using-components-as-tools): Expose the component as a tool a language model can invoke, while keeping it directly callable.
 
-A modifier changes the type of the [main property](#creating-and-calling-components), not its name, so an LLMAgent's input is always `prompt`. With `.loads...`, that value is a resource name resolved by the configured [loader](#loader).
+A modifier changes the type of the [main property](#creating-and-calling-components), not its name, so an LLMAgent's input is always `prompt`. With `.loadsText`, `.loadsTemplate` or `.loadsScript`, that value is a resource name resolved by the configured [loader](#loader). With `.loadsAudio`, it is a media file/URL opened by the native preparation backend.
 
 #### Text and Template Modifiers
 
@@ -373,38 +370,35 @@ The same `context._toolOptions` property is available to specialized function pr
 Use modifiers in this order:
 
 1. At most one input modifier (`.with...` or `.loads...`).
-2. Optional `.asStream` on LLMAgent or Template.
-3. Optional `.asTool` where a completed tool result is available.
+2. Optional `.asStream` on LLMAgent, Template, Transcriber, SpeechGenerator or Translator, or `.asTool` where a completed tool result is available. Never combine the two.
 
-For example, `create.LLMAgent.withTemplate.asStream(...)` streams an ordinary agent; `create.LLMAgent.withTemplate.asTool(...)` exposes a generation-only tool. These LLMAgent modifiers cannot be combined.
+For example, `create.LLMAgent.withTemplate.asStream(...)` streams an ordinary agent; `create.LLMAgent.withTemplate.asTool(...)` exposes a generation-only tool. `.asStream` and `.asTool` cannot be combined on any component, including through inheritance or Config.
 
-Two input modifiers cannot be combined. Script and Function have no `.asStream` because their schema declares whether they return a stream. StreamingTranscriber always streams and can become a tool only with a script/function preparer that opens audio with a completion boundary. An indefinitely open live session cannot be collected automatically into a tool result.
+Two input modifiers cannot be combined. Script and Function have no `.asStream` because their schema declares whether they return a stream. Ordinary audio tools can collect one native streaming execution to return a completed value; they never combine `.asStream` with `.asTool`. An indefinitely open input cannot produce a completed tool result.
 
 Unsupported combinations have no corresponding factory property; TypeScript reports them and JavaScript sees `undefined`.
 
 #### Modifier Support
 
-Choose a modifier supported by the component: РІСљвЂ¦ = supported; РІСњРЉ = not applicable or not exposed.
+Choose a modifier supported by the component. Config selectors create reusable fragments; the completed owner must support the selected combination.
 
-| Component | [.withText](#text-and-template-modifiers) | [.withTemplate](#text-and-template-modifiers) | [.withScript](#script-and-function-modifiers) | [.withFunction](#script-and-function-modifiers) | [.loadsText](#text-and-template-modifiers) | [.loadsTemplate](#text-and-template-modifiers) | [.loadsScript](#script-and-function-modifiers) | [.asStream](#streaming) | [.asTool](#using-components-as-tools) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| [Config](#config) | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ |
-| [Template](#template) | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ |
-| [Script](#script) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
-| [Function](#function) | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ |
-| [LLMAgent](#llmagent) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ |
-| [Decision](#decision) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
-| [Embedder](#embedder) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
-| [Reranker](#reranker) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
-| [ImageGenerator](#imagegenerator) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
-| [Transcriber](#transcriber) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
-| [StreamingTranscriber](#streamingtranscriber) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦* |
-| [SpeechGenerator](#speechgenerator) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСљвЂ¦ |
-| [StreamingSpeechGenerator](#streamingspeechgenerator) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ |
-| [StreamingTranslator](#streamingtranslator) | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ |
-| [VoiceSessionSetup](#voicesessionsetup) | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСљвЂ¦ | РІСњРЉ | РІСњРЉ |
+| Component | .withText | .withTemplate | .withScript | .withFunction | .loadsText | .loadsTemplate | .loadsScript | .loadsAudio | .asStream | .asTool |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| [Config](#config) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| [Template](#template) | No | Yes | No | No | No | Yes | No | No | Yes | Yes |
+| [Script](#script) | No | No | Yes | No | No | No | Yes | No | No | Yes |
+| [Function](#function) | No | No | No | No | No | No | No | No | No | Yes |
+| [LLMAgent](#llmagent) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |
+| [Decision](#decision) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
+| [Embedder](#embedder) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
+| [Reranker](#reranker) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
+| [ImageGenerator](#imagegenerator) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
+| [Transcriber](#transcriber) | No | No | Yes | Yes | No | No | Yes | Yes | Yes | Yes |
+| [SpeechGenerator](#speechgenerator) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |
+| [Translator](#translator) | No | No | Yes | Yes | No | No | Yes | Yes | Yes | Yes |
+| [VoiceSessionSetup](#voicesessionsetup) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | No |
 
-\* StreamingTranscriber supports `.asTool` only after `.withScript`, `.withFunction`, or `.loadsScript`; its preparer must open a bounded audio stream from named tool arguments.
+`.loadsAudio` opens a media resource through the required native preparation binding. It can precede `.asStream` or `.asTool`; source, track and authentication settings are described under [media loading](#loading-media-and-format-auto-detection).
 
 Template and Script use inline source by default. Their `.withTemplate` and `.withScript` modifiers explicitly select inline source, including when deriving from a loaded component. Loading and tool modifiers adapt the same operation. Template can also stream; Script and Function return a stream when their schema declares one. See [streaming](#streaming).
 
@@ -419,11 +413,9 @@ Preparation targets the input appropriate to each operation:
 | Embedder | `input` | One text value | A string, or a string array for a batch |
 | Reranker | `query` | Query text | A query string or `{ query, documents }` |
 | ImageGenerator | `prompt` | Text, or an image-prompt object's `text`, retaining its images/mask | Text or an SDK image-prompt object |
-| Transcriber | `audio` | Not applicable | An SDK audio value, such as bytes or a URL |
-| StreamingTranscriber | `audio` | Not applicable | A raw audio stream; format is a separate positional or named input |
-| SpeechGenerator | `text` | Text to speak | Text to speak |
-| StreamingSpeechGenerator | `text` | Templates/loaders produce one complete string | Native text, text parts or text stream |
-| StreamingTranslator | `audio` | Not applicable | Raw audio stream; format and target language are separate inputs |
+| Transcriber | `audio` | Not applicable | Encoded bytes/URL for file transcription, or raw bytes/stream with `inputAudioFormat` |
+| SpeechGenerator | `text` | Text to speak | A complete string, native text parts or a text stream |
+| Translator | `audio` | Not applicable | Raw bytes or stream; format and target language are separate inputs |
 | VoiceSessionSetup | `instructions` | Session instructions | Instructions for a new session |
 
 A main property passed with a call is prepared the same way as the configured one. ImageGenerator text-only calls retain configured images and mask; an explicit complete image-prompt object replaces the whole bundle. Other source replacement rules stay with their component.
@@ -468,7 +460,7 @@ The shorthand caller is the primary API and retains its input forms. Every calla
 
 Anything required that the shorthand cannot supply must be satisfied by resolved configuration, including inherited values. For example, registered tools with required trusted context need configured `toolsContext` entries. `.run()` can override that context for one call; it does not make an incomplete finished component usable. Reusable `Config` fragments may remain incomplete. Their runtime checks cover common configuration structure; the completed component validates its supported settings. TypeScript also checks known fragment incompatibilities during authoring.
 
-StreamingTranscriber accepts `(audio, inputAudioFormat)`. Either input can be configured, including through inheritance; both shorthand and `.run()` require whatever is still missing. If only format is missing, `(undefined, inputAudioFormat)` retains configured audio. Format is never guessed.
+Transcriber accepts `(audio, inputAudioFormat)` for raw audio in either delivery mode; without `inputAudioFormat`, an ordinary call uses encoded-file transcription. Both Translator modes accept `(audio, inputAudioFormat, targetLanguage)`. Configured values permit the existing unambiguous omissions; if only a raw format is missing, `(undefined, inputAudioFormat)` retains configured audio. In `.loadsAudio`, audio becomes the file/URL resource and `inputAudioFormat` remains the model target. Source demuxer and track selection belong in `mediaSettings`, with no positional slots.
 
 Template accepts `.run({ template, context, toolsContext, abortSignal, timeout })`, Script accepts `.run({ script, context, toolsContext, abortSignal, timeout })`, and Function accepts `.run({ context, toolsContext, abortSignal, timeout })`. Omit a source to use its configured value. `toolsContext` supplies invocation-specific data to registered tools; it merges by tool name, replacing each supplied entry as a whole. Function's `execute` callback and schemas remain fixed. Signals are forwarded to cooperative operations. A timeout can stop waiting without forcibly interrupting arbitrary JavaScript or rendering; see [cancellation and timeouts](#cancellation-timeouts-and-usage).
 
@@ -504,16 +496,19 @@ Specialized components follow the same pattern. Their ordinary call takes the ma
 
 ### Streaming
 
-A component's mode is chosen when it is created and inherited by derived components. To choose complete or streaming mode independently for several variants, derive them from a shared `Config` rather than from a streaming component. `.asStream` enables streaming on LLMAgent or Template; deriving through the base factory does not disable it. Script and Function return what their schema declares, and StreamingTranscriber, StreamingSpeechGenerator and StreamingTranslator always stream. Each invocation executes once. Calling an independent nested component preserves that component's own mode.
+A component's result-delivery mode is chosen when it is created and inherited by derived components. To choose complete or streaming delivery independently, derive variants from shared Config. `.asStream` enables streaming on LLMAgent, Template, Transcriber, SpeechGenerator and Translator; the base factory does not disable it. Ordinary audio components may collect native streaming internally according to their input/format contract. Script and Function return what their schema declares. Each invocation executes once, and independent nested components keep their own modes.
 
 | Component | Complete | Streaming |
 | :--- | :--- | :--- |
 | LLMAgent | SDK `generateText` result | With `.asStream`: SDK `streamText` result |
 | Template | Rendered string | With `.asStream`: text chunks as the template renders |
+| Transcriber | Completed transcript fields | With `.asStream`: native transcript events and final promises |
+| SpeechGenerator | Completed audio and metadata | With `.asStream`: native audio stream and final metadata |
+| Translator | Completed translated audio/text and metadata | With `.asStream`: native translation events and final promises |
 | Script | Returns a value | Returns an async iterable or a native `stream`/`tstream` channel declared by a [stream schema](#stream-schemas) |
 | Function | `execute` returns a value | `execute` returns a stream, declared by a stream schema |
 
-To enable streaming on an LLMAgent or Template in complete mode, derive a streaming component from it: `create.LLMAgent.asStream({}, writer)`.
+To enable streaming on a supported component in complete mode, derive a streaming component from it: `create.LLMAgent.asStream({}, writer)`.
 
 Cascada native streams have two runtime kinds: `tstream` for text chunks and `stream` for elements. Their schemas preserve that distinction. LLMAgent exposes native SDK `textStream` for live text and `output` for completed parsed output; Casai adds no final-answer stream filtering.
 
@@ -552,7 +547,7 @@ Each component applies its declared schema at its own boundary. When SDK/Cascada
 
 Stream schemas describe only a whole returned stream; a JavaScript stream nested in a returned object is an opaque value whose elements Casai doesn't validate.
 
-`.asTool` collects finite native streams into a completed result: join `tstream` chunks or collect `stream` elements. The direct component call still returns its stream. The same rule applies to a streaming Template. Only a root stream is collected: a result that contains streams inside an object is returned as is, so a component used as a tool must produce a tool-suitable result.
+Script/Function `.asTool` collects schema-declared finite native streams into a completed result: join `tstream` chunks or collect `stream` elements. The direct component call still returns its stream. These components have no `.asStream` modifier. Only a root stream is collected: a result that contains streams inside an object is returned as is, so a component used as a tool must produce a tool-suitable result.
 
 Ordinary Function/Script calls and `.run()` may also return plain JavaScript async iterables without a stream schema, including through an opaque ordinary output schema. Those values have no declared Casai stream kind. When used as a tool, a root async iterable requires `textStreamSchema()` or `streamSchema(elementSchema)`; an undeclared one fails with `ConfigError` without acquiring or reading its iterator. Where retained types prove that result, `.asTool` rejects it at type-checking time. Nested iterables remain opaque.
 
@@ -596,7 +591,7 @@ A `Config` can be partial. Children supply fixed configuration requirements; the
 | :--- | :--- |
 | `context`, `filters`, `tools`, `toolsContext` | Merge by key; a child entry replaces the same parent entry |
 | `loader` | Try child loaders first; `raceParent(...)` tries both together and `overrideParent(...)` uses only the child. See [combining loaders](#combining-loaders). |
-| Streaming mode on LLMAgent/Template | Inherit from the parent; `.asStream` enables it and no modifier disables it |
+| Streaming mode on LLMAgent, Template and audio components | Inherit from the parent; `.asStream` enables it and no modifier disables it |
 | Other properties, including `model`, `prompt`, schemas, `output`, `renderOptions`, and `providerOptions` | Replace the whole value |
 
 Key merging is shallow. A child `context: { settings: { language: 'French' } }` replaces the entire inherited `settings` value. A `toolsContext` entry similarly replaces that tool's whole context value.
@@ -1271,7 +1266,7 @@ const blueWorkshop = await repaint({ color: 'light blue' });
 
 ### Transcriber
 
-`Transcriber` turns a recording into a completed transcript. Use it for whole prerecorded files; OpenAI handles these through its file-transcription endpoint.
+`Transcriber` returns a completed transcript. Without `inputAudioFormat`, it uses the provider's encoded-file operation; OpenAI handles that through its file-transcription endpoint. With `inputAudioFormat`, it accepts raw audio, uses native streaming and waits for the authoritative final transcript. `Transcriber.asStream` exposes the live result instead. An unsupported selected operation reports the native error without trying another operation.
 
 <!-- typecheck: transcriber -->
 ```typescript
@@ -1314,15 +1309,15 @@ const downloadRecording = createDownload({ maxBytes: 20 * 1024 * 1024 });
 
 The native download path applies target/redirect checks and, on Node, resolved-address checks. A custom `download` replaces those protections as well as fetching; retain them through SDK helpers or your application's trusted retrieval policy.
 
-### StreamingTranscriber
+#### Streaming transcription
 
-`StreamingTranscriber` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It uses the AI SDK's experimental `experimental_streamTranscribe` API.
+`Transcriber.asStream` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It uses the AI SDK's experimental `experimental_streamTranscribe` API.
 
 Finite raw bytes are also accepted, but completion follows the provider's streaming session rules. The current OpenAI adapter commits once after input ends and finishes on the first transcription-completed event. This does not establish support for arbitrary long recordings or multiple completed items; use ordinary Transcriber for whole files.
 
-<!-- typecheck: streaming-transcriber -->
+<!-- typecheck-skip: streaming-transcriber -->
 ```typescript
-const transcriberStream = create.StreamingTranscriber({
+const transcriberStream = create.Transcriber.asStream({
   model: streamingTranscriptionModel,
 });
 
@@ -1342,13 +1337,13 @@ Awaiting the call gives you the live result. The [result contract](https://ai-sd
 
 Casai preserves transcript delta, partial, and final events rather than converting them into `textStream` chunks. Consume `fullStream` explicitly for incremental transcription, or await `text` for use in a workflow. Automatic forwarding into a Template or Script text stream is not part of this contract. A transport or iteration failure can throw after delivering a prefix and reject pending final-result promises. An `error` event is different: native final results can still resolve if a valid finish follows. Casai preserves those SDK outcomes; it does not recover a final transcript from partial events or add a stricter error policy.
 
-Use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configure `inputAudioFormat` to shorten this to `transcriberStream(audioStream)`; both entry paths require an unconfigured format. Tool forms require a configured format because their model-facing arguments are preparation data.
+Use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configure `inputAudioFormat` to shorten this to `transcriberStream(audioStream)`; both entry paths require an unconfigured format. Ordinary Transcriber tools using raw audio require a configured format because their model-facing arguments are input/preparation data; `Transcriber.asStream` has no tool form.
 
 A request-specific component can configure its one-shot audio and be called without arguments:
 
-<!-- typecheck: configured-live-input -->
+<!-- typecheck-skip: configured-live-input -->
 ```typescript
-const transcribeThisRequest = create.StreamingTranscriber({
+const transcribeThisRequest = create.Transcriber.asStream({
   model: streamingTranscriptionModel,
   audio: requestAudio,
   inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
@@ -1357,17 +1352,17 @@ const transcript = await transcribeThisRequest();
 console.log(await transcript.text);
 ```
 
-The same rule applies to configured StreamingTranslator audio and StreamingSpeechGenerator text streams. Inheritance shares that input object; it does not make another stream. Once a ReadableStream is handed to an SDK call through this runtime's streaming adapters, handing that exact object off again throws ValidationError, even through a different component. A failed SDK attempt still spends the input; failures before dispatch do not. No stream is cloned, buffered, tagged or mutated. Consumption outside Casai, different wrappers over one resource and generic iterator reuse retain their native/source limitations.
+The same rule applies to configured Translator audio and native-streaming SpeechGenerator text inputs. Inheritance shares the input object; it does not create a new stream. Once Casai hands a ReadableStream to the SDK, handing that exact object off again throws ValidationError, even through a different component. A failed SDK attempt still claims the input; failures before dispatch do not. Reusable finite audio bytes are wrapped in a fresh stream for each call. Casai does not promise detection of external consumption or generic iterator reuse.
 
 For repeatable operations, a configured function/script preparer can open a fresh stream each time. Normal native LLMAgent results also provide independent textStream projections from the same execution: a preparer can obtain a new view per invocation. Capturing one view in configuration does not make that view reusable. Explicit `makeSharedIterable` sharing retains history; its owner controls disposal. Audio still needs a new `toReadableStream(sharedAudio)` bridge per call, while streaming speech can accept a replayable iterable directly. Casai does not enable replay automatically for live input.
 
 On prepared components, one object is application context. To supply an audio format when context is optional, use `transcribe({}, format)`, `transcribe(undefined, undefined, format)`, or `.run({ inputAudioFormat: format })`. The format object cannot occupy the context slot.
 
-Script/function modifiers can obtain raw audio; supply format after their context or through `.run()`. `.asTool` is available only after `.withScript`, `.withFunction`, or `.loadsScript`. Its model-facing arguments are the preparer's named input fields, not a raw stream:
+Script/function modifiers can obtain raw audio; supply its format after context or through `.run()`. Use ordinary `Transcriber.withFunction.asTool` for named preparation arguments and a completed transcript:
 
-<!-- typecheck: transcription-tool -->
+<!-- typecheck-skip: transcription-tool -->
 ```typescript
-const transcribeRecording = create.StreamingTranscriber.withFunction.asTool({
+const transcribeRecording = create.Transcriber.withFunction.asTool({
   model: streamingTranscriptionModel,
   description: 'Transcribe a stored recording.',
   inputSchema: z.object({ recordingId: z.string() }),
@@ -1377,11 +1372,25 @@ const transcribeRecording = create.StreamingTranscriber.withFunction.asTool({
 });
 ```
 
-Here `openRecordingAsPcmStream` is an application helper that opens a fresh, finite raw PCM stream in the configured format for each execution. A preparer may also provide an explicit normal completion boundary. The tool selects `text`, `segments`, `language` and `durationInSeconds` from that execution's native final-result promises; the model receives transcript text by default. The SDK consumes the stream, and native promise rejection or success is preserved. Casai does not concatenate events, add another reader or share an already-consumed source between calls. An indefinitely open source is not a valid tool input. Direct component calls still return the live SDK result. See [SDK streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription).
+Here `openRecordingAsPcmStream` is an application helper that opens a fresh, finite raw PCM stream in the configured format for each execution. A preparer may also provide an explicit normal completion boundary. The tool selects `text`, `segments`, `language` and `durationInSeconds` from that execution's native final-result promises; the model receives transcript text by default. The SDK consumes the stream, and native promise rejection or success is preserved. Casai does not concatenate events, add another reader or share an already-consumed source between calls. An indefinitely open source is not a valid tool input. Direct calls on this ordinary tool component also return the completed transcript result. See [SDK streaming transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription#streaming-transcription).
 
 ### SpeechGenerator
 
-`SpeechGenerator` converts text into spoken audio.
+`SpeechGenerator` converts text into completed spoken audio. String text with an omitted or string `outputFormat` selects native complete generation. An object `outputFormat` or native non-string text input selects native streaming, which the ordinary component collects. These are request-shape rules: Casai does not test model capabilities by trying one operation and falling back to another.
+
+For a streaming-only speech model and string text, configure a supported format object once. For example, if that model accepts 24 kHz PCM:
+
+<!-- typecheck-skip: completed-streaming-speech -->
+```typescript
+const completeSpeech = create.SpeechGenerator({
+  model: streamingSpeechModel,
+  outputFormat: { type: 'audio/pcm', rate: 24000 },
+});
+const spokenRecording = await completeSpeech('Welcome home.');
+console.log(spokenRecording.audioFormat);
+```
+
+A string-text call without the object format selects complete execution and may fail on a streaming-only model. Native streaming speech itself permits an omitted format; the object here makes the ordinary call's operation unambiguous. Non-string text plus a complete-only string format is incompatible. Use `.asStream` to receive incremental output.
 
 <!-- typecheck: speech -->
 ```typescript
@@ -1406,14 +1415,14 @@ const audioResponse = new Response(Uint8Array.from(spoken.audio.uint8Array), {
 
 When saving to a file, choose an extension matching the actual media type or configure a supported output format explicitly.
 
-### StreamingSpeechGenerator
+#### Streaming speech
 
-`StreamingSpeechGenerator` speaks a complete string or a native stream of text deltas/parts. Use a streaming-capable speech model; the SDK reports unsupported models. The current OpenAI speech adapter generates complete audio, while the SDK's [streaming speech example](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) uses ElevenLabs.
+`SpeechGenerator.asStream` speaks a complete string or a native stream of text deltas/parts. Use a streaming-capable speech model; the SDK reports unsupported models. The current OpenAI speech adapter generates complete audio, while the SDK's [streaming speech example](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) uses ElevenLabs.
 
-<!-- typecheck: streaming-speech -->
+<!-- typecheck-skip: streaming-speech -->
 ```typescript
 const answerer = create.LLMAgent.asStream({ model });
-const say = create.StreamingSpeechGenerator({
+const say = create.SpeechGenerator.asStream({
   model: streamingSpeechModel,
 });
 
@@ -1430,15 +1439,30 @@ console.log(await spoken.usage);
 
 Shorthand is `(textOrTextStream, voice?)`; `.run()` accepts the native fields by name. Text can also be an iterable/array of strings or native text parts with per-part voice/provider options. Templates and text loaders produce a complete string; script/function preparation can return any native text input. Incoming text chunks stay data and are not templated. Whether synthesis begins before text ends depends on the provider. A configured stream/iterator can bind a single-use component; strings, arrays and genuinely replayable iterables can be reused. For repeated consumption, pass a fresh stream or obtain a new branch in a preparer.
 
-Select either `audioStream` for bytes or `fullStream` for audio format, raw and error parts, before accessing final metadata promises. These are alternative single-consumer views. Chunks need not be standalone audio files. Native error events, callback behavior, cancellation and finish/failure behavior are preserved; `audioStream` skips error parts, while `fullStream` exposes them. Streaming output format is a native audio-format object, unlike SpeechGenerator's string format. The component returns a live SDK result and has no collected-audio tool mode.
+Select either `audioStream` for bytes or `fullStream` for audio format, raw and error parts, before accessing final metadata promises. These are alternative single-consumer views. Chunks need not be standalone audio files. Native error events, callback behavior, cancellation and finish/failure behavior are preserved; `audioStream` skips error parts, while `fullStream` exposes them. The native streaming operation takes an audio-format object; native complete speech generation takes a string format. With `.asStream`, the component returns the live SDK result and cannot be a tool. Ordinary SpeechGenerator collects this native operation when the request uses an object format or non-string text, including through `.asTool`.
 
-### StreamingTranslator
+### Translator
 
-`StreamingTranslator` translates live raw speech into target-language audio and text through the SDK's [streaming translation operation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate). A supporting provider model is required; OpenAI exposes `translation('gpt-realtime-translate')`.
+`Translator` translates raw speech into target-language audio and text through one native [streaming translation operation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate). Ordinary calls collect its completed result; `Translator.asStream` exposes live events. A supporting provider model is required; OpenAI exposes `translation('gpt-realtime-translate')`.
 
-<!-- typecheck: streaming-translation -->
+For a finite recording already prepared in the model's raw format:
+
+<!-- typecheck-skip: completed-translation -->
 ```typescript
-const translate = create.StreamingTranslator({
+const translateRecording = create.Translator({
+  model: translationModel,
+  inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
+  targetLanguage: 'fr',
+});
+const completed = await translateRecording(recordingPcm);
+console.log(completed.translationText, completed.audio);
+```
+
+To consume incremental events instead:
+
+<!-- typecheck-skip: streaming-translation -->
+```typescript
+const translate = create.Translator.asStream({
   model: translationModel,
   inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
   targetLanguage: 'fr',
@@ -1453,7 +1477,7 @@ console.log(await translated.translationText);
 
 Shorthand takes `(audio, inputAudioFormat?, targetLanguage?)`. Configure either secondary input or supply it at invocation; `translate(audioStream, 'es')` can omit a configured format. `.run()` names the same fields and native options, including source language and output format. Script/function preparers can open raw audio; text/template modifiers do not apply to it. Required context remains explicit where its object shape overlaps an audio-format object.
 
-Consume the single `fullStream` before final text/metadata promises when both are needed. Audio parts keep their native bytes-or-base64 form; final source/translation text comes from the SDK's finish data. An audio-only provider may return empty translation text. There is no separate audioStream alias or collected-audio tool mode. Provider language/format validation, errors and cancellation retain native behavior.
+Consume the single `fullStream` before final text/metadata promises when both are needed. Audio parts keep their native bytes-or-base64 form; final source/translation text comes from the SDK's finish data. An audio-only provider may return empty translation text. The streaming result has no separate audioStream alias. Ordinary Translator and its `.asTool` form collect the same native operation; `.asStream` cannot combine with `.asTool`. Provider language/format validation, errors and cancellation retain native behavior.
 
 #### Recorded audio and optional codecs
 
@@ -1465,23 +1489,53 @@ For browser microphone capture, request the provider's rate through Web Audio wh
 
 SDK rate conversion has no anti-aliasing filter. At 48-to-24 kHz it keeps every second sample, so frequencies above 12 kHz can fold into the output band. Rate-conversion helpers depend on the experimental SDK resampler; WAV reading/writing and byte adaptation do not have that experimental dependency.
 
-The converter from `casai/node-av` uses native conversion for sample changes when node-av is installed, including FFmpeg's filtered rate conversion. When the package is absent, it falls back to the supported SDK/local paths above. MP3 decoding and unsupported stream rate changes still require node-av. An installed library's load or conversion error is reported, without retrying through the SDK. Installing node-av can therefore change this converter's output; main-entry helpers always use the SDK/local path. To enable native conversion:
+The converter from `casai/node-av` uses native conversion for sample changes with an admitted native build, including FFmpeg's filtered rate conversion. For already-supplied bytes or streams, an absent package permits the supported SDK/local conversion paths above. This conversion fallback does not open resources and is unavailable to `.loadsAudio`. MP3 decoding and unsupported stream rate changes require a compatible native installation. An installed library load failure or conversion error is reported, without retrying through the SDK. Installing an admitted native build can therefore change this converter's output; main-entry helpers always use the SDK/local path.
 
-```sh
-npm install node-av
-```
+Use an LGPL-compatible native build by default, or install a GPL build deliberately. The installed distribution determines the build license; there is no runtime license-mode setting. This choice does not change `.loadsAudio`, track selection, streaming or tool calls, and does not belong in `mediaSettings.options`. A GPL build cannot become LGPL by disabling video or avoiding particular codecs. The stock node-av 6.2.0 workflow selects GPL artifacts, so `npm install node-av` is not an LGPL installation recipe. Its MIT wrapper license does not replace the native libraries' licenses. [FFmpeg licensing](https://ffmpeg.org/legal.html), [node-av build workflow](https://github.com/seydx/node-av/blob/v6.2.0/.github/workflows/build-prebuilds.yaml)
 
-The converter uses the native library API, without an executable path. Its native codec set is bundled; importing fewer JavaScript functions does not select fewer codecs. Check the deployment target and package footprint: version 6.2.0's native packages occupy about 175 MB on Linux x64 and 125 MB on Windows x64, before the additional CLI download. Linux prebuilds target glibc. Consult the package's bundled FFmpeg notices as well as its wrapper license.
+Installing a library independently for internal use is different from redistributing it. If you ship an application, native addon, installer or container image containing LGPL-covered code, check the exact license version and distribution requirements: notices, corresponding source/build materials, and the ability to replace or relink the library with modifications. Static FFmpeg code inside a dynamically loaded Node addon still needs the appropriate relinking arrangement. Making a dependency optional does not remove these obligations. [LGPL 2.1](https://github.com/FFmpeg/FFmpeg/blob/n8.1/COPYING.LGPLv2.1), [LGPL 3](https://github.com/FFmpeg/FFmpeg/blob/n8.1/COPYING.LGPLv3)
 
-A script/function preparer supplies fresh prepared audio for each call. Share one target-format value between preparation and the component's `inputAudioFormat`; provide the original format explicitly for raw audio. Preparation checks format descriptions and available WAV headers, then selects native conversion or a supported fallback before returning a stream. Files and native decoders open on the first read. File/decode failures can therefore reach a streaming result after the provider connection opens; completed translation rejects when that execution fails. Cancelling before the first read acquires no reader or conversion resources.
+Importing fewer JavaScript functions does not remove codecs from a native binary. Check the selected build's OS/CPU, libc requirements, codec set, footprint and native dependency notices. GPL permits commercial use, but a GPL distribution has different obligations from LGPL; choosing GPL requires assessing the actual application/linking/distribution arrangement. Builds marked nonfree are outside the supported choices. Audio extraction from a video does not require x264, which is an H.264 encoder; codec patent questions remain separate from software licensing. [FFmpeg license details](https://ffmpeg.org/doxygen/trunk/md_LICENSE.html), [x264 licensing](https://x264.org/licensing/)
 
-The prepared result identifies its selected conversion path: local-only preparation, SDK-assisted conversion or native conversion. Local preparation includes pass-through, WAV extraction and supported local sample adaptation. Inspect that metadata when diagnosing differences between environments; installing node-av does not imply that matching audio needed native processing. The metadata is available before consuming the audio.
+A script/function preparer supplies fresh prepared audio for each call. Share one target-format value between preparation and the component's `inputAudioFormat`; provide the original format explicitly for raw audio. Preparation reads encoded-audio headers when needed, then selects native conversion or a supported fallback. It preserves read-ahead bytes for the same execution and starts audio processing on demand. Header/open failures occur during preparation; later decode failures can reach the live result after the provider connection opens. Cancel prepared audio if you abandon it before handing it to the component; cancellation and failure release resources owned by the preparation helper.
 
-The main `casai` import can be bundled without node-av and does not check whether it is installed. Bundling `casai/node-av` requires node-av to be installed or marked external in the bundler. Mark it external when deploying that entry with the supported absent-package fallback, in either an ESM or CommonJS Node bundle. An installed package with a missing entry or dependency remains an error.
+The prepared result identifies its selected conversion path: local-only preparation, SDK-assisted conversion or native conversion. Local preparation includes pass-through, WAV extraction and supported local sample adaptation. Inspect that metadata when diagnosing differences between environments; installing node-av does not imply that matching audio needed native processing. The metadata is available after any required header inspection and before consuming the returned prepared audio.
+
+The main `casai` import can be bundled without node-av and does not check whether it is installed. The `casai/node-av` entry resolves the native library from the runtime installation, including in ESM and CommonJS Node bundles. Install the chosen compatible native distribution for `.loadsAudio` and conversions that need it; the bundle does not embed its native binaries. Supported conversion of supplied bytes/streams can fall back when the package is absent. An installed package with a missing entry or dependency remains an error.
+
+The optional converter also extracts audio from video/media files. It uses the installed backend's container and audio-decoder support, rather than a fixed list of extensions. It selects the native best audio track by default; an explicit container stream index selects another track. The conversion pipeline processes the selected audio only. Native stream inspection can read or decode frames, including video, to determine metadata. Actual compatibility depends on the installed build and the input: a container that requires seeking may work as a file or finite byte buffer but not as a forward-only stream. Supported-format lists describe available capabilities; opening and decoding the selected audio establishes whether a particular file works.
+
+##### Loading media and format auto-detection
+
+Use `Transcriber.loadsAudio` or `Translator.loadsAudio` for a file path or media URL. Configure the native preparation binding from `casai/node-av`, directly or through shared Config. Every `.loadsAudio` call requires node-av, including a simple WAV recording; it has no JavaScript file/fetch fallback. Missing binding is a construction error; a missing native installation is reported when preparation is requested. Construction does not open media. Source settings live in `mediaSettings`: `track` selects an absolute container stream index, `format` optionally forces an input demuxer, and `options` is an open dictionary of native FFmpeg input options and native-compatible scalar values. Option availability and handling belong to the installed backend. Omit `format` for normal recordings.
+
+When FFmpeg opens a file, URL or finite buffer, it probes the content and considers filename-extension and available MIME hints. Casai does not map extensions to forced formats. An extensionless recording can therefore work; an incorrect extension or Content-Type does not establish the actual format or guarantee detection will succeed. Available demuxers/codecs and source seekability still determine compatibility. Supplied byte streams use the internal native adapter; detection retains read-ahead for the same execution, but a forward-only stream does not gain file-like seeking.
+
+Set `mediaSettings.format` when deliberately overriding detection. It names an input demuxer, not an output encoding or the model's raw `inputAudioFormat`. For example, an MP4 container can hold AAC audio, which preparation can convert to the raw PCM required by the selected model. A forced demuxer neither transcodes the media by itself nor removes its need to seek. Headerless raw input requires an explicit source description, including sample rate, channels and sample representation; a `.pcm` suffix supplies none of those facts. Normal raw-audio component calls do not automatically interpret MP3/WAV bytes as prepared PCM.
+
+The source format and the model's required input format are separate. When native model information does not determine the target, configure it explicitly; Casai does not maintain its own model capability catalog or discover accepted formats by trial requests. Raw-audio preparation uses the target `inputAudioFormat` and the helper's format convention: `audio/pcm` means mono PCM16 little-endian with an explicit rate. Preparation preserves matching audio and otherwise converts its sample representation, rate and channels to that target within the converter's supported capabilities. For example, a configured 24 kHz mono PCM16 target requires converting a 48 kHz stereo source. Channel mixing processes the selected track; it does not choose another track. Source `mediaSettings.format` cannot supply the model target.
+
+Opening and stream inspection may read packets, seek or wait for network data before prepared audio is available. There is no universal fixed header size or constant startup latency. Explicit `format` still permits stream-info inspection. Use invocation cancellation and applicable native probe/network options. Failed detection or an unsuitable override reports an error; preparation does not retry consumed input with another guessed format.
+
+`.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber without `.loadsAudio` retains SDK/provider encoded-file and URL handling, including the SDK `download` hook and finite-input materialization. That hook is incompatible with `.loadsAudio`; use an explicit preparer and the shared helper for application-owned access. Streaming resource reads do not imply streaming model upload, and completed audio results retain their audio in memory.
+
+The native media path does not inherit the SDK downloader's URL protections or byte limits. Applications exposing media tools must authorize the resources models can select, including local files, redirects and playlist children. A closed input schema alone does not establish that authority. Server-resolved recording identifiers and application-controlled preparation are useful where arbitrary resource access is inappropriate.
+
+`.loadsAudio` owns resources it opens until the SDK accepts them. Preparation, cancellation or an early dispatch failure closes those resources. After handoff, consume or cancel the native stream result under its existing ownership rules. When preparing audio independently, cancel the prepared audio if you abandon it before handoff.
+
+Keep source headers in `mediaSettings.options.headers`; model `headers` authenticate the model request separately. A supplied `mediaSettings` object in `.run()` replaces the whole configured group. Include settings you want to retain when supplying fresh credentials; `{}` restores media defaults, while an omitted group retains configuration.
+
+##### Completed audio and tools
 
 A component created with `Translator(...)` returns completed `audio` bytes as a `Uint8Array`, together with final source/translated text and native metadata. These bytes carry no assumed file format. If the provider's actual output is known PCM, use the WAV writer with that format to make a playable WAV file. A requested output format is not evidence that the provider used it.
 
-Completed translation follows the SDK's final-result rules. A non-fatal error event does not itself make the call reject or add an errors array. Use `Translator.asStream(...)` and its result's `fullStream` to observe such events. Ordinary Transcriber retains its provider-native recording support without local conversion.
+Choose ordinary Transcriber, SpeechGenerator or Translator when you need a completed result. The request shape selects native execution; a selected streaming operation is collected internally. Streaming-only speech needs an object output format or non-string text for ordinary delivery. Required input formats and provider capabilities still apply. Use `.asStream` when you want to consume incremental results yourself.
+
+Completed speech collected from a native stream retains its emitted audio format, including the sample rate, alongside the audio; its tool result retains that format too. It cannot combine chunks with different formats into one audio file. This collected path, including ordinary tools, depends on the experimental SDK streaming operation. The same experimental dependency applies to completed streaming transcription; both Translator modes depend on experimental translation.
+
+`Translator.asTool`, its script/function preparers and `.loadsAudio.asTool` expose completed translation as a tool. A plain tool can configure reusable recording bytes and a closed empty input schema, allowing the model to request translation without generating audio arguments. Configure the audio format and target language on the tool; an input schema declares its public audio or preparation arguments. The calling model receives translated text by default, while the tool's execution result retains the completed translation data and serialized audio. Like ordinary transcription and speech tools, it can use native streaming internally without combining `.asStream` and `.asTool`.
+
+Completed translation follows the SDK's final-result rules and requires successful collection of its audio stream. A non-fatal error event does not itself make the call reject or add an errors array. A stream failure during collection rejects the call even if native final-text promises have already resolved. Use `Translator.asStream(...)` and its result's `fullStream` to observe individual events. Ordinary Transcriber retains its provider-native recording support without local conversion.
 
 ### VoiceSessionSetup
 
@@ -1652,7 +1706,7 @@ Configuration and payload are separate. Only schema-declared fields from `config
 
 Every specialized `.run()` accepts a separate `context` payload. Plain non-tool shorthand supplies the native source and operation tail; any required payload must already be satisfied by `config.context`, or supplied through `.run({ context, ...settings })`. Plain `.asTool` components also accept their payload directly: `embedTool({ input: "hello" })`, or `embedTool(input="hello")` in Cascada. Both forms parse the payload and select its declared native input field. The priority is an explicit invocation source, then the parsed payload field, then the configured source. An object passed to a plain tool is payload; use `.run({ prompt: nativeBundle, context })` for a structured authored source. Ordinary calls return native results; registered tool helpers return the tool projection shown below.
 
-In a specialized tool's plain literal form, including explicit `.withText`, its arguments are the operation input. Template/script/function and loaded-source forms take preparation context and keep their configured source/resource. `.withText` also selects literal input when deriving from a rendered parent; writing it explicitly does not discard the model's operation arguments. The tool result goes to your application and the chat UI, and the model can receive a different, smaller form:
+In a specialized tool's plain literal form, including explicit `.withText`, its arguments are the operation input. Template/script/function and loaded executable-source forms take preparation context and keep their configured source/resource. `.loadsAudio.asTool` can instead use its declared public `audio` resource, subject to application authorization. `.withText` also selects literal input when deriving from a rendered parent; writing it explicitly does not discard the model's operation arguments. The tool result goes to your application and the chat UI, and the model can receive a different, smaller form:
 
 | Component | Tool arguments without a modifier | The model receives | The application and UI receive |
 | :--- | :--- | :--- | :--- |
@@ -1661,8 +1715,8 @@ In a specialized tool's plain literal form, including explicit `.withText`, its 
 | Reranker | `{ query }`; candidates come from `documents` or a preparer | Native `{ originalIndex, document, score }` ranking entries | The same entries |
 | ImageGenerator | `{ prompt }` | The generated images, as image content | Images as `{ mediaType, base64 }` |
 | Transcriber | `{ audio }`; a URL-string schema can transform it to native `URL` | Transcript text | Transcript text, segments, language, and duration |
-| StreamingTranscriber | No plain tool; named preparer context | Final transcript text | Final transcript text, segments, language, and duration |
-| SpeechGenerator | `{ text }` | A short confirmation | Audio as `{ mediaType, base64 }` |
+| SpeechGenerator | `{ text }` | A short confirmation | Serialized audio; the collected-stream path also retains its emitted format/rate |
+| Translator | `{ audio }`, or configured recording bytes with an empty schema | Final translated text | Completed source/translated text, serialized audio and optional duration |
 
 Model arguments supply operation input or preparation data, rather than an SDK settings envelope. A plain specialized tool's schema declares only its documented operation input fields, such as `prompt`, `audio`, `query`, or Embedder's `input`. The parsed field must supply the native input, or the component must configure a fallback source. For example, optional `{ input }` needs a configured Embedder `input` or a schema default; an ImageGenerator can use configured images without a prompt. A transform that removes the field needs a fallback too. Field-value transforms remain available, such as trimming `prompt` or converting a URL string in `audio` to `URL`. Custom argument names use an explicit preparer:
 
@@ -1706,7 +1760,7 @@ const makeIllustration = create.Function.asTool({
 
 An LLM exposed as a tool must finish its own workflow within that tool execution. If it pauses for an inner approval, a client tool without `execute`, or a deferred provider result, the tool adapter rejects and the outer SDK records a tool error. The adapter exposes neither the inner history nor its pending approvals to the outer agent. Such tools are allowed because the pending path may never be taken or approval may be automatic. If the application must manage an inner pause, invoke that agent directly and retain its result/history for explicit continuation.
 
-Streaming components can be tools when they have a completion boundary. LLMAgent tools use generation only; Template supports `.asStream.asTool`; Script/Function stream results are collected, and StreamingTranscriber tools require a script/function preparer that opens bounded audio and return completed transcripts. VoiceSessionSetup has a separate session lifecycle and no implicit collection adapter. Plain SDK tools also work in an LLMAgent's `tools` map.
+Components selected with `.asStream` cannot also be tools. Ordinary Transcriber, SpeechGenerator and Translator tools return completed results, collecting native streaming internally when the model requires it. LLMAgent tools use generation only, and Template tools return complete text. Script/Function schema-declared stream results are collected. VoiceSessionSetup has a separate session lifecycle and no implicit collection adapter. Plain SDK tools also work in an LLMAgent's `tools` map.
 
 An SDK tool can yield preliminary results from an async generator. When called through a coded component's injected tool wrapper, a directly returned generator is consumed once and returns its final yielded value, following the [SDK convention](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#preliminary-tool-results). Explicit SDK tools retain native result normalization, including the installed SDK's treatment of a promise resolving to an iterable as a single final value. Casai component tools require a declared stream kind: text joins into a string, and elements collect into an array. They reject an undeclared root async iterable instead of returning it to the SDK or guessing how to collect it. Progress updates are not collected into application data.
 

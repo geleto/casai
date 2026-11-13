@@ -94,7 +94,10 @@ const componentFixtures = {
   'voice-live': {}, 'voice-relay': { includes: ['voice-live'] }, 'image-tool-preparer': {},
   'image-storage-tool': { includes: ['image-generator'] }, rag: {},
 };
+const futureAudioExamples = ['streaming-transcriber', 'configured-live-input', 'transcription-tool', 'streaming-speech', 'streaming-translation'];
 Object.assign(fixtures, componentFixtures);
+// These identifiers remain executable in README while README2 shows the selected future API.
+for (const name of futureAudioExamples) delete fixtures[name];
 const componentPrelude = `declare const visionModel: LanguageModel;
 declare const decisionModel: Parameters<typeof import('ai').experimental_decide>[0]['model'];
 declare const embeddingModel: Parameters<typeof import('ai').embed>[0]['model'];
@@ -132,6 +135,7 @@ assert.deepEqual([...blocks.keys()].sort(), Object.keys(fixtures).sort(), 'READM
 // Promoted examples use the same checked source in both guides. Current-only
 // examples also compile verbatim, and every current TypeScript fence is inventoried.
 const currentFixtures = {
+  ...Object.fromEntries(futureAudioExamples.map(name => [name, componentFixtures[name]])),
   'current-quick-start': { prelude: false },
   'current-config-inheritance': {},
   'current-input-defaults': {},
