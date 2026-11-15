@@ -1,7 +1,7 @@
 export const sourceModes = {
   text: { name: 'Direct input', value: 'direct' },
   'text-name': { name: 'Loaded text', value: 'resource' },
-  'audio-name': { name: 'Loaded audio', value: 'media' },
+  'audio-resource': { name: 'Loaded audio', value: 'media' },
   'async-template': { name: 'Template', value: 'template' },
   'async-template-name': { name: 'Loaded template', value: 'resource' },
   'async-script': { name: 'Script', value: 'script' },
@@ -12,6 +12,7 @@ export const sourceModes = {
 // Config selects interpretation for a future component; it has no input of its own.
 export const configSourceForms = [
   ...[
+    ['withAudio', 'text', 'The receiving component uses supplied audio directly, replacing inherited media or source preparation.'],
     ['withText', 'text', 'The receiving component uses its primary input directly.'],
     ['withTemplate', 'async-template', 'The receiving component renders its primary input as a Cascada Template, using variables from context.'],
     ['withScript', 'async-script', 'The receiving component runs its primary input as a Cascada Script, using variables from context.'],
@@ -19,9 +20,9 @@ export const configSourceForms = [
     ['loadsText', 'text-name', 'The receiving component loads its primary input from a text file using loader.'],
     ['loadsTemplate', 'async-template-name', 'The receiving component loads a Cascada Template using loader and renders it using context.'],
     ['loadsScript', 'async-script-name', 'The receiving component loads a Cascada Script using loader and runs it using context.'],
-    ['loadsAudio', 'audio-name', 'FFmpeg opens the audio path or URL, selects a track and prepares audio for the receiving model. Requires node-av; no loader setting is used.'],
+    ['loadsAudio', 'audio-resource', 'FFmpeg opens the audio path/URL or supplied encoded bytes/byte stream, selects a track and prepares audio for the receiving model. Requires node-av; no loader setting is used.'],
   ].map(([modifier, mode, description]) => ({ modifier, mode, ...sourceModes[mode], description,
-    explanation: `${description} This explicit selection replaces an inherited source mode. ${mode === 'audio-name' ? 'The media location and input settings may be supplied by the completed component.' : 'The source value and any required loader may be supplied by the completed component.'}` })),
+    explanation: `${description} This explicit selection replaces an inherited source mode. ${mode === 'audio-resource' ? 'The media location and input settings may be supplied by the completed component.' : 'The source value and any required loader may be supplied by the completed component.'}` })),
 ].map(form => ({ ...form, toolSupported: true, applicable: true }));
 
 // Explain the authored value before explaining what Casai does with it. The
@@ -35,7 +36,7 @@ export function sourceDocumentation(mode, definition, spec) {
   const descriptions = {
     text: spec.sourceDescriptions?.text ?? `The ${property} value supplied to the component.`,
     'text-name': spec.sourceDescriptions?.['text-name'],
-    'audio-name': 'A file path, URL string or URL object containing audio to prepare for the model.',
+    'audio-resource': 'A file path, URL string/object, encoded Uint8Array/ArrayBuffer or ReadableStream<Uint8Array> containing media to prepare for the model.',
     'async-template': `Cascada Template text whose variables come from the ${context} object.`,
     'async-template-name': `The name of a Cascada Template file rendered using ${context}.`,
     'async-script': spec.coded ? 'Cascada Script code with variables from the context object.' : `Cascada Script code that calculates ${property} using ${context}.`,
@@ -45,7 +46,7 @@ export function sourceDocumentation(mode, definition, spec) {
   const explanations = {
     text: descriptions.text,
     'text-name': `${descriptions['text-name']} ${file}`,
-    'audio-name': 'The audio value identifies a local or remote media file, including video with an audio track. FFmpeg/node-av opens it and prepares the selected audio. mediaSettings describes the source; inputAudioFormat describes the model target. No loader configuration is needed. Each call opens the resource afresh.',
+    'audio-resource': 'The audio value supplies a local/remote media reference or encoded bytes/byte stream, including video with an audio track. FFmpeg/node-av opens it and prepares the selected audio. mediaSettings describes the source; inputAudioFormat describes the raw model target. Encoded-file transcription instead requires a configured file target describing accepted formats and limits. No loader configuration is needed. Relative paths resolve against the process working directory. Each path/URL call opens afresh; finite bytes can be reused, while supplied streams remain single-use. The .asTool form requires configured audio, including inheritance, and model arguments cannot replace that source. Declared context fields remain data. Trusted application calls retain explicit source overrides; dynamic native resources use an explicit Function/Script workflow. Native byte inputs deny nested protocol opens by default, with an explicit trusted mediaSettings.options.protocol_whitelist override.',
     'async-template': `The ${property} value contains Cascada Template text. ${template}${spec.templateNotes ? ' ' + spec.templateNotes : ''}`,
     'async-template-name': `${file} The file contains Cascada Template text. ${template}`,
     'async-script': `The ${property} value is Cascada Script code. Fields of the ${context} object are available as variables. ${scriptResult}`,

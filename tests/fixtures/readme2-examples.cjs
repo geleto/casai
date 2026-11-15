@@ -83,6 +83,10 @@ const localLoader = { load: (name: string) => name };` },
   'stream-errors': {},
   'type-checking': {},
   'mock-workflow': {},
+  'protected-url-transcription': { setup: "declare const transcriptionModel: Parameters<typeof import('ai').transcribe>[0]['model'];" },
+  'multimodal-media-schema': {},
+  'multimodal-media-tool': { setup: 'declare const pngBase64: string;' },
+  'agent-media-function': { setup: 'declare const mediaModel: LanguageModel;' },
 };
 const componentFixtures = {
   'multimodal-template': {}, decision: {}, embedder: {}, 'embedding-settings': { includes: ['embedder'] },

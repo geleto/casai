@@ -1,7 +1,7 @@
 import { has, factory, prepared, source, lookup, literal, multiline, indent } from './shared.js';
 
 export default function render(options, resources) {
-  if (has(options, 'loadAudio')) return renderAudio(options);
+  if (has(options, 'loadAudio') || has(options, 'withAudio')) return renderAudio(options);
   const coded = prepared(options), asTool = has(options, 'asTool'), stream = has(options, 'asStream');
   const useTools = has(options, 'useTools');
   const input = source('Config', 'prompt', options, resources, literal('Write a delivery update for Ada.'),
@@ -38,8 +38,8 @@ ${indent(call)}
 }
 
 function renderAudio(options) {
-  const asTool = has(options, 'asTool'), stream = has(options, 'asStream');
-  const fields = ['model,', 'audio: recordingUrl,', "inputAudioFormat: { type: 'audio/pcm', rate: 24000 },", 'mediaSettings: {},',
+  const asTool = has(options, 'asTool'), stream = has(options, 'asStream'), loaded = has(options, 'loadAudio');
+  const fields = ['model,', `audio: ${loaded ? 'recordingUrl' : 'pcm24k'},`, "inputAudioFormat: { type: 'audio/pcm', rate: 24000 },", ...(loaded ? ['mediaSettings: {},'] : []),
     ...(asTool ? ["description: 'Transcribe the available delivery note.',", 'inputSchema: z.object({}),'] : [])];
   const call = asTool ? `const workflow = Script({ tools: { outlet }, script: 'return outlet({})' });
 return await workflow();` : `const result = await outlet();
@@ -51,9 +51,8 @@ import type { TranscriptionModel } from 'ai';
 
 // Share media preparation settings with compatible audio components.
 // This example requires a model with streaming support for 24 kHz mono PCM16.
-export async function shareDeliverySettings(model: TranscriptionModel, recordingUrl: URL) {
-  // Install node-av. FFmpeg handles loading and format detection internally.
-  // Supply an application-authorized recordingUrl, including trusted redirects/playlist resources.
+export async function shareDeliverySettings(model: TranscriptionModel, ${loaded ? 'recordingUrl: URL' : 'pcm24k: Uint8Array'}) {
+  ${loaded ? '// Install node-av and supply an application-authorized URL, including trusted child resources.' : '// Supply finite 24 kHz mono PCM16 bytes; no native preparation is needed.'}
   const shared = ${factory('Config', options)}({
 ${indent(fields.join('\n'), 4)}
   });

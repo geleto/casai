@@ -1,9 +1,9 @@
 // These helpers generate source text; they never execute a displayed example.
 export const has = (options, name) => options.includes(name);
-export const sourceModes = ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript', 'loadAudio'];
+export const sourceModes = ['withAudio', 'withText', 'withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript', 'loadAudio'];
 export const sourceMode = options => sourceModes.find(name => has(options, name));
 export const sourceKind = options => sourceMode(options)?.includes('Template') ? 'cat' : sourceMode(options)?.includes('Script') ? 'cas' : has(options, 'loadText') ? 'txt' : undefined;
-export const prepared = options => Boolean(sourceMode(options)) && !['loadText', 'withText', 'loadAudio'].some(mode => has(options, mode));
+export const prepared = options => Boolean(sourceMode(options)) && !['loadText', 'withText', 'withAudio', 'loadAudio'].some(mode => has(options, mode));
 export const literal = value => JSON.stringify(value);
 export const indent = (text, spaces = 2) => text.split('\n').map(line => line ? ' '.repeat(spaces) + line : '').join('\n');
 

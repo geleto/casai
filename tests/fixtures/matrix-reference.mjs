@@ -228,7 +228,8 @@ export async function checkReference(examples) {
       const cascadaSource = ref.form.sourceMode?.startsWith('async-');
       const applicable = expected.filter(name => {
         if (spec.omit?.includes(name)) return false;
-        if (name === 'mediaSettings') return ref.form.sourceMode === 'audio-name';
+        if (name === 'mediaSettings') return ref.form.sourceMode === 'audio-resource';
+        if (name === 'download' && example.component === 'Transcriber') return ref.form.sourceMode !== 'audio-resource';
         if (name === 'filters' || name === 'renderOptions') return cascadaSource;
         if (name === 'loader') return cascadaSource || ref.form.sourceMode === 'text-name';
         if (name === 'toolContextSchema') return example.activeOptions.includes('asTool');
@@ -287,8 +288,8 @@ export async function checkReference(examples) {
   assert.deepEqual(selectSource('Reranker', ['loadText'], 'function'), ['withFunction']);
   assert.deepEqual(setLoads('Transcriber', [], true), ['loadAudio']);
   assert.deepEqual(setLoads('Transcriber', ['loadAudio'], false), []);
-  assert.deepEqual(selectSource('Config', [], 'audio'), ['loadAudio']);
-  assert.deepEqual(setLoads('Config', ['loadAudio'], false), []);
+  assert.deepEqual(selectSource('Config', [], 'audio'), ['withAudio']);
+  assert.deepEqual(setLoads('Config', ['loadAudio'], false), ['withAudio']);
   assert.equal(describe('Reranker', ['loadText']).form.factory, 'Reranker.loadsText');
   assert.match(describe('Reranker').config.supportedSources.find(source => source.mode === 'text').description, /The search text used to rank the candidate documents/);
   assert.throws(() => setLoads('LLMAgent', ['withFunction'], true), /unavailable/);
@@ -405,6 +406,27 @@ export async function checkReference(examples) {
   assert(describe('LLMAgent', ['asTool']).config.sections.at(-1).methods.some(method => method.name === 'bindToolContext'));
   assert(describe('SpeechGenerator').config.properties.outputFormat.type.includes('"mp3"'));
   assert(describe('SpeechGenerator', ['asStream']).config.properties.outputFormat.type.includes('AudioFormat'));
+  const completeSpeech = Object.fromEntries(api.shapes.SpeechGenerator_config.map(id => [api.properties[id].name, api.properties[id]]));
+  const collectedSpeech = Object.fromEntries(api.shapes.SpeechGeneratorCollected_config.map(id => [api.properties[id].name, api.properties[id]]));
+  assert(!completeSpeech.outputFormat.type.includes('AudioFormat'), 'Complete speech settings must not admit a streaming object format');
+  assert(collectedSpeech.outputFormat.type.includes('AudioFormat') && !collectedSpeech.outputFormat.type.includes('"mp3"'));
+  for (const options of [[], ['withFunction']]) {
+    const format = describe('SpeechGenerator', options).config.properties.outputFormat;
+    assert(format.type.includes('"mp3"') && format.type.includes('AudioFormat'), 'The property summary includes both native format alternatives');
+    assert(format.displayType.includes('"mp3"') && format.displayType.includes('AudioFormat'));
+    assert.equal(format.details.name, 'SpeechAudioFormat');
+    assert.deepEqual(format.applicability.operations, ['generateSpeech', 'experimental_streamSpeech']);
+  }
+  for (const key of ['maxRetries', 'telemetry']) {
+    assert(completeSpeech[key] && !collectedSpeech[key], `${key} belongs only to native complete speech`);
+    for (const options of [[], ['withFunction']]) {
+      const reference = describe('SpeechGenerator', options);
+      assert.deepEqual(reference.config.properties[key].applicability.operations, ['generateSpeech']);
+      const alternatives = reference.config.operationAlternatives;
+      assert(alternatives.find(form => form.operation === 'generateSpeech').properties.some(property => property.name === key));
+      assert(!alternatives.find(form => form.operation === 'experimental_streamSpeech').properties.some(property => property.name === key));
+    }
+  }
   const speechText = api.shapes.SpeechGeneratorStream_settings.map(id => api.properties[id]).find(property => property.name === 'text');
   for (const options of [[], ['asStream']]) {
     const properties = describe('SpeechGenerator', options).config.properties;
@@ -424,15 +446,54 @@ export async function checkReference(examples) {
   assert(describe('Transcriber', ['asStream']).config.properties.inputAudioFormat);
   assert.deepEqual(describe('Transcriber').config.properties.maxRetries.applicability.operations, ['transcribe']);
   assert.deepEqual(describe('SpeechGenerator').config.properties.onError.applicability.operations, ['experimental_streamSpeech']);
+  assert.equal(describe('Transcriber').result.shapes.length, 1, 'Both completed operations share TranscriptionResult');
+  assert(!api.shapes.TranscriberCollected_result);
+  for (const name of ['Transcriber', 'SpeechGenerator', 'Translator']) {
+    for (const options of [[], ['withFunction']]) {
+      const reference = describe(name, options);
+      assert(!reference.config.properties.includeRawChunks, `${name}: completed calls own raw-event consumption`);
+      assert(reference.config.operationAlternatives.every(alternative => !alternative.properties.some(property => property.name === 'includeRawChunks')));
+    }
+    assert(describe(name, ['asStream']).config.properties.includeRawChunks, `${name}: retain native live raw-event control`);
+    assert(describe(name, ['asTool']).form.factory.endsWith('.asTool'));
+    assert(describe(name, ['withFunction', 'asTool']).form.factory.endsWith('.asTool'));
+  }
   for (const name of ['Transcriber', 'Translator']) {
-    const loaded = describe(name, ['loadAudio', 'asTool']);
-    assert.equal(loaded.config.properties.audio.type, 'string | URL');
+    for (const mode of [[], ['withScript'], ['withFunction'], ['loadScript']]) {
+      assert(!describe(name, mode).config.properties.mediaSettings, `${name}: media settings belong to loaded audio only`);
+    }
+    for (const variant of [name, `${name}Stream`]) {
+      assert(!api.shapes[`${variant}_config`].some(id => api.properties[id].name === 'mediaSettings'), 'Base native configuration excludes resource-only settings');
+    }
+    const loaded = describe(name, ['loadAudio']);
+    assert.equal(loaded.form.sourceMode, 'audio-resource');
+    if (name === 'Transcriber') {
+      assert(describe(name).config.properties.download, 'Ordinary transcription retains the native downloader');
+      assert(!loaded.config.properties.download);
+      assert(loaded.config.operationAlternatives.every(operation => !operation.properties.some(property => property.name === 'download')), 'Source restrictions also apply to operation-specific inventories');
+    }
+    assert(describe(name, ['loadAudio', 'asStream']).config.properties.mediaSettings);
+    assert.equal(loaded.config.properties.audio.type, 'string | URL | Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>');
+    const direct = describe(name, ['withAudio']);
+    assert.equal(direct.form.factory, `${name}.withAudio`);
+    assert.equal(direct.form.sourceMode, 'text');
+    assert(direct.config.supportedSources.some(source => source.modifier === 'withAudio'), 'Expose the explicit reset in the canonical source inventory');
+    for (const variant of [name, `${name}Stream`]) assert.equal(api.definitions[variant].modifiers.withAudio, 'text');
+    assert(!direct.config.properties.mediaSettings, 'Explicit direct audio resets preparation-only settings');
+    assert(describe(name, ['withAudio', 'asTool']).form.factory.endsWith('.withAudio.asTool'));
+    assert.throws(() => describe(name, ['withAudio', 'asStream', 'asTool']));
     assert.equal(loaded.config.properties.audio.required.construction, false);
+    assert.equal(describe(name, ['loadAudio', 'asTool']).config.properties.audio.required.construction, true, 'Finished loaded-audio tools require their source in trusted configuration');
     assert(loaded.config.properties.mediaSettings.locations.includes('run'));
     assert(!loaded.config.properties.loader && !loaded.config.properties.audioLoader && !loaded.config.properties.download);
     assert(loaded.config.properties.mediaSettings.details.variants[0].properties.some(property => property.name === 'track'));
     for (const mode of [[], ['withScript'], ['withFunction'], ['loadScript'], ['loadAudio']]) assert.throws(() => describe(name, [...mode, 'asStream', 'asTool']));
   }
+  const loadedTool = describe('Transcriber', ['loadAudio', 'asTool']);
+  assert.match(loadedTool.config.properties.audio.description, /URL/);
+  assert(!loadedTool.config.properties.includeRawChunks);
+  assert.equal(describe('Transcriber', ['asTool']).config.properties.audio.required.construction, false, 'Plain SDK URL tools keep public operation arguments');
+  assert.deepEqual(describe('Config', ['loadAudio', 'asTool']).config.alternatives.map(item => item.factory), ['Transcriber.loadsAudio.asTool', 'Translator.loadsAudio.asTool']);
   assert.throws(() => describe('Transcriber', ['asStream', 'asTool', 'withScript']));
   assert(describe('Transcriber', ['asStream']).config.supportedSources.find(source => source.modifier === null).applicable);
   assert(describe('SpeechGenerator', ['asStream', 'withFunction']).config.properties.text.type.includes('AsyncIterable'));
@@ -442,6 +503,12 @@ export async function checkReference(examples) {
   assert.equal(describe('Translator').form.factory, 'Translator');
   assert(describe('Translator').result.shapes[0].properties.some(property => property.name === 'audio' && property.type.includes('Uint8Array')));
   assert.equal(describe('Translator', ['asStream']).form.factory, 'Translator.asStream');
+  for (const source of [[], ['withScript'], ['withFunction'], ['loadScript'], ['loadAudio']]) {
+    const tool = describe('Translator', [...source, 'asTool']);
+    assert(!tool.config.properties.toModelOutput.required.construction, 'Translator tools preserve the optional native formatter contract');
+    assert(!describe('Translator', source).config.properties.toModelOutput?.required.construction, 'Ordinary translation does not require tool formatting');
+  }
+  assert(!describe('Config', ['asTool']).config.properties.toModelOutput.required.construction, 'Config remains incomplete');
   for (const [options, type] of [[[], /^Uint8Array/], [['withScript'], /^string$/], [['loadScript'], /^string$/], [['withFunction'], /^\(context: PreparedContext\) => Uint8Array/]]) {
     assert.match(describe('Translator', options).config.properties.audio.type, type);
   }
@@ -500,6 +567,11 @@ export async function checkReference(examples) {
   assert(!templateTools.some(item => ['Function', 'Transcriber', 'VoiceAgentBackend', 'Translator'].includes(item.component)));
   assert.deepEqual(fragments.config.alternatives.map(item => item.factory), Object.keys(api.definitions).filter(name => !['TranscriberStream', 'SpeechGeneratorStream', 'TranslatorStream'].includes(name)));
   assert.deepEqual([...fragments.relatedComponents].sort(), Object.keys(api.definitions).filter(name => !['TranscriberStream', 'SpeechGeneratorStream', 'TranslatorStream'].includes(name)).sort());
+  for (const [component, operations] of [['SpeechGenerator', ['generateSpeech', 'experimental_streamSpeech']], ['Transcriber', ['transcribe', 'experimental_streamTranscribe']]]) {
+    const alternative = fragments.config.alternatives.find(item => item.component === component);
+    const target = describe(alternative.component, alternative.activeOptions);
+    assert.deepEqual(target.config.operationAlternatives.map(form => form.operation), operations, 'Config navigation retains every ordinary native operation');
+  }
   for (const alternative of fragments.config.alternatives) {
     assert(api.shapes[alternative.shape]);
     assert(components.some(component => component.name === alternative.component));

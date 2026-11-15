@@ -99,17 +99,18 @@ const choices = {
   messages: { name: 'Message history', shortDescription: 'Continue an earlier [conversation](property:messageHistory).', description: 'Supplies previous conversation messages and returns the updated history.', properties: ['messageHistory'] },
   resume: { name: 'Approval and resume()', shortDescription: '[Approve a tool call](property:toolApproval), then continue.', description: 'Pauses a tool call for approval, then resumes the conversation.', properties: ['messageHistory', 'toolApproval'] },
   withTemplate: { name: 'Inline template', description: 'The input text is a Cascada Template; the context object supplies its variables.' },
+  withAudio: { name: 'Direct audio', description: 'Explicitly selects ordinary supplied-audio input, replacing inherited preparation.' },
   withText: { name: 'Text', description: 'Explicitly selects direct text input for the inheriting component.' },
   withScript: { name: 'Inline script', description: 'Runs a Cascada Script to prepare input or coordinate workflow steps.' },
   withFunction: { name: 'JavaScript function', description: 'Prepares input with a JavaScript function that can await application services.' },
   loadTemplate: { name: 'Template file', description: 'Loads a Cascada Template from the accompanying .cat file.', properties: ['loader'] },
   loadScript: { name: 'Script file', description: 'Loads a Cascada Script from the accompanying .cas file.', properties: ['loader'] },
   loadText: { name: 'Text file', description: 'Reads text from the accompanying .txt file.', properties: ['loader'] },
-  loadAudio: { name: 'Media file or URL', description: 'FFmpeg opens the file or URL, selects audio, and converts it to the model input format. Requires an installed node-av build; no loader setting is needed.', properties: ['mediaSettings', 'inputAudioFormat'] },
+  loadAudio: { name: 'Prepare media', description: 'FFmpeg opens a path/URL or supplied encoded bytes/byte stream, selects audio, and converts it to the model input format. Requires an installed node-av build; no loader setting is needed.', properties: ['mediaSettings', 'inputAudioFormat'] },
 };
 const textSources = ['withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
-const audioSources = ['withScript', 'withFunction', 'loadScript', 'loadAudio'];
-const referenceChoices = ['asTool', 'asStream', 'withText', ...textSources, 'loadAudio', 'prepareSession', 'webRTC'];
+const audioSources = ['withAudio', 'withScript', 'withFunction', 'loadScript', 'loadAudio'];
+const referenceChoices = ['asTool', 'asStream', 'withAudio', 'withText', ...textSources, 'loadAudio', 'prepareSession', 'webRTC'];
 const choice = (id, rules = {}) => ({ id, properties: [], ...choices[id], affectsReference: referenceChoices.includes(id), ...rules });
 const group = (id, name, ids, rules = {}) => ({ id, name, optional: true, choices: ids.map(value => choice(value, rules)) });
 
@@ -122,7 +123,7 @@ const invocation = (ids = ['run']) => ({ ...group('invocation', 'Invocation', id
   id === 'run' ? { defaultControl: { name: 'Shorthand call', shortDescription: 'Use [`component(input)`](method:call) instead of [`component.run({...})`](method:run?option=run).', description: 'Use component(input). Turn off to show component.run({ ... }) with named inputs. Tool examples show an agent or workflow calling the tool; .run() calls it directly.' } } : {})) });
 const workflowTools = { shortDescription: 'Call registered [tools](property:tools) from code.', description: 'Makes registered tools available as functions inside this component.' };
 const preparerTools = sources => tools({
-  requires: { source: sources.filter(id => !['loadText', 'loadAudio'].includes(id)) },
+  requires: { source: sources.filter(id => !['loadText', 'loadAudio', 'withAudio'].includes(id)) },
   shortDescription: 'Call [tools](property:tools) to prepare input.',
   description: 'Lets the template, script or function call registered tools to build the input.',
 });
@@ -131,6 +132,7 @@ const experimental = 'Uses an experimental AI SDK operation.';
 // These markers describe pending changes, not the availability of every example.
 const modifierWork = ['Work in progress: modifier-only configuration (removal of public streaming/asTool settings).'];
 const audioWork = [...modifierWork, 'Work in progress: audio .asStream modifiers and completed results from native streaming.'];
+const audioToolWork = 'Work in progress: native audio tool results, optional formatting and adapter delivery/rejection checks.';
 const mediaWork = 'Work in progress: .loadsAudio media preparation and audio conversion helpers.';
 
 const component = (name, shortDescription, details = {}) => ({
@@ -147,7 +149,7 @@ export const components = [
     groups: [
       tool({ excludes: ['asStream'], shortDescription: 'Expose inheriting components as tools.', description: 'The inheriting component becomes a tool and must meet its tool requirements.' }),
       stream({ excludes: ['asTool'], description: 'The inheriting component must support streaming. Streaming and tool mode cannot be combined.' }),
-      source(['withText', ...textSources, 'loadAudio']), tools({ excludes: ['loadAudio'] }),
+      source(['withText', 'withAudio', ...textSources, 'loadAudio']), tools({ excludes: ['loadAudio', 'withAudio'] }),
     ],
   }),
   component('Context', 'An object containing application values and private helpers available to a component. Declared input fields can be supplied by the caller.', {
@@ -172,6 +174,7 @@ export const components = [
     description: 'Generate answers, summaries, drafts or structured data from a prompt using an AI language model. Supply instructions and content directly, or prepare them with a template, script or function. An output specification can request an object or another supported structured result. Registered tools let the model retrieve information and perform tasks; configure the stopping condition when it should continue across several model and tool steps.\n\nThe completed result includes the generated output and native SDK metadata. Casai also returns messageHistory for later turns. Use resume() to continue a conversation paused for tool approval without preparing the prompt again.',
     descriptionSources: [sdkGuide('05-generating-text')],
     resources: ['LLMAgent.cat', 'LLMAgent.cas', 'LLMAgent.txt'],
+    workInProgress: modifierWork,
     groups: [
       tool({ excludes: ['asStream', 'messages', 'resume'] }),
       stream({ excludes: ['asTool'] }),
@@ -211,6 +214,7 @@ export const components = [
     description: 'Create images from a description using an image model. Use it for illustrations, product scenes, visual concepts or variations of an idea. Models that support image input can also use reference images, and supported editing models can use a mask to identify an area to change.\n\nRequest one image or several and choose supported settings such as size or aspect ratio. The result provides generated files as bytes or base64, together with native metadata. Available sizes, formats, reference-image behavior and editing capabilities depend on the selected model.',
     descriptionSources: [sdkGuide('35-image-generation')],
     resources: ['ImageGenerator.cat', 'ImageGenerator.cas', 'ImageGenerator.txt'],
+    workInProgress: [...modifierWork, 'Work in progress: native media delivery and unsupported-content rejection checks.'],
     groups: [
       tool(), source(textSources), preparerTools(textSources), invocation(),
       group('media', 'Image input', ['referenceImage']),
@@ -219,7 +223,7 @@ export const components = [
     ],
   }),
   component('Transcriber', sdk('transcribe', 'Generates a transcript from an audio file or a raw-audio stream.'), {
-    description: 'Turn a recorded conversation, voice note or other audio into text. Supply encoded audio bytes without inputAudioFormat for native file transcription, or raw bytes/a fresh stream with inputAudioFormat for native streaming transcription. Ordinary calls await the completed result in either case.\n\nSelect .asStream for live transcript events. Use .loadsAudio for a file path or URL: FFmpeg selects and prepares its audio, including audio inside video files. Set the target inputAudioFormat when the model does not expose its requirements. Supported operations and formats belong to the model.',
+    description: 'Turn a recorded conversation, voice note or other audio into text. Supply encoded audio bytes without inputAudioFormat for native file transcription, or raw bytes/a fresh stream with inputAudioFormat for native streaming transcription. Ordinary calls await the completed result in either case.\n\nSelect .asStream for live transcript events. Use .loadsAudio for a file path, URL, encoded bytes or byte stream: FFmpeg selects and prepares its audio, including audio inside video. Use .withAudio to reset inherited preparation. Set the target inputAudioFormat when the model does not expose its requirements. Supported operations and formats belong to the model.',
     descriptionSources: [sdkGuide('36-transcription'), sdkDocs.experimental_streamTranscribe.source],
     resources: ['Transcriber.cas'], sourceDefault: 'audio', workInProgress: [...audioWork, mediaWork],
     groups: [
@@ -233,7 +237,7 @@ export const components = [
   component('SpeechGenerator', sdk('generateSpeech'), {
     description: 'Turn written text into spoken audio using a speech model. Use it for narration, spoken notifications, accessibility features or a voice response in an application. Choose a voice and audio format supported by the selected provider.\n\nOrdinary calls return a generated audio file with bytes, base64 data and metadata. Select .asStream when playback should begin before generation finishes. Both forms accept a complete text string or text arriving gradually, such as a language model response. Incremental text requires a model with streaming support, even when the call returns a completed audio file.',
     descriptionSources: [sdkGuide('37-speech'), sdkDocs.experimental_streamSpeech.source],
-    resources: ['SpeechGenerator.cat', 'SpeechGenerator.cas', 'SpeechGenerator.txt'], workInProgress: audioWork,
+    resources: ['SpeechGenerator.cat', 'SpeechGenerator.cas', 'SpeechGenerator.txt'], workInProgress: [...audioWork, audioToolWork],
     groups: [
       tool({ excludes: ['asStream'] }),
       stream({ excludes: ['asTool'], experimental, description: 'Returns speech in audio chunks from a supporting model.' }),
@@ -244,9 +248,9 @@ export const components = [
     ],
   }),
   component('Translator', sdk('experimental_streamTranslate', 'Translates speech into target-language audio and text, with a completed result or incremental events.'), {
-    description: 'Translate spoken content into audio and text in another language using a speech translation model. Ordinary calls and tools collect one native execution into audio bytes, final source text, translated text and metadata. Select .asStream for incremental events.\n\nSupply raw audio bytes or a fresh stream with its inputAudioFormat and targetLanguage. Use .loadsAudio for a media file or URL, including audio tracks inside video. Input conversion uses the resolved model target; supply it explicitly when model requirements are unknown. For written-text translation, use LLMAgent with translation instructions.',
+    description: 'Translate spoken content into audio and text in another language using a speech translation model. Ordinary calls and tools collect one native execution into audio bytes, final source text, translated text and metadata. Select .asStream for incremental events.\n\nSupply raw audio bytes or a fresh stream with its inputAudioFormat and targetLanguage. Use .loadsAudio for a media path/URL, encoded bytes or byte stream, including audio tracks inside video. Use .withAudio to reset inherited preparation. Input conversion uses the resolved model target; supply it explicitly when model requirements are unknown. For written-text translation, use LLMAgent with translation instructions.',
     descriptionSources: [sdkDocs.experimental_streamTranslate.source],
-    resources: ['Translator.cas'], experimental, sourceDefault: 'audio', workInProgress: [...audioWork, mediaWork],
+    resources: ['Translator.cas'], experimental, sourceDefault: 'audio', workInProgress: [...audioWork, mediaWork, audioToolWork],
     groups: [tool({ excludes: ['asStream'] }), stream({ excludes: ['asTool'] }), source(audioSources), preparerTools(audioSources), invocation()],
   }),
   component('VideoGenerator', 'Generates videos from text or an image using a video model.', {
@@ -358,7 +362,7 @@ export const infoSections = [
 ];
 const sourceKinds = [
   { id: 'default', name: 'Direct input', inline: null, loaded: 'loadText' },
-  { id: 'audio', name: 'Audio', inline: null, loaded: 'loadAudio' },
+  { id: 'audio', name: 'Audio', inline: 'withAudio', loaded: 'loadAudio' },
   { id: 'text', name: 'Text', inline: 'withText', loaded: 'loadText' },
   { id: 'template', name: 'Template', inline: 'withTemplate', loaded: 'loadTemplate' },
   { id: 'script', name: 'Script', inline: 'withScript', loaded: 'loadScript' },

@@ -191,7 +191,7 @@ for (const [name, builder] of Object.entries({ OutputObject: 'object', OutputArr
   }
 }
 // Awaiting native fields changes their types, not their documented meaning.
-for (const [target, native] of Object.entries({ TranscriberCollected: 'TranscriberStream', SpeechCollected: 'SpeechGeneratorStream', Translator: 'TranslatorStream' })) {
+for (const [target, native] of Object.entries({ SpeechGenerator: 'SpeechGeneratorStream', Translator: 'TranslatorStream' })) {
   documentation[`${target}_result`] = Object.fromEntries(shapes[`${native}_result`].map(id => properties[id]).filter(property => property.description).map(property => [property.name, {
     description: property.description, descriptionSource: property.source, descriptionOrigin: 'ai',
   }]));

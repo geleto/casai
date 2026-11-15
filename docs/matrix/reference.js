@@ -67,12 +67,12 @@ function describeProperty(property, spec, { definition, mode, selected, runKeys,
   const sourceTypes = {
     direct: input.direct,
     template: input.template,
-    resource: 'string', media: 'string | URL', script: 'string',
+    resource: 'string', media: 'string | URL | Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>', script: 'string',
     function: `(context: PreparedContext) => ${input.prepared ?? 'unknown'} | PromiseLike<${input.prepared ?? 'unknown'}>`,
   };
   const requiredAtCreation = !spec.fragment && (definition?.required.includes(name)
-    || (mode?.endsWith('-name') && mode !== 'audio-name' ? name === 'loader' : definition?.inlineRequired?.includes(name))
-    || (selected.includes('asTool') && (name === 'inputSchema' || definition?.toolRequired?.includes(name) || (isMain && mode !== 'text' && mode !== 'audio-name'))));
+    || (mode?.endsWith('-name') ? name === 'loader' : definition?.inlineRequired?.includes(name))
+    || (selected.includes('asTool') && (name === 'inputSchema' || definition?.toolRequired?.includes(name) || (isMain && mode !== 'text'))));
   const constructor = !['abortSignal', 'messageHistory'].includes(name);
   const positional = definition && ((isMain && !spec.fixedImplementation) || spec.positional?.includes(name)
     || name === 'context' && (spec.coded || spec.contextPositional || mode !== 'text' || selected.includes('asTool')));
@@ -222,7 +222,7 @@ export function describe(name, selected = getComponent(name).activeOptions) {
       requiredPropertyIds: properties.filter(property => property.required.construction || property.required.operation).map(property => property.id),
       supportedSources: forms,
       alternatives: spec.fragment ? fragmentAlternatives(options, mode) : [],
-      operationAlternatives: (spec.operationForms ?? []).map(({ shape, ...form }) => ({ ...form, properties: records(shape) })),
+      operationAlternatives: (spec.operationForms ?? []).map(({ shape, ...form }) => ({ ...form, properties: records(shape).filter(property => Object.hasOwn(map, property.name)) })),
     },
     result: { description: spec.resultDescription ?? spec.resultSummary, tool: tool ? spec.toolResult ?? null : null,
       shapes: resultShapes.map(result => ({ name: result, properties: records(`${result}_result`) })),

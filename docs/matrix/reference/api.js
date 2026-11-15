@@ -218,10 +218,11 @@ export default {
       "main": "audio",
       "defaultMode": "text",
       "modifiers": {
+        "withAudio": "text",
         "withScript": "async-script",
         "withFunction": "function",
         "loadsScript": "async-script-name",
-        "loadsAudio": "audio-name"
+        "loadsAudio": "audio-resource"
       },
       "asStream": true,
       "toolModes": [
@@ -229,7 +230,7 @@ export default {
         "async-script",
         "function",
         "async-script-name",
-        "audio-name"
+        "audio-resource"
       ],
       "required": [
         "model"
@@ -250,7 +251,6 @@ export default {
       },
       "asStream": true,
       "toolModes": [
-        "text",
         "text",
         "async-template",
         "text-name",
@@ -289,10 +289,11 @@ export default {
       "main": "audio",
       "defaultMode": "text",
       "modifiers": {
+        "withAudio": "text",
         "withScript": "async-script",
         "withFunction": "function",
         "loadsScript": "async-script-name",
-        "loadsAudio": "audio-name"
+        "loadsAudio": "audio-resource"
       },
       "asStream": true,
       "toolModes": [],
@@ -324,10 +325,11 @@ export default {
       "main": "audio",
       "defaultMode": "text",
       "modifiers": {
+        "withAudio": "text",
         "withScript": "async-script",
         "withFunction": "function",
         "loadsScript": "async-script-name",
-        "loadsAudio": "audio-name"
+        "loadsAudio": "audio-resource"
       },
       "asStream": true,
       "toolModes": [
@@ -335,7 +337,7 @@ export default {
         "async-script",
         "function",
         "async-script-name",
-        "audio-name"
+        "audio-resource"
       ],
       "required": [
         "model"
@@ -350,10 +352,11 @@ export default {
       "main": "audio",
       "defaultMode": "text",
       "modifiers": {
+        "withAudio": "text",
         "withScript": "async-script",
         "withFunction": "function",
         "loadsScript": "async-script-name",
-        "loadsAudio": "audio-name"
+        "loadsAudio": "audio-resource"
       },
       "asStream": true,
       "toolModes": [],
@@ -815,9 +818,9 @@ export default {
       "headers-23ed9be29275",
       "model-b8a9484641b3",
       "telemetry-72cc4604f7aa",
-      "audio-9c73b42bbd95",
-      "toolContextSchema-d7c206b57ff4",
-      "mediaSettings-8cb54a65d206"
+      "audio-81ce1d60e743",
+      "download-f08788366d4c",
+      "toolContextSchema-d7c206b57ff4"
     ],
     "Transcriber_settings": [
       "providerOptions-6fb067a708e2",
@@ -826,11 +829,12 @@ export default {
       "headers-23ed9be29275",
       "model-d63e7d77f371",
       "telemetry-72cc4604f7aa",
-      "audio-73df487dd407"
+      "audio-2c7771e7c87b",
+      "download-f08788366d4c"
     ],
     "Transcriber_inputs": [
-      "direct-ce57012f6de6",
-      "prepared-7bcc861ace2a",
+      "direct-30540a36f240",
+      "prepared-d8d2d04584ae",
       "template-a7eeab580e6b"
     ],
     "SpeechGenerator_config": [
@@ -851,7 +855,7 @@ export default {
       "model-94567991422d",
       "telemetry-f8a2081d9c3e",
       "voice-524c54983482",
-      "outputFormat-9816d21874a3",
+      "outputFormat-6291f13adf52",
       "speed-4d164fbb7f9d",
       "language-61b62537a500",
       "toolContextSchema-d7c206b57ff4"
@@ -1556,7 +1560,9 @@ export default {
       "audio-090e31c3f07e",
       "warnings-751664670b6e",
       "responses-d50a12d4caa1",
-      "providerMetadata-d8670c7292b8"
+      "providerMetadata-d8670c7292b8",
+      "audioFormat-ab58e374888f",
+      "usage-3c1b44f2a2e6"
     ],
     "SpeechGenerator_native": [
       "model-8d9d31f1896c",
@@ -1586,7 +1592,8 @@ export default {
       "headers-23ed9be29275",
       "model-d63e7d77f371",
       "telemetry-72cc4604f7aa",
-      "audio-73df487dd407"
+      "audio-2c7771e7c87b",
+      "download-f08788366d4c"
     ],
     "TranscriberStream_settings": [
       "providerOptions-0e700395c4b1",
@@ -1631,39 +1638,11 @@ export default {
       "abortSignal-d9dfce9e4ae0",
       "headers-8bb00513d5db",
       "model-2844db232f29",
-      "includeRawChunks-29430afa6810",
       "audio-74b094ee73bb",
       "inputAudioFormat-a9437bf10d0a",
       "targetLanguage-f5006a68aa47",
       "sourceLanguage-af6309dbca4a",
       "outputAudioFormat-89e588aef43c"
-    ],
-    "TranscriberCollected_result": [
-      "text-92f3fa446b4e",
-      "providerMetadata-a1890558f6d7",
-      "language-674fb22af7b6",
-      "warnings-2a1d84032a96",
-      "segments-d68f3ff72330",
-      "durationInSeconds-3e9796df05cf",
-      "responses-b5f966a8bc01"
-    ],
-    "SpeechCollected_result": [
-      "audio-46dc36900880",
-      "audioFormat-ba3ff73c32b6",
-      "providerMetadata-a1890558f6d7",
-      "warnings-2a1d84032a96",
-      "usage-0c354eda26a6",
-      "responses-0ec69e73a281"
-    ],
-    "Translator_result": [
-      "audio-af56ffb070ad",
-      "providerMetadata-a1890558f6d7",
-      "warnings-2a1d84032a96",
-      "response-473e4f6faa96",
-      "usage-66baaa2fd138",
-      "durationInSeconds-3e9796df05cf",
-      "sourceText-61a4fc8c3ce4",
-      "translationText-5685980a9448"
     ],
     "TranslatorStream_settings": [
       "providerOptions-629f88d39640",
@@ -1676,6 +1655,38 @@ export default {
       "targetLanguage-f5006a68aa47",
       "sourceLanguage-af6309dbca4a",
       "outputAudioFormat-89e588aef43c"
+    ],
+    "Translator_result": [
+      "audio-af56ffb070ad",
+      "providerMetadata-a1890558f6d7",
+      "warnings-2a1d84032a96",
+      "response-473e4f6faa96",
+      "usage-66baaa2fd138",
+      "sourceText-61a4fc8c3ce4",
+      "translationText-5685980a9448",
+      "durationInSeconds-3e9796df05cf"
+    ],
+    "TranscriberRaw_settings": [
+      "providerOptions-0e700395c4b1",
+      "abortSignal-69af4f81640d",
+      "headers-1c3aaeb2734c",
+      "model-e9ed376d43a6",
+      "telemetry-237457941031",
+      "audio-74b094ee73bb",
+      "inputAudioFormat-a530ffc7dab7"
+    ],
+    "SpeechGeneratorCollected_settings": [
+      "text-730665458c8e",
+      "providerOptions-8ef11a06508b",
+      "abortSignal-ba9834cb4957",
+      "headers-a43707561005",
+      "instructions-4b3f21b46179",
+      "model-f710fabe18e0",
+      "onError-50a850676fc2",
+      "voice-a24507351f00",
+      "outputFormat-1c52617eb72c",
+      "speed-38cf774e7d2f",
+      "language-17c4c3804341"
     ],
     "TranscriberStream_config": [
       "inputSchema-e1f157741580",
@@ -1694,8 +1705,7 @@ export default {
       "includeRawChunks-7d3f5f2a41a1",
       "audio-415a3c74225d",
       "inputAudioFormat-7e0e83a62aca",
-      "toolContextSchema-d7c206b57ff4",
-      "mediaSettings-8cb54a65d206"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "TranscriberStream_inputs": [
       "direct-3487598c76a8",
@@ -1743,14 +1753,12 @@ export default {
       "providerOptions-629f88d39640",
       "headers-8bb00513d5db",
       "model-c8d77816a238",
-      "includeRawChunks-29430afa6810",
       "audio-415a3c74225d",
       "inputAudioFormat-2df44b715671",
       "targetLanguage-94fcfd26675f",
       "sourceLanguage-af6309dbca4a",
       "outputAudioFormat-89e588aef43c",
-      "toolContextSchema-d7c206b57ff4",
-      "mediaSettings-8cb54a65d206"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "Translator_inputs": [
       "direct-3487598c76a8",
@@ -1776,8 +1784,7 @@ export default {
       "targetLanguage-94fcfd26675f",
       "sourceLanguage-af6309dbca4a",
       "outputAudioFormat-89e588aef43c",
-      "toolContextSchema-d7c206b57ff4",
-      "mediaSettings-8cb54a65d206"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "TranslatorStream_inputs": [
       "direct-3487598c76a8",
@@ -1874,11 +1881,9 @@ export default {
       "headers-1c3aaeb2734c",
       "model-93d3f90bcfb6",
       "telemetry-237457941031",
-      "includeRawChunks-7d3f5f2a41a1",
       "audio-415a3c74225d",
       "inputAudioFormat-7e0e83a62aca",
-      "toolContextSchema-d7c206b57ff4",
-      "mediaSettings-8cb54a65d206"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "SpeechGeneratorCollected_config": [
       "text-0a348a391125",
@@ -1895,13 +1900,15 @@ export default {
       "headers-a43707561005",
       "instructions-4b3f21b46179",
       "model-e7347b132223",
-      "includeRawChunks-90c2b49e91af",
       "onError-50a850676fc2",
       "voice-a24507351f00",
       "outputFormat-1c52617eb72c",
       "speed-38cf774e7d2f",
       "language-17c4c3804341",
       "toolContextSchema-d7c206b57ff4"
+    ],
+    "SpeechGeneratorFormat_properties": [
+      "outputFormat-15c875620b53"
     ],
     "AudioPreparation_config": [
       "inputAudioFormat-3086428fb063",
@@ -4471,19 +4478,38 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10985"
       }
     },
-    "audio-9c73b42bbd95": {
+    "audio-81ce1d60e743": {
       "name": "audio",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | undefined",
+      "type": "DataContent | URL | undefined",
       "optional": true,
-      "description": "",
-      "tags": []
+      "description": "The audio data to transcribe.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10951,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
+      }
     },
-    "mediaSettings-8cb54a65d206": {
-      "name": "mediaSettings",
-      "type": "MediaSettings | undefined",
+    "download-f08788366d4c": {
+      "name": "download",
+      "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
       "optional": true,
-      "description": "",
-      "tags": []
+      "description": "Custom download function for fetching audio from URLs.\nUse `createDownload()` from `ai` to create a download function with custom size limits.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "createDownload() (2 GiB limit)"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10992,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10992"
+      }
     },
     "abortSignal-1f5a193f4cfe": {
       "name": "abortSignal",
@@ -4513,23 +4539,30 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10947"
       }
     },
-    "audio-73df487dd407": {
+    "audio-2c7771e7c87b": {
       "name": "audio",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike>",
+      "type": "DataContent | URL",
       "optional": false,
-      "description": "",
-      "tags": []
+      "description": "The audio data to transcribe.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10951,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
+      }
     },
-    "direct-ce57012f6de6": {
+    "direct-30540a36f240": {
       "name": "direct",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike>",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | URL",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "prepared-7bcc861ace2a": {
+    "prepared-d8d2d04584ae": {
       "name": "prepared",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike>",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | URL",
       "optional": false,
       "description": "",
       "tags": []
@@ -4658,12 +4691,19 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9507"
       }
     },
-    "outputFormat-9816d21874a3": {
+    "outputFormat-6291f13adf52": {
       "name": "outputFormat",
-      "type": "(string & {}) | \"mp3\" | \"wav\" | SharedV4AudioFormat | undefined",
+      "type": "(string & {}) | \"mp3\" | \"wav\" | undefined",
       "optional": true,
-      "description": "",
-      "tags": []
+      "description": "The desired output format for the audio e.g. \"mp3\", \"wav\", etc.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9511,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9511"
+      }
     },
     "speed-4d164fbb7f9d": {
       "name": "speed",
@@ -4733,20 +4773,6 @@ export default {
         "package": "ai",
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9499"
-      }
-    },
-    "outputFormat-6291f13adf52": {
-      "name": "outputFormat",
-      "type": "(string & {}) | \"mp3\" | \"wav\" | undefined",
-      "optional": true,
-      "description": "The desired output format for the audio e.g. \"mp3\", \"wav\", etc.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9511,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9511"
       }
     },
     "direct-5306f56796f6": {
@@ -9431,39 +9457,6 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10939"
       }
     },
-    "audio-2c7771e7c87b": {
-      "name": "audio",
-      "type": "DataContent | URL",
-      "optional": false,
-      "description": "The audio data to transcribe.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10951,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
-      }
-    },
-    "download-f08788366d4c": {
-      "name": "download",
-      "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
-      "optional": true,
-      "description": "Custom download function for fetching audio from URLs.\nUse `createDownload()` from `ai` to create a download function with custom size limits.",
-      "tags": [
-        {
-          "name": "default",
-          "text": "createDownload() (2 GiB limit)"
-        }
-      ],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10992,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10992"
-      }
-    },
     "_internal-a4d65510b686": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
@@ -9533,6 +9526,20 @@ export default {
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9472"
       }
+    },
+    "audioFormat-ab58e374888f": {
+      "name": "audioFormat",
+      "type": "SharedV4AudioFormat | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "usage-3c1b44f2a2e6": {
+      "name": "usage",
+      "type": "SpeechModelV4StreamUsage | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
     },
     "_internal-891f15b39ec6": {
       "name": "_internal",
@@ -9929,20 +9936,6 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11297"
       }
     },
-    "includeRawChunks-29430afa6810": {
-      "name": "includeRawChunks",
-      "type": "boolean | undefined",
-      "optional": true,
-      "description": "When true, providers should include raw provider chunks in the stream.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11337,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11337"
-      }
-    },
     "inputAudioFormat-a9437bf10d0a": {
       "name": "inputAudioFormat",
       "type": "SharedV4AudioFormat",
@@ -9999,9 +9992,23 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11321"
       }
     },
-    "text-92f3fa446b4e": {
-      "name": "text",
-      "type": "string",
+    "includeRawChunks-29430afa6810": {
+      "name": "includeRawChunks",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "When true, providers should include raw provider chunks in the stream.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11337,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11337"
+      }
+    },
+    "audio-af56ffb070ad": {
+      "name": "audio",
+      "type": "Uint8Array<ArrayBufferLike>",
       "optional": false,
       "description": "",
       "tags": []
@@ -10013,72 +10020,9 @@ export default {
       "description": "",
       "tags": []
     },
-    "language-674fb22af7b6": {
-      "name": "language",
-      "type": "string | undefined",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
     "warnings-2a1d84032a96": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "segments-d68f3ff72330": {
-      "name": "segments",
-      "type": "{ text: string; startSecond: number; endSecond: number; }[]",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "durationInSeconds-3e9796df05cf": {
-      "name": "durationInSeconds",
-      "type": "number | undefined",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "responses-b5f966a8bc01": {
-      "name": "responses",
-      "type": "TranscriptionModelResponseMetadata[]",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "audio-46dc36900880": {
-      "name": "audio",
-      "type": "GeneratedAudioFile",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "audioFormat-ba3ff73c32b6": {
-      "name": "audioFormat",
-      "type": "SharedV4AudioFormat",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "usage-0c354eda26a6": {
-      "name": "usage",
-      "type": "SpeechModelV4StreamUsage",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "responses-0ec69e73a281": {
-      "name": "responses",
-      "type": "SpeechModelResponseMetadata[]",
-      "optional": false,
-      "description": "",
-      "tags": []
-    },
-    "audio-af56ffb070ad": {
-      "name": "audio",
-      "type": "Uint8Array<ArrayBufferLike>",
       "optional": false,
       "description": "",
       "tags": []
@@ -10107,6 +10051,13 @@ export default {
     "translationText-5685980a9448": {
       "name": "translationText",
       "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "durationInSeconds-3e9796df05cf": {
+      "name": "durationInSeconds",
+      "type": "number | undefined",
       "optional": false,
       "description": "",
       "tags": []
@@ -10566,9 +10517,23 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11273"
       }
     },
+    "outputFormat-15c875620b53": {
+      "name": "outputFormat",
+      "type": "(string & {}) | SharedV4AudioFormat | \"mp3\" | \"wav\" | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
     "inputAudioFormat-3086428fb063": {
       "name": "inputAudioFormat",
       "type": "SharedV4AudioFormat | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "mediaSettings-8cb54a65d206": {
+      "name": "mediaSettings",
+      "type": "MediaSettings | undefined",
       "optional": true,
       "description": "",
       "tags": []
@@ -13409,97 +13374,7 @@ export default {
       }
     },
     "OutputJSON:0": {},
-    "TranscriberCollected_result": {
-      "text": {
-        "description": "The final transcribed text.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11040,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11040"
-        },
-        "descriptionOrigin": "ai"
-      },
-      "segments": {
-        "description": "Final transcript segments with timing information, if available.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11044,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11044"
-        },
-        "descriptionOrigin": "ai"
-      },
-      "language": {
-        "description": "The language of the transcript, if available.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11052,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11052"
-        },
-        "descriptionOrigin": "ai"
-      },
-      "durationInSeconds": {
-        "description": "The duration of the transcript in seconds, if available.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11056,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11056"
-        },
-        "descriptionOrigin": "ai"
-      },
-      "warnings": {
-        "description": "Warnings for the call, e.g. unsupported settings.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11060,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11060"
-        },
-        "descriptionOrigin": "ai"
-      },
-      "responses": {
-        "description": "Response metadata.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11064,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11064"
-        },
-        "descriptionOrigin": "ai"
-      },
-      "providerMetadata": {
-        "description": "Additional provider-specific metadata.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11068,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11068"
-        },
-        "descriptionOrigin": "ai"
-      },
-      "fullStream": {
-        "description": "Full stream of transcription parts.\n\nThis is a single-consumer live stream and can only be accessed once.\nAccess it before any result promise when both stream parts and final\nresults are needed; accessing a result promise first consumes the stream\ninternally and makes `fullStream` unavailable.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11077,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11077"
-        },
-        "descriptionOrigin": "ai"
-      }
-    },
-    "SpeechCollected_result": {
+    "SpeechGenerator_result": {
       "usage": {
         "description": "Usage information reported for the call, if available.",
         "descriptionSource": {

@@ -34,7 +34,8 @@ export function checkIntegrity(catalog, reference, api, common, own, concepts) {
   for (const [owner, entries] of Object.entries(own)) {
     const shapes = reference[owner]?.propertyShapes ?? [`${owner}_config`];
     shapes.forEach(shape);
-    const names = shapes.flatMap(shape => api.shapes[shape].map(id => api.properties[id].name));
+    const toolShapes = api.definitions[owner]?.toolModes?.length ? ['Tool'] : [];
+    const names = [...shapes, ...toolShapes].flatMap(shape => api.shapes[shape].map(id => api.properties[id].name));
     for (const name of Object.keys(entries)) assert(names.includes(name), `Unused local property: ${owner}.${name}`);
   }
   for (const entry of [...Object.values(common), ...Object.values(own).flatMap(Object.values)]) { shape(entry.nativeDocs); shape(entry.nested); }

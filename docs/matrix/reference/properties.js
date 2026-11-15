@@ -6,12 +6,12 @@ export const commonProperties = {
   timeout: { detail: 'Timeout' },
   inputAudioFormat: { detail: 'AudioFormat', origin: 'ai-sdk', nativeDocs: 'TranscriberStream_settings' },
   outputAudioFormat: { detail: 'AudioFormat' },
-  mediaSettings: entry('Native settings for opening and selecting audio from a file or URL.', {
-    section: 'source', scope: 'family', sourceModes: ['audio-name'], detail: 'MediaSettings', origin: 'casai',
+  mediaSettings: entry('Native settings for opening or adapting media and selecting its audio.', {
+    section: 'source', scope: 'family', sourceModes: ['audio-resource'], detail: 'MediaSettings', origin: 'casai',
     type: '{ track?: number; format?: string; options?: Record<string, string | number | boolean | bigint | null | undefined> }',
-    locations: ['construction', 'run'], default: 'Native format detection and best audio stream.',
+    locations: ['construction', 'run'], default: 'Native format detection and best audio stream; supplied-byte inputs deny nested protocol opens unless explicitly configured.',
     inheritance: 'Replaced as a whole object; no deep merge. Constructor undefined uses the ordinary clearing rule. Invocation undefined means omission.',
-    notes: 'Configure source credentials here; SDK headers and providerOptions belong to the model request. inputAudioFormat sets the model target separately. Tool arguments cannot override mediaSettings. No loader configuration is needed.',
+    notes: 'Configure source credentials here; SDK headers and providerOptions belong to the model request. inputAudioFormat sets the raw model target separately. Tool arguments cannot override mediaSettings. Supplied-byte preparation defaults options.protocol_whitelist to an empty string; a trusted non-null value overrides it. Paths/URLs retain native protocol defaults. No loader configuration is needed. A child changing away from .loadsAudio must clear inherited mediaSettings with undefined.',
   }),
   inputAudioTranscription: { detail: 'SessionTranscription' },
   outputAudioTranscription: { detail: 'SessionTranscription' },
@@ -92,6 +92,7 @@ export const componentProperties = {
     inputAudioFormat: { notes: 'With .loadsAudio, this is the model target for audio conversion. mediaSettings.format describes the source container instead. The receiving component determines whether a target is required.' },
   },
   LLMAgent: {
+    toModelOutput: { required: 'Optional.', notes: 'Receives the completed text or parsed structured tool value and replaces its default formatter. Ordinary calls retain the full native result; select files in an explicit Function tool when needed. Explicit formatter composition may call a base formatter.' },
     include: { detail: 'StreamInclude' },
     onAbort: entry('Called when native streaming generation is aborted, with the completed step information available at that point.', { section: 'sdk', sdkGroup: 'callbacks', origin: 'ai-sdk', operations: ['streamText'] }),
     onChunk: { section: 'sdk', sdkGroup: 'callbacks', origin: 'ai-sdk', operations: ['streamText'] },
@@ -126,7 +127,8 @@ export const componentProperties = {
     mask: entry('An edit mask accompanying reference images; conventions depend on the model.', { default: null, section: 'adapted', origin: 'casai', adaptation: 'Top-level convenience for native prompt.mask.', inheritance: 'Mask-only updates retain images. New invocation images drop the old mask unless the call supplies a defined replacement.', notes: 'A separate mask requires at least one reference image. Providers own mask encoding and editing support.' }),
   },
   Transcriber: {
-    audio: entry('Encoded recording bytes/ArrayBuffer or base64 without inputAudioFormat; raw bytes/ArrayBuffer or a fresh native stream with inputAudioFormat.', { section: 'essential', origin: 'ai-sdk', notes: 'Node Buffer is a Uint8Array. Raw bytes must match the declared format. A raw stream without a format is invalid. File paths and URLs use .loadsAudio; ordinary inputs are already supplied audio data.' }),
+    download: { sourceModes: ['text', 'async-script', 'function', 'async-script-name'], notes: 'Native encoded-file URL download only, with SDK address/redirect and byte-limit handling. The inspected default is 2 GiB; always set an application-appropriate maxBytes for model-selected URLs. Excluded from raw streaming and .loadsAudio, which uses FFmpeg.' },
+    audio: entry('Encoded recording bytes/ArrayBuffer, base64 or a native URL without inputAudioFormat; raw bytes/ArrayBuffer or a fresh native stream with inputAudioFormat.', { section: 'essential', origin: 'ai-sdk', notes: 'Node Buffer is a Uint8Array. Raw bytes must match the declared format. A raw stream without a format is invalid. Native URL objects use the SDK downloader; strings remain encoded audio. .loadsAudio prepares paths/URLs or supplied encoded bytes/byte streams with FFmpeg. .withAudio resets inherited preparation. Plain model tool arguments use URLs through the SDK downloader. .loadsAudio.asTool requires configured audio, including inheritance; model arguments cannot replace it. Trusted ordinary/run calls retain explicit source overrides. Explicit Function/Script workflows handle dynamic native resources and application-defined payloads.' }),
     inputAudioFormat: { section: 'adapted', origin: 'ai-sdk', required: 'Required for raw input unless configured. For tools, configure it before exposing the tool. With .loadsAudio, supply an explicit target when native model requirements are unknown.', notes: 'On ordinary Transcriber, this setting selects native streaming execution and a completed transcript. Direct raw input must already match the format. .loadsAudio converts to this target; mediaSettings.format describes the source container instead.' },
   },
   SpeechGenerator: {
@@ -138,6 +140,7 @@ export const componentProperties = {
     outputFormat: { section: 'sdk', sdkGroup: 'output', origin: 'ai-sdk', detail: 'SpeechAudioFormat', notes: '.asStream selects native streaming even when outputFormat is omitted. Format strings such as "mp3" belong to native generateSpeech; use an object here.' },
   },
   Translator: {
+    toModelOutput: { required: 'Optional, including on finished tools.', notes: 'The default sends only translationText to the model. The execution result retains source/translated text and serialized audio for the application and custom formatter. Audio-only output may give empty model text; optionally package audio using its actual known layout. No format guessing, mandatory formatter or new missing-text error.' },
     audio: entry('Raw audio bytes/ArrayBuffer or a fresh ReadableStream of Uint8Array or base64 chunks.', { section: 'essential', origin: 'ai-sdk', notes: 'A completed result requires finite input and native completion. Bytes match inputAudioFormat; use .loadsAudio or an explicit preparer to decode encoded recordings. Configured finite bytes can be reused; configured streams remain single-use.' }),
     inputAudioFormat: { section: 'essential', origin: 'ai-sdk', required: 'Required by invocation unless configured; required in finished tool configuration.', notes: 'Direct raw input must already match the format. .loadsAudio converts to this target; supply it explicitly when native model requirements are unknown.' },
     targetLanguage: { section: 'essential', origin: 'ai-sdk', required: 'Required by invocation unless configured; required in finished tool configuration.' },
@@ -151,10 +154,14 @@ export const componentProperties = {
 };
 
 componentProperties.TranscriberStream = {
-  ...componentProperties.Transcriber,
+  inputAudioFormat: componentProperties.Transcriber.inputAudioFormat,
   audio: entry('Raw audio bytes/ArrayBuffer or a fresh ReadableStream of Uint8Array or base64 chunks.', { section: 'essential', origin: 'ai-sdk', notes: 'Encoded file data requires .loadsAudio or an explicit preparer. Reusing a known ReadableStream through Casai is rejected. Finite bytes are wrapped in a fresh stream per invocation.' }),
 };
-componentProperties.TranslatorStream = componentProperties.Translator;
+componentProperties.TranslatorStream = {
+  audio: componentProperties.Translator.audio,
+  inputAudioFormat: componentProperties.Translator.inputAudioFormat,
+  targetLanguage: componentProperties.Translator.targetLanguage,
+};
 
 export const sdkPropertyGroups = {
   model: ['providerOptions', 'runtimeContext', 'telemetry', 'experimental_telemetry'],

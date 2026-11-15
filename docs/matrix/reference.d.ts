@@ -71,6 +71,7 @@ export interface ReferenceConfig {
   properties: Record<string, PropertyReference>; sections: ConfigSection[];
   index: { name: string; propertyId: string; section: ConfigSectionId; deprecated: string | null; aliasFor: string | null }[];
   highlightedPropertyIds: string[]; requiredPropertyIds: string[]; supportedSources: SourceForm[];
+  /** Compatible factories. shape is a base inventory; describe(component, activeOptions) supplies the full reference and operation alternatives. */
   alternatives: { component: ComponentName; factory: string; shape: string; activeOptions: ChoiceId[] }[];
   /** Native request alternatives, selected by resolved input/format. Do not merge their settings. */
   operationAlternatives: { operation: string; when: string; properties: NativeProperty[] }[];

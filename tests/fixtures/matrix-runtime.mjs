@@ -19,6 +19,7 @@ globalThis.fetch = (input, init) => {
 const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const pcm = new Uint8Array(19202);
 const recording = new Uint8Array(Buffer.from('524946462800000057415645666d74201000000001000100c05d000080bb000002001000646174610400000001000200', 'hex'));
+const recordingUrl = new URL(`data:audio/wav;base64,${Buffer.from(recording).toString('base64')}`);
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
 
 function languageModel(allowTools = true, toolArguments = {}) {
@@ -102,14 +103,14 @@ for (const example of examples.filter(executesCurrentSource)) {
       routeRequest: prepared ? { issue: 'My mug arrived cracked.' } : loadedText ? {} : { state: 'My mug arrived cracked.' },
       findPolicy: prepared ? { question: 'How do I replace a damaged mug?' } : loadedText ? {} : { query: 'How do I replace a damaged mug?' },
       productScene: prepared ? { scene: 'a picnic table beside a mountain lake' } : loadedText ? {} : { prompt: 'Place a Trail mug on a picnic table beside a mountain lake. Keep the mug shape and markings unchanged.' },
-      transcribeNote: {},
+      transcribeNote: prepared ? {} : { audio: recordingUrl.href },
       speakUpdate: prepared ? { name: 'Ada' } : loadedText ? {} : { text: 'Hello Ada. Your Northstar order is due Friday.' },
     }));
   }
   if (selected('referenceImage')) args.push(png);
   if (selected('mask')) args.push(png);
   if (selected('voice')) args.push('test-voice');
-  if (operation === 'Transcriber') args.push(recording);
+  if (operation === 'Transcriber') args.push(selected('asTool') && !['withScript', 'withFunction', 'loadScript'].some(selected) ? recordingUrl : recording);
   if (['StreamingTranscriber', 'StreamingTranslator'].includes(operation)) args.push(pcm);
   if (example.component === 'VoiceAgentBackend' && selected('webRTC')) args.push('offer');
   let approvals = 0;

@@ -4,7 +4,7 @@
 export function executesCurrentSource(example) {
   const { component, activeOptions: selected } = example;
   if (['VoiceAgentClient', 'VideoGenerator'].includes(component)) return false;
-  if (selected.includes('loadAudio') || component === 'Translator') return false;
+  if (selected.some(id => ['loadAudio', 'withAudio'].includes(id)) || component === 'Translator') return false;
   if (component === 'Transcriber') return !selected.some(id => ['asStream', 'audioStream'].includes(id));
   if (component === 'SpeechGenerator') return !selected.some(id => ['asStream', 'textStream', 'nativeStream'].includes(id));
   return true;

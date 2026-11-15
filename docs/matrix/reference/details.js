@@ -1,5 +1,6 @@
 // Amend only missing native prose; preserve native fields, types and attribution.
 // Key by extracted shape, not component-specific branches in the resolver.
+const rawAudioSettings = { audio: { description: 'Raw bytes/ArrayBuffer or a fresh stream matching inputAudioFormat; finite bytes are wrapped once for native dispatch.' } };
 export const shapeProperties = {
   VideoGenerator_result: {
     video: { detail: 'GeneratedFile', appliesTo: 'First generated video' },
@@ -10,8 +11,9 @@ export const shapeProperties = {
     subscribe: { description: 'Subscribe to state changes. Returns an unsubscribe function. Read getSnapshot after subscribing for initial rendering; subscribing does not connect or replay events.' },
     dispose: { description: 'Immediately disconnect using native disposal. Unsubscribe application state listeners separately; use close first when graceful completion is required.' },
   },
-  TranscriberFile_settings: { audio: { description: 'Supplied encoded audio bytes/ArrayBuffer or base64; paths and URLs use .loadsAudio preparation.' } },
-  TranscriberStream_settings: { audio: { description: 'Raw bytes/ArrayBuffer or a fresh stream matching inputAudioFormat; finite bytes are wrapped once for native dispatch.' } },
+  TranscriberFile_settings: { audio: { description: 'Supplied encoded audio bytes/ArrayBuffer, base64 or a native URL using the SDK downloader; .loadsAudio separately prepares paths, URLs or supplied encoded media.' } },
+  TranscriberStream_settings: rawAudioSettings,
+  TranscriberRaw_settings: rawAudioSettings,
   VoiceAgentBackend_result: { tools: { description: 'Prepared native tool definitions for this session.', detail: 'RealtimeToolDefinition', appliesTo: 'Each tool definition' } },
   VoiceWebRTC_result: {
     sessionId: { description: 'The provider identifier for the created session.' },
@@ -27,10 +29,10 @@ export const shapeProperties = {
     image: { detail: 'GeneratedFile', appliesTo: 'Generated file' },
     images: { detail: 'GeneratedFile', appliesTo: 'Each generated file' },
   },
-  SpeechGenerator_result: { audio: { detail: 'GeneratedAudioFile', appliesTo: 'Generated file' } },
-  SpeechCollected_result: {
-    audio: { description: 'Collected audio from one native streaming execution, with GeneratedAudioFile byte/base64 access.', detail: 'GeneratedAudioFile', appliesTo: 'Generated file' },
-    audioFormat: { description: 'The actual emitted audio format, including sample rate where applicable.', detail: 'SpeechAudioFormat' },
+  SpeechGenerator_result: {
+    audio: { detail: 'GeneratedAudioFile', appliesTo: 'Generated file' },
+    audioFormat: { description: 'The actual emitted format on collected streaming speech, including sample rate where applicable; absent on native complete results.', detail: 'SpeechAudioFormat' },
+    usage: { description: 'Resolved native usage from collected streaming speech; absent when the native complete result does not expose it.' },
   },
   Translator_result: { audio: { description: 'Collected translated audio bytes; empty on native text-only success. No media type is inferred.' } },
   RenderOptions: {
