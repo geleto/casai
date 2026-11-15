@@ -26,7 +26,7 @@ if (caught instanceof ValidationError) {
 // New factories or modifiers require a corresponding coverage review.
 expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'LLMAgent'
 	| 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'StreamingTranscriber'
-	| 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceSessionSetup'>();
+	| 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceAgentBackend'>();
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
 	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'

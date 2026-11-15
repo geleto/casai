@@ -1,8 +1,8 @@
 /** Public data contract for the separate matrix/documentation project. */
-export type ComponentName = 'Config' | 'Context' | 'Template' | 'Script' | 'Function' | 'LLMAgent' | 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'SpeechGenerator' | 'Translator' | 'VoiceSessionSetup';
-export type ChoiceId = 'asTool' | 'asStream' | 'useTools' | 'run' | 'prepareSession' | 'webRTC' | 'structured' | 'batch' | 'topN' | 'referenceImage' | 'mask' | 'count' | 'voice' | 'textStream' | 'messages' | 'resume' | 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadText' | 'loadTemplate' | 'loadScript';
-export type GroupId = 'tool' | 'stream' | 'source' | 'tools' | 'invocation' | 'conversation' | 'output' | 'batch' | 'limit' | 'media' | 'mask' | 'count' | 'voice' | 'inputDelivery';
-export type SourceKind = 'default' | 'text' | 'template' | 'script' | 'function';
+export type ComponentName = 'Config' | 'Context' | 'Template' | 'Script' | 'Function' | 'LLMAgent' | 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'SpeechGenerator' | 'Translator' | 'VoiceAgentBackend' | 'VoiceAgentClient' | 'VideoGenerator';
+export type ChoiceId = 'asTool' | 'asStream' | 'useTools' | 'run' | 'prepareSession' | 'webRTC' | 'structured' | 'batch' | 'topN' | 'referenceImage' | 'mask' | 'count' | 'voice' | 'textStream' | 'audioStream' | 'nativeStream' | 'messages' | 'resume' | 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadText' | 'loadTemplate' | 'loadScript' | 'loadAudio';
+export type GroupId = 'tool' | 'stream' | 'source' | 'tools' | 'invocation' | 'conversation' | 'output' | 'batch' | 'limit' | 'media' | 'mask' | 'count' | 'voice' | 'inputDelivery' | 'nativeOperation';
+export type SourceKind = 'default' | 'audio' | 'text' | 'template' | 'script' | 'function';
 export type ComponentKind = 'component' | 'configuration' | 'concept';
 export type InfoSectionId = 'summary' | 'variants' | 'source' | 'features' | 'invocation';
 export type Requirements = Partial<Record<GroupId, (ChoiceId | null)[]>>;
@@ -16,12 +16,15 @@ export interface Component {
   name: ComponentName; kind: ComponentKind; file: string; shortDescription: string; shortDescriptionSource?: DescriptionSource;
   /** Full component explanation in Markdown; shortDescription retains the original summary. */
   description: string; descriptionSources: SourceLocation[];
+  /** Pending selected API changes; remove each marker after implementation and verification. Empty when none remain. */
+  workInProgress: string[];
   activeOptions: ChoiceId[]; resources: string[]; inlineResource?: string; groups: Group[]; experimental?: string; sourceDefault: SourceKind | null;
-  planned?: Rules & { description: string };
 }
 export interface ExampleFile { name: string; language: string; code: string }
 export interface Example {
-  id: string; component: ComponentName; activeOptions: ChoiceId[]; status: 'implemented' | 'planned'; notice?: string;
+  id: string; component: ComponentName; activeOptions: ChoiceId[];
+  /** Also included in explanations for consumers that render the existing prose list. */
+  workInProgress: string[];
   configuration: { component: string; factory: string; variable: string; properties: string[] };
   files: ExampleFile[]; explanations: string[];
 }

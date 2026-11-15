@@ -94,7 +94,7 @@ const componentFixtures = {
   'voice-live': {}, 'voice-relay': { includes: ['voice-live'] }, 'image-tool-preparer': {},
   'image-storage-tool': { includes: ['image-generator'] }, rag: {},
 };
-const futureAudioExamples = ['streaming-transcriber', 'configured-live-input', 'transcription-tool', 'streaming-speech', 'streaming-translation'];
+const futureAudioExamples = ['transcriber-url', 'audio-download', 'streaming-transcriber', 'configured-live-input', 'transcription-tool', 'streaming-speech', 'streaming-translation'];
 Object.assign(fixtures, componentFixtures);
 // These identifiers remain executable in README while README2 shows the selected future API.
 for (const name of futureAudioExamples) delete fixtures[name];

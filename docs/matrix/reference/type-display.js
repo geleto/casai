@@ -65,8 +65,10 @@ function formatType(type, { optional = false, alternative } = {}) {
   }
   // Keep outer alternatives (including null) when abbreviating a complex type.
   // The ellipsis explicitly signals that the exact signature is in the details.
-  return unionMembers(readable).map(member => {
-    if (member.length <= 100) return member;
+  const members = unionMembers(readable);
+  const memberBudget = Math.min(100, Math.floor((150 - (members.length - 1) * 3) / members.length));
+  return members.map(member => {
+    if (member.length <= memberBudget) return member;
     const alias = member.match(/^([\w.$]+)<[\s\S]+>((?:\[\])*)$/);
     if (alias) return `${alias[1]}<…>${alias[2]}`;
     if (member.includes('=>')) return '(...arguments) => …';

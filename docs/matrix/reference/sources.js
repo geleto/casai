@@ -1,6 +1,7 @@
 export const sourceModes = {
   text: { name: 'Direct input', value: 'direct' },
   'text-name': { name: 'Loaded text', value: 'resource' },
+  'audio-name': { name: 'Loaded audio', value: 'media' },
   'async-template': { name: 'Template', value: 'template' },
   'async-template-name': { name: 'Loaded template', value: 'resource' },
   'async-script': { name: 'Script', value: 'script' },
@@ -18,8 +19,9 @@ export const configSourceForms = [
     ['loadsText', 'text-name', 'The receiving component loads its primary input from a text file using loader.'],
     ['loadsTemplate', 'async-template-name', 'The receiving component loads a Cascada Template using loader and renders it using context.'],
     ['loadsScript', 'async-script-name', 'The receiving component loads a Cascada Script using loader and runs it using context.'],
+    ['loadsAudio', 'audio-name', 'FFmpeg opens the audio path or URL, selects a track and prepares audio for the receiving model. Requires node-av; no loader setting is used.'],
   ].map(([modifier, mode, description]) => ({ modifier, mode, ...sourceModes[mode], description,
-    explanation: `${description} This explicit selection replaces an inherited source mode. The source value and any required loader may be supplied by the completed component.` })),
+    explanation: `${description} This explicit selection replaces an inherited source mode. ${mode === 'audio-name' ? 'The media location and input settings may be supplied by the completed component.' : 'The source value and any required loader may be supplied by the completed component.'}` })),
 ].map(form => ({ ...form, toolSupported: true, applicable: true }));
 
 // Explain the authored value before explaining what Casai does with it. The
@@ -33,6 +35,7 @@ export function sourceDocumentation(mode, definition, spec) {
   const descriptions = {
     text: spec.sourceDescriptions?.text ?? `The ${property} value supplied to the component.`,
     'text-name': spec.sourceDescriptions?.['text-name'],
+    'audio-name': 'A file path, URL string or URL object containing audio to prepare for the model.',
     'async-template': `Cascada Template text whose variables come from the ${context} object.`,
     'async-template-name': `The name of a Cascada Template file rendered using ${context}.`,
     'async-script': spec.coded ? 'Cascada Script code with variables from the context object.' : `Cascada Script code that calculates ${property} using ${context}.`,
@@ -42,11 +45,12 @@ export function sourceDocumentation(mode, definition, spec) {
   const explanations = {
     text: descriptions.text,
     'text-name': `${descriptions['text-name']} ${file}`,
+    'audio-name': 'The audio value identifies a local or remote media file, including video with an audio track. FFmpeg/node-av opens it and prepares the selected audio. mediaSettings describes the source; inputAudioFormat describes the model target. No loader configuration is needed. Each call opens the resource afresh.',
     'async-template': `The ${property} value contains Cascada Template text. ${template}${spec.templateNotes ? ' ' + spec.templateNotes : ''}`,
     'async-template-name': `${file} The file contains Cascada Template text. ${template}`,
     'async-script': `The ${property} value is Cascada Script code. Fields of the ${context} object are available as variables. ${scriptResult}`,
     'async-script-name': `${file} Casai runs the loaded Cascada Script with fields of ${context} available as variables. ${scriptResult}`,
-    function: `The ${property} value is a JavaScript function. Casai passes it the ${context} object and uses its return value as ${property}. The function may be asynchronous.`,
+    function: `The ${property} value is a JavaScript function. Casai passes it the ${context} object and uses its return value as ${property}. The function may be asynchronous. It runs once per invocation. Where the operation accepts streamed input, it can return a fresh stream, directly or through a promise; Casai does not collect that input before dispatch. Output delivery is selected separately with .asStream. Other operations retain their native input requirements.`,
   };
   return { description: spec.sourceDescriptions?.[mode] ?? descriptions[mode], explanation: explanations[mode] };
 }

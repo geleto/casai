@@ -263,10 +263,10 @@ const helperSettings = { toolContextSchema: z.object({ factor: z.number() }), co
 const stringHelper = create.Function.asTool({ inputSchema: z.object({ value: z.string().transform(Number) }), execute: input => input.value }, { config: helperSettings });
 const numberHelper = create.Function.asTool({ inputSchema: z.object({ value: z.number() }), execute: input => input.value }, { config: helperSettings });
 declare const realtimeModel: import('ai').Experimental_RealtimeModel;
-const voiceSetup = create.VoiceSessionSetup({ model: realtimeModel, tools: { lookup: stringHelper }, toolsContext: { lookup: { factor: 1 } } });
+const voiceSetup = create.VoiceAgentBackend({ model: realtimeModel, tools: { lookup: stringHelper }, toolsContext: { lookup: { factor: 1 } } });
 voiceSetup.executeTool({ toolCallId: 'call', toolName: 'lookup', args: { value: '4' } }, { toolsContext: { lookup: { /*voiceToolContext*/ } } }); // expected: factor
 const voiceDependency = create.Function.asTool({ inputSchema: z.object({}), context: { db: (): string => 'configured' }, execute: ({ db }) => db() });
-const voiceDependencies = create.VoiceSessionSetup.withTemplate({ model: realtimeModel, instructions: 'Help {{ company }}', inputSchema: z.object({ company: z.string() }), tools: { lookup: voiceDependency } });
+const voiceDependencies = create.VoiceAgentBackend.withTemplate({ model: realtimeModel, instructions: 'Help {{ company }}', inputSchema: z.object({ company: z.string() }), tools: { lookup: voiceDependency } });
 voiceDependencies.executeTool({ toolCallId: 'call', toolName: 'lookup', args: {} });
 voiceDependencies.executeTool({ toolCallId: 'call', toolName: 'lookup', args: {} }, { toolsContext: { lookup: { db: () => 'replacement' } } });
 voiceDependencies.executeTool({ toolCallId: 'call', toolName: 'lookup', args: {} }, { toolsContext: { lookup: { db: 'invalid' } } }); // expected: lookup

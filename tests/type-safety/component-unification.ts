@@ -92,7 +92,7 @@ const decision = create.Decision({ model: decisionModel, questions: {} });
 // @ts-expect-error Questions determine the configured result contract.
 void decision.run({ state: 'state', questions: {} });
 declare const voiceModel: Experimental_RealtimeModel;
-const voice = create.VoiceSessionSetup({ model: voiceModel });
+const voice = create.VoiceAgentBackend({ model: voiceModel });
 // @ts-expect-error The model is captured at component creation.
 void voice.run({ model: voiceModel });
 // @ts-expect-error Session configuration uses the same invocation policy.

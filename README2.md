@@ -40,7 +40,7 @@ Use Node.js 24 or later and AI SDK 7.0.162 or later, with a compatible provider 
 npm install casai ai@^7.0.162 @ai-sdk/openai@^4.0.108 zod
 ```
 
-Use TypeScript 7.0.2 or newer with `strictNullChecks` enabled (normally through `strict: true`). Casai currently targets Node.js; the Cascada dependency prevents browser/edge bundling. Browser chat and voice clients use the AI SDK and call your Casai server.
+Use TypeScript 7.0.2 or newer with `strictNullChecks` enabled (normally through `strict: true`). The main Casai entry targets Node.js. VoiceAgentClient uses the separate browser-safe casai/client entry and composes with Cascada browser execution. Keep server model credentials and private tools on the server; UI libraries are optional.
 
 Use ESM imports in your JavaScript or TypeScript application (`"type": "module"` in `package.json`). Run provider calls in your server or Node.js process, with credentials in its environment. For a local example, create `.env`:
 
@@ -139,12 +139,14 @@ Choose a component by the operation you need. `Config` supplies shared settings 
 | [Embedder](#embedder) | Embed one or many texts | String or string array РІвЂ вЂ™ [.embedding](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns) or [.embeddings](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns) | [Embeddings](https://ai-sdk.dev/docs/ai-sdk-core/embeddings) |
 | [Reranker](#reranker) | Rank candidates for a query | `query`, `documents` РІвЂ вЂ™ [.ranking, .rerankedDocuments](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns) | [Reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) |
 | [ImageGenerator](#imagegenerator) | Generate or edit images | `prompt` and optional editing inputs РІвЂ вЂ™ [.images](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image#returns) | [Images](https://ai-sdk.dev/docs/ai-sdk-core/image-generation) |
+| [VideoGenerator](#videogenerator) | Generate video clips | Text/native image prompt; completed video files | [Video](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video) |
 | [Transcriber](#transcriber) | Transcribe recorded or live audio | Completed text/segments, or `.fullStream` and final promises with `.asStream` | [Transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription) |
 | [SpeechGenerator](#speechgenerator) | Generate spoken audio | Completed audio, or native `.audioStream`/`.fullStream` with `.asStream` | [Speech](https://ai-sdk.dev/docs/ai-sdk-core/speech) |
 | [Translator](#translator) | Translate recorded or live speech | Raw audio, format and target language; completed audio/text, or `.fullStream` with `.asStream` | [Speech translation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate) |
-| [VoiceSessionSetup](#voicesessionsetup) | Prepare a browser voice session and execute server tools | Instructions/context РІвЂ вЂ™ session setup; separate `executeTool()` calls | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
+| [VoiceAgentBackend](#voiceagentbackend) | Prepare a browser voice session and execute server tools | Instructions/context РІвЂ вЂ™ session setup; separate `executeTool()` calls | [Realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) |
+| [VoiceAgentClient](#browser-voice-client) | Connect a browser voice session and observe its state | Configured settings; each call creates a disconnected session | [Realtime session](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime) |
 
-Decision, Translator and VoiceSessionSetup depend on experimental AI SDK contracts. Transcriber and SpeechGenerator also depend on experimental SDK operations when using native streaming, including collected streaming for completed results. Their native complete operations retain their SDK status. The same factory names are available through named imports and `create`.
+Decision, Translator, VideoGenerator, VoiceAgentBackend and VoiceAgentClient depend on experimental AI SDK contracts. Transcriber and SpeechGenerator also depend on experimental SDK operations when using native streaming, including collected streaming for completed results. Their native complete operations retain their SDK status. Main-entry factory names are available through named imports and `create`; the browser client uses the separate `casai/client` entry.
 
 ### Common Component Contracts
 
@@ -190,7 +192,7 @@ To interchange model and coded implementations in a workflow, have a small adapt
 - **Calls and composition:** Every callable has `.run()` for named inputs and supported execution settings, with the same result contract as its ordinary call. Put components or application functions in context to [call them from workflows](#calling-tools-from-coded-components).
 - **Invocation isolation:** Casai's merging, preparation and execution leave shared configuration and caller data intact. Derive a component or use call overrides to select different settings.
 - **Effects:** Schema callbacks stay pure. Component bodies may operate on authorized application state or perform external effects; sequence effectful Cascada calls with `!`. Independent invocations need application-level coordination for shared state.
-- **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. `Config` also exposes `.withText`, `.withTemplate`, `.withScript`, `.withFunction` and the three `.loads…` selectors, plus `.loadsAudio` for audio owners, followed by compatible streaming/tool modifiers. For example, `Config.withTemplate.asTool(...)` prepares a reusable tool fragment. An explicit source modifier replaces the inherited source mode; plain `Config(...)` preserves it without choosing a default. Source selection uses modifiers, not an authored `promptType` field. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded. A fragment cannot enable both streaming and tool mode.
+- **Modifier inheritance:** Every component inherits its parent's modifiers, including through `Config`: source mode, `.asStream` and `.asTool` where supported. `Config` also exposes `.withText`, `.withTemplate`, `.withScript`, `.withFunction` and the three `.loads…` selectors, plus `.loadsAudio` for audio owners, followed by compatible streaming/tool modifiers. For example, `Config.withTemplate.asTool(...)` prepares a reusable tool fragment. An explicit source modifier replaces the inherited source mode; plain `Config(...)` preserves it without choosing a default. Select every mode through modifiers: `promptType`, `streaming` and `asTool` are not configuration properties, even when assigned undefined. Internal metadata retains the selection through inheritance and configuration spreads. Same-named fields inside application schemas/context remain data. Streaming and tool mode stay enabled; no reverse modifiers are provided. Unsupported inherited settings are rejected, not silently discarded. A fragment cannot enable both streaming and tool mode.
 - **Configuration unions:** A call must work in every possible source mode. An Embedder with configured text/function alternatives supports `embedder()` and `.run({ headers })`; text/template alternatives also accept shared string replacements. You do not need to narrow the configuration before constructing the component.
 - **Streaming:** LLMAgent, Template, Transcriber, SpeechGenerator and Translator inherit streaming mode, and `.asStream` enables it. Script/Function declare stream output through `schema`; independently invoked components keep their own modes. See [streaming](#streaming).
 - **Tool adaptation:** `.asTool` exposes completed application output to a model, collecting declared finite streams where necessary. Direct calls retain their normal result and mode. See [using components as tools](#using-components-as-tools).
@@ -239,12 +241,14 @@ The ordinary call, `component(...)`, takes the main input first, including objec
 | Embedder | `input`, a string or string array | None |
 | Reranker | `query` | `documents`, `topN` |
 | ImageGenerator | `prompt`; split text/images/mask input is also accepted | `n` |
+| VideoGenerator | `prompt`: text or a native image/text object | `n` |
 | Transcriber | `audio` | `inputAudioFormat` for raw audio |
 | SpeechGenerator | `text` or native text stream/parts | `voice` |
 | Translator | `audio` | `inputAudioFormat`, `targetLanguage` |
-| VoiceSessionSetup | `instructions` | None |
+| VoiceAgentBackend | `instructions` | None |
+| VoiceAgentClient | None; configured model and API endpoint | None |
 
-A Function's callback can't be replaced per call, so a Function is called with its context alone. VoiceSessionSetup's main property is its session `instructions`; an LLMAgent's `instructions` setting is separate and never rendered.
+A Function's callback can't be replaced per call, so a Function is called with its context alone. VoiceAgentBackend's main property is its session `instructions`; an LLMAgent's `instructions` setting is separate and never rendered.
 
 Inputs are optional when configuration guarantees them or the SDK allows omission. When the next argument identifies its role, omit the unused slot: `reranker(query, 5)` uses configured documents; `edit(template, context, images)` omits mask; `draw(text, 3)` requests a count without media. Required unresolved inputs still need values. A first string remains source, so `speaker(undefined, 'alloy')` changes only the voice when text is configured. A lone ordinary object on a rendered component remains context. Use undefined placeholders for cases sharing the same type. Model selection, lifecycle controls and less common parameters use configuration or `.run()`.
 
@@ -393,12 +397,16 @@ Choose a modifier supported by the component. Config selectors create reusable f
 | [Embedder](#embedder) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
 | [Reranker](#reranker) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
 | [ImageGenerator](#imagegenerator) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
+| [VideoGenerator](#videogenerator) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | Yes |
 | [Transcriber](#transcriber) | No | No | Yes | Yes | No | No | Yes | Yes | Yes | Yes |
 | [SpeechGenerator](#speechgenerator) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | Yes | Yes |
 | [Translator](#translator) | No | No | Yes | Yes | No | No | Yes | Yes | Yes | Yes |
-| [VoiceSessionSetup](#voicesessionsetup) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | No |
+| [VoiceAgentBackend](#voiceagentbackend) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | No | No | No |
+| [VoiceAgentClient](#browser-voice-client) | No | No | No | No | No | No | No | No | No | No |
 
-`.loadsAudio` opens a media resource through the required native preparation binding. It can precede `.asStream` or `.asTool`; source, track and authentication settings are described under [media loading](#loading-media-and-format-auto-detection).
+The columns show independent capabilities. **No `.asStream` component can also be `.asTool`, regardless of its source form.** This includes LLMAgent, Template, all audio components and Config inheritance. Ordinary prepared tools such as `.withFunction.asTool` remain supported; a streaming component may still call registered tools where that capability is available.
+
+`.loadsAudio` opens a media resource through FFmpeg/node-av internally, without a public loader or binding setting. It can precede `.asStream` or `.asTool`; source, track and authentication settings are described under [media loading](#loading-media-and-format-auto-detection).
 
 Template and Script use inline source by default. Their `.withTemplate` and `.withScript` modifiers explicitly select inline source, including when deriving from a loaded component. Loading and tool modifiers adapt the same operation. Template can also stream; Script and Function return a stream when their schema declares one. See [streaming](#streaming).
 
@@ -413,10 +421,12 @@ Preparation targets the input appropriate to each operation:
 | Embedder | `input` | One text value | A string, or a string array for a batch |
 | Reranker | `query` | Query text | A query string or `{ query, documents }` |
 | ImageGenerator | `prompt` | Text, or an image-prompt object's `text`, retaining its images/mask | Text or an SDK image-prompt object |
-| Transcriber | `audio` | Not applicable | Encoded bytes/URL for file transcription, or raw bytes/stream with `inputAudioFormat` |
+| VideoGenerator | `prompt` | Text, or a native prompt object's `text`, retaining its image | Text or a native video prompt object |
+| Transcriber | `audio` | Not applicable | Encoded bytes/base64 for file transcription, or raw bytes/stream with `inputAudioFormat`; paths/URLs use `.loadsAudio` |
 | SpeechGenerator | `text` | Text to speak | A complete string, native text parts or a text stream |
 | Translator | `audio` | Not applicable | Raw bytes or stream; format and target language are separate inputs |
-| VoiceSessionSetup | `instructions` | Session instructions | Instructions for a new session |
+| VoiceAgentBackend | `instructions` | Session instructions | Instructions for a new session |
+| VoiceAgentClient | None | Native session options in configuration | Creates a disconnected session; `.run()` accepts native option overrides |
 
 A main property passed with a call is prepared the same way as the configured one. ImageGenerator text-only calls retain configured images and mask; an explicit complete image-prompt object replaces the whole bundle. Other source replacement rules stay with their component.
 
@@ -492,7 +502,7 @@ Overrides are isolated: concurrent calls can use different inputs, settings, and
 
 Output contracts, schemas, the Function `execute` implementation, renderer setup, and LLMAgent `id` stay fixed. Derive another component to change them. Agent `id` is metadata, not a model-call setting or a `.run()` override.
 
-Specialized components follow the same pattern. Their ordinary call takes the main property by position: `route('My order arrived damaged.')`, `reranker(question, candidates)`, `illustrator('A watercolor workshop')`, `transcriber(recordedAudio)`, or `speaker('Your replacement is on its way.')`. With an input modifier, it also takes the context the main property is prepared with. `.run()` takes the documented input fields and native settings by name, such as `reranker.run({ query, documents, topN: 3 })`. `VoiceSessionSetup` has a [session lifecycle](#voicesessionsetup).
+Specialized components follow the same pattern. Their ordinary call takes the main property by position: `route('My order arrived damaged.')`, `reranker(question, candidates)`, `illustrator('A watercolor workshop')`, `transcriber(recordedAudio)`, or `speaker('Your replacement is on its way.')`. With an input modifier, it also takes the context the main property is prepared with. `.run()` takes the documented input fields and native settings by name, such as `reranker.run({ query, documents, topN: 3 })`. `VoiceAgentBackend` has a [session lifecycle](#voiceagentbackend).
 
 ### Streaming
 
@@ -1264,6 +1274,24 @@ const repaint = create.ImageGenerator.withTemplate({
 const blueWorkshop = await repaint({ color: 'light blue' });
 ```
 
+### VideoGenerator
+
+`VideoGenerator` produces video clips from text or a native `{ image, text? }` prompt. It follows the common configuration, preparation, ordinary-call and `.run()` conventions and can be called directly from Cascada Script:
+
+<!-- typecheck-skip: video-generator -->
+```typescript
+const makeVideo = create.VideoGenerator({ model: videoModel });
+const workflow = create.Script({
+  context: { makeVideo },
+  script: `return makeVideo("A slow camera move around a mug beside a mountain lake.").video`,
+});
+const video = await workflow();
+```
+
+Calls return native `video`, `videos`, warnings, responses and provider metadata. File values expose bytes, base64 and media type. Supported frame/reference inputs, dimensions, duration, audio and other settings depend on the provider. The SDK owns direct or asynchronous generation, including polling, webhook completion, retries and downloads; the component stores no job state.
+
+Use text/template/script/function preparation and compatible `.asTool` forms as with other generators. Templates render only an object prompt's text; supplied media remain native input. There is no `.asStream` form. Tools return file payloads; their default model output requires a calling model that accepts video files, or an explicit `toModelOutput` mapping. Native output files can be rendered by any UI; Casai supplies no player or framework-specific component. See the [AI SDK video reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video) and the [matrix](docs/matrix/README.md) for individual settings.
+
 ### Transcriber
 
 `Transcriber` returns a completed transcript. Without `inputAudioFormat`, it uses the provider's encoded-file operation; OpenAI handles that through its file-transcription endpoint. With `inputAudioFormat`, it accepts raw audio, uses native streaming and waits for the authoritative final transcript. `Transcriber.asStream` exposes the live result instead. An unsupported selected operation reports the native error without trying another operation.
@@ -1280,34 +1308,25 @@ console.log(transcript.text);
 console.log(transcript.segments);
 ```
 
-`recordedAudio` is an SDK-supported audio value, such as audio bytes or a URL. The selected provider determines supported formats. The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) retains text, segments, language information, and other available SDK fields.
+`recordedAudio` contains encoded audio bytes (`Uint8Array`, Buffer or `ArrayBuffer`) or base64 data. Paths and URLs use `.loadsAudio`. The selected provider determines supported formats. The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) retains text, segments, language information, and other available SDK fields.
 
 Use `.withScript`, `.withFunction`, or `.loadsScript` to obtain audio before transcription, and `.asTool` to expose the completed operation. Text/template modifiers do not apply to audio payloads. See [SDK transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription).
 
-Native audio strings contain encoded audio; downloading requires a `URL` instance. A tool receiving a URL string can use its application schema to produce that native value:
+For a tool receiving a media URL, `.loadsAudio` lets FFmpeg load, decode and prepare the selected audio. Configure the target accepted by your model:
 
-<!-- typecheck: transcriber-url -->
+<!-- typecheck-skip: transcriber-url -->
 ```typescript
-const transcribeUrl = create.Transcriber.asTool({
+const transcribeUrl = create.Transcriber.loadsAudio.asTool({
   model: transcriptionModel,
+  inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
   description: 'Transcribe an audio recording at a URL.',
   inputSchema: z.object({
-    audio: z.url().transform(value => new URL(value)),
+    audio: z.url(),
   }),
 });
 ```
 
-The SDK handles the download and transcription. Casai does not guess whether a string is a URL or encoded audio. For model-selected URLs, set an application-appropriate limit with the native downloader:
-
-<!-- typecheck: audio-download -->
-```typescript
-import { createDownload } from 'ai';
-
-const downloadRecording = createDownload({ maxBytes: 20 * 1024 * 1024 });
-// Set download: downloadRecording in the Transcriber configuration.
-```
-
-The native download path applies target/redirect checks and, on Node, resolved-address checks. A custom `download` replaces those protections as well as fetching; retain them through SDK helpers or your application's trusted retrieval policy.
+Install the desired node-av build; no loader setting is required. The example uses a streaming-capable model accepting 24 kHz mono PCM16 and returns a completed transcript. Authorize model-selected resources through your application policy, including redirects and playlist children. For application-owned downloads or fresh streams, return supplied audio from `.withFunction`; source authentication and native options belong to [media settings](#loading-media-and-format-auto-detection).
 
 #### Streaming transcription
 
@@ -1507,7 +1526,7 @@ The optional converter also extracts audio from video/media files. It uses the i
 
 ##### Loading media and format auto-detection
 
-Use `Transcriber.loadsAudio` or `Translator.loadsAudio` for a file path or media URL. Configure the native preparation binding from `casai/node-av`, directly or through shared Config. Every `.loadsAudio` call requires node-av, including a simple WAV recording; it has no JavaScript file/fetch fallback. Missing binding is a construction error; a missing native installation is reported when preparation is requested. Construction does not open media. Source settings live in `mediaSettings`: `track` selects an absolute container stream index, `format` optionally forces an input demuxer, and `options` is an open dictionary of native FFmpeg input options and native-compatible scalar values. Option availability and handling belong to the installed backend. Omit `format` for normal recordings.
+Use `Transcriber.loadsAudio` or `Translator.loadsAudio` for a file path or media URL. FFmpeg/node-av handles acquisition internally; no loader or public backend binding is configured. Every `.loadsAudio` call requires node-av, including a simple WAV recording; it has no JavaScript file/fetch fallback. A missing native installation is reported when preparation is requested. Construction does not open media. Source settings live in `mediaSettings`: `track` selects an absolute container stream index, `format` optionally forces an input demuxer, and `options` is an open dictionary of native FFmpeg input options and native-compatible scalar values. Option availability and handling belong to the installed backend. Omit `format` for normal recordings.
 
 When FFmpeg opens a file, URL or finite buffer, it probes the content and considers filename-extension and available MIME hints. Casai does not map extensions to forced formats. An extensionless recording can therefore work; an incorrect extension or Content-Type does not establish the actual format or guarantee detection will succeed. Available demuxers/codecs and source seekability still determine compatibility. Supplied byte streams use the internal native adapter; detection retains read-ahead for the same execution, but a forward-only stream does not gain file-like seeking.
 
@@ -1517,7 +1536,7 @@ The source format and the model's required input format are separate. When nativ
 
 Opening and stream inspection may read packets, seek or wait for network data before prepared audio is available. There is no universal fixed header size or constant startup latency. Explicit `format` still permits stream-info inspection. Use invocation cancellation and applicable native probe/network options. Failed detection or an unsuitable override reports an error; preparation does not retry consumed input with another guessed format.
 
-`.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber without `.loadsAudio` retains SDK/provider encoded-file and URL handling, including the SDK `download` hook and finite-input materialization. That hook is incompatible with `.loadsAudio`; use an explicit preparer and the shared helper for application-owned access. Streaming resource reads do not imply streaming model upload, and completed audio results retain their audio in memory.
+`.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber without `.loadsAudio` accepts already supplied encoded audio data or correctly formatted raw input. Paths and URLs use `.loadsAudio`; the SDK URL-specific `download` hook is not exposed on these component inputs. Use an explicit preparer for application-owned downloads or fresh streams. Streaming resource reads do not imply streaming model upload, and completed audio results retain their audio in memory.
 
 The native media path does not inherit the SDK downloader's URL protections or byte limits. Applications exposing media tools must authorize the resources models can select, including local files, redirects and playlist children. A closed input schema alone does not establish that authority. Server-resolved recording identifiers and application-controlled preparation are useful where arbitrary resource access is inappropriate.
 
@@ -1537,15 +1556,17 @@ Completed speech collected from a native stream retains its emitted audio format
 
 Completed translation follows the SDK's final-result rules and requires successful collection of its audio stream. A non-fatal error event does not itself make the call reject or add an errors array. A stream failure during collection rejects the call even if native final-text promises have already resolved. Use `Translator.asStream(...)` and its result's `fullStream` to observe individual events. Ordinary Transcriber retains its provider-native recording support without local conversion.
 
-### VoiceSessionSetup
+### VoiceAgentBackend
 
-`VoiceSessionSetup` prepares browser voice connections with a realtime model. It uses the AI SDK's experimental realtime API. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
+`VoiceAgentBackend` prepares browser voice sessions and executes their server-side tools. Server-side setup keeps the provider API key out of the browser. For direct provider connections, the browser receives a short-lived session credential or a WebRTC setup response. A session credential authenticates the provider connection. Your application server still authenticates users and authorizes session creation and tool calls.
+
+It uses the AI SDK's experimental realtime API. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
 
 In token-based turn-based sessions, the browser runs capture/playback, text input and supported interruption controls, and receives tool calls. The server creates a short-lived token with initial instructions/voice and runs tools that need server-side data or secrets. This setup form is:
 
 <!-- typecheck: voice-token -->
 ```typescript
-const support = create.VoiceSessionSetup.withTemplate({
+const support = create.VoiceAgentBackend.withTemplate({
   model: realtimeModel,
   instructions: 'You are the support agent for {{ company }}. Keep answers short.',
   inputSchema: z.object({ company: z.string() }),
@@ -1626,11 +1647,11 @@ For Live, use the SDK's WebRTC SDP setup or server WebSocket relay capability. L
 
 With no tool definitions, prepared session configuration omits the `tools` property entirely. OpenAI Live rejects that property even when undefined; configuring function tools on Live preserves the native setup/startup error. Use its native delegation protocol rather than advertising turn-based function tools. The documented `executeTool` route serves turn-based sessions; Live applications call selected components directly and send native context/delegation events. The helper does not add Live function-tool support.
 
-One `VoiceSessionSetup` accepts a native realtime model instance. Ordinary calls and `.run()` perform token setup; `createWebRTCSession` performs native SDP setup and returns `{ sdp, sessionId }`. `prepareSessionConfig` supplies prepared configuration for relay/browser startup, and `executeTool` runs allowed server tools. Use the existing model directly for server WebSocket connection information. Unsupported capabilities report their native limitation; the component does not silently choose another transport.
+One `VoiceAgentBackend` accepts a native realtime model instance. Ordinary calls and `.run()` perform token setup; `createWebRTCSession` performs native SDP setup and returns `{ sdp, sessionId }`. `prepareSessionConfig` supplies prepared configuration for relay/browser startup, and `executeTool` runs allowed server tools. Use the existing model directly for server WebSocket connection information. Unsupported capabilities report their native limitation; the component does not silently choose another transport.
 
 <!-- typecheck: voice-live -->
 ```typescript
-const liveSupport = create.VoiceSessionSetup.withTemplate({
+const liveSupport = create.VoiceAgentBackend.withTemplate({
   model: liveModel,
   instructions: 'Help customers of {{ company }}. Keep answers concise.',
   inputSchema: z.object({ company: z.string() }),
@@ -1659,7 +1680,42 @@ const sessionConfig = await liveSupport.prepareSessionConfig({
 
 The component prepares configuration and setup responses; the native model supplies relay connection information. Neither opens a connection or captures audio. The browser continues to use the SDK's experimental realtime interface.
 
-Text and template modifiers prepare the instructions; script and function modifiers return them. VoiceSessionSetup has no `.asTool`. See [SDK realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) for the browser session and provider support.
+Text and template modifiers prepare the instructions; script and function modifiers return them. VoiceAgentBackend has no `.asTool`. See [SDK realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) for the browser session and provider support.
+
+### Browser voice client
+
+`VoiceAgentClient` creates browser voice sessions from reusable settings and pairs with `VoiceAgentBackend` through your application routes. Import it from `casai/client`; use a browser-compatible realtime model adapter without a provider API key. Ordinary calls and `.run()` create independent disconnected sessions. Connect explicitly from your UI, then observe state with `getSnapshot()` and `subscribe()`.
+
+<!-- typecheck-skip: voice-agent-client -->
+```typescript
+import { VoiceAgentClient } from 'casai/client';
+
+const support = VoiceAgentClient({
+  model: browserModel,
+  api: { token: '/api/voice/setup' },
+  sessionConfig: { voice: 'alloy' },
+});
+const session = await support(); // or support.run()
+const unsubscribe = session.subscribe(() => render(session.getSnapshot()));
+render(session.getSnapshot());
+// From a UI action, subject to browser permissions:
+await session.connect();
+// connect() may return before readiness; observe connected status before sending.
+// When the conversation ends:
+await session.close();
+unsubscribe();
+session.dispose();
+```
+
+The native `api` alternatives also accept `{ session: '/api/voice/session' }` for WebRTC and `{ websocket: relayUrl, protocols? }` for an application-owned relay. Token and SDP routes authenticate users, admit public preferences and call the corresponding backend method. Native fetch, WebSocket, microphone and playback restrictions still apply. The client does not add custom request headers or an authentication protocol.
+
+Native controls handle text/audio input, capture, playback and tool outputs with their provider-specific limits. Turn-based `onToolCall` can perform a local UI action or call an authorized server route backed by `executeTool`. Live delegations use native session metadata and events instead. There are no source, `.asStream` or `.asTool` modifiers on the client.
+
+Share a separate public settings object when browser and server need common defaults: for example, a `voicePreferences` object checked with `satisfies Pick<Experimental_RealtimeSessionConfig, 'voice'>`. Spread it into backend settings and pass it as client `sessionConfig`. Keep instructions, credentials, trusted context and tool executors server-owned. TypeScript types do not remove runtime secrets; never pass the backend configuration to the browser. Runtime user preferences come from application-approved values, independently of shared defaults.
+
+The [matrix](docs/matrix/README.md) lists the native options, session controls and state fields. Snapshots are read-only views with stable identity between native updates. UI teardown unsubscribes and disposes; each session has its own lifecycle. The adapter supports plain JavaScript and framework store subscriptions without a React dependency.
+
+The component remains stateless; the returned handle owns the session state. Browser-hosted Cascada can create it with `var session = voiceClient()` and return it for later scripts. After observing native readiness, a script can issue `session!.sendEvent(command)` and read `session!.getSnapshot()`. Inspect effect results with `is error` when failure matters. Cascada ordering preserves native promise/void semantics and does not imply provider acknowledgement. The host coordinates shared use and owns `try/finally` cleanup, including when a script or graceful close fails. Use Cascada's supported browser runtime independently of the Node Casai main entry.
 
 ## Using Components as Tools
 
@@ -1714,6 +1770,7 @@ In a specialized tool's plain literal form, including explicit `.withText`, its 
 | Embedder | `{ input }`, a string or string array | Vectors | Vectors |
 | Reranker | `{ query }`; candidates come from `documents` or a preparer | Native `{ originalIndex, document, score }` ranking entries | The same entries |
 | ImageGenerator | `{ prompt }` | The generated images, as image content | Images as `{ mediaType, base64 }` |
+| VideoGenerator | `{ prompt }` | Video file content where the calling model supports it | Files as `{ mediaType, base64 }` |
 | Transcriber | `{ audio }`; a URL-string schema can transform it to native `URL` | Transcript text | Transcript text, segments, language, and duration |
 | SpeechGenerator | `{ text }` | A short confirmation | Serialized audio; the collected-stream path also retains its emitted format/rate |
 | Translator | `{ audio }`, or configured recording bytes with an empty schema | Final translated text | Completed source/translated text, serialized audio and optional duration |
@@ -1760,7 +1817,7 @@ const makeIllustration = create.Function.asTool({
 
 An LLM exposed as a tool must finish its own workflow within that tool execution. If it pauses for an inner approval, a client tool without `execute`, or a deferred provider result, the tool adapter rejects and the outer SDK records a tool error. The adapter exposes neither the inner history nor its pending approvals to the outer agent. Such tools are allowed because the pending path may never be taken or approval may be automatic. If the application must manage an inner pause, invoke that agent directly and retain its result/history for explicit continuation.
 
-Components selected with `.asStream` cannot also be tools. Ordinary Transcriber, SpeechGenerator and Translator tools return completed results, collecting native streaming internally when the model requires it. LLMAgent tools use generation only, and Template tools return complete text. Script/Function schema-declared stream results are collected. VoiceSessionSetup has a separate session lifecycle and no implicit collection adapter. Plain SDK tools also work in an LLMAgent's `tools` map.
+Components selected with `.asStream` cannot also be tools. Ordinary Transcriber, SpeechGenerator and Translator tools return completed results, collecting native streaming internally when the model requires it. LLMAgent tools use generation only, and Template tools return complete text. Script/Function schema-declared stream results are collected. VoiceAgentBackend has a separate session lifecycle and no implicit collection adapter. Plain SDK tools also work in an LLMAgent's `tools` map.
 
 An SDK tool can yield preliminary results from an async generator. When called through a coded component's injected tool wrapper, a directly returned generator is consumed once and returns its final yielded value, following the [SDK convention](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#preliminary-tool-results). Explicit SDK tools retain native result normalization, including the installed SDK's treatment of a promise resolving to an iterable as a single final value. Casai component tools require a declared stream kind: text joins into a string, and elements collect into an array. They reject an undeclared root async iterable instead of returning it to the SDK or guessing how to collect it. Progress updates are not collected into application data.
 
@@ -2856,7 +2913,8 @@ Choose the mechanism that expresses who controls the next operation:
 | Template | Text preparation and presentation, including calls to helpers |
 | LLMAgent tools | Operations the model chooses while responding to a task |
 | Decision | Routing or evaluation through a configured set of questions |
-| VoiceSessionSetup | Server setup and tool execution for a browser voice conversation |
+| VoiceAgentBackend | Server setup and tool execution for a browser voice conversation |
+| VoiceAgentClient | Browser conversation controls and observable state, paired with application-owned backend routes |
 
 These can be combined. A Script can call an LLMAgent that uses tools; an LLMAgent tool can run a Script or another LLMAgent; a Template can format the resulting data. Keep reusable application functions in context and expose them as tools when the model should decide whether to invoke them.
 

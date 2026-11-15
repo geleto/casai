@@ -8,7 +8,7 @@
 		"tests/ComponentCalls.unit.test.ts",
 		"tests/ImageGenerator.unit.test.ts",
 		"tests/StructuredSources.unit.test.ts",
-		"tests/VoiceSessionSetup.unit.test.ts",
+		"tests/VoiceAgentBackend.unit.test.ts",
 		"tests/Approvals.unit.test.ts",
 		"tests/Resume.unit.test.ts",
 		"tests/NativeContinuation.unit.test.ts",

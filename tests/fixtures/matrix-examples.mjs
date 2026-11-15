@@ -10,6 +10,7 @@ import { multiline, renderExample } from '../../docs/matrix/shared.js';
 import { checkReference } from './matrix-reference.mjs';
 import { checkBundle } from './matrix-bundle.mjs';
 import { checkPackage } from './matrix-package.mjs';
+import { executesCurrentSource } from './matrix-availability.mjs';
 
 export const root = new URL('../../', import.meta.url);
 export const destination = new URL('.cache/matrix/', root);
@@ -59,24 +60,27 @@ export async function generate() {
       assert.deepEqual(reads, expectedResource ? [expectedResource] : [], `${component.name}: load only the selected source`);
       assert(!ids.has(example.id), `Duplicate ID: ${example.id}`);
       ids.add(example.id);
-      assert.equal(example.explanations.length, options.length);
+      assert.equal(example.explanations.length, options.length + example.workInProgress.length);
       assert.equal(example.files[0].name, `${component.name}.ts`);
       assert(!example.files[0].code.includes('__MATRIX_'), example.id);
       assert(example.files[0].code.includes(`export async function ${functionName}(`), `${example.id}: keep the scenario name across options`);
-      const planned = component.name === 'Translator' && !options.includes('asStream');
-      assert.equal(example.status, planned ? 'planned' : 'implemented', example.id);
-      if (planned) {
-        assert.match(example.notice, /Planned API: complete Translator is not implemented yet/);
-        assert(example.files[0].code.startsWith(`// ${example.notice}\n`));
-        // Check syntax without inventing a Translator implementation or declaration.
+      const future = !executesCurrentSource(example);
+      assert(!Object.hasOwn(example, 'status'));
+      assert(!Object.hasOwn(example, 'notice'));
+      if (future) assert(example.workInProgress.length, `${example.id}: pending examples need a work-in-progress marker`);
+      if (options.includes('loadAudio') && options.includes('asTool')) {
+        const code = example.files[0].code;
+        assert.match(code, /inputSchema: z\.object\(\{\}\)/, `${example.id}: the model cannot supply resource selectors`);
+        assert.match(code, /audio: recordingUrl/, `${example.id}: the application configures the resource`);
+      }
+      if (future) {
+        // Check syntax without inventing a planned implementation or declaration.
         stripTypeScriptTypes(example.files[0].code);
-        assert.match(example.files[0].code, /return \{ audio: result\.audio, sourceText: result\.sourceText, translationText: result\.translationText \}/);
-        assert(!example.files[0].code.includes('result.fullStream'));
-      } else assert.equal(example.notice, undefined);
+      }
       if (['SpeechGenerator', 'Transcriber'].includes(component.name)) {
-        const api = `${options.includes('asStream') ? 'Streaming' : ''}${component.name}`;
-        assert.match(example.files[0].code, new RegExp(`\\b${api}[.(]`), 'Generate the current SDK-facing factory');
-        assert(!example.files[0].code.includes('.asStream'), 'Audio .asStream API is not implemented yet');
+        const api = component.name;
+        assert.match(example.files[0].code, new RegExp(`\\b${api}[.(]`), 'Generate the family factory');
+        assert.equal(example.configuration.factory.endsWith('.asStream'), options.includes('asStream'));
       }
       for (const file of example.files.slice(1)) assert.equal(file.code, await readText(new URL(`../../docs/matrix/${file.name}`, import.meta.url)));
       const folder = new URL(`${example.id}/`, destination);
@@ -86,14 +90,14 @@ export async function generate() {
     }
   }
   // A streaming toggle changes the factory and result handling, not the scenario.
-  for (const complete of examples.filter(example => example.status === 'planned')) {
+  for (const complete of examples.filter(example => example.component === 'Translator' && !example.activeOptions.some(id => ['asStream', 'asTool'].includes(id)))) {
     const streaming = examples.find(example => example.component === complete.component
       && example.activeOptions.includes('asStream') && example.activeOptions.length === complete.activeOptions.length + 1
       && complete.activeOptions.every(id => example.activeOptions.includes(id)));
     assert(streaming, `Missing streaming counterpart for ${complete.id}`);
-    const code = complete.files[0].code.split('\n').slice(1).join('\n');
+    const code = complete.files[0].code;
     const prefix = source => source.slice(0, source.indexOf('  const result = await '));
-    assert.deepEqual(prefix(code).replace(/\bTranslator(?=,| \})/g, 'StreamingTranslator').replace('= Translator', '= StreamingTranslator'), prefix(streaming.files[0].code));
+    assert.deepEqual(prefix(code).replace(/(= Translator(?:\.\w+)?)(\()/, '$1.asStream$2'), prefix(streaming.files[0].code));
     assert.equal(code.split('\n').find(line => line.includes('const result = await')), streaming.files[0].code.split('\n').find(line => line.includes('const result = await')));
     assert.deepEqual(complete.files.slice(1), streaming.files.slice(1));
   }
@@ -106,10 +110,11 @@ export async function generate() {
   assert.throws(() => validateOptions('ImageGenerator', ['useTools']));
   assert.throws(() => validateOptions('Transcriber', ['asStream', 'asTool']));
   assert.throws(() => validateOptions('SpeechGenerator', ['asStream', 'asTool']));
-  assert.throws(() => validateOptions('SpeechGenerator', ['textStream']));
+  validateOptions('SpeechGenerator', ['textStream']);
+  validateOptions('SpeechGenerator', ['textStream', 'asTool']);
   assert.throws(() => validateOptions('SpeechGenerator', ['asStream', 'withScript', 'textStream']));
   validateOptions('Transcriber', ['asTool']);
-  validateOptions('Transcriber', ['asStream', 'withScript', 'asTool', 'run']);
+  assert.throws(() => validateOptions('Transcriber', ['asStream', 'withScript', 'asTool', 'run']));
   validateOptions('SpeechGenerator', ['asStream', 'textStream', 'run']);
   assert.throws(() => validateOptions('ImageGenerator', ['mask']));
   assert.throws(() => validateOptions('Embedder', ['withTemplate', 'batch']));
@@ -119,8 +124,8 @@ export async function generate() {
   assert.deepEqual(selectOption('LLMAgent', ['withTemplate', 'run'], 'loadTemplate'), ['loadTemplate', 'run']);
   assert(!visibleGroups('Transcriber', ['asStream']).some(group => group.choices.some(choice => choice.id === 'asTool')));
   assert(!visibleGroups('Transcriber', ['asTool']).some(group => group.choices.some(choice => choice.id === 'asStream')));
-  assert(visibleGroups('Transcriber', ['asStream', 'withScript']).some(group => group.choices.some(choice => choice.id === 'asTool')));
-  assert.deepEqual(selectOption('SpeechGenerator', ['asStream', 'textStream', 'run'], 'asStream', false), ['run']);
+  assert(!visibleGroups('Transcriber', ['asStream', 'withScript']).some(group => group.choices.some(choice => choice.id === 'asTool')));
+  assert.deepEqual(selectOption('SpeechGenerator', ['asStream', 'textStream', 'run'], 'asStream', false), ['run', 'textStream']);
   assert.deepEqual(selectOption('Transcriber', ['asTool', 'asStream', 'withScript', 'run'], 'withScript', false), ['asStream', 'run']);
   // Experimental scope belongs to the operation, not every mode of its family.
   for (const name of ['SpeechGenerator', 'Transcriber']) {
@@ -131,7 +136,8 @@ export async function generate() {
     assert.equal(typeof options.find(option => option.id === 'asStream').experimental, 'string');
   }
   assert.equal(typeof components.find(item => item.name === 'Translator').experimental, 'string');
-  assert.throws(() => validateOptions('Translator', ['asTool']));
+  validateOptions('Translator', ['asTool']);
+  assert.throws(() => validateOptions('Translator', ['asStream', 'asTool']));
   validateOptions('Translator', ['withScript', 'useTools', 'run']);
   validateOptions('Translator', ['asStream', 'withScript', 'useTools', 'run']);
   const llm = components.find(item => item.name === 'LLMAgent');
@@ -153,7 +159,7 @@ const typoGroup: SDKGroupId = 'requests';
 void [typoComponent, typoChoice, typoSection, typoGroup];
 validateOptions('LLMAgent');
 await render('Context');
-const selected: SelectionExport = { schemaVersion: 3, reference: describe('LLMAgent'), example: await render('LLMAgent', [], { readText: async () => '' }) };
+const selected: SelectionExport = { schemaVersion: 5, reference: describe('LLMAgent'), example: await render('LLMAgent', [], { readText: async () => '' }) };
 const origin: 'casai' | 'cascada' | 'ai-sdk' = selected.reference.config.properties.model.origin;
 void origin;
 // @ts-expect-error A missing/renamed reference field must not silently become any.
@@ -162,14 +168,14 @@ void selected.reference.topics;
 const source: HTMLElement = selected.example.files[0].code;
 void source;
 `);
-  // The cache is fresh; the explicit file list also excludes planned APIs.
+  // Compile only against real source. Syntax and data contracts cover every example.
   await writeFile(new URL('tsconfig.json', destination), JSON.stringify({
     extends: '../../tsconfig.json', compilerOptions: { noEmit: true, customConditions: ['casai-source'] },
-    include: [], files: ['_contracts.ts', '_data-contracts.ts', ...examples.filter(example => example.status === 'implemented').map(example => `${example.id}/${example.files[0].name}`)],
+    include: [], files: ['_contracts.ts', '_data-contracts.ts', ...examples.filter(executesCurrentSource).map(example => `${example.id}/${example.files[0].name}`)],
   }, null, 2));
   await checkReference(examples);
   await checkBundle(examples);
-  console.log(`Checked ${examples.filter(example => example.status === 'planned').length} planned selections for syntax, shared sources and matching streaming counterparts.`);
+  console.log(`Checked ${examples.filter(example => !executesCurrentSource(example)).length} planned API selections for syntax, data contracts and shared sources; runtime coverage awaits production implementation.`);
   return examples;
 }
 

@@ -7,7 +7,7 @@ const workspace = path.resolve(__dirname, '../..');
 const filter = new RegExp(process.argv[2] ?? '');
 const temporary = fs.mkdtempSync(path.join(workspace, '.phase2-production-mutations-'));
 const runtimeFiles = ['tests/Phase2.integration.test.ts', 'tests/ToolLifecycle.unit.test.ts', 'tests/Registry.unit.test.ts', 'tests/FactoryInference.test.ts', 'tests/cascada.ts',
-  'tests/ComponentCalls.unit.test.ts', 'tests/ImageGenerator.unit.test.ts', 'tests/StructuredSources.unit.test.ts', 'tests/VoiceSessionSetup.unit.test.ts',
+  'tests/ComponentCalls.unit.test.ts', 'tests/ImageGenerator.unit.test.ts', 'tests/StructuredSources.unit.test.ts', 'tests/VoiceAgentBackend.unit.test.ts',
   'tests/SchemaIdentity.unit.test.ts', 'tests/ComponentInterop.unit.test.ts', 'tests/LLMCalls.unit.test.ts', 'tests/LLMSurface.unit.test.ts', 'tests/ReviewCorrections.unit.test.ts', 'tests/Streams.unit.test.ts', 'tests/SchemaPreparation.unit.test.ts',
   'tests/LLMAgent.unit.test.ts', 'tests/ModifierInheritance.unit.test.ts', 'tests/Engines.unit.test.ts', 'tests/LoaderComposition.unit.test.ts', 'tests/fixtures/runtime-call.ts', 'tests/ClosedToolInput.unit.test.ts', 'tests/ConfigValidation.test.ts', 'tests/fixtures/phase2-api-schemas.ts', 'tests/fixtures/phase2-security-sdk.ts', 'tests/fixtures/source-modes.ts'];
 function run(args, expected, label) {

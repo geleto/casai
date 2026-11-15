@@ -17,7 +17,7 @@ create.Embedder({});
 create.Embedder({ model: embedding, modle: embedding });
 create.Embedder({ model: uncheckedModel });
 
-declare const models: { [K in 'ImageGenerator' | 'Reranker' | 'Transcriber' | 'StreamingTranscriber' | 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceSessionSetup' | 'Decision']: ComponentConfig<K>['model'] };
+declare const models: { [K in 'ImageGenerator' | 'Reranker' | 'Transcriber' | 'StreamingTranscriber' | 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceAgentBackend' | 'Decision']: ComponentConfig<K>['model'] };
 // @ts-expect-error Misspelled model.
 create.ImageGenerator({ modle: models.ImageGenerator });
 // @ts-expect-error Misspelled model.
@@ -33,7 +33,7 @@ create.StreamingSpeechGenerator({ modle: models.StreamingSpeechGenerator });
 // @ts-expect-error Misspelled model.
 create.StreamingTranslator({ modle: models.StreamingTranslator });
 // @ts-expect-error Misspelled model.
-create.VoiceSessionSetup({ modle: models.VoiceSessionSetup });
+create.VoiceAgentBackend({ modle: models.VoiceAgentBackend });
 // @ts-expect-error Misspelled model; supplying another required setting must not hide it.
 create.Decision({ modle: models.Decision, questions: { ready: { type: 'boolean' } } });
 

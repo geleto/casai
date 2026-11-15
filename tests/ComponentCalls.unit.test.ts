@@ -651,7 +651,7 @@ describe('component SDK calls', () => {
 			['ImageGenerator', true, 'all'], ['Transcriber', false, 'all'],
 			['StreamingTranscriber', false, 'prepared'], ['SpeechGenerator', true, 'all'],
 			['StreamingSpeechGenerator', true, 'none'], ['StreamingTranslator', false, 'none'],
-			['VoiceSessionSetup', true, 'none'],
+			['VoiceAgentBackend', true, 'none'],
 		] as const;
 		for (const [name, text, tool] of rows) {
 			const factory = create[name];

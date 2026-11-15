@@ -90,7 +90,7 @@ describe('component dispatch boundaries', () => {
 				return { token: 'token', url: 'https://example.test', expiresAt: 10 };
 			},
 		});
-		const voice = create.VoiceSessionSetup({ model, instructions: 'hello', expiresAfterSeconds: 60 });
+		const voice = create.VoiceAgentBackend({ model, instructions: 'hello', expiresAfterSeconds: 60 });
 		assert.deepEqual(await voice.prepareSessionConfig(), { instructions: 'hello' });
 		await voice();
 		assert.deepEqual(sessions, [{ sessionConfig: { instructions: 'hello' }, expiresAfterSeconds: 60 }]);
@@ -104,7 +104,7 @@ describe('component dispatch boundaries', () => {
 		const model = Object.assign(createOpenAI({ apiKey: 'fixture' }).experimental_realtime('test'), {
 			doCreateClientSecret: async () => { entries++; return { token: 'token', url: 'https://example.test', expiresAt: 1 }; },
 		});
-		const voice = create.VoiceSessionSetup({ model,
+		const voice = create.VoiceAgentBackend({ model,
 			tools: { lookup: { ...lookup, inputSchema } } });
 		await assert.rejects(voice.run({ abortSignal: controller.signal }), /cancelled during definitions/);
 		assert.equal(entries, 0);
@@ -151,8 +151,8 @@ describe('component dispatch boundaries', () => {
 		const realtime = { specificationVersion: 'v4', provider: 'test', modelId: 'voice', doCreateClientSecret: async ({ sessionConfig }: { sessionConfig: unknown }) => {
 			sent = sessionConfig; return { clientSecret: 'token' };
 		} };
-		const voice = Reflect.apply(create.VoiceSessionSetup.withTemplate, undefined, [{ model: realtime, instructions: '{{ name }}',
-			context: { name: 'Ada' }, inputSchema: z.object({ name: z.string() }), filters: {}, renderOptions: {}, description: 'author only', futureSetting: 'configured' }]) as ReturnType<typeof create.VoiceSessionSetup>;
+		const voice = Reflect.apply(create.VoiceAgentBackend.withTemplate, undefined, [{ model: realtime, instructions: '{{ name }}',
+			context: { name: 'Ada' }, inputSchema: z.object({ name: z.string() }), filters: {}, renderOptions: {}, description: 'author only', futureSetting: 'configured' }]) as ReturnType<typeof create.VoiceAgentBackend>;
 		await Reflect.apply(voice.run, undefined, [{ futureSetting: 'call' }]);
 		assert.deepEqual(sent, { instructions: 'Ada', futureSetting: 'call' });
 	});

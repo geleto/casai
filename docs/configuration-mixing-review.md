@@ -10,7 +10,7 @@ The runtime streaming-control gaps are real and shared across several factories.
 
 ## Type coverage
 
-The public inventory was checked against `create` and the component registry: Template, Script, Function, LLMAgent, Decision, Embedder, Reranker, ImageGenerator, Transcriber, StreamingTranscriber, SpeechGenerator, StreamingSpeechGenerator, StreamingTranslator and VoiceSessionSetup, plus Config.
+The public inventory was checked against `create` and the component registry: Template, Script, Function, LLMAgent, Decision, Embedder, Reranker, ImageGenerator, Transcriber, StreamingTranscriber, SpeechGenerator, StreamingSpeechGenerator, StreamingTranslator and VoiceAgentBackend, plus Config.
 
 The generated fixture has **208 positive cases and 313 expected-rejection cases**, covering **153 current factory paths**. Each source/tool/stream modifier path has a valid construction and a matching construction with a foreign authored-source setting. The foreign field is selected independently: `script` on Template, `template` on every other family, whose source has a different name.
 
@@ -44,7 +44,7 @@ Construction-only JavaScript probes deliberately bypassed TypeScript. Every vali
 | --- | --- | --- | --- |
 | Template, Script, Function | Rejected | Rejected | Rejected |
 | LLMAgent | Rejected | Supported | Rejected directly, but hidden by inherited `true` |
-| Decision, Embedder, Reranker, ImageGenerator, Transcriber, SpeechGenerator, VoiceSessionSetup | Accepted | Accepted despite no current streaming modifier | Accepted |
+| Decision, Embedder, Reranker, ImageGenerator, Transcriber, SpeechGenerator, VoiceAgentBackend | Accepted | Accepted despite no current streaming modifier | Accepted |
 | StreamingTranscriber, StreamingSpeechGenerator, StreamingTranslator | Accepted | Accepted as an undeclared extra setting | Accepted despite always streaming |
 | Config | Mixed source fields accepted at runtime | Allowed as an incomplete fragment | Incorrectly accepted |
 

@@ -215,48 +215,30 @@ export default {
     },
     "Transcriber": {
       "name": "Transcriber",
-      "defaultMode": "text",
       "main": "audio",
+      "defaultMode": "text",
       "modifiers": {
         "withScript": "async-script",
         "withFunction": "function",
-        "loadsScript": "async-script-name"
+        "loadsScript": "async-script-name",
+        "loadsAudio": "audio-name"
       },
+      "asStream": true,
       "toolModes": [
         "text",
-        "function",
         "async-script",
-        "async-script-name"
+        "function",
+        "async-script-name",
+        "audio-name"
       ],
       "required": [
         "model"
-      ]
-    },
-    "StreamingTranscriber": {
-      "name": "StreamingTranscriber",
-      "defaultMode": "text",
-      "main": "audio",
-      "modifiers": {
-        "withScript": "async-script",
-        "withFunction": "function",
-        "loadsScript": "async-script-name"
-      },
-      "toolModes": [
-        "function",
-        "async-script",
-        "async-script-name"
-      ],
-      "required": [
-        "model"
-      ],
-      "toolRequired": [
-        "inputAudioFormat"
       ]
     },
     "SpeechGenerator": {
       "name": "SpeechGenerator",
-      "defaultMode": "text",
       "main": "text",
+      "defaultMode": "text",
       "modifiers": {
         "withText": "text",
         "withTemplate": "async-template",
@@ -266,53 +248,23 @@ export default {
         "withFunction": "function",
         "loadsScript": "async-script-name"
       },
+      "asStream": true,
       "toolModes": [
-        "function",
+        "text",
         "text",
         "async-template",
+        "text-name",
         "async-template-name",
         "async-script",
-        "async-script-name",
-        "text-name"
+        "function",
+        "async-script-name"
       ],
       "required": [
         "model"
       ]
     },
-    "StreamingSpeechGenerator": {
-      "name": "StreamingSpeechGenerator",
-      "defaultMode": "text",
-      "main": "text",
-      "modifiers": {
-        "withText": "text",
-        "withTemplate": "async-template",
-        "loadsText": "text-name",
-        "loadsTemplate": "async-template-name",
-        "withScript": "async-script",
-        "withFunction": "function",
-        "loadsScript": "async-script-name"
-      },
-      "toolModes": [],
-      "required": [
-        "model"
-      ]
-    },
-    "StreamingTranslator": {
-      "name": "StreamingTranslator",
-      "defaultMode": "text",
-      "main": "audio",
-      "modifiers": {
-        "withScript": "async-script",
-        "withFunction": "function",
-        "loadsScript": "async-script-name"
-      },
-      "toolModes": [],
-      "required": [
-        "model"
-      ]
-    },
-    "VoiceSessionSetup": {
-      "name": "VoiceSessionSetup",
+    "VoiceAgentBackend": {
+      "name": "VoiceAgentBackend",
       "defaultMode": "text",
       "main": "instructions",
       "modifiers": {
@@ -329,6 +281,124 @@ export default {
         "model"
       ],
       "fixedSettings": [
+        "model"
+      ]
+    },
+    "TranscriberStream": {
+      "name": "TranscriberStream",
+      "main": "audio",
+      "defaultMode": "text",
+      "modifiers": {
+        "withScript": "async-script",
+        "withFunction": "function",
+        "loadsScript": "async-script-name",
+        "loadsAudio": "audio-name"
+      },
+      "asStream": true,
+      "toolModes": [],
+      "required": [
+        "model"
+      ]
+    },
+    "SpeechGeneratorStream": {
+      "name": "SpeechGeneratorStream",
+      "main": "text",
+      "defaultMode": "text",
+      "modifiers": {
+        "withText": "text",
+        "withTemplate": "async-template",
+        "loadsText": "text-name",
+        "loadsTemplate": "async-template-name",
+        "withScript": "async-script",
+        "withFunction": "function",
+        "loadsScript": "async-script-name"
+      },
+      "asStream": true,
+      "toolModes": [],
+      "required": [
+        "model"
+      ]
+    },
+    "Translator": {
+      "name": "Translator",
+      "main": "audio",
+      "defaultMode": "text",
+      "modifiers": {
+        "withScript": "async-script",
+        "withFunction": "function",
+        "loadsScript": "async-script-name",
+        "loadsAudio": "audio-name"
+      },
+      "asStream": true,
+      "toolModes": [
+        "text",
+        "async-script",
+        "function",
+        "async-script-name",
+        "audio-name"
+      ],
+      "required": [
+        "model"
+      ],
+      "toolRequired": [
+        "inputAudioFormat",
+        "targetLanguage"
+      ]
+    },
+    "TranslatorStream": {
+      "name": "TranslatorStream",
+      "main": "audio",
+      "defaultMode": "text",
+      "modifiers": {
+        "withScript": "async-script",
+        "withFunction": "function",
+        "loadsScript": "async-script-name",
+        "loadsAudio": "audio-name"
+      },
+      "asStream": true,
+      "toolModes": [],
+      "required": [
+        "model"
+      ]
+    },
+    "VoiceAgentClient": {
+      "name": "VoiceAgentClient",
+      "main": null,
+      "defaultMode": null,
+      "modifiers": {},
+      "toolModes": [],
+      "required": [
+        "model",
+        "api"
+      ],
+      "fixedSettings": [
+        "model"
+      ]
+    },
+    "VideoGenerator": {
+      "name": "VideoGenerator",
+      "main": "prompt",
+      "defaultMode": "text",
+      "structured": "image",
+      "modifiers": {
+        "withText": "text",
+        "withTemplate": "async-template",
+        "withScript": "async-script",
+        "withFunction": "function",
+        "loadsText": "text-name",
+        "loadsTemplate": "async-template-name",
+        "loadsScript": "async-script-name"
+      },
+      "toolModes": [
+        "text",
+        "async-template",
+        "async-script",
+        "function",
+        "text-name",
+        "async-template-name",
+        "async-script-name"
+      ],
+      "required": [
         "model"
       ]
     }
@@ -364,8 +434,6 @@ export default {
       "prepared-01eff35c8614"
     ],
     "Script_config": [
-      "script-3ee7336160ef",
-      "schema-288e8cf2b21a",
       "inputSchema-f335a5a81f68",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -374,11 +442,11 @@ export default {
       "debug-cdff8d93c93d",
       "description-094750903948",
       "tools-05ebb5c95a02",
-      "toolsContext-492a80518673"
+      "toolsContext-492a80518673",
+      "script-3ee7336160ef",
+      "schema-288e8cf2b21a"
     ],
     "Script_settings": [
-      "script-3ee7336160ef",
-      "schema-288e8cf2b21a",
       "inputSchema-f335a5a81f68",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -387,7 +455,9 @@ export default {
       "debug-cdff8d93c93d",
       "description-094750903948",
       "tools-05ebb5c95a02",
-      "toolsContext-492a80518673"
+      "toolsContext-492a80518673",
+      "script-3ee7336160ef",
+      "schema-288e8cf2b21a"
     ],
     "Script_inputs": [
       "direct-b5cef17f1666",
@@ -395,24 +465,24 @@ export default {
       "prepared-360e241e4dcb"
     ],
     "Function_config": [
-      "inputSchema-434f89f77423",
-      "schema-1d2155b590a2",
       "execute-5deb85869c1d",
+      "inputSchema-434f89f77423",
       "context-884c05d5299f",
       "debug-cdff8d93c93d",
       "description-094750903948",
       "tools-05ebb5c95a02",
-      "toolsContext-492a80518673"
+      "toolsContext-492a80518673",
+      "schema-1d2155b590a2"
     ],
     "Function_settings": [
-      "inputSchema-434f89f77423",
-      "schema-1d2155b590a2",
       "execute-5deb85869c1d",
+      "inputSchema-434f89f77423",
       "context-884c05d5299f",
       "debug-cdff8d93c93d",
       "description-094750903948",
       "tools-05ebb5c95a02",
-      "toolsContext-492a80518673"
+      "toolsContext-492a80518673",
+      "schema-1d2155b590a2"
     ],
     "Function_inputs": [
       "direct-61182c4fc774",
@@ -450,20 +520,18 @@ export default {
       "prompt-dbcb70464d4d",
       "model-f5334808405d",
       "toolChoice-ee62be34526e",
+      "stopWhen-fb42ba28c06a",
       "telemetry-8764a08784e2",
       "experimental_sandbox-2582909742ec",
       "experimental_steering-82714f7fe6df",
       "activeTools-e09d12af5e53",
       "toolOrder-c6855d505085",
       "toolCallConcurrency-940e6b2336b5",
+      "toolApproval-6a9876dda4cd",
       "experimental_toolCallers-ffe6f3c3e609",
       "experimental_toolApprovalSecret-4ff3620966c4",
-      "include-2f0b096d0254",
-      "streamRetries-2780ace7cb77",
-      "streaming-7ebe1c1cd17f",
-      "stopWhen-fb42ba28c06a",
-      "toolApproval-6a9876dda4cd",
       "experimental_download-339211b44f67",
+      "prepareStep-b1fc7f13d5d4",
       "repairToolCall-5401ceab17c1",
       "experimental_refineToolInput-fdf12acc03d8",
       "onStart-c175b325404b",
@@ -475,17 +543,28 @@ export default {
       "onStepEnd-8b3fdb23f1d8",
       "onStepError-97a24c8aaa0f",
       "onEnd-3644bf4f2d1c",
+      "include-2f0b096d0254",
       "experimental_transform-89cd4ae316b3",
       "onChunk-53740e0f058c",
       "onError-74cbedca876d",
+      "streamRetries-2780ace7cb77",
       "onAbort-1aceb31e0923",
-      "prepareCall-1ce8440c2874",
-      "prepareStep-b1fc7f13d5d4",
-      "asTool-dfdd3e4eaf49"
+      "prepareCall-1ce8440c2874"
     ],
     "LLMAgent_settings": [
+      "inputSchema-d2ab2b864d21",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-d8cac053f1e9",
+      "toolsContext-be97e33328f3",
       "runtimeContext-5279a5b531bf",
       "providerOptions-bdb985c437b4",
+      "id-7c420ba44547",
+      "output-960376aadf77",
       "maxOutputTokens-28aceb6f8de2",
       "temperature-d5e463222c25",
       "topP-c18ae9faa20b",
@@ -500,6 +579,7 @@ export default {
       "timeout-d2d66c53fa17",
       "instructions-b0d8abcfc99d",
       "allowSystemInMessages-e1a407f3bbe9",
+      "prompt-dbcb70464d4d",
       "model-f5334808405d",
       "toolChoice-ee62be34526e",
       "stopWhen-e8250c5614a3",
@@ -529,20 +609,7 @@ export default {
       "onChunk-6fbcb2a9372a",
       "onError-16e40c751f49",
       "streamRetries-2780ace7cb77",
-      "onAbort-9e072f29fce0",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "id-7c420ba44547",
-      "streaming-7ebe1c1cd17f",
-      "output-960376aadf77",
-      "prompt-dbcb70464d4d",
-      "inputSchema-d2ab2b864d21",
-      "tools-d8cac053f1e9",
-      "toolsContext-be97e33328f3"
+      "onAbort-9e072f29fce0"
     ],
     "LLMAgent_inputs": [
       "direct-92236f2a65ad",
@@ -550,6 +617,15 @@ export default {
       "prepared-3c21b736ebb0"
     ],
     "Decision_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
       "runtimeContext-0add664a522c",
       "providerOptions-c53d3bd5265d",
       "maxOutputTokens-16305b3096c8",
@@ -562,16 +638,7 @@ export default {
       "onEnd-a03dc449884e",
       "questions-dd5363516405",
       "state-f6557702dc32",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
-      "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "Decision_settings": [
       "runtimeContext-0add664a522c",
@@ -594,7 +661,17 @@ export default {
       "prepared-37a4f0163687"
     ],
     "Embedder_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
       "runtimeContext-b82193f21760",
+      "input-fb5baefd9ad6",
       "providerOptions-a94e237310ca",
       "maxRetries-21df607005af",
       "headers-f7116f3e57a6",
@@ -607,20 +684,11 @@ export default {
       "dimensions-2ccabb90d619",
       "maxParallelCalls-6694df5c0a88",
       "experimental_onEnd-a59f437a84ba",
-      "input-fb5baefd9ad6",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
-      "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "Embedder_settings": [
       "runtimeContext-b82193f21760",
+      "input-dcc8da217a5c",
       "providerOptions-a94e237310ca",
       "maxRetries-21df607005af",
       "abortSignal-2b7c59d4f74b",
@@ -633,8 +701,7 @@ export default {
       "onEnd-5bb5b5ee92e8",
       "dimensions-2ccabb90d619",
       "maxParallelCalls-6694df5c0a88",
-      "experimental_onEnd-a59f437a84ba",
-      "input-dcc8da217a5c"
+      "experimental_onEnd-a59f437a84ba"
     ],
     "Embedder_inputs": [
       "direct-fce20620be48",
@@ -642,6 +709,15 @@ export default {
       "prepared-2ea72cf3d6e5"
     ],
     "Reranker_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
       "runtimeContext-bfeb4849a32a",
       "providerOptions-323e9176b870",
       "maxRetries-5a3efed0cfd5",
@@ -654,18 +730,9 @@ export default {
       "onEnd-336a122ae41f",
       "experimental_onEnd-7bae4c05bcee",
       "documents-153e8de9ac0a",
-      "topN-2e58a6ef4988",
       "query-bf57c694fea9",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
-      "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
+      "topN-2e58a6ef4988",
+      "toolContextSchema-d7c206b57ff4"
     ],
     "Reranker_settings": [
       "runtimeContext-bfeb4849a32a",
@@ -690,10 +757,20 @@ export default {
       "prepared-443e2e85b058"
     ],
     "ImageGenerator_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
       "providerOptions-d0dcb86a4b4b",
       "seed-2911d722b271",
       "maxRetries-43a557421317",
       "headers-8a1860c91ac4",
+      "prompt-e832a0f8b353",
       "model-11f5ef204b2c",
       "n-f9857b6df04f",
       "maxImagesPerCall-7d962d74cbca",
@@ -701,17 +778,7 @@ export default {
       "aspectRatio-29de3eadc285",
       "images-a9ef46239974",
       "mask-67715919181b",
-      "prompt-e832a0f8b353",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
-      "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "ImageGenerator_settings": [
       "providerOptions-d0dcb86a4b4b",
@@ -734,23 +801,23 @@ export default {
       "prepared-02ae7791d4f4"
     ],
     "Transcriber_config": [
-      "providerOptions-6fb067a708e2",
-      "maxRetries-569af71b732f",
-      "headers-23ed9be29275",
-      "model-b8a9484641b3",
-      "telemetry-72cc4604f7aa",
-      "download-f08788366d4c",
-      "audio-0c1c18aa3172",
+      "inputSchema-e1f157741580",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
       "context-9009039f251e",
       "debug-cdff8d93c93d",
       "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
+      "toolsContext-a026c14e3010",
+      "providerOptions-6fb067a708e2",
+      "maxRetries-569af71b732f",
+      "headers-23ed9be29275",
+      "model-b8a9484641b3",
+      "telemetry-72cc4604f7aa",
+      "audio-9c73b42bbd95",
+      "toolContextSchema-d7c206b57ff4",
+      "mediaSettings-8cb54a65d206"
     ],
     "Transcriber_settings": [
       "providerOptions-6fb067a708e2",
@@ -759,49 +826,24 @@ export default {
       "headers-23ed9be29275",
       "model-d63e7d77f371",
       "telemetry-72cc4604f7aa",
-      "audio-2c7771e7c87b",
-      "download-f08788366d4c"
+      "audio-73df487dd407"
     ],
     "Transcriber_inputs": [
-      "direct-0fa09a3c675a",
-      "template-7349d7682caf",
-      "prepared-98dc444fb407"
+      "direct-ce57012f6de6",
+      "prepared-7bcc861ace2a",
+      "template-a7eeab580e6b"
     ],
-    "StreamingTranscriber_config": [
-      "providerOptions-0e700395c4b1",
-      "headers-1c3aaeb2734c",
-      "model-93d3f90bcfb6",
-      "telemetry-237457941031",
-      "includeRawChunks-7d3f5f2a41a1",
-      "inputAudioFormat-7e0e83a62aca",
-      "audio-73f3d8f8ab2d",
+    "SpeechGenerator_config": [
+      "text-ae666701d8c6",
+      "inputSchema-e1f157741580",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
       "context-9009039f251e",
       "debug-cdff8d93c93d",
       "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
-    ],
-    "StreamingTranscriber_settings": [
-      "providerOptions-0e700395c4b1",
-      "abortSignal-69af4f81640d",
-      "headers-1c3aaeb2734c",
-      "model-e9ed376d43a6",
-      "telemetry-237457941031",
-      "includeRawChunks-7d3f5f2a41a1",
-      "audio-3b4b6bba6442",
-      "inputAudioFormat-a530ffc7dab7"
-    ],
-    "StreamingTranscriber_inputs": [
-      "direct-cb45dbd030e6",
-      "template-7349d7682caf",
-      "prepared-3509297a8ac6"
-    ],
-    "SpeechGenerator_config": [
+      "toolsContext-a026c14e3010",
       "providerOptions-b4ea33bb4d7b",
       "maxRetries-3203a207b457",
       "headers-210ca6223697",
@@ -809,20 +851,10 @@ export default {
       "model-94567991422d",
       "telemetry-f8a2081d9c3e",
       "voice-524c54983482",
-      "outputFormat-6291f13adf52",
+      "outputFormat-9816d21874a3",
       "speed-4d164fbb7f9d",
       "language-61b62537a500",
-      "text-9952b743697d",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
-      "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "SpeechGenerator_settings": [
       "text-ec806897822a",
@@ -839,93 +871,23 @@ export default {
       "language-61b62537a500"
     ],
     "SpeechGenerator_inputs": [
-      "direct-c287cb6ac7c7",
-      "template-7349d7682caf",
-      "prepared-01eff35c8614"
-    ],
-    "StreamingSpeechGenerator_config": [
-      "providerOptions-8ef11a06508b",
-      "headers-a43707561005",
-      "instructions-4b3f21b46179",
-      "model-e7347b132223",
-      "includeRawChunks-90c2b49e91af",
-      "onError-50a850676fc2",
-      "voice-a24507351f00",
-      "outputFormat-1c52617eb72c",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341",
-      "text-85a9dc177766",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
-      "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
-    ],
-    "StreamingSpeechGenerator_settings": [
-      "text-730665458c8e",
-      "providerOptions-8ef11a06508b",
-      "abortSignal-ba9834cb4957",
-      "headers-a43707561005",
-      "instructions-4b3f21b46179",
-      "model-f710fabe18e0",
-      "includeRawChunks-90c2b49e91af",
-      "onError-50a850676fc2",
-      "voice-a24507351f00",
-      "outputFormat-1c52617eb72c",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341"
-    ],
-    "StreamingSpeechGenerator_inputs": [
       "direct-5306f56796f6",
-      "template-7349d7682caf",
-      "prepared-b47e988fe35e"
+      "prepared-b47e988fe35e",
+      "template-7349d7682caf"
     ],
-    "StreamingTranslator_config": [
-      "providerOptions-629f88d39640",
-      "headers-8bb00513d5db",
-      "model-c8d77816a238",
-      "includeRawChunks-29430afa6810",
-      "inputAudioFormat-2df44b715671",
-      "targetLanguage-94fcfd26675f",
-      "sourceLanguage-af6309dbca4a",
-      "outputAudioFormat-89e588aef43c",
-      "audio-73f3d8f8ab2d",
+    "VoiceAgentBackend_config": [
+      "inputSchema-e1f157741580",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
       "context-9009039f251e",
       "debug-cdff8d93c93d",
       "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
       "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
-    ],
-    "StreamingTranslator_settings": [
-      "providerOptions-629f88d39640",
-      "abortSignal-d9dfce9e4ae0",
-      "headers-8bb00513d5db",
-      "model-2844db232f29",
-      "includeRawChunks-29430afa6810",
-      "audio-bc4b82bb8b5d",
-      "inputAudioFormat-a9437bf10d0a",
-      "targetLanguage-f5006a68aa47",
-      "sourceLanguage-af6309dbca4a",
-      "outputAudioFormat-89e588aef43c"
-    ],
-    "StreamingTranslator_inputs": [
-      "direct-cb45dbd030e6",
-      "template-7349d7682caf",
-      "prepared-3509297a8ac6"
-    ],
-    "VoiceSessionSetup_config": [
+      "toolsContext-a026c14e3010",
       "providerOptions-017504595b6e",
-      "model-ffb52545b337",
+      "instructions-cda74c669be0",
+      "model-c2646b18c643",
       "inputAudioFormat-955d75ed5ca3",
       "voice-7e42c4fa10ac",
       "outputAudioFormat-bc737eb9a538",
@@ -934,21 +896,12 @@ export default {
       "outputAudioTranscription-d19f1c7d2fa9",
       "turnDetection-8e67b91d87d3",
       "expiresAfterSeconds-f25ee8b0931a",
-      "instructions-cda74c669be0",
-      "filters-e21828790709",
-      "renderOptions-0b6a6f477332",
-      "loader-5d45bab68a1b",
-      "context-9009039f251e",
-      "debug-cdff8d93c93d",
-      "description-094750903948",
-      "toolContextSchema-d7c206b57ff4",
-      "inputSchema-e1f157741580",
-      "tools-f8808df35909",
-      "toolsContext-a026c14e3010"
+      "toolContextSchema-d7c206b57ff4"
     ],
-    "VoiceSessionSetup_settings": [
+    "VoiceAgentBackend_settings": [
       "providerOptions-017504595b6e",
       "instructions-4cc81f59e6ac",
+      "model-c2646b18c643",
       "inputAudioFormat-955d75ed5ca3",
       "voice-7e42c4fa10ac",
       "outputAudioFormat-bc737eb9a538",
@@ -956,22 +909,20 @@ export default {
       "inputAudioTranscription-bc4eeaf53b51",
       "outputAudioTranscription-d19f1c7d2fa9",
       "turnDetection-8e67b91d87d3",
-      "expiresAfterSeconds-f25ee8b0931a",
-      "model-ffb52545b337"
+      "expiresAfterSeconds-f25ee8b0931a"
     ],
-    "VoiceSessionSetup_inputs": [
+    "VoiceAgentBackend_inputs": [
       "direct-b5cef17f1666",
       "template-7349d7682caf",
       "prepared-360e241e4dcb"
     ],
     "Tool": [
-      "inputSchema-47ed76ea66b3",
-      "asTool-dfdd3e4eaf49",
-      "toolContextSchema-d7c206b57ff4",
       "onInputAvailable-0ee077587da3",
       "onInputStart-060e54bf784e",
       "onInputDelta-ea4168ae0b75",
       "needsApproval-e2c793a8ce88",
+      "inputSchema-47ed76ea66b3",
+      "description-e0df7f9e2319",
       "title-6e688f9a6e86",
       "deferLoading-ae9383ee0fa8",
       "providerOptions-42fe4696b43b",
@@ -979,11 +930,12 @@ export default {
       "toModelOutput-8f0e85e088c7",
       "strict-07a151c197b1",
       "inputExamples-ff69a7242b1e",
-      "description-e0df7f9e2319"
+      "toolContextSchema-d7c206b57ff4"
     ],
     "AgentRun": [
       "debug-cdff8d93c93d",
       "description-094750903948",
+      "tools-fdfe05249bc3",
       "runtimeContext-5279a5b531bf",
       "providerOptions-bdb985c437b4",
       "maxOutputTokens-28aceb6f8de2",
@@ -1000,22 +952,21 @@ export default {
       "timeout-1bba377e46d4",
       "instructions-b0d8abcfc99d",
       "allowSystemInMessages-e1a407f3bbe9",
+      "prompt-0bb201e140ef",
+      "model-9cc84a88e236",
       "toolChoice-180fe037bbc0",
+      "stopWhen-ff0af44bb75f",
       "telemetry-678067987faf",
       "experimental_sandbox-2582909742ec",
       "experimental_steering-82714f7fe6df",
       "activeTools-97c193783099",
       "toolOrder-e8ffff15b565",
       "toolCallConcurrency-940e6b2336b5",
+      "toolApproval-c6b1e240ae25",
       "experimental_toolCallers-ff9afda2223d",
       "experimental_toolApprovalSecret-4ff3620966c4",
-      "include-2f0b096d0254",
-      "streamRetries-2780ace7cb77",
-      "prompt-0bb201e140ef",
-      "messageHistory-fb9b9d072e86",
-      "stopWhen-ff0af44bb75f",
-      "toolApproval-c6b1e240ae25",
       "experimental_download-339211b44f67",
+      "prepareStep-8ac0218841fa",
       "repairToolCall-2a971774557c",
       "experimental_refineToolInput-98f7247ec4dd",
       "onStart-64b4743c0ba2",
@@ -1027,14 +978,14 @@ export default {
       "onStepEnd-41a36140d3f2",
       "onStepError-bcce88d062ae",
       "onEnd-457c295e22f5",
+      "include-2f0b096d0254",
       "experimental_transform-7216d3f250a7",
       "onChunk-776bfe13cff3",
       "onError-74cbedca876d",
+      "streamRetries-2780ace7cb77",
       "onAbort-e8b00af800f1",
       "prepareCall-80fbe84c6775",
-      "prepareStep-8ac0218841fa",
-      "tools-fdfe05249bc3",
-      "model-9cc84a88e236"
+      "messageHistory-fb9b9d072e86"
     ],
     "NativeGenerate": [
       "options-37bd75580b6d",
@@ -1223,10 +1174,10 @@ export default {
       "tags-3d4ec07f1a22"
     ],
     "ExecutionOptions": [
-      "abortSignal-2bf31b7f87fc",
-      "experimental_sandbox-0dfa76df5e3e",
       "toolCallId-b3e91af1743a",
-      "messages-f97f28a7fbbb"
+      "abortSignal-2bf31b7f87fc",
+      "messages-f97f28a7fbbb",
+      "experimental_sandbox-0dfa76df5e3e"
     ],
     "Output": [
       "array-a50da8c00109",
@@ -1601,27 +1552,6 @@ export default {
       "download-f08788366d4c",
       "_internal-a4d65510b686"
     ],
-    "StreamingTranscriber_result": [
-      "text-b4b7399b21c2",
-      "segments-33df0823f194",
-      "language-6859a8acc1d2",
-      "durationInSeconds-24de35d7d0a5",
-      "warnings-8a7a10343ff2",
-      "responses-187bc4e8cfa3",
-      "providerMetadata-2ecb679233eb",
-      "fullStream-007898973bb7"
-    ],
-    "StreamingTranscriber_native": [
-      "model-e9ed376d43a6",
-      "audio-3b4b6bba6442",
-      "inputAudioFormat-a530ffc7dab7",
-      "providerOptions-0e700395c4b1",
-      "abortSignal-69af4f81640d",
-      "headers-1c3aaeb2734c",
-      "includeRawChunks-7d3f5f2a41a1",
-      "telemetry-237457941031",
-      "_internal-76401c9df9f4"
-    ],
     "SpeechGenerator_result": [
       "audio-090e31c3f07e",
       "warnings-751664670b6e",
@@ -1643,7 +1573,252 @@ export default {
       "telemetry-f8a2081d9c3e",
       "_internal-891f15b39ec6"
     ],
-    "StreamingSpeechGenerator_result": [
+    "VoiceAgentBackend_result": [
+      "token-ef6388c67aaf",
+      "url-6694c49079ae",
+      "expiresAt-b4d04565231e",
+      "tools-77941a98285d"
+    ],
+    "TranscriberFile_settings": [
+      "providerOptions-6fb067a708e2",
+      "maxRetries-569af71b732f",
+      "abortSignal-1f5a193f4cfe",
+      "headers-23ed9be29275",
+      "model-d63e7d77f371",
+      "telemetry-72cc4604f7aa",
+      "audio-73df487dd407"
+    ],
+    "TranscriberStream_settings": [
+      "providerOptions-0e700395c4b1",
+      "abortSignal-69af4f81640d",
+      "headers-1c3aaeb2734c",
+      "model-e9ed376d43a6",
+      "telemetry-237457941031",
+      "includeRawChunks-7d3f5f2a41a1",
+      "audio-74b094ee73bb",
+      "inputAudioFormat-a530ffc7dab7"
+    ],
+    "SpeechGeneratorComplete_settings": [
+      "text-ec806897822a",
+      "providerOptions-b4ea33bb4d7b",
+      "maxRetries-3203a207b457",
+      "abortSignal-dde81d3b7308",
+      "headers-210ca6223697",
+      "instructions-589fb8cbb087",
+      "model-8d9d31f1896c",
+      "telemetry-f8a2081d9c3e",
+      "voice-524c54983482",
+      "outputFormat-6291f13adf52",
+      "speed-4d164fbb7f9d",
+      "language-61b62537a500"
+    ],
+    "SpeechGeneratorStream_settings": [
+      "text-730665458c8e",
+      "providerOptions-8ef11a06508b",
+      "abortSignal-ba9834cb4957",
+      "headers-a43707561005",
+      "instructions-4b3f21b46179",
+      "model-f710fabe18e0",
+      "includeRawChunks-90c2b49e91af",
+      "onError-50a850676fc2",
+      "voice-a24507351f00",
+      "outputFormat-1c52617eb72c",
+      "speed-38cf774e7d2f",
+      "language-17c4c3804341"
+    ],
+    "Translator_settings": [
+      "providerOptions-629f88d39640",
+      "abortSignal-d9dfce9e4ae0",
+      "headers-8bb00513d5db",
+      "model-2844db232f29",
+      "includeRawChunks-29430afa6810",
+      "audio-74b094ee73bb",
+      "inputAudioFormat-a9437bf10d0a",
+      "targetLanguage-f5006a68aa47",
+      "sourceLanguage-af6309dbca4a",
+      "outputAudioFormat-89e588aef43c"
+    ],
+    "TranscriberCollected_result": [
+      "text-92f3fa446b4e",
+      "providerMetadata-a1890558f6d7",
+      "language-674fb22af7b6",
+      "warnings-2a1d84032a96",
+      "segments-d68f3ff72330",
+      "durationInSeconds-3e9796df05cf",
+      "responses-b5f966a8bc01"
+    ],
+    "SpeechCollected_result": [
+      "audio-46dc36900880",
+      "audioFormat-ba3ff73c32b6",
+      "providerMetadata-a1890558f6d7",
+      "warnings-2a1d84032a96",
+      "usage-0c354eda26a6",
+      "responses-0ec69e73a281"
+    ],
+    "Translator_result": [
+      "audio-af56ffb070ad",
+      "providerMetadata-a1890558f6d7",
+      "warnings-2a1d84032a96",
+      "response-473e4f6faa96",
+      "usage-66baaa2fd138",
+      "durationInSeconds-3e9796df05cf",
+      "sourceText-61a4fc8c3ce4",
+      "translationText-5685980a9448"
+    ],
+    "TranslatorStream_settings": [
+      "providerOptions-629f88d39640",
+      "abortSignal-d9dfce9e4ae0",
+      "headers-8bb00513d5db",
+      "model-2844db232f29",
+      "includeRawChunks-29430afa6810",
+      "audio-74b094ee73bb",
+      "inputAudioFormat-a9437bf10d0a",
+      "targetLanguage-f5006a68aa47",
+      "sourceLanguage-af6309dbca4a",
+      "outputAudioFormat-89e588aef43c"
+    ],
+    "TranscriberStream_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "providerOptions-0e700395c4b1",
+      "headers-1c3aaeb2734c",
+      "model-93d3f90bcfb6",
+      "telemetry-237457941031",
+      "includeRawChunks-7d3f5f2a41a1",
+      "audio-415a3c74225d",
+      "inputAudioFormat-7e0e83a62aca",
+      "toolContextSchema-d7c206b57ff4",
+      "mediaSettings-8cb54a65d206"
+    ],
+    "TranscriberStream_inputs": [
+      "direct-3487598c76a8",
+      "prepared-f96451b85965",
+      "template-a7eeab580e6b"
+    ],
+    "SpeechGeneratorStream_config": [
+      "text-0a348a391125",
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "providerOptions-8ef11a06508b",
+      "headers-a43707561005",
+      "instructions-4b3f21b46179",
+      "model-e7347b132223",
+      "includeRawChunks-90c2b49e91af",
+      "onError-50a850676fc2",
+      "voice-a24507351f00",
+      "outputFormat-1c52617eb72c",
+      "speed-38cf774e7d2f",
+      "language-17c4c3804341",
+      "toolContextSchema-d7c206b57ff4"
+    ],
+    "SpeechGeneratorStream_inputs": [
+      "direct-5306f56796f6",
+      "prepared-b47e988fe35e",
+      "template-7349d7682caf"
+    ],
+    "Translator_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "providerOptions-629f88d39640",
+      "headers-8bb00513d5db",
+      "model-c8d77816a238",
+      "includeRawChunks-29430afa6810",
+      "audio-415a3c74225d",
+      "inputAudioFormat-2df44b715671",
+      "targetLanguage-94fcfd26675f",
+      "sourceLanguage-af6309dbca4a",
+      "outputAudioFormat-89e588aef43c",
+      "toolContextSchema-d7c206b57ff4",
+      "mediaSettings-8cb54a65d206"
+    ],
+    "Translator_inputs": [
+      "direct-3487598c76a8",
+      "prepared-f96451b85965",
+      "template-a7eeab580e6b"
+    ],
+    "TranslatorStream_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "providerOptions-629f88d39640",
+      "headers-8bb00513d5db",
+      "model-c8d77816a238",
+      "includeRawChunks-29430afa6810",
+      "audio-415a3c74225d",
+      "inputAudioFormat-2df44b715671",
+      "targetLanguage-94fcfd26675f",
+      "sourceLanguage-af6309dbca4a",
+      "outputAudioFormat-89e588aef43c",
+      "toolContextSchema-d7c206b57ff4",
+      "mediaSettings-8cb54a65d206"
+    ],
+    "TranslatorStream_inputs": [
+      "direct-3487598c76a8",
+      "prepared-f96451b85965",
+      "template-a7eeab580e6b"
+    ],
+    "TranscriberStream_native": [
+      "providerOptions-0e700395c4b1",
+      "abortSignal-69af4f81640d",
+      "headers-1c3aaeb2734c",
+      "model-e9ed376d43a6",
+      "telemetry-237457941031",
+      "includeRawChunks-7d3f5f2a41a1",
+      "audio-3b4b6bba6442",
+      "inputAudioFormat-a530ffc7dab7"
+    ],
+    "TranscriberStream_result": [
+      "text-b4b7399b21c2",
+      "segments-33df0823f194",
+      "language-6859a8acc1d2",
+      "durationInSeconds-24de35d7d0a5",
+      "warnings-8a7a10343ff2",
+      "responses-187bc4e8cfa3",
+      "providerMetadata-2ecb679233eb",
+      "fullStream-007898973bb7"
+    ],
+    "SpeechGeneratorStream_native": [
+      "text-730665458c8e",
+      "providerOptions-8ef11a06508b",
+      "abortSignal-ba9834cb4957",
+      "headers-a43707561005",
+      "instructions-4b3f21b46179",
+      "model-f710fabe18e0",
+      "includeRawChunks-90c2b49e91af",
+      "onError-50a850676fc2",
+      "voice-a24507351f00",
+      "outputFormat-1c52617eb72c",
+      "speed-38cf774e7d2f",
+      "language-17c4c3804341"
+    ],
+    "SpeechGeneratorStream_result": [
       "usage-e862f00da64d",
       "warnings-13637bc242f9",
       "responses-261571bff397",
@@ -1651,22 +1826,31 @@ export default {
       "audioStream-b358ab4f1af4",
       "fullStream-1187b3d5412c"
     ],
-    "StreamingSpeechGenerator_native": [
-      "model-f710fabe18e0",
-      "text-730665458c8e",
-      "voice-a24507351f00",
-      "outputFormat-1c52617eb72c",
-      "instructions-4b3f21b46179",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341",
-      "providerOptions-8ef11a06508b",
-      "abortSignal-ba9834cb4957",
-      "headers-a43707561005",
-      "includeRawChunks-90c2b49e91af",
-      "onError-50a850676fc2",
-      "_internal-33f27e35a0d4"
+    "Translator_native": [
+      "providerOptions-629f88d39640",
+      "abortSignal-d9dfce9e4ae0",
+      "headers-8bb00513d5db",
+      "model-2844db232f29",
+      "includeRawChunks-29430afa6810",
+      "audio-bc4b82bb8b5d",
+      "inputAudioFormat-a9437bf10d0a",
+      "targetLanguage-f5006a68aa47",
+      "sourceLanguage-af6309dbca4a",
+      "outputAudioFormat-89e588aef43c"
     ],
-    "StreamingTranslator_result": [
+    "TranslatorStream_native": [
+      "providerOptions-629f88d39640",
+      "abortSignal-d9dfce9e4ae0",
+      "headers-8bb00513d5db",
+      "model-2844db232f29",
+      "includeRawChunks-29430afa6810",
+      "audio-bc4b82bb8b5d",
+      "inputAudioFormat-a9437bf10d0a",
+      "targetLanguage-f5006a68aa47",
+      "sourceLanguage-af6309dbca4a",
+      "outputAudioFormat-89e588aef43c"
+    ],
+    "TranslatorStream_result": [
       "sourceText-20efa392ede3",
       "translationText-94c108174585",
       "durationInSeconds-517ae82d7988",
@@ -1676,24 +1860,203 @@ export default {
       "providerMetadata-820fb99f87d6",
       "fullStream-16693db7e0f0"
     ],
-    "StreamingTranslator_native": [
-      "model-2844db232f29",
-      "audio-bc4b82bb8b5d",
-      "inputAudioFormat-a9437bf10d0a",
-      "targetLanguage-f5006a68aa47",
-      "sourceLanguage-af6309dbca4a",
-      "outputAudioFormat-89e588aef43c",
-      "providerOptions-629f88d39640",
-      "abortSignal-d9dfce9e4ae0",
-      "headers-8bb00513d5db",
-      "includeRawChunks-29430afa6810",
-      "_internal-0c473c098e24"
+    "TranscriberRaw_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "providerOptions-0e700395c4b1",
+      "headers-1c3aaeb2734c",
+      "model-93d3f90bcfb6",
+      "telemetry-237457941031",
+      "includeRawChunks-7d3f5f2a41a1",
+      "audio-415a3c74225d",
+      "inputAudioFormat-7e0e83a62aca",
+      "toolContextSchema-d7c206b57ff4",
+      "mediaSettings-8cb54a65d206"
     ],
-    "VoiceSessionSetup_result": [
-      "token-ef6388c67aaf",
-      "url-6694c49079ae",
-      "expiresAt-b4d04565231e",
-      "tools-2d73a7f6a27a"
+    "SpeechGeneratorCollected_config": [
+      "text-0a348a391125",
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "providerOptions-8ef11a06508b",
+      "headers-a43707561005",
+      "instructions-4b3f21b46179",
+      "model-e7347b132223",
+      "includeRawChunks-90c2b49e91af",
+      "onError-50a850676fc2",
+      "voice-a24507351f00",
+      "outputFormat-1c52617eb72c",
+      "speed-38cf774e7d2f",
+      "language-17c4c3804341",
+      "toolContextSchema-d7c206b57ff4"
+    ],
+    "AudioPreparation_config": [
+      "inputAudioFormat-3086428fb063",
+      "mediaSettings-8cb54a65d206"
+    ],
+    "VoiceAgentClient_config": [
+      "model-8d90286adc15",
+      "onError-ac702d5799f7",
+      "api-96e6faee24dc",
+      "sessionConfig-9d28f0dc148c",
+      "sampleRate-cde1ebf592d2",
+      "maxEvents-e8b6e2c06f40",
+      "startupTimeoutMs-d20632605c64",
+      "closeTimeoutMs-d201a4934ea3",
+      "rtcDisconnectTimeoutMs-e4b1f8b4721d",
+      "maxPlaybackBufferSeconds-58459e112b41",
+      "onToolCall-e108281592b1",
+      "onEvent-97febd9b5a0f"
+    ],
+    "VoiceAgentClient_settings": [
+      "model-8d90286adc15",
+      "onError-ac702d5799f7",
+      "api-96e6faee24dc",
+      "sessionConfig-9d28f0dc148c",
+      "sampleRate-cde1ebf592d2",
+      "maxEvents-e8b6e2c06f40",
+      "startupTimeoutMs-d20632605c64",
+      "closeTimeoutMs-d201a4934ea3",
+      "rtcDisconnectTimeoutMs-e4b1f8b4721d",
+      "maxPlaybackBufferSeconds-58459e112b41",
+      "onToolCall-e108281592b1",
+      "onEvent-97febd9b5a0f"
+    ],
+    "VoiceAgentClient_native": [
+      "model-8d90286adc15",
+      "api-96e6faee24dc",
+      "sessionConfig-9d28f0dc148c",
+      "sampleRate-cde1ebf592d2",
+      "maxEvents-e8b6e2c06f40",
+      "startupTimeoutMs-d20632605c64",
+      "closeTimeoutMs-d201a4934ea3",
+      "rtcDisconnectTimeoutMs-e4b1f8b4721d",
+      "maxPlaybackBufferSeconds-58459e112b41",
+      "onToolCall-e108281592b1",
+      "onEvent-97febd9b5a0f",
+      "onError-ac702d5799f7"
+    ],
+    "VoiceAgentClient_inputs": [],
+    "VoiceAgentClient_result": [
+      "onError-ee293d8dc69d",
+      "onToolCall-1bb4e2579e8e",
+      "onEvent-2b525dd0ec4b",
+      "connect-a277f2ca8921",
+      "disconnect-a0f2793ced8a",
+      "close-e363f56e6a2b",
+      "sendEvent-1ed4115b59e1",
+      "sendTextMessage-e25a39689251",
+      "sendAudio-abb6fd8293e3",
+      "commitAudio-c1bebd5fa209",
+      "clearAudioBuffer-784cb9924553",
+      "requestResponse-8d20891a47c8",
+      "cancelResponse-ef55991b7861",
+      "addToolOutput-5a6e47b363d5",
+      "startAudioCapture-f8d969401d42",
+      "resumeAudioCapture-aad7cfb3b71b",
+      "stopAudioCapture-d3ce66e2c1a4",
+      "stopPlayback-4aaa7bc6d4eb",
+      "resumePlayback-c29f9a66cc87",
+      "dispose-ba4bc348b681",
+      "getSnapshot-b4938edff73b",
+      "subscribe-d65210706930"
+    ],
+    "VideoGenerator_settings": [
+      "providerOptions-b1f6e46513fc",
+      "seed-a925b39a46ff",
+      "maxRetries-557e44be3533",
+      "abortSignal-5c1f46bf9562",
+      "headers-86cc6d2a91a0",
+      "prompt-d76e36aeb1ec",
+      "model-05ef0967cd9a",
+      "n-abd3343160cb",
+      "aspectRatio-ab67dd850135",
+      "download-66b7a049f669",
+      "maxVideosPerCall-04e47517618a",
+      "resolution-983d2c88254d",
+      "duration-f26848fb3fa6",
+      "fps-c32d5e0c8d00",
+      "frameImages-aeba77dd05f1",
+      "inputReferences-0bf9ee19009d",
+      "generateAudio-9ba1f0fe35f9",
+      "poll-a413a5705658",
+      "webhook-150ee2c34792"
+    ],
+    "VideoGenerator_native": [
+      "model-05ef0967cd9a",
+      "prompt-d76e36aeb1ec",
+      "n-abd3343160cb",
+      "maxVideosPerCall-04e47517618a",
+      "aspectRatio-ab67dd850135",
+      "resolution-983d2c88254d",
+      "duration-f26848fb3fa6",
+      "fps-c32d5e0c8d00",
+      "seed-a925b39a46ff",
+      "frameImages-aeba77dd05f1",
+      "inputReferences-0bf9ee19009d",
+      "generateAudio-9ba1f0fe35f9",
+      "providerOptions-b1f6e46513fc",
+      "maxRetries-557e44be3533",
+      "abortSignal-5c1f46bf9562",
+      "headers-86cc6d2a91a0",
+      "download-66b7a049f669",
+      "poll-a413a5705658",
+      "webhook-150ee2c34792"
+    ],
+    "VideoGenerator_config": [
+      "inputSchema-e1f157741580",
+      "filters-e21828790709",
+      "renderOptions-0b6a6f477332",
+      "loader-5d45bab68a1b",
+      "context-9009039f251e",
+      "debug-cdff8d93c93d",
+      "description-094750903948",
+      "tools-f8808df35909",
+      "toolsContext-a026c14e3010",
+      "providerOptions-b1f6e46513fc",
+      "seed-a925b39a46ff",
+      "maxRetries-557e44be3533",
+      "headers-86cc6d2a91a0",
+      "prompt-b7d5559918ca",
+      "model-ce767d778a6c",
+      "n-abd3343160cb",
+      "aspectRatio-ab67dd850135",
+      "download-66b7a049f669",
+      "toolContextSchema-d7c206b57ff4",
+      "maxVideosPerCall-04e47517618a",
+      "resolution-983d2c88254d",
+      "duration-f26848fb3fa6",
+      "fps-c32d5e0c8d00",
+      "frameImages-aeba77dd05f1",
+      "inputReferences-0bf9ee19009d",
+      "generateAudio-9ba1f0fe35f9",
+      "poll-a413a5705658",
+      "webhook-150ee2c34792"
+    ],
+    "VideoGenerator_inputs": [
+      "direct-4ea07477228e",
+      "prepared-220b47dc8244",
+      "template-698edd69db01"
+    ],
+    "VideoGenerator_result": [
+      "video-84772d9bf3b3",
+      "videos-8774a365a425",
+      "warnings-87ff71219ca6",
+      "responses-ab44c3b4f994",
+      "providerMetadata-2785d8939d21"
     ],
     "Telemetry:0": [
       "isEnabled-461f93f561cc",
@@ -1829,6 +2192,76 @@ export default {
     "RenderWeb:0": [
       "useCache-fea750cb2b63",
       "async-83ca33f9d83e"
+    ],
+    "MediaSettings:0": [
+      "track-df38ccf3977e",
+      "format-e539b941a128",
+      "options-0fff94c0d2f4"
+    ],
+    "SpeechAudioFormat:0": [
+      "type-3d37b77be676",
+      "rate-9d519651bed3"
+    ],
+    "SpeechTextPart:0": [
+      "type-28d9280d80c8",
+      "text-b288a513fb80",
+      "voice-3d5bccd41bce",
+      "providerOptions-c6f026e1f87f"
+    ],
+    "VoiceClientApi:0": [
+      "token-82039d33aaad",
+      "session-3f0dd5410c19",
+      "websocket-ff8a290a5912",
+      "protocols-4fbcd03d4901"
+    ],
+    "VoiceClientApi:1": [
+      "session-187c7dfc4289",
+      "token-bea4b4f5813d",
+      "websocket-08bb41f78059",
+      "protocols-6cbccaad8f9f"
+    ],
+    "VoiceClientApi:2": [
+      "websocket-1177dc8df0aa",
+      "protocols-603840f69b76",
+      "token-e44ab10519a6",
+      "session-df0c2708636b"
+    ],
+    "VoiceClientSnapshot:0": [
+      "status-c863744369b3",
+      "messages-8a7862c23a8e",
+      "events-56835ef01875",
+      "isCapturing-b161e297c8cd",
+      "isPlaying-e8ba1fbe8c0b",
+      "session-42dc226b883f"
+    ],
+    "VoiceClientSessionConfig:0": [
+      "instructions-4cc81f59e6ac",
+      "voice-7e42c4fa10ac",
+      "outputModalities-39bbf6b1aadb",
+      "inputAudioFormat-955d75ed5ca3",
+      "inputAudioTranscription-bc4eeaf53b51",
+      "outputAudioTranscription-d19f1c7d2fa9",
+      "outputAudioFormat-bc737eb9a538",
+      "turnDetection-8e67b91d87d3",
+      "tools-a0a46f619d2a",
+      "providerOptions-017504595b6e"
+    ],
+    "VideoPrompt:0": [
+      "image-2c60dbd30184",
+      "text-92f6e71d9ff1"
+    ],
+    "VideoPoll:0": [
+      "intervalMs-8623e2efbef5",
+      "timeoutMs-0d47e970346a",
+      "delay-437aacd3bd16"
+    ],
+    "VideoFrame:0": [
+      "image-ceea09dd5218",
+      "frameType-b9140b77d8c8"
+    ],
+    "VideoReference:0": [
+      "data-847ff95deffc",
+      "mediaType-94a62a345c6a"
     ]
   },
   "properties": {
@@ -1987,26 +2420,6 @@ export default {
       "description": "",
       "tags": []
     },
-    "inputSchema-434f89f77423": {
-      "name": "inputSchema",
-      "type": "any",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts"
-      }
-    },
-    "schema-1d2155b590a2": {
-      "name": "schema",
-      "type": "any",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts"
-      }
-    },
     "execute-5deb85869c1d": {
       "name": "execute",
       "type": "FunctionImplementation<any, any, any, (input: any) => any>",
@@ -2017,8 +2430,28 @@ export default {
         "path": "src/types/config.ts"
       }
     },
+    "inputSchema-434f89f77423": {
+      "name": "inputSchema",
+      "type": "any",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/config.ts"
+      }
+    },
     "context-884c05d5299f": {
       "name": "context",
+      "type": "any",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/config.ts"
+      }
+    },
+    "schema-1d2155b590a2": {
+      "name": "schema",
       "type": "any",
       "optional": true,
       "description": "",
@@ -2363,6 +2796,13 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3947"
       }
     },
+    "stopWhen-fb42ba28c06a": {
+      "name": "stopWhen",
+      "type": "Arrayable<StopCondition<NoInfer<ResolvedTools<{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; }>>, Record<string, unknown>>>",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
     "telemetry-8764a08784e2": {
       "name": "telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, NoInfer<ToolSet>> | undefined",
@@ -2447,6 +2887,13 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4005"
       }
     },
+    "toolApproval-6a9876dda4cd": {
+      "name": "toolApproval",
+      "type": "ToolApprovalConfiguration<ResolvedTools<{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; }>, Record<string, unknown>> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
     "experimental_toolCallers-ffe6f3c3e609": {
       "name": "experimental_toolCallers",
       "type": "Experimental_ToolCallers<NoInfer<ToolSet>> | undefined",
@@ -2475,69 +2922,22 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4025"
       }
     },
-    "include-2f0b096d0254": {
-      "name": "include",
-      "type": "StreamTextInclude | undefined",
-      "optional": true,
-      "description": "Settings for controlling what data is included in step results.\nDisabling inclusion can help reduce memory usage when processing\nlarge payloads like images.\n\nBy default, request bodies and request messages are excluded.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4214,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4214"
-      }
-    },
-    "streamRetries-2780ace7cb77": {
-      "name": "streamRetries",
-      "type": "number | undefined",
-      "optional": true,
-      "description": "Maximum number of automatic retries for provider errors received after\nresponse streaming has started. Each retry reruns only the current model\nstep. Completed earlier steps and their tool results are preserved.\n\nPartial output from a failed attempt that was already emitted cannot be\nretracted and remains in consumer-facing streams. It is excluded from\nthe recovered step result, structured output parsing, response messages,\nand subsequent model steps.\n\nSet to `0` to disable automatic retries while allowing `onError` to\nrequest one retry. When automatic retries are configured, `onError` can\nrequest at most one additional retry after they are exhausted. Omit this\noption to disable all stream retry behavior and preserve incremental tool\nstreaming for existing `onError` observers.",
-      "tags": [
-        {
-          "name": "default",
-          "text": "0 (stream retry behavior disabled when omitted)"
-        }
-      ],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4108,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4108"
-      }
-    },
-    "streaming-7ebe1c1cd17f": {
-      "name": "streaming",
-      "type": "true | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/agent.ts"
-      }
-    },
-    "stopWhen-fb42ba28c06a": {
-      "name": "stopWhen",
-      "type": "Arrayable<StopCondition<NoInfer<ResolvedTools<{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; }>>, Record<string, unknown>>>",
-      "optional": true,
-      "description": "",
-      "tags": []
-    },
-    "toolApproval-6a9876dda4cd": {
-      "name": "toolApproval",
-      "type": "ToolApprovalConfiguration<ResolvedTools<{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; }>, Record<string, unknown>> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
-    },
     "experimental_download-339211b44f67": {
       "name": "experimental_download",
       "type": "DownloadFunction | undefined",
       "optional": true,
       "description": "",
       "tags": []
+    },
+    "prepareStep-b1fc7f13d5d4": {
+      "name": "prepareStep",
+      "type": "PrepareStep<Pick<AgentSettings<ToolSet, Record<string, any>, PromptValue, AIOutput, Record<string, unknown>>, \"inputSchema\" | \"context\" | \"tools\" | \"toolsContext\" | \"runtimeContext\" | \"output\">, false> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/agent.ts"
+      }
     },
     "repairToolCall-5401ceab17c1": {
       "name": "repairToolCall",
@@ -2616,6 +3016,20 @@ export default {
       "description": "",
       "tags": []
     },
+    "include-2f0b096d0254": {
+      "name": "include",
+      "type": "StreamTextInclude | undefined",
+      "optional": true,
+      "description": "Settings for controlling what data is included in step results.\nDisabling inclusion can help reduce memory usage when processing\nlarge payloads like images.\n\nBy default, request bodies and request messages are excluded.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4214,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4214"
+      }
+    },
     "experimental_transform-89cd4ae316b3": {
       "name": "experimental_transform",
       "type": "Arrayable<StreamTextTransform<ResolvedTools<{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; }>>>",
@@ -2637,6 +3051,25 @@ export default {
       "description": "",
       "tags": []
     },
+    "streamRetries-2780ace7cb77": {
+      "name": "streamRetries",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Maximum number of automatic retries for provider errors received after\nresponse streaming has started. Each retry reruns only the current model\nstep. Completed earlier steps and their tool results are preserved.\n\nPartial output from a failed attempt that was already emitted cannot be\nretracted and remains in consumer-facing streams. It is excluded from\nthe recovered step result, structured output parsing, response messages,\nand subsequent model steps.\n\nSet to `0` to disable automatic retries while allowing `onError` to\nrequest one retry. When automatic retries are configured, `onError` can\nrequest at most one additional retry after they are exhausted. Omit this\noption to disable all stream retry behavior and preserve incremental tool\nstreaming for existing `onError` observers.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "0 (stream retry behavior disabled when omitted)"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 4108,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4108"
+      }
+    },
     "onAbort-1aceb31e0923": {
       "name": "onAbort",
       "type": "StreamTextOnAbortCallback<NoInfer<ResolvedTools<{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; }>>, NoInfer<Record<string, unknown>>> | undefined",
@@ -2652,26 +3085,6 @@ export default {
       "tags": [],
       "source": {
         "path": "src/types/agent.ts"
-      }
-    },
-    "prepareStep-b1fc7f13d5d4": {
-      "name": "prepareStep",
-      "type": "PrepareStep<Pick<AgentSettings<ToolSet, Record<string, any>, PromptValue, AIOutput, Record<string, unknown>>, \"inputSchema\" | \"context\" | \"tools\" | \"toolsContext\" | \"runtimeContext\" | \"output\">, false> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/agent.ts"
-      }
-    },
-    "asTool-dfdd3e4eaf49": {
-      "name": "asTool",
-      "type": "true | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts"
       }
     },
     "stopWhen-e8250c5614a3": {
@@ -2952,6 +3365,36 @@ export default {
       "description": "",
       "tags": []
     },
+    "inputSchema-e1f157741580": {
+      "name": "inputSchema",
+      "type": "SchemaType<Record<string, any>> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/component.ts"
+      }
+    },
+    "tools-f8808df35909": {
+      "name": "tools",
+      "type": "ToolRegistry | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/component.ts"
+      }
+    },
+    "toolsContext-a026c14e3010": {
+      "name": "toolsContext",
+      "type": "Record<string, unknown> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/component.ts"
+      }
+    },
     "runtimeContext-0add664a522c": {
       "name": "runtimeContext",
       "type": "Record<string, unknown> | undefined",
@@ -3123,36 +3566,6 @@ export default {
         "path": "src/types/config.ts"
       }
     },
-    "inputSchema-e1f157741580": {
-      "name": "inputSchema",
-      "type": "SchemaType<Record<string, any>> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/component.ts"
-      }
-    },
-    "tools-f8808df35909": {
-      "name": "tools",
-      "type": "ToolRegistry | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/component.ts"
-      }
-    },
-    "toolsContext-a026c14e3010": {
-      "name": "toolsContext",
-      "type": "Record<string, unknown> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/component.ts"
-      }
-    },
     "abortSignal-3e2de4b1ba34": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
@@ -3229,6 +3642,13 @@ export default {
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8184"
       }
+    },
+    "input-fb5baefd9ad6": {
+      "name": "input",
+      "type": "string | string[] | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
     },
     "providerOptions-a94e237310ca": {
       "name": "providerOptions",
@@ -3423,12 +3843,15 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8221"
       }
     },
-    "input-fb5baefd9ad6": {
+    "input-dcc8da217a5c": {
       "name": "input",
-      "type": "string | string[] | undefined",
-      "optional": true,
+      "type": "string | string[]",
+      "optional": false,
       "description": "",
-      "tags": []
+      "tags": [],
+      "source": {
+        "path": "src/factories/Embedder.ts"
+      }
     },
     "abortSignal-2b7c59d4f74b": {
       "name": "abortSignal",
@@ -3456,16 +3879,6 @@ export default {
         "package": "ai",
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8145"
-      }
-    },
-    "input-dcc8da217a5c": {
-      "name": "input",
-      "type": "string | string[]",
-      "optional": false,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/factories/Embedder.ts"
       }
     },
     "direct-fce20620be48": {
@@ -3670,6 +4083,13 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10725"
       }
     },
+    "query-bf57c694fea9": {
+      "name": "query",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
     "topN-2e58a6ef4988": {
       "name": "topN",
       "type": "number | undefined",
@@ -3683,13 +4103,6 @@ export default {
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10733"
       }
-    },
-    "query-bf57c694fea9": {
-      "name": "query",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
     },
     "abortSignal-1be52e81fd5e": {
       "name": "abortSignal",
@@ -3815,6 +4228,13 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7682"
       }
     },
+    "prompt-e832a0f8b353": {
+      "name": "prompt",
+      "type": "GenerateImagePrompt | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
     "model-11f5ef204b2c": {
       "name": "model",
       "type": "string | ImageModelV4 | ImageModelV3 | ImageModelV2 | (string & ImageModelV4) | (string & ImageModelV3) | (string & ImageModelV2) | (ImageModelV4 & string) | (ImageModelV3 & string) | (ImageModelV2 & string)",
@@ -3912,13 +4332,6 @@ export default {
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7602"
       }
-    },
-    "prompt-e832a0f8b353": {
-      "name": "prompt",
-      "type": "GenerateImagePrompt | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
     },
     "abortSignal-f0f3c7bf9130": {
       "name": "abortSignal",
@@ -4058,28 +4471,16 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10985"
       }
     },
-    "download-f08788366d4c": {
-      "name": "download",
-      "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
-      "optional": true,
-      "description": "Custom download function for fetching audio from URLs.\nUse `createDownload()` from `ai` to create a download function with custom size limits.",
-      "tags": [
-        {
-          "name": "default",
-          "text": "createDownload() (2 GiB limit)"
-        }
-      ],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10992,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10992"
-      }
-    },
-    "audio-0c1c18aa3172": {
+    "audio-9c73b42bbd95": {
       "name": "audio",
-      "type": "DataContent | URL | undefined",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "mediaSettings-8cb54a65d206": {
+      "name": "mediaSettings",
+      "type": "MediaSettings | undefined",
       "optional": true,
       "description": "",
       "tags": []
@@ -4112,194 +4513,47 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10947"
       }
     },
-    "audio-2c7771e7c87b": {
+    "audio-73df487dd407": {
       "name": "audio",
-      "type": "DataContent | URL",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike>",
       "optional": false,
-      "description": "The audio data to transcribe.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10951,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
-      }
+      "description": "",
+      "tags": []
     },
-    "direct-0fa09a3c675a": {
+    "direct-ce57012f6de6": {
       "name": "direct",
-      "type": "DataContent | URL",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike>",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "prepared-98dc444fb407": {
+    "prepared-7bcc861ace2a": {
       "name": "prepared",
-      "type": "DataContent | URL",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike>",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "providerOptions-0e700395c4b1": {
-      "name": "providerOptions",
-      "type": "SharedV4ProviderOptions | undefined",
-      "optional": true,
-      "description": "Additional provider-specific options.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11110,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11110"
-      }
-    },
-    "headers-1c3aaeb2734c": {
-      "name": "headers",
-      "type": "Record<string, string> | undefined",
-      "optional": true,
-      "description": "Additional headers to include in the request, if supported by the provider.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11118,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11118"
-      }
-    },
-    "model-93d3f90bcfb6": {
-      "name": "model",
-      "type": "string | TranscriptionModelV4 | TranscriptionModelV3 | TranscriptionModelV2 | (string & TranscriptionModelV4) | (string & TranscriptionModelV3) | (string & TranscriptionModelV2) | (TranscriptionModelV4 & string) | (TranscriptionModelV3 & string) | (TranscriptionModelV2 & string)",
-      "optional": false,
-      "description": "The transcription model to use.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11098,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11098"
-      }
-    },
-    "telemetry-237457941031": {
-      "name": "telemetry",
-      "type": "TelemetryOptions<Context, ToolSet> | undefined",
-      "optional": true,
-      "description": "Optional telemetry configuration.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11126,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11126"
-      }
-    },
-    "includeRawChunks-7d3f5f2a41a1": {
-      "name": "includeRawChunks",
-      "type": "boolean | undefined",
-      "optional": true,
-      "description": "When true, providers should include raw provider chunks in the stream.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11122,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11122"
-      }
-    },
-    "inputAudioFormat-7e0e83a62aca": {
-      "name": "inputAudioFormat",
-      "type": "SharedV4AudioFormat | undefined",
-      "optional": true,
-      "description": "The input audio format for the raw audio chunks.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11106,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11106"
-      }
-    },
-    "audio-73f3d8f8ab2d": {
-      "name": "audio",
-      "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
-    },
-    "abortSignal-69af4f81640d": {
-      "name": "abortSignal",
-      "type": "AbortSignal | undefined",
-      "optional": true,
-      "description": "Abort signal.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11114,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11114"
-      }
-    },
-    "model-e9ed376d43a6": {
-      "name": "model",
-      "type": "TranscriptionModel",
-      "optional": false,
-      "description": "The transcription model to use.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11098,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11098"
-      }
-    },
-    "audio-3b4b6bba6442": {
-      "name": "audio",
-      "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
-      "optional": false,
-      "description": "Raw audio chunks to transcribe.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11102,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11102"
-      }
-    },
-    "inputAudioFormat-a530ffc7dab7": {
-      "name": "inputAudioFormat",
-      "type": "SharedV4AudioFormat",
-      "optional": false,
-      "description": "The input audio format for the raw audio chunks.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11106,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11106"
-      }
-    },
-    "direct-cb45dbd030e6": {
-      "name": "direct",
-      "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+    "template-a7eeab580e6b": {
+      "name": "template",
+      "type": "never",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "prepared-3509297a8ac6": {
-      "name": "prepared",
-      "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
-      "optional": false,
-      "description": "",
-      "tags": []
+    "text-ae666701d8c6": {
+      "name": "text",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The text to convert to speech.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9503,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9503"
+      }
     },
     "providerOptions-b4ea33bb4d7b": {
       "name": "providerOptions",
@@ -4404,19 +4658,12 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9507"
       }
     },
-    "outputFormat-6291f13adf52": {
+    "outputFormat-9816d21874a3": {
       "name": "outputFormat",
-      "type": "(string & {}) | \"mp3\" | \"wav\" | undefined",
+      "type": "(string & {}) | \"mp3\" | \"wav\" | SharedV4AudioFormat | undefined",
       "optional": true,
-      "description": "The desired output format for the audio e.g. \"mp3\", \"wav\", etc.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9511,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9511"
-      }
+      "description": "",
+      "tags": []
     },
     "speed-4d164fbb7f9d": {
       "name": "speed",
@@ -4445,13 +4692,6 @@ export default {
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9524"
       }
-    },
-    "text-9952b743697d": {
-      "name": "text",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
     },
     "text-ec806897822a": {
       "name": "text",
@@ -4495,193 +4735,18 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9499"
       }
     },
-    "providerOptions-8ef11a06508b": {
-      "name": "providerOptions",
-      "type": "SharedV4ProviderOptions | undefined",
-      "optional": true,
-      "description": "Additional provider-specific options.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9695,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9695"
-      }
-    },
-    "headers-a43707561005": {
-      "name": "headers",
-      "type": "Record<string, string> | undefined",
-      "optional": true,
-      "description": "Additional headers to include in the request, if supported by the provider.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9703,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9703"
-      }
-    },
-    "instructions-4b3f21b46179": {
-      "name": "instructions",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "Instructions for the speech generation e.g. \"Speak in a slow and steady tone\".",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9682,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9682"
-      }
-    },
-    "model-e7347b132223": {
-      "name": "model",
-      "type": "string | SpeechModelV4 | SpeechModelV3 | SpeechModelV2 | (string & SpeechModelV4) | (string & SpeechModelV3) | (string & SpeechModelV2) | (SpeechModelV4 & string) | (SpeechModelV3 & string) | (SpeechModelV2 & string)",
-      "optional": false,
-      "description": "The speech model to use.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9663,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9663"
-      }
-    },
-    "includeRawChunks-90c2b49e91af": {
-      "name": "includeRawChunks",
-      "type": "boolean | undefined",
-      "optional": true,
-      "description": "When true, providers should include raw provider chunks in the stream.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9707,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9707"
-      }
-    },
-    "onError-50a850676fc2": {
-      "name": "onError",
-      "type": "((event: { error: unknown; }) => void | PromiseLike<void>) | undefined",
-      "optional": true,
-      "description": "Called for each error part the provider reports. Error parts are not\nfatal: `fullStream` includes them and `audioStream` skips them. The\ncallback is not awaited, and errors it throws are ignored.\nDefaults to logging the error with `console.error`.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9714,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9714"
-      }
-    },
-    "voice-a24507351f00": {
-      "name": "voice",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "The voice to use for speech generation.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9672,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9672"
-      }
-    },
-    "outputFormat-1c52617eb72c": {
+    "outputFormat-6291f13adf52": {
       "name": "outputFormat",
-      "type": "SharedV4AudioFormat | undefined",
+      "type": "(string & {}) | \"mp3\" | \"wav\" | undefined",
       "optional": true,
-      "description": "The desired format of the output audio chunks, e.g.\n`{ type: 'audio/pcm', rate: 24000 }` or `{ type: 'audio/mpeg' }`.\nSupported formats are provider-specific.",
+      "description": "The desired output format for the audio e.g. \"mp3\", \"wav\", etc.",
       "tags": [],
       "source": {
         "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9678,
+        "line": 9511,
         "package": "ai",
         "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9678"
-      }
-    },
-    "speed-38cf774e7d2f": {
-      "name": "speed",
-      "type": "number | undefined",
-      "optional": true,
-      "description": "The speed of the speech generation.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9686,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9686"
-      }
-    },
-    "language-17c4c3804341": {
-      "name": "language",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "The language for speech generation. This should be an ISO 639-1 language code (e.g. \"en\", \"es\", \"fr\")\nor \"auto\" for automatic language detection. Provider support varies.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9691,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9691"
-      }
-    },
-    "text-85a9dc177766": {
-      "name": "text",
-      "type": "string | Iterable<string | SpeechTextPart> | AsyncIterable<string | SpeechTextPart> | ReadableStream<string | SpeechTextPart> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
-    },
-    "text-730665458c8e": {
-      "name": "text",
-      "type": "string | Iterable<string | SpeechTextPart> | AsyncIterable<string | SpeechTextPart> | ReadableStream<string | SpeechTextPart>",
-      "optional": false,
-      "description": "The text to convert to speech: a complete string, or an array, iterable,\nor stream of text deltas and/or text parts.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9668,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9668"
-      }
-    },
-    "abortSignal-ba9834cb4957": {
-      "name": "abortSignal",
-      "type": "AbortSignal | undefined",
-      "optional": true,
-      "description": "Abort signal.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9699,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9699"
-      }
-    },
-    "model-f710fabe18e0": {
-      "name": "model",
-      "type": "SpeechModel",
-      "optional": false,
-      "description": "The speech model to use.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9663,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9663"
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9511"
       }
     },
     "direct-5306f56796f6": {
@@ -4698,188 +4763,6 @@ export default {
       "description": "",
       "tags": []
     },
-    "providerOptions-629f88d39640": {
-      "name": "providerOptions",
-      "type": "SharedV4ProviderOptions | undefined",
-      "optional": true,
-      "description": "Additional provider-specific options.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11325,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11325"
-      }
-    },
-    "headers-8bb00513d5db": {
-      "name": "headers",
-      "type": "Record<string, string> | undefined",
-      "optional": true,
-      "description": "Additional headers to include in the request, if supported by the provider.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11333,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11333"
-      }
-    },
-    "model-c8d77816a238": {
-      "name": "model",
-      "type": "(SpeechTranslationModel | undefined) & SpeechTranslationModel",
-      "optional": false,
-      "description": "The speech translation model to use.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11297,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11297"
-      }
-    },
-    "includeRawChunks-29430afa6810": {
-      "name": "includeRawChunks",
-      "type": "boolean | undefined",
-      "optional": true,
-      "description": "When true, providers should include raw provider chunks in the stream.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11337,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11337"
-      }
-    },
-    "inputAudioFormat-2df44b715671": {
-      "name": "inputAudioFormat",
-      "type": "SharedV4AudioFormat | undefined",
-      "optional": true,
-      "description": "The input audio format for the raw audio chunks.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11305,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11305"
-      }
-    },
-    "targetLanguage-94fcfd26675f": {
-      "name": "targetLanguage",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "The language to translate the audio into, as a BCP-47-style language\ntag (e.g. `en`, `es`, `fr-CA`). Supported values are provider-specific\nand validated by the provider.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11311,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11311"
-      }
-    },
-    "sourceLanguage-af6309dbca4a": {
-      "name": "sourceLanguage",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "The language of the source audio, as a BCP-47-style language tag.\nWhen absent, providers auto-detect the source language.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11316,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11316"
-      }
-    },
-    "outputAudioFormat-89e588aef43c": {
-      "name": "outputAudioFormat",
-      "type": "SharedV4AudioFormat | undefined",
-      "optional": true,
-      "description": "The desired audio format for translated audio chunks.\nWhen absent, the provider default output format is used.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11321,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11321"
-      }
-    },
-    "abortSignal-d9dfce9e4ae0": {
-      "name": "abortSignal",
-      "type": "AbortSignal | undefined",
-      "optional": true,
-      "description": "Abort signal.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11329,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11329"
-      }
-    },
-    "model-2844db232f29": {
-      "name": "model",
-      "type": "SpeechTranslationModel",
-      "optional": false,
-      "description": "The speech translation model to use.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11297,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11297"
-      }
-    },
-    "audio-bc4b82bb8b5d": {
-      "name": "audio",
-      "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
-      "optional": false,
-      "description": "Raw audio chunks to translate.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11301,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11301"
-      }
-    },
-    "inputAudioFormat-a9437bf10d0a": {
-      "name": "inputAudioFormat",
-      "type": "SharedV4AudioFormat",
-      "optional": false,
-      "description": "The input audio format for the raw audio chunks.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11305,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11305"
-      }
-    },
-    "targetLanguage-f5006a68aa47": {
-      "name": "targetLanguage",
-      "type": "string",
-      "optional": false,
-      "description": "The language to translate the audio into, as a BCP-47-style language\ntag (e.g. `en`, `es`, `fr-CA`). Supported values are provider-specific\nand validated by the provider.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11311,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11311"
-      }
-    },
     "providerOptions-017504595b6e": {
       "name": "providerOptions",
       "type": "Record<string, unknown> | undefined",
@@ -4894,14 +4777,21 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7462"
       }
     },
-    "model-ffb52545b337": {
+    "instructions-cda74c669be0": {
+      "name": "instructions",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "model-c2646b18c643": {
       "name": "model",
       "type": "RealtimeModelV4",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/factories/VoiceSessionSetup.ts"
+        "path": "src/factories/VoiceAgentBackend.ts"
       }
     },
     "inputAudioFormat-955d75ed5ca3": {
@@ -5016,13 +4906,6 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7474"
       }
     },
-    "instructions-cda74c669be0": {
-      "name": "instructions",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
-    },
     "instructions-4cc81f59e6ac": {
       "name": "instructions",
       "type": "string | undefined",
@@ -5035,16 +4918,6 @@ export default {
         "package": "@ai-sdk/provider",
         "version": "4.0.35",
         "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7368"
-      }
-    },
-    "inputSchema-47ed76ea66b3": {
-      "name": "inputSchema",
-      "type": "SchemaType<Record<string, unknown>>",
-      "optional": false,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts"
       }
     },
     "onInputAvailable-0ee077587da3": {
@@ -5106,6 +4979,26 @@ export default {
         "package": "@ai-sdk/provider-utils",
         "version": "5.0.74",
         "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2265"
+      }
+    },
+    "inputSchema-47ed76ea66b3": {
+      "name": "inputSchema",
+      "type": "SchemaType<Record<string, unknown>>",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/config.ts"
+      }
+    },
+    "description-e0df7f9e2319": {
+      "name": "description",
+      "type": "string | ((options: { context: unknown; experimental_sandbox?: SandboxSession; }) => string) | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/config.ts"
       }
     },
     "title-6e688f9a6e86": {
@@ -5211,14 +5104,14 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2337"
       }
     },
-    "description-e0df7f9e2319": {
-      "name": "description",
-      "type": "string | ((options: { context: unknown; experimental_sandbox?: SandboxSession; }) => string) | undefined",
+    "tools-fdfe05249bc3": {
+      "name": "tools",
+      "type": "RunTools<{}> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/types/config.ts"
+        "path": "src/types/agent.ts"
       }
     },
     "timeout-1bba377e46d4": {
@@ -5235,6 +5128,26 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L839"
       }
     },
+    "prompt-0bb201e140ef": {
+      "name": "prompt",
+      "type": "string | SystemModelMessage | UserModelMessage | AssistantModelMessage | ToolModelMessage | ModelMessage[] | (string & SystemModelMessage) | (string & UserModelMessage) | (string & AssistantModelMessage) | (string & ToolModelMessage) | (string & ModelMessage[]) | (SystemModelMessage & string) | (SystemModelMessage & ModelMessage[]) | (UserModelMessage & string) | (UserModelMessage & ModelMessage[]) | (AssistantModelMessage & string) | (AssistantModelMessage & ModelMessage[]) | (ToolModelMessage & string) | (ToolModelMessage & ModelMessage[]) | (ModelMessage[] & string) | (ModelMessage[] & SystemModelMessage) | (ModelMessage[] & UserModelMessage) | (ModelMessage[] & AssistantModelMessage) | (ModelMessage[] & ToolModelMessage) | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/agent.ts"
+      }
+    },
+    "model-9cc84a88e236": {
+      "name": "model",
+      "type": "ModelOverride | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/agent.ts"
+      }
+    },
     "toolChoice-180fe037bbc0": {
       "name": "toolChoice",
       "type": "ToolChoice<EmptyMap> | undefined",
@@ -5248,6 +5161,13 @@ export default {
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3947"
       }
+    },
+    "stopWhen-ff0af44bb75f": {
+      "name": "stopWhen",
+      "type": "Arrayable<StopCondition<NoInfer<EmptyMap>, Record<string, unknown>>>",
+      "optional": true,
+      "description": "",
+      "tags": []
     },
     "telemetry-678067987faf": {
       "name": "telemetry",
@@ -5291,6 +5211,13 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3998"
       }
     },
+    "toolApproval-c6b1e240ae25": {
+      "name": "toolApproval",
+      "type": "ToolApprovalConfiguration<EmptyMap, Record<string, unknown>> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
     "experimental_toolCallers-ff9afda2223d": {
       "name": "experimental_toolCallers",
       "type": "Experimental_ToolCallers<NoInfer<EmptyMap>> | undefined",
@@ -5305,39 +5232,15 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4019"
       }
     },
-    "prompt-0bb201e140ef": {
-      "name": "prompt",
-      "type": "string | SystemModelMessage | UserModelMessage | AssistantModelMessage | ToolModelMessage | ModelMessage[] | (string & SystemModelMessage) | (string & UserModelMessage) | (string & AssistantModelMessage) | (string & ToolModelMessage) | (string & ModelMessage[]) | (SystemModelMessage & string) | (SystemModelMessage & ModelMessage[]) | (UserModelMessage & string) | (UserModelMessage & ModelMessage[]) | (AssistantModelMessage & string) | (AssistantModelMessage & ModelMessage[]) | (ToolModelMessage & string) | (ToolModelMessage & ModelMessage[]) | (ModelMessage[] & string) | (ModelMessage[] & SystemModelMessage) | (ModelMessage[] & UserModelMessage) | (ModelMessage[] & AssistantModelMessage) | (ModelMessage[] & ToolModelMessage) | undefined",
+    "prepareStep-8ac0218841fa": {
+      "name": "prepareStep",
+      "type": "PrepareStep<{}, false> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
         "path": "src/types/agent.ts"
       }
-    },
-    "messageHistory-fb9b9d072e86": {
-      "name": "messageHistory",
-      "type": "readonly ModelMessage[] | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/agent.ts"
-      }
-    },
-    "stopWhen-ff0af44bb75f": {
-      "name": "stopWhen",
-      "type": "Arrayable<StopCondition<NoInfer<EmptyMap>, Record<string, unknown>>>",
-      "optional": true,
-      "description": "",
-      "tags": []
-    },
-    "toolApproval-c6b1e240ae25": {
-      "name": "toolApproval",
-      "type": "ToolApprovalConfiguration<EmptyMap, Record<string, unknown>> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
     },
     "repairToolCall-2a971774557c": {
       "name": "repairToolCall",
@@ -5440,29 +5343,9 @@ export default {
         "path": "src/types/agent.ts"
       }
     },
-    "prepareStep-8ac0218841fa": {
-      "name": "prepareStep",
-      "type": "PrepareStep<{}, false> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/agent.ts"
-      }
-    },
-    "tools-fdfe05249bc3": {
-      "name": "tools",
-      "type": "RunTools<{}> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/agent.ts"
-      }
-    },
-    "model-9cc84a88e236": {
-      "name": "model",
-      "type": "ModelOverride | undefined",
+    "messageHistory-fb9b9d072e86": {
+      "name": "messageHistory",
+      "type": "readonly ModelMessage[] | undefined",
       "optional": true,
       "description": "",
       "tags": [],
@@ -7247,34 +7130,6 @@ export default {
         "path": "../cascada/dist/types/index.d.ts"
       }
     },
-    "abortSignal-2bf31b7f87fc": {
-      "name": "abortSignal",
-      "type": "AbortSignal | undefined",
-      "optional": true,
-      "description": "An optional abort signal that indicates that the overall operation should be aborted.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2132,
-        "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2132"
-      }
-    },
-    "experimental_sandbox-0dfa76df5e3e": {
-      "name": "experimental_sandbox",
-      "type": "SandboxSession | undefined",
-      "optional": true,
-      "description": "The sandbox environment that the tool is operating in.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2148,
-        "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2148"
-      }
-    },
     "toolCallId-b3e91af1743a": {
       "name": "toolCallId",
       "type": "string | undefined",
@@ -7289,6 +7144,20 @@ export default {
         "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2123"
       }
     },
+    "abortSignal-2bf31b7f87fc": {
+      "name": "abortSignal",
+      "type": "AbortSignal | undefined",
+      "optional": true,
+      "description": "An optional abort signal that indicates that the overall operation should be aborted.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 2132,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2132"
+      }
+    },
     "messages-f97f28a7fbbb": {
       "name": "messages",
       "type": "ModelMessage[] | undefined",
@@ -7301,6 +7170,20 @@ export default {
         "package": "@ai-sdk/provider-utils",
         "version": "5.0.74",
         "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2128"
+      }
+    },
+    "experimental_sandbox-0dfa76df5e3e": {
+      "name": "experimental_sandbox",
+      "type": "SandboxSession | undefined",
+      "optional": true,
+      "description": "The sandbox environment that the tool is operating in.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
+        "line": 2148,
+        "package": "@ai-sdk/provider-utils",
+        "version": "5.0.74",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2148"
       }
     },
     "array-a50da8c00109": {
@@ -9548,6 +9431,39 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10939"
       }
     },
+    "audio-2c7771e7c87b": {
+      "name": "audio",
+      "type": "DataContent | URL",
+      "optional": false,
+      "description": "The audio data to transcribe.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10951,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
+      }
+    },
+    "download-f08788366d4c": {
+      "name": "download",
+      "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
+      "optional": true,
+      "description": "Custom download function for fetching audio from URLs.\nUse `createDownload()` from `ai` to create a download function with custom size limits.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "createDownload() (2 GiB limit)"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10992,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10992"
+      }
+    },
     "_internal-a4d65510b686": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
@@ -9560,6 +9476,772 @@ export default {
         "package": "ai",
         "version": "7.0.162",
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11002"
+      }
+    },
+    "audio-090e31c3f07e": {
+      "name": "audio",
+      "type": "GeneratedAudioFile",
+      "optional": false,
+      "description": "The generated audio file with the audio data.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9460,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9460"
+      }
+    },
+    "warnings-751664670b6e": {
+      "name": "warnings",
+      "type": "SharedV4Warning[]",
+      "optional": false,
+      "description": "Warnings for the call, e.g. unsupported settings.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9464,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9464"
+      }
+    },
+    "responses-d50a12d4caa1": {
+      "name": "responses",
+      "type": "SpeechModelResponseMetadata[]",
+      "optional": false,
+      "description": "Response metadata from the provider. There may be multiple responses if we made multiple calls to the model.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9468,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9468"
+      }
+    },
+    "providerMetadata-d8670c7292b8": {
+      "name": "providerMetadata",
+      "type": "Record<string, JSONObject>",
+      "optional": false,
+      "description": "Provider metadata from the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9472,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9472"
+      }
+    },
+    "_internal-891f15b39ec6": {
+      "name": "_internal",
+      "type": "{ generateCallId?: () => string; } | undefined",
+      "optional": true,
+      "description": "Internal. For test use only. May change without notice.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9560,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9560"
+      }
+    },
+    "token-ef6388c67aaf": {
+      "name": "token",
+      "type": "string",
+      "optional": false,
+      "description": "The ephemeral token value. Used as a Bearer token or in the\nWebSocket subprotocol header for authentication.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7489,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7489"
+      }
+    },
+    "url-6694c49079ae": {
+      "name": "url",
+      "type": "string",
+      "optional": false,
+      "description": "The WebSocket URL to connect to. Includes any provider-specific\nquery parameters (e.g. model ID).",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7494,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7494"
+      }
+    },
+    "expiresAt-b4d04565231e": {
+      "name": "expiresAt",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Unix timestamp (seconds) when this client secret expires.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
+        "line": 7498,
+        "package": "@ai-sdk/provider",
+        "version": "4.0.35",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7498"
+      }
+    },
+    "tools-77941a98285d": {
+      "name": "tools",
+      "type": "RealtimeModelV4ToolDefinition[]",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/factories/VoiceAgentBackend.ts"
+      }
+    },
+    "providerOptions-0e700395c4b1": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific options.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11110,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11110"
+      }
+    },
+    "abortSignal-69af4f81640d": {
+      "name": "abortSignal",
+      "type": "AbortSignal | undefined",
+      "optional": true,
+      "description": "Abort signal.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11114,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11114"
+      }
+    },
+    "headers-1c3aaeb2734c": {
+      "name": "headers",
+      "type": "Record<string, string> | undefined",
+      "optional": true,
+      "description": "Additional headers to include in the request, if supported by the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11118,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11118"
+      }
+    },
+    "model-e9ed376d43a6": {
+      "name": "model",
+      "type": "TranscriptionModel",
+      "optional": false,
+      "description": "The transcription model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11098,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11098"
+      }
+    },
+    "telemetry-237457941031": {
+      "name": "telemetry",
+      "type": "TelemetryOptions<Context, ToolSet> | undefined",
+      "optional": true,
+      "description": "Optional telemetry configuration.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11126,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11126"
+      }
+    },
+    "includeRawChunks-7d3f5f2a41a1": {
+      "name": "includeRawChunks",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "When true, providers should include raw provider chunks in the stream.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11122,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11122"
+      }
+    },
+    "audio-74b094ee73bb": {
+      "name": "audio",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "inputAudioFormat-a530ffc7dab7": {
+      "name": "inputAudioFormat",
+      "type": "SharedV4AudioFormat",
+      "optional": false,
+      "description": "The input audio format for the raw audio chunks.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11106,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11106"
+      }
+    },
+    "text-730665458c8e": {
+      "name": "text",
+      "type": "string | Iterable<string | SpeechTextPart> | AsyncIterable<string | SpeechTextPart> | ReadableStream<string | SpeechTextPart>",
+      "optional": false,
+      "description": "The text to convert to speech: a complete string, or an array, iterable,\nor stream of text deltas and/or text parts.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9668,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9668"
+      }
+    },
+    "providerOptions-8ef11a06508b": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific options.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9695,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9695"
+      }
+    },
+    "abortSignal-ba9834cb4957": {
+      "name": "abortSignal",
+      "type": "AbortSignal | undefined",
+      "optional": true,
+      "description": "Abort signal.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9699,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9699"
+      }
+    },
+    "headers-a43707561005": {
+      "name": "headers",
+      "type": "Record<string, string> | undefined",
+      "optional": true,
+      "description": "Additional headers to include in the request, if supported by the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9703,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9703"
+      }
+    },
+    "instructions-4b3f21b46179": {
+      "name": "instructions",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "Instructions for the speech generation e.g. \"Speak in a slow and steady tone\".",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9682,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9682"
+      }
+    },
+    "model-f710fabe18e0": {
+      "name": "model",
+      "type": "SpeechModel",
+      "optional": false,
+      "description": "The speech model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9663,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9663"
+      }
+    },
+    "includeRawChunks-90c2b49e91af": {
+      "name": "includeRawChunks",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "When true, providers should include raw provider chunks in the stream.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9707,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9707"
+      }
+    },
+    "onError-50a850676fc2": {
+      "name": "onError",
+      "type": "((event: { error: unknown; }) => void | PromiseLike<void>) | undefined",
+      "optional": true,
+      "description": "Called for each error part the provider reports. Error parts are not\nfatal: `fullStream` includes them and `audioStream` skips them. The\ncallback is not awaited, and errors it throws are ignored.\nDefaults to logging the error with `console.error`.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9714,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9714"
+      }
+    },
+    "voice-a24507351f00": {
+      "name": "voice",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The voice to use for speech generation.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9672,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9672"
+      }
+    },
+    "outputFormat-1c52617eb72c": {
+      "name": "outputFormat",
+      "type": "SharedV4AudioFormat | undefined",
+      "optional": true,
+      "description": "The desired format of the output audio chunks, e.g.\n`{ type: 'audio/pcm', rate: 24000 }` or `{ type: 'audio/mpeg' }`.\nSupported formats are provider-specific.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9678,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9678"
+      }
+    },
+    "speed-38cf774e7d2f": {
+      "name": "speed",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "The speed of the speech generation.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9686,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9686"
+      }
+    },
+    "language-17c4c3804341": {
+      "name": "language",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The language for speech generation. This should be an ISO 639-1 language code (e.g. \"en\", \"es\", \"fr\")\nor \"auto\" for automatic language detection. Provider support varies.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9691,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9691"
+      }
+    },
+    "providerOptions-629f88d39640": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific options.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11325,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11325"
+      }
+    },
+    "abortSignal-d9dfce9e4ae0": {
+      "name": "abortSignal",
+      "type": "AbortSignal | undefined",
+      "optional": true,
+      "description": "Abort signal.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11329,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11329"
+      }
+    },
+    "headers-8bb00513d5db": {
+      "name": "headers",
+      "type": "Record<string, string> | undefined",
+      "optional": true,
+      "description": "Additional headers to include in the request, if supported by the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11333,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11333"
+      }
+    },
+    "model-2844db232f29": {
+      "name": "model",
+      "type": "SpeechTranslationModel",
+      "optional": false,
+      "description": "The speech translation model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11297,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11297"
+      }
+    },
+    "includeRawChunks-29430afa6810": {
+      "name": "includeRawChunks",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "When true, providers should include raw provider chunks in the stream.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11337,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11337"
+      }
+    },
+    "inputAudioFormat-a9437bf10d0a": {
+      "name": "inputAudioFormat",
+      "type": "SharedV4AudioFormat",
+      "optional": false,
+      "description": "The input audio format for the raw audio chunks.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11305,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11305"
+      }
+    },
+    "targetLanguage-f5006a68aa47": {
+      "name": "targetLanguage",
+      "type": "string",
+      "optional": false,
+      "description": "The language to translate the audio into, as a BCP-47-style language\ntag (e.g. `en`, `es`, `fr-CA`). Supported values are provider-specific\nand validated by the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11311,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11311"
+      }
+    },
+    "sourceLanguage-af6309dbca4a": {
+      "name": "sourceLanguage",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The language of the source audio, as a BCP-47-style language tag.\nWhen absent, providers auto-detect the source language.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11316,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11316"
+      }
+    },
+    "outputAudioFormat-89e588aef43c": {
+      "name": "outputAudioFormat",
+      "type": "SharedV4AudioFormat | undefined",
+      "optional": true,
+      "description": "The desired audio format for translated audio chunks.\nWhen absent, the provider default output format is used.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11321,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11321"
+      }
+    },
+    "text-92f3fa446b4e": {
+      "name": "text",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "providerMetadata-a1890558f6d7": {
+      "name": "providerMetadata",
+      "type": "Record<string, JSONObject>",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "language-674fb22af7b6": {
+      "name": "language",
+      "type": "string | undefined",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "warnings-2a1d84032a96": {
+      "name": "warnings",
+      "type": "SharedV4Warning[]",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "segments-d68f3ff72330": {
+      "name": "segments",
+      "type": "{ text: string; startSecond: number; endSecond: number; }[]",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "durationInSeconds-3e9796df05cf": {
+      "name": "durationInSeconds",
+      "type": "number | undefined",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "responses-b5f966a8bc01": {
+      "name": "responses",
+      "type": "TranscriptionModelResponseMetadata[]",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "audio-46dc36900880": {
+      "name": "audio",
+      "type": "GeneratedAudioFile",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "audioFormat-ba3ff73c32b6": {
+      "name": "audioFormat",
+      "type": "SharedV4AudioFormat",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "usage-0c354eda26a6": {
+      "name": "usage",
+      "type": "SpeechModelV4StreamUsage",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "responses-0ec69e73a281": {
+      "name": "responses",
+      "type": "SpeechModelResponseMetadata[]",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "audio-af56ffb070ad": {
+      "name": "audio",
+      "type": "Uint8Array<ArrayBufferLike>",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "response-473e4f6faa96": {
+      "name": "response",
+      "type": "SpeechTranslationModelResponseMetadata",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "usage-66baaa2fd138": {
+      "name": "usage",
+      "type": "SpeechTranslationModelV4Usage | undefined",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "sourceText-61a4fc8c3ce4": {
+      "name": "sourceText",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "translationText-5685980a9448": {
+      "name": "translationText",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "model-93d3f90bcfb6": {
+      "name": "model",
+      "type": "string | TranscriptionModelV4 | TranscriptionModelV3 | TranscriptionModelV2 | (string & TranscriptionModelV4) | (string & TranscriptionModelV3) | (string & TranscriptionModelV2) | (TranscriptionModelV4 & string) | (TranscriptionModelV3 & string) | (TranscriptionModelV2 & string)",
+      "optional": false,
+      "description": "The transcription model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11098,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11098"
+      }
+    },
+    "audio-415a3c74225d": {
+      "name": "audio",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | ReadableStream<string | Uint8Array<ArrayBufferLike>> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "inputAudioFormat-7e0e83a62aca": {
+      "name": "inputAudioFormat",
+      "type": "SharedV4AudioFormat | undefined",
+      "optional": true,
+      "description": "The input audio format for the raw audio chunks.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11106,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11106"
+      }
+    },
+    "direct-3487598c76a8": {
+      "name": "direct",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "prepared-f96451b85965": {
+      "name": "prepared",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "text-0a348a391125": {
+      "name": "text",
+      "type": "string | Iterable<string | SpeechTextPart> | AsyncIterable<string | SpeechTextPart> | ReadableStream<string | SpeechTextPart> | undefined",
+      "optional": true,
+      "description": "The text to convert to speech: a complete string, or an array, iterable,\nor stream of text deltas and/or text parts.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9668,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9668"
+      }
+    },
+    "model-e7347b132223": {
+      "name": "model",
+      "type": "string | SpeechModelV4 | SpeechModelV3 | SpeechModelV2 | (string & SpeechModelV4) | (string & SpeechModelV3) | (string & SpeechModelV2) | (SpeechModelV4 & string) | (SpeechModelV3 & string) | (SpeechModelV2 & string)",
+      "optional": false,
+      "description": "The speech model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9663,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9663"
+      }
+    },
+    "model-c8d77816a238": {
+      "name": "model",
+      "type": "(SpeechTranslationModel | undefined) & SpeechTranslationModel",
+      "optional": false,
+      "description": "The speech translation model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11297,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11297"
+      }
+    },
+    "inputAudioFormat-2df44b715671": {
+      "name": "inputAudioFormat",
+      "type": "SharedV4AudioFormat | undefined",
+      "optional": true,
+      "description": "The input audio format for the raw audio chunks.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11305,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11305"
+      }
+    },
+    "targetLanguage-94fcfd26675f": {
+      "name": "targetLanguage",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The language to translate the audio into, as a BCP-47-style language\ntag (e.g. `en`, `es`, `fr-CA`). Supported values are provider-specific\nand validated by the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11311,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11311"
+      }
+    },
+    "audio-3b4b6bba6442": {
+      "name": "audio",
+      "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+      "optional": false,
+      "description": "Raw audio chunks to transcribe.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 11102,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11102"
       }
     },
     "text-b4b7399b21c2": {
@@ -9674,90 +10356,6 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11077"
       }
     },
-    "_internal-76401c9df9f4": {
-      "name": "_internal",
-      "type": "{ currentDate?: () => Date; generateCallId?: () => string; } | undefined",
-      "optional": true,
-      "description": "Internal test hooks.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11130,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11130"
-      }
-    },
-    "audio-090e31c3f07e": {
-      "name": "audio",
-      "type": "GeneratedAudioFile",
-      "optional": false,
-      "description": "The generated audio file with the audio data.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9460,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9460"
-      }
-    },
-    "warnings-751664670b6e": {
-      "name": "warnings",
-      "type": "SharedV4Warning[]",
-      "optional": false,
-      "description": "Warnings for the call, e.g. unsupported settings.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9464,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9464"
-      }
-    },
-    "responses-d50a12d4caa1": {
-      "name": "responses",
-      "type": "SpeechModelResponseMetadata[]",
-      "optional": false,
-      "description": "Response metadata from the provider. There may be multiple responses if we made multiple calls to the model.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9468,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9468"
-      }
-    },
-    "providerMetadata-d8670c7292b8": {
-      "name": "providerMetadata",
-      "type": "Record<string, JSONObject>",
-      "optional": false,
-      "description": "Provider metadata from the provider.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9472,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9472"
-      }
-    },
-    "_internal-891f15b39ec6": {
-      "name": "_internal",
-      "type": "{ generateCallId?: () => string; } | undefined",
-      "optional": true,
-      "description": "Internal. For test use only. May change without notice.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9560,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9560"
-      }
-    },
     "usage-e862f00da64d": {
       "name": "usage",
       "type": "PromiseLike<SpeechModelV4StreamUsage>",
@@ -9842,18 +10440,18 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9635"
       }
     },
-    "_internal-33f27e35a0d4": {
-      "name": "_internal",
-      "type": "{ currentDate?: () => Date; } | undefined",
-      "optional": true,
-      "description": "Internal test hooks.",
+    "audio-bc4b82bb8b5d": {
+      "name": "audio",
+      "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+      "optional": false,
+      "description": "Raw audio chunks to translate.",
       "tags": [],
       "source": {
         "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9720,
+        "line": 11301,
         "package": "ai",
         "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9720"
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11301"
       }
     },
     "sourceText-20efa392ede3": {
@@ -9968,70 +10566,868 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11273"
       }
     },
-    "_internal-0c473c098e24": {
-      "name": "_internal",
-      "type": "{ currentDate?: () => Date; } | undefined",
+    "inputAudioFormat-3086428fb063": {
+      "name": "inputAudioFormat",
+      "type": "SharedV4AudioFormat | undefined",
       "optional": true,
-      "description": "Internal test hooks.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11341,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11341"
-      }
+      "description": "",
+      "tags": []
     },
-    "token-ef6388c67aaf": {
-      "name": "token",
-      "type": "string",
-      "optional": false,
-      "description": "The ephemeral token value. Used as a Bearer token or in the\nWebSocket subprotocol header for authentication.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7489,
-        "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7489"
-      }
-    },
-    "url-6694c49079ae": {
-      "name": "url",
-      "type": "string",
-      "optional": false,
-      "description": "The WebSocket URL to connect to. Includes any provider-specific\nquery parameters (e.g. model ID).",
-      "tags": [],
-      "source": {
-        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7494,
-        "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7494"
-      }
-    },
-    "expiresAt-b4d04565231e": {
-      "name": "expiresAt",
-      "type": "number | undefined",
-      "optional": true,
-      "description": "Unix timestamp (seconds) when this client secret expires.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7498,
-        "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7498"
-      }
-    },
-    "tools-2d73a7f6a27a": {
-      "name": "tools",
-      "type": "RealtimeModelV4ToolDefinition[]",
+    "model-8d90286adc15": {
+      "name": "model",
+      "type": "RealtimeModelV4",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/factories/VoiceSessionSetup.ts"
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10349,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10349"
+      }
+    },
+    "onError-ac702d5799f7": {
+      "name": "onError",
+      "type": "((error: Error) => void) | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10386,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10386"
+      }
+    },
+    "api-96e6faee24dc": {
+      "name": "api",
+      "type": "{ token: string; session?: never; websocket?: never; protocols?: never; } | { session: string; token?: never; websocket?: never; protocols?: never; } | { websocket: string; protocols?: string[]; token?: never; session?: never; }",
+      "optional": false,
+      "description": "websocket uses a raw-protocol relay; session exchanges SDP; token fetches client-secret setup.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10351,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10351"
+      }
+    },
+    "sessionConfig-9d28f0dc148c": {
+      "name": "sessionConfig",
+      "type": "Partial<RealtimeModelV4SessionConfig> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10367,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10367"
+      }
+    },
+    "sampleRate-cde1ebf592d2": {
+      "name": "sampleRate",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10368,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10368"
+      }
+    },
+    "maxEvents-e8b6e2c06f40": {
+      "name": "maxEvents",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10369,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10369"
+      }
+    },
+    "startupTimeoutMs-d20632605c64": {
+      "name": "startupTimeoutMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Maximum time to establish transport and receive readiness. Default: 30s.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10371,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10371"
+      }
+    },
+    "closeTimeoutMs-d201a4934ea3": {
+      "name": "closeTimeoutMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Maximum wait for final usage after close(). Default: 15s.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10373,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10373"
+      }
+    },
+    "rtcDisconnectTimeoutMs-e4b1f8b4721d": {
+      "name": "rtcDisconnectTimeoutMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "WebRTC peer disconnect recovery grace period. Default: 5s.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10375,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10375"
+      }
+    },
+    "maxPlaybackBufferSeconds-58459e112b41": {
+      "name": "maxPlaybackBufferSeconds",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Continuous PCM only: pause at this budget until resumePlayback(). Default: 2s.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10377,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10377"
+      }
+    },
+    "onToolCall-e108281592b1": {
+      "name": "onToolCall",
+      "type": "((args: { toolCall: { toolCallId: string; toolName: string; args: unknown; }; }) => Promise<unknown> | unknown | undefined) | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10378,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10378"
+      }
+    },
+    "onEvent-97febd9b5a0f": {
+      "name": "onEvent",
+      "type": "((event: RealtimeServerEvent) => void) | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10385,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10385"
+      }
+    },
+    "onError-ee293d8dc69d": {
+      "name": "onError",
+      "type": "((error: Error) => void) | undefined",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10394,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10394"
+      }
+    },
+    "onToolCall-1bb4e2579e8e": {
+      "name": "onToolCall",
+      "type": "((args: { toolCall: { toolCallId: string; toolName: string; args: unknown; }; }) => Promise<unknown> | unknown | undefined) | undefined",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10392,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10392"
+      }
+    },
+    "onEvent-2b525dd0ec4b": {
+      "name": "onEvent",
+      "type": "((event: RealtimeServerEvent) => void) | undefined",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10393,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10393"
+      }
+    },
+    "connect-a277f2ca8921": {
+      "name": "connect",
+      "type": "{ (): Promise<void>; (options: { stream?: MediaStream; capture?: boolean; }): Promise<void>; }",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10415,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10415"
+      }
+    },
+    "disconnect-a0f2793ced8a": {
+      "name": "disconnect",
+      "type": "() => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10424,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10424"
+      }
+    },
+    "close-e363f56e6a2b": {
+      "name": "close",
+      "type": "(options?: { eventId?: string; }) => Promise<void>",
+      "optional": false,
+      "description": "Wait for final usage when the model supports a session-close acknowledgement.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10426,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10426"
+      }
+    },
+    "sendEvent-1ed4115b59e1": {
+      "name": "sendEvent",
+      "type": "(event: RealtimeClientEvent) => Promise<void>",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10430,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10430"
+      }
+    },
+    "sendTextMessage-e25a39689251": {
+      "name": "sendTextMessage",
+      "type": "(text: string) => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10431,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10431"
+      }
+    },
+    "sendAudio-abb6fd8293e3": {
+      "name": "sendAudio",
+      "type": "(audio: string) => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10432,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10432"
+      }
+    },
+    "commitAudio-c1bebd5fa209": {
+      "name": "commitAudio",
+      "type": "() => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10433,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10433"
+      }
+    },
+    "clearAudioBuffer-784cb9924553": {
+      "name": "clearAudioBuffer",
+      "type": "() => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10434,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10434"
+      }
+    },
+    "requestResponse-8d20891a47c8": {
+      "name": "requestResponse",
+      "type": "(options?: { modalities?: string[]; }) => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10435,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10435"
+      }
+    },
+    "cancelResponse-ef55991b7861": {
+      "name": "cancelResponse",
+      "type": "() => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10438,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10438"
+      }
+    },
+    "addToolOutput-5a6e47b363d5": {
+      "name": "addToolOutput",
+      "type": "(callId: string, result: unknown) => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10440,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10440"
+      }
+    },
+    "startAudioCapture-f8d969401d42": {
+      "name": "startAudioCapture",
+      "type": "(stream: MediaStream) => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10442,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10442"
+      }
+    },
+    "resumeAudioCapture-aad7cfb3b71b": {
+      "name": "resumeAudioCapture",
+      "type": "() => Promise<void>",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10443,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10443"
+      }
+    },
+    "stopAudioCapture-d3ce66e2c1a4": {
+      "name": "stopAudioCapture",
+      "type": "() => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10444,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10444"
+      }
+    },
+    "stopPlayback-4aaa7bc6d4eb": {
+      "name": "stopPlayback",
+      "type": "() => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10445,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10445"
+      }
+    },
+    "resumePlayback-c29f9a66cc87": {
+      "name": "resumePlayback",
+      "type": "() => Promise<void>",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10446,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10446"
+      }
+    },
+    "dispose-ba4bc348b681": {
+      "name": "dispose",
+      "type": "() => void",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10447,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10447"
+      }
+    },
+    "getSnapshot-b4938edff73b": {
+      "name": "getSnapshot",
+      "type": "() => Readonly<import(\"ai\").Experimental_RealtimeState>",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "subscribe-d65210706930": {
+      "name": "subscribe",
+      "type": "(listener: () => void) => () => void",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "providerOptions-b1f6e46513fc": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific options that are passed through to the provider\nas body parameters.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9893,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9893"
+      }
+    },
+    "seed-a925b39a46ff": {
+      "name": "seed",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Seed for the video generation.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9854,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9854"
+      }
+    },
+    "maxRetries-557e44be3533": {
+      "name": "maxRetries",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Maximum number of retries per video model call. Set to 0 to disable retries.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "2"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9899,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9899"
+      }
+    },
+    "abortSignal-5c1f46bf9562": {
+      "name": "abortSignal",
+      "type": "AbortSignal | undefined",
+      "optional": true,
+      "description": "Abort signal.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9903,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9903"
+      }
+    },
+    "headers-86cc6d2a91a0": {
+      "name": "headers",
+      "type": "Record<string, string> | undefined",
+      "optional": true,
+      "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9908,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9908"
+      }
+    },
+    "prompt-d76e36aeb1ec": {
+      "name": "prompt",
+      "type": "GenerateVideoPrompt",
+      "optional": false,
+      "description": "The prompt that should be used to generate the video.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9825,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9825"
+      }
+    },
+    "model-05ef0967cd9a": {
+      "name": "model",
+      "type": "VideoModel",
+      "optional": false,
+      "description": "The video model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9821,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9821"
+      }
+    },
+    "n-abd3343160cb": {
+      "name": "n",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Number of videos to generate.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9829,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9829"
+      }
+    },
+    "aspectRatio-ab67dd850135": {
+      "name": "aspectRatio",
+      "type": "`${number}:${number}` | \"adaptive\" | undefined",
+      "optional": true,
+      "description": "Aspect ratio of the videos to generate. Must have the format\n`{width}:{height}`, or `'adaptive'` to inherit the ratio from the input media.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9838,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9838"
+      }
+    },
+    "download-66b7a049f669": {
+      "name": "download",
+      "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
+      "optional": true,
+      "description": "Custom download function for fetching videos from URLs.\nUse `createDownload()` from `ai` to create a download function with custom size limits.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "createDownload() (2 GiB limit)"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9915,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9915"
+      }
+    },
+    "maxVideosPerCall-04e47517618a": {
+      "name": "maxVideosPerCall",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Maximum number of videos per API call. If not provided, the model's default will be used.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9833,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9833"
+      }
+    },
+    "resolution-983d2c88254d": {
+      "name": "resolution",
+      "type": "`${number}x${number}` | undefined",
+      "optional": true,
+      "description": "Resolution of the videos to generate. Must have the format `{width}x${height}`.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9842,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9842"
+      }
+    },
+    "duration-f26848fb3fa6": {
+      "name": "duration",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Duration of the video in seconds.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9846,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9846"
+      }
+    },
+    "fps-c32d5e0c8d00": {
+      "name": "fps",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Frames per second for the video.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9850,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9850"
+      }
+    },
+    "frameImages-aeba77dd05f1": {
+      "name": "frameImages",
+      "type": "{ image: DataContent; frameType: VideoModelV4FrameType; }[] | undefined",
+      "optional": true,
+      "description": "Role-tagged image inputs for image-to-video and first-last-frame generation.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9858,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9858"
+      }
+    },
+    "inputReferences-0bf9ee19009d": {
+      "name": "inputReferences",
+      "type": "(DataContent | { data: DataContent; mediaType?: string; })[] | undefined",
+      "optional": true,
+      "description": "Reference inputs for reference-to-video generation.\n\nEach entry may be a plain image/video ({@link DataContent}), or an object\nform that carries an explicit `mediaType`.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9874,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9874"
+      }
+    },
+    "generateAudio-9ba1f0fe35f9": {
+      "name": "generateAudio",
+      "type": "boolean | undefined",
+      "optional": true,
+      "description": "Whether the model should generate audio alongside the video.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9888,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9888"
+      }
+    },
+    "poll-a413a5705658": {
+      "name": "poll",
+      "type": "GenerateVideoPollOptions | undefined",
+      "optional": true,
+      "description": "Polling configuration for models that support the asynchronous\nstart/status flow. When provided and the model implements `doStart`\nand `doStatus`, the SDK will orchestrate polling automatically.\n\nThis option can be combined with `webhook`: `timeoutMs` limits the webhook\nwait, and the polling settings apply if the model does not support\nwebhooks.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9931,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9931"
+      }
+    },
+    "webhook-150ee2c34792": {
+      "name": "webhook",
+      "type": "GenerateVideoWebhookFactory | undefined",
+      "optional": true,
+      "description": "Webhook factory for models that support the asynchronous\nstart/status flow. When provided and the model implements `doStart`\nand `doStatus`, the SDK will use webhooks instead of polling.\n\nThe factory should return a URL for the provider to send notifications to,\nand a `received` promise that resolves when the notification arrives.\n`poll` can also be provided to configure the webhook timeout and polling\nfallback.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9942,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9942"
+      }
+    },
+    "prompt-b7d5559918ca": {
+      "name": "prompt",
+      "type": "GenerateVideoPrompt | undefined",
+      "optional": true,
+      "description": "The prompt that should be used to generate the video.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9825,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9825"
+      }
+    },
+    "model-ce767d778a6c": {
+      "name": "model",
+      "type": "string | VideoModelV4 | VideoModelV3 | (string & VideoModelV4) | (string & VideoModelV3) | (VideoModelV4 & string) | (VideoModelV3 & string)",
+      "optional": false,
+      "description": "The video model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9821,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9821"
+      }
+    },
+    "direct-4ea07477228e": {
+      "name": "direct",
+      "type": "GenerateVideoPrompt",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "prepared-220b47dc8244": {
+      "name": "prepared",
+      "type": "GenerateVideoPrompt",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "template-698edd69db01": {
+      "name": "template",
+      "type": "GenerateVideoPrompt",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "video-84772d9bf3b3": {
+      "name": "video",
+      "type": "GeneratedFile",
+      "optional": false,
+      "description": "The first video that was generated.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9751,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9751"
+      }
+    },
+    "videos-8774a365a425": {
+      "name": "videos",
+      "type": "GeneratedFile[]",
+      "optional": false,
+      "description": "All videos that were generated.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9755,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9755"
+      }
+    },
+    "warnings-87ff71219ca6": {
+      "name": "warnings",
+      "type": "SharedV4Warning[]",
+      "optional": false,
+      "description": "Warnings for the call, e.g. unsupported settings.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9759,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9759"
+      }
+    },
+    "responses-ab44c3b4f994": {
+      "name": "responses",
+      "type": "VideoModelResponseMetadata[]",
+      "optional": false,
+      "description": "Response metadata from the provider.\nMay contain multiple responses if multiple calls were made.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9764,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9764"
+      }
+    },
+    "providerMetadata-2785d8939d21": {
+      "name": "providerMetadata",
+      "type": "SharedV4ProviderMetadata",
+      "optional": false,
+      "description": "Provider-specific metadata passed through from the provider.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9768,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9768"
       }
     },
     "isEnabled-461f93f561cc": {
@@ -11141,6 +12537,476 @@ export default {
       "source": {
         "path": "../cascada/dist/types/index.d.ts"
       }
+    },
+    "track-df38ccf3977e": {
+      "name": "track",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "format-e539b941a128": {
+      "name": "format",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "options-0fff94c0d2f4": {
+      "name": "options",
+      "type": "Record<string, string | number | bigint | boolean | null | undefined> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "type-28d9280d80c8": {
+      "name": "type",
+      "type": "\"text\"",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9571,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9571"
+      }
+    },
+    "text-b288a513fb80": {
+      "name": "text",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9572,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9572"
+      }
+    },
+    "voice-3d5bccd41bce": {
+      "name": "voice",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The voice that speaks this part (provider-specific, like the call's\n`voice`). Single-voice providers reject a voice that differs from the\ncall's voice.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9578,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9578"
+      }
+    },
+    "providerOptions-c6f026e1f87f": {
+      "name": "providerOptions",
+      "type": "SharedV4ProviderOptions | undefined",
+      "optional": true,
+      "description": "Additional provider-specific options for this part.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9582,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9582"
+      }
+    },
+    "token-82039d33aaad": {
+      "name": "token",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10352,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10352"
+      }
+    },
+    "session-3f0dd5410c19": {
+      "name": "session",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10353,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10353"
+      }
+    },
+    "websocket-ff8a290a5912": {
+      "name": "websocket",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10354,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10354"
+      }
+    },
+    "protocols-4fbcd03d4901": {
+      "name": "protocols",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10355,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10355"
+      }
+    },
+    "session-187c7dfc4289": {
+      "name": "session",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10357,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10357"
+      }
+    },
+    "token-bea4b4f5813d": {
+      "name": "token",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10358,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10358"
+      }
+    },
+    "websocket-08bb41f78059": {
+      "name": "websocket",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10359,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10359"
+      }
+    },
+    "protocols-6cbccaad8f9f": {
+      "name": "protocols",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10360,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10360"
+      }
+    },
+    "websocket-1177dc8df0aa": {
+      "name": "websocket",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10362,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10362"
+      }
+    },
+    "protocols-603840f69b76": {
+      "name": "protocols",
+      "type": "string[] | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10363,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10363"
+      }
+    },
+    "token-e44ab10519a6": {
+      "name": "token",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10364,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10364"
+      }
+    },
+    "session-df0c2708636b": {
+      "name": "session",
+      "type": "undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10365,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10365"
+      }
+    },
+    "status-c863744369b3": {
+      "name": "status",
+      "type": "RealtimeStatus",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10339,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10339"
+      }
+    },
+    "messages-8a7862c23a8e": {
+      "name": "messages",
+      "type": "UIMessage<unknown, UIDataTypes, UITools>[]",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10340,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10340"
+      }
+    },
+    "events-56835ef01875": {
+      "name": "events",
+      "type": "RealtimeModelV4ServerEvent[]",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10341,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10341"
+      }
+    },
+    "isCapturing-b161e297c8cd": {
+      "name": "isCapturing",
+      "type": "boolean",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10342,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10342"
+      }
+    },
+    "isPlaying-e8ba1fbe8c0b": {
+      "name": "isPlaying",
+      "type": "boolean",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10343,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10343"
+      }
+    },
+    "session-42dc226b883f": {
+      "name": "session",
+      "type": "RealtimeSessionState | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10344,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10344"
+      }
+    },
+    "image-2c60dbd30184": {
+      "name": "image",
+      "type": "DataContent",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9773,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9773"
+      }
+    },
+    "text-92f6e71d9ff1": {
+      "name": "text",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9774,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9774"
+      }
+    },
+    "intervalMs-8623e2efbef5": {
+      "name": "intervalMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Interval between status checks in milliseconds.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "5000"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9790,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9790"
+      }
+    },
+    "timeoutMs-0d47e970346a": {
+      "name": "timeoutMs",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Maximum time to wait for completion in milliseconds.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "600000 (10 minutes)"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9796,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9796"
+      }
+    },
+    "delay-437aacd3bd16": {
+      "name": "delay",
+      "type": "((delayInMs: number, options?: { abortSignal?: AbortSignal; }) => PromiseLike<void>) | undefined",
+      "optional": true,
+      "description": "Custom delay implementation for polling intervals and webhook timeouts.\nThis can be used with durable workflow sleep functions.",
+      "tags": [
+        {
+          "name": "default",
+          "text": "the built-in timer-based delay"
+        }
+      ],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9803,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9803"
+      }
+    },
+    "image-ceea09dd5218": {
+      "name": "image",
+      "type": "DataContent",
+      "optional": false,
+      "description": "The image for this frame.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9862,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9862"
+      }
+    },
+    "frameType-b9140b77d8c8": {
+      "name": "frameType",
+      "type": "VideoModelV4FrameType",
+      "optional": false,
+      "description": "Which frame this image represents.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9866,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9866"
+      }
+    },
+    "data-847ff95deffc": {
+      "name": "data",
+      "type": "DataContent",
+      "optional": false,
+      "description": "The reference image or video.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9878,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9878"
+      }
+    },
+    "mediaType-94a62a345c6a": {
+      "name": "mediaType",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The media type of the reference (e.g. 'image/png',\n'video/mp4').",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 9883,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9883"
+      }
     }
   },
   "details": {
@@ -11337,6 +13203,104 @@ export default {
           "shape": "RenderWeb:0"
         }
       ]
+    },
+    "MediaSettings": {
+      "type": "MediaSettings",
+      "variants": [
+        {
+          "type": "MediaSettings",
+          "shape": "MediaSettings:0"
+        }
+      ]
+    },
+    "SpeechAudioFormat": {
+      "type": "import(\"@ai-sdk/provider\").SharedV4AudioFormat",
+      "variants": [
+        {
+          "type": "import(\"@ai-sdk/provider\").SharedV4AudioFormat",
+          "shape": "SpeechAudioFormat:0"
+        }
+      ]
+    },
+    "SpeechTextPart": {
+      "type": "import(\"ai\").Experimental_SpeechTextPart",
+      "variants": [
+        {
+          "type": "import(\"ai\").Experimental_SpeechTextPart",
+          "shape": "SpeechTextPart:0"
+        }
+      ]
+    },
+    "VoiceClientApi": {
+      "type": "{ token: string; session?: never; websocket?: never; protocols?: never; } | { session: string; token?: never; websocket?: never; protocols?: never; } | { websocket: string; protocols?: string[]; token?: never; session?: never; }",
+      "variants": [
+        {
+          "type": "{ token: string; session?: never; websocket?: never; protocols?: never; }",
+          "shape": "VoiceClientApi:0"
+        },
+        {
+          "type": "{ session: string; token?: never; websocket?: never; protocols?: never; }",
+          "shape": "VoiceClientApi:1"
+        },
+        {
+          "type": "{ websocket: string; protocols?: string[]; token?: never; session?: never; }",
+          "shape": "VoiceClientApi:2"
+        }
+      ]
+    },
+    "VoiceClientSnapshot": {
+      "type": "Readonly<import(\"ai\").Experimental_RealtimeState>",
+      "variants": [
+        {
+          "type": "Readonly<import(\"ai\").Experimental_RealtimeState>",
+          "shape": "VoiceClientSnapshot:0"
+        }
+      ]
+    },
+    "VoiceClientSessionConfig": {
+      "type": "import(\"@ai-sdk/provider\").Experimental_RealtimeModelV4SessionConfig",
+      "variants": [
+        {
+          "type": "import(\"@ai-sdk/provider\").Experimental_RealtimeModelV4SessionConfig",
+          "shape": "VoiceClientSessionConfig:0"
+        }
+      ]
+    },
+    "VideoPrompt": {
+      "type": "{ image: import(\"ai\").DataContent; text?: string; }",
+      "variants": [
+        {
+          "type": "{ image: import(\"ai\").DataContent; text?: string; }",
+          "shape": "VideoPrompt:0"
+        }
+      ]
+    },
+    "VideoPoll": {
+      "type": "{ intervalMs?: number; timeoutMs?: number; delay?: (delayInMs: number, options?: { abortSignal?: AbortSignal; }) => PromiseLike<void>; }",
+      "variants": [
+        {
+          "type": "{ intervalMs?: number; timeoutMs?: number; delay?: (delayInMs: number, options?: { abortSignal?: AbortSignal; }) => PromiseLike<void>; }",
+          "shape": "VideoPoll:0"
+        }
+      ]
+    },
+    "VideoFrame": {
+      "type": "{ image: import(\"ai\").DataContent; frameType: import(\"@ai-sdk/provider\").Experimental_VideoModelV4FrameType; }",
+      "variants": [
+        {
+          "type": "{ image: import(\"ai\").DataContent; frameType: import(\"@ai-sdk/provider\").Experimental_VideoModelV4FrameType; }",
+          "shape": "VideoFrame:0"
+        }
+      ]
+    },
+    "VideoReference": {
+      "type": "{ data: import(\"ai\").DataContent; mediaType?: string; }",
+      "variants": [
+        {
+          "type": "{ data: import(\"ai\").DataContent; mediaType?: string; }",
+          "shape": "VideoReference:0"
+        }
+      ]
     }
   },
   "documentation": {
@@ -11444,6 +13408,1172 @@ export default {
         }
       }
     },
-    "OutputJSON:0": {}
+    "OutputJSON:0": {},
+    "TranscriberCollected_result": {
+      "text": {
+        "description": "The final transcribed text.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11040,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11040"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "segments": {
+        "description": "Final transcript segments with timing information, if available.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11044,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11044"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "language": {
+        "description": "The language of the transcript, if available.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11052,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11052"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "durationInSeconds": {
+        "description": "The duration of the transcript in seconds, if available.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11056,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11056"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "warnings": {
+        "description": "Warnings for the call, e.g. unsupported settings.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11060,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11060"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "responses": {
+        "description": "Response metadata.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11064,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11064"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "providerMetadata": {
+        "description": "Additional provider-specific metadata.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11068,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11068"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "fullStream": {
+        "description": "Full stream of transcription parts.\n\nThis is a single-consumer live stream and can only be accessed once.\nAccess it before any result promise when both stream parts and final\nresults are needed; accessing a result promise first consumes the stream\ninternally and makes `fullStream` unavailable.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11077,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11077"
+        },
+        "descriptionOrigin": "ai"
+      }
+    },
+    "SpeechCollected_result": {
+      "usage": {
+        "description": "Usage information reported for the call, if available.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 9607,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9607"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "warnings": {
+        "description": "Warnings for the call, e.g. unsupported settings.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 9611,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9611"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "responses": {
+        "description": "Response metadata.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 9615,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9615"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "providerMetadata": {
+        "description": "Additional provider-specific metadata.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 9619,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9619"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "audioStream": {
+        "description": "Stream of audio bytes in generation order.\n\n`audioStream` and `fullStream` share one live stream: only one of them\ncan be accessed, and only once. Access it before any result promise;\naccessing a result promise first consumes the stream internally.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 9627,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9627"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "fullStream": {
+        "description": "Full stream of speech parts (audio, raw, and error parts).\n\n`audioStream` and `fullStream` share one live stream: only one of them\ncan be accessed, and only once. Access it before any result promise;\naccessing a result promise first consumes the stream internally.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 9635,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9635"
+        },
+        "descriptionOrigin": "ai"
+      }
+    },
+    "Translator_result": {
+      "sourceText": {
+        "description": "The final source-language transcript of the input audio.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11237,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11237"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "translationText": {
+        "description": "The final translated text in the target language.\n\nMay resolve to an empty string for providers that produce only audio\noutput.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11244,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11244"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "durationInSeconds": {
+        "description": "The duration of the source audio in seconds, if available.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11248,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11248"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "usage": {
+        "description": "Usage information for the translation call, if reported by the provider.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11252,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11252"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "warnings": {
+        "description": "Warnings for the call, e.g. unsupported settings.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11256,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11256"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "response": {
+        "description": "Response metadata.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11260,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11260"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "providerMetadata": {
+        "description": "Additional provider-specific metadata.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11264,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11264"
+        },
+        "descriptionOrigin": "ai"
+      },
+      "fullStream": {
+        "description": "Full stream of translation parts.\n\nThis is a single-consumer live stream and can only be accessed once.\nAccess it before any result promise when both stream parts and final\nresults are needed; accessing a result promise first consumes the stream\ninternally and makes `fullStream` unavailable.",
+        "descriptionSource": {
+          "path": "node_modules/ai/dist/index.d.ts",
+          "line": 11273,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11273"
+        },
+        "descriptionOrigin": "ai"
+      }
+    },
+    "VoiceAgentClient_config": {
+      "model": {
+        "description": "The realtime model to connect to.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 243,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L243",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onError": {
+        "description": "Called when the realtime session encounters an error.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 352,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "api": {
+        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, or a WebRTC SDP endpoint. Conversation semantics and connection capabilities are independent.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 249,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L249",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sessionConfig": {
+        "description": "Provider-neutral session configuration, such as instructions, voice, audio formats, input audio transcription, turn detection, tools, and providerOptions.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 291,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L291",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sampleRate": {
+        "description": "Default audio sample rate used when inputAudioFormat.rate or outputAudioFormat.rate is not specified. Defaults to 24000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 298,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L298",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "maxEvents": {
+        "description": "Maximum number of provider events to keep in the events array. Defaults to 500.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 305,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L305",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "startupTimeoutMs": {
+        "description": "Readiness deadline, including transport setup. Defaults to 30000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 312,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L312",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "closeTimeoutMs": {
+        "description": "Deadline for confirmed provider finalization after graceful close. Defaults to 15000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 319,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L319",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "rtcDisconnectTimeoutMs": {
+        "description": "WebRTC peer disconnect recovery grace period. Defaults to 5000. Failed ICE terminates immediately.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 326,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L326",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "maxPlaybackBufferSeconds": {
+        "description": "Continuous WebSocket PCM playback budget before reporting a recoverable gap and pausing playback. Defaults to 2. Unsupported with WebRTC.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 333,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L333",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onToolCall": {
+        "description": "Turn-based tools only. Return a value to automatically submit it as tool output, or return undefined and call addToolOutput manually later. Live client delegations are application-handled through session metadata and events.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 340,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onEvent": {
+        "description": "Called for every normalized realtime server event.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 346,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceAgentClient_settings": {
+      "model": {
+        "description": "The realtime model to connect to.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 243,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L243",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onError": {
+        "description": "Called when the realtime session encounters an error.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 352,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "api": {
+        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, or a WebRTC SDP endpoint. Conversation semantics and connection capabilities are independent.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 249,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L249",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sessionConfig": {
+        "description": "Provider-neutral session configuration, such as instructions, voice, audio formats, input audio transcription, turn detection, tools, and providerOptions.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 291,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L291",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sampleRate": {
+        "description": "Default audio sample rate used when inputAudioFormat.rate or outputAudioFormat.rate is not specified. Defaults to 24000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 298,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L298",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "maxEvents": {
+        "description": "Maximum number of provider events to keep in the events array. Defaults to 500.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 305,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L305",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "startupTimeoutMs": {
+        "description": "Readiness deadline, including transport setup. Defaults to 30000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 312,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L312",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "closeTimeoutMs": {
+        "description": "Deadline for confirmed provider finalization after graceful close. Defaults to 15000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 319,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L319",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "rtcDisconnectTimeoutMs": {
+        "description": "WebRTC peer disconnect recovery grace period. Defaults to 5000. Failed ICE terminates immediately.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 326,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L326",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "maxPlaybackBufferSeconds": {
+        "description": "Continuous WebSocket PCM playback budget before reporting a recoverable gap and pausing playback. Defaults to 2. Unsupported with WebRTC.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 333,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L333",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onToolCall": {
+        "description": "Turn-based tools only. Return a value to automatically submit it as tool output, or return undefined and call addToolOutput manually later. Live client delegations are application-handled through session metadata and events.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 340,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onEvent": {
+        "description": "Called for every normalized realtime server event.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 346,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceAgentClient_native": {
+      "model": {
+        "description": "The realtime model to connect to.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 243,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L243",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "api": {
+        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, or a WebRTC SDP endpoint. Conversation semantics and connection capabilities are independent.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 249,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L249",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sessionConfig": {
+        "description": "Provider-neutral session configuration, such as instructions, voice, audio formats, input audio transcription, turn detection, tools, and providerOptions.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 291,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L291",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sampleRate": {
+        "description": "Default audio sample rate used when inputAudioFormat.rate or outputAudioFormat.rate is not specified. Defaults to 24000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 298,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L298",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "maxEvents": {
+        "description": "Maximum number of provider events to keep in the events array. Defaults to 500.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 305,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L305",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "startupTimeoutMs": {
+        "description": "Readiness deadline, including transport setup. Defaults to 30000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 312,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L312",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "closeTimeoutMs": {
+        "description": "Deadline for confirmed provider finalization after graceful close. Defaults to 15000.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 319,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L319",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "rtcDisconnectTimeoutMs": {
+        "description": "WebRTC peer disconnect recovery grace period. Defaults to 5000. Failed ICE terminates immediately.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 326,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L326",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "maxPlaybackBufferSeconds": {
+        "description": "Continuous WebSocket PCM playback budget before reporting a recoverable gap and pausing playback. Defaults to 2. Unsupported with WebRTC.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 333,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L333",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onToolCall": {
+        "description": "Turn-based tools only. Return a value to automatically submit it as tool output, or return undefined and call addToolOutput manually later. Live client delegations are application-handled through session metadata and events.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 340,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onEvent": {
+        "description": "Called for every normalized realtime server event.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 346,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onError": {
+        "description": "Called when the realtime session encounters an error.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 352,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceAgentClient_result": {
+      "onError": {
+        "description": "Called when the realtime session encounters an error.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 352,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onToolCall": {
+        "description": "Turn-based tools only. Return a value to automatically submit it as tool output, or return undefined and call addToolOutput manually later. Live client delegations are application-handled through session metadata and events.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 340,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "onEvent": {
+        "description": "Called for every normalized realtime server event.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 346,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "connect": {
+        "description": "Starts the selected connection. Continuous browser sessions acquire microphone audio by default; capture: false opts out. A supplied Live stream remains caller-owned. The zero-argument overload remains usable as an event handler.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 399,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L399",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "disconnect": {
+        "description": "Immediately releases transports and owned media. Preserves latest usage as unconfirmed unless a terminal provider event was received.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 411,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L411",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "close": {
+        "description": "Stops capture/submissions and waits for bounded graceful finalization where supported. Inspect session.finalization for confirmation; models without acknowledged close disconnect immediately.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 405,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L405",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sendEvent": {
+        "description": "Sends a normalized command in order. Resolves on local serialization/submission, not provider acceptance. Validation can throw synchronously; asynchronous send failures reject and are reported through onError. Live context/results use context-append with a known client delegation ID or null.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 423,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L423",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sendTextMessage": {
+        "description": "Turn-based only: sends user text and requests a response. Continuous Live sessions reject this control. The application owns its text conversation and supplies Live context through sendEvent.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 429,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L429",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "sendAudio": {
+        "description": "Sends a base64-encoded audio chunk to the provider input audio buffer over WebSocket. WebRTC uses media tracks and rejects JSON audio commands.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 435,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L435",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "commitAudio": {
+        "description": "Turn-based only: commits the provider input audio buffer.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 440,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L440",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "clearAudioBuffer": {
+        "description": "Turn-based only: clears the provider input audio buffer.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 445,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L445",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "requestResponse": {
+        "description": "Turn-based only: requests a new model response.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 450,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L450",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "cancelResponse": {
+        "description": "Turn-based only: cancels the active model response.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 455,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L455",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "addToolOutput": {
+        "description": "Turn-based only: submits a tool result back to the realtime provider. Continuous Live sessions reject this control; append application-handled client delegation results with sendEvent instead.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 417,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L417",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "startAudioCapture": {
+        "description": "Starts or replaces capture with the supplied MediaStream. Live paths borrow tracks; the existing legacy capture API retains ownership of its supplied stream. Async attachment failures are reported through onError.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 461,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L461",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "resumeAudioCapture": {
+        "description": "Restarts capture, reusing a supplied Live stream or acquiring a fresh SDK-owned microphone. Does not reconnect the provider.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 473,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L473",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "stopAudioCapture": {
+        "description": "Stops local capture and releases SDK-owned microphone tracks. Caller-owned Live tracks are only detached. Does not change the provider input-mute state.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 467,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L467",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "stopPlayback": {
+        "description": "Stops queued model audio playback.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 478,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L478",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "resumePlayback": {
+        "description": "Retries browser playback after interruption, suspension, or buffer overflow. Discarded stale audio is not replayed.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 484,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L484",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceClientApi:0": {
+      "token": {
+        "description": "The setup endpoint that returns an Experimental_RealtimeSetupResponse.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 259,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L259",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "session": {
+        "description": "Application WebRTC setup endpoint. Accepts JSON { sdp, sessionConfig } and returns JSON { sdp, sessionId }.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 266,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L266",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "websocket": {
+        "description": "Application-owned raw-protocol relay URL. Use wss in production; never put provider credentials in the URL.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 273,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L273",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "protocols": {
+        "description": "Optional relay subprotocols, supported only with websocket.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 280,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L280",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceClientApi:1": {
+      "session": {
+        "description": "Application WebRTC setup endpoint. Accepts JSON { sdp, sessionConfig } and returns JSON { sdp, sessionId }.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 266,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L266",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "token": {
+        "description": "The setup endpoint that returns an Experimental_RealtimeSetupResponse.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 259,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L259",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "websocket": {
+        "description": "Application-owned raw-protocol relay URL. Use wss in production; never put provider credentials in the URL.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 273,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L273",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "protocols": {
+        "description": "Optional relay subprotocols, supported only with websocket.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 280,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L280",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceClientApi:2": {
+      "websocket": {
+        "description": "Application-owned raw-protocol relay URL. Use wss in production; never put provider credentials in the URL.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 273,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L273",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "protocols": {
+        "description": "Optional relay subprotocols, supported only with websocket.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 280,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L280",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "token": {
+        "description": "The setup endpoint that returns an Experimental_RealtimeSetupResponse.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 259,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L259",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "session": {
+        "description": "Application WebRTC setup endpoint. Accepts JSON { sdp, sessionConfig } and returns JSON { sdp, sessionId }.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 266,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L266",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceClientSnapshot:0": {
+      "status": {
+        "description": "The current connection status.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 364,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L364",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "messages": {
+        "description": "Messages assembled from turn-based response text, transcript, and tool events. Continuous Live transcript fragments are exposed separately through session.transcripts.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 370,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L370",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "events": {
+        "description": "Recent normalized provider events for inspection or debug UI.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 376,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L376",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "isCapturing": {
+        "description": "Capture state observed through SDK controls and events on the selected audio track. External changes to borrowed tracks may require an explicit refresh; see Capture ownership.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 382,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L382",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "isPlaying": {
+        "description": "Whether model audio playback is active.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 387,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L387",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      },
+      "session": {
+        "description": "Session lifecycle metadata where supported: sessionId, transcript fragments, client delegation metadata, cumulative voice usage, input mute, terminationReason, and pending/confirmed/unconfirmed finalization. Transcript fragments may overlap or arrive late; they are not complete turns.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 393,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L393",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VideoPrompt:0": {
+      "image": {
+        "description": "Input image for image-to-video generation. Can be a URL string, base64-encoded string, a `Uint8Array`, an `ArrayBuffer`, or a `Buffer`.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx",
+          "line": 64,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L64",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video"
+        }
+      },
+      "text": {
+        "description": "The text prompt.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx",
+          "line": 69,
+          "package": "ai",
+          "version": "7.0.162",
+          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L69",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video"
+        }
+      }
+    }
   }
 };

@@ -6,7 +6,7 @@ const { spawnSync } = require('node:child_process');
 const workspace = path.resolve(__dirname, '../..');
 const temporary = fs.mkdtempSync(path.join(workspace, '.component-review-mutations-'));
 const filter = new RegExp(process.argv[2] ?? '');
-const tests = ['tests/ComponentBoundaryReview.unit.test.ts', 'tests/ClaudeRuntimeReview.unit.test.ts', 'tests/StructuredSources.unit.test.ts', 'tests/ComponentCalls.unit.test.ts', 'tests/VoiceSessionSetup.unit.test.ts', 'tests/ConfigModifiers.unit.test.ts'];
+const tests = ['tests/ComponentBoundaryReview.unit.test.ts', 'tests/ClaudeRuntimeReview.unit.test.ts', 'tests/StructuredSources.unit.test.ts', 'tests/ComponentCalls.unit.test.ts', 'tests/VoiceAgentBackend.unit.test.ts', 'tests/ConfigModifiers.unit.test.ts'];
 const mutations = [
   ['Config source selection', 'src/factories/Config.ts',
     'if (mode !== undefined) Object.assign(merged, { [sourceMode]: mode });', '',
@@ -53,13 +53,13 @@ const mutations = [
   ['streaming transcript model output', 'src/factories/StreamingTranscriber.ts',
     "({ output }) => ({ type: 'text', value: (output as { text: string }).text })", 'undefined',
     'keeps streaming transcription model output textual'],
-  ['token expiration ownership', 'src/factories/VoiceSessionSetup.ts',
+  ['token expiration ownership', 'src/factories/VoiceAgentBackend.ts',
     'const { model: _model, expiresAfterSeconds: _expiry, ...settings } = request;', 'const { model: _model, ...settings } = request;',
     'keeps token expiration outside native session configuration'],
-  ['cleared voice settings', 'src/factories/VoiceSessionSetup.ts',
+  ['cleared voice settings', 'src/factories/VoiceAgentBackend.ts',
     '...definedSettings(settings)', '...settings',
     'omits cleared and conditional settings before native Live setup'],
-  ['realtime cancellation after metadata', 'src/factories/VoiceSessionSetup.ts',
+  ['realtime cancellation after metadata', 'src/factories/VoiceAgentBackend.ts',
     'const sessionConfig = await voiceConfig(request, prepared.registry);\n\t\tprepared.context._toolOptions.abortSignal?.throwIfAborted();',
     'const sessionConfig = await voiceConfig(request, prepared.registry);',
     'checks cancellation after asynchronous realtime tool definitions'],
@@ -87,7 +87,7 @@ const mutations = [
   ['prepared query document fallback', 'src/factories/Reranker.ts',
     'prepared.supplied.documents ?? query.documents ?? prepared.settings.documents', 'prepared.supplied.documents ?? query.documents',
     'retains fallback documents for a scripted query object'],
-  ['voice execution promise boundary', 'src/factories/VoiceSessionSetup.ts',
+  ['voice execution promise boundary', 'src/factories/VoiceAgentBackend.ts',
     'async executeTool(call:', 'executeTool(call:',
     'rejects voice registry errors through the promised executeTool result'],
   ['loaded source error classification', 'src/renderers/prompt-renderers.ts',

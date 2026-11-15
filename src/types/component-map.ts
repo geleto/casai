@@ -17,7 +17,7 @@ interface Types<P extends PromptType = PromptType, T = unknown, A extends boolea
 	SpeechGenerator: import('../factories/SpeechGenerator.js').Types<P, T, A>;
 	StreamingSpeechGenerator: import('../factories/StreamingSpeechGenerator.js').Types<P, T, A>;
 	StreamingTranslator: import('../factories/StreamingTranslator.js').Types<P, T, A>;
-	VoiceSessionSetup: import('../factories/VoiceSessionSetup.js').Types<P, T, A>;
+	VoiceAgentBackend: import('../factories/VoiceAgentBackend.js').Types<P, T, A>;
 }
 
 export type Definitions = { [K in keyof Types]: Types[K]['definition'] };

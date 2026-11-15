@@ -15,10 +15,13 @@ export async function checkPackage(root, destination) {
   await writeFile(consumer, `import assert from 'node:assert/strict';
 import { components, render } from '@casai/matrix';
 import { describe } from '@casai/matrix/reference';
-assert.equal(components.length, 14);
+assert.equal(components.length, 16);
 const example = await render('LLMAgent', ['loadTemplate']);
 assert(example.files.some(file => file.name === 'LLMAgent.cat'));
 assert(describe('LLMAgent').config.properties.telemetry.details.variants[0].properties.length);
+const client = await render('VoiceAgentClient', ['run']);
+assert(client.files[0].code.includes("from 'casai/client'"));
+assert(describe('VoiceAgentClient').result.shapes[0].properties.some(property => property.name === 'getSnapshot'));
 `);
   execFileSync(process.execPath, [fileURLToPath(consumer)], { cwd: destination, stdio: 'inherit' });
   console.log('Checked linked documentation package exports and resources.');

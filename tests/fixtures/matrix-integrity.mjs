@@ -21,7 +21,6 @@ export function checkIntegrity(catalog, reference, api, common, own, concepts) {
     assert.equal(new Set(groups).size, groups.length, `${component.name}: duplicate group`);
     assert.equal(new Set(choices.map(choice => choice.id)).size, choices.length, `${component.name}: duplicate choice`);
     for (const choice of choices) rules(component, choice);
-    if (component.planned) rules(component, component.planned);
     const base = reference[component.name];
     for (const spec of [base, ...(base.variants ?? [])]) {
       rules(component, spec);
@@ -33,8 +32,9 @@ export function checkIntegrity(catalog, reference, api, common, own, concepts) {
     }
   }
   for (const [owner, entries] of Object.entries(own)) {
-    shape(`${owner}_config`);
-    const names = api.shapes[`${owner}_config`].map(id => api.properties[id].name);
+    const shapes = reference[owner]?.propertyShapes ?? [`${owner}_config`];
+    shapes.forEach(shape);
+    const names = shapes.flatMap(shape => api.shapes[shape].map(id => api.properties[id].name));
     for (const name of Object.keys(entries)) assert(names.includes(name), `Unused local property: ${owner}.${name}`);
   }
   for (const entry of [...Object.values(common), ...Object.values(own).flatMap(Object.values)]) { shape(entry.nativeDocs); shape(entry.nested); }

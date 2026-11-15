@@ -69,7 +69,7 @@ describe('component runtime review corrections', () => {
 	});
 
 	it('rejects voice registry errors through the promised executeTool result', async () => {
-		const setup = create.VoiceSessionSetup({ model: createOpenAI({ apiKey: 'fixture' }).experimental_realtime('gpt-realtime') });
+		const setup = create.VoiceAgentBackend({ model: createOpenAI({ apiKey: 'fixture' }).experimental_realtime('gpt-realtime') });
 		let result: Promise<unknown> | undefined;
 		assert.doesNotThrow(() => {
 			result = Reflect.apply(setup.executeTool.bind(setup), setup, [{ toolCallId: 'call', toolName: 'missing', args: {} }, { toolsContext: { missing: {} } }]) as Promise<unknown>;

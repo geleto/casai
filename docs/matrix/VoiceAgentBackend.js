@@ -7,7 +7,7 @@ export default function render(options, resources) {
   const call = has(options, 'prepareSession') ? `voiceSupport.prepareSessionConfig(${settings})`
     : has(options, 'webRTC') ? `voiceSupport.createWebRTCSession({ sdp: offerSdp,${coded ? ` context: ${context},` : ''} })`
     : has(options, 'run') ? `voiceSupport.run(${settings})` : `voiceSupport(${coded ? context : ''})`;
-  return renderExample({ component: 'VoiceSessionSetup', variable: 'voiceSupport', functionName: 'prepareVoiceSupportSession', options, modelType: 'Experimental_RealtimeModel',
+  return renderExample({ component: 'VoiceAgentBackend', variable: 'voiceSupport', functionName: 'prepareVoiceSupportSession', options, modelType: 'Experimental_RealtimeModel',
     params: has(options, 'webRTC') ? ['offerSdp: string'] : [],
     description: 'Prepare a browser voice assistant with a realtime model supporting the selected session method.',
     imports: tools ? ['Function', 'z'] : [],
@@ -18,7 +18,7 @@ export default function render(options, resources) {
 });`] : [],
     fields: tools ? ['// The model must support session tools; the application routes calls back to the server.', 'tools: { lookupOrder },'] : [],
     schema: coded ? 'z.object({ company: z.string(), language: z.string() })' : undefined,
-    source: source('VoiceSessionSetup', 'instructions', options, resources,
+    source: source('VoiceAgentBackend', 'instructions', options, resources,
       "'Help Northstar customers in English. Keep replies short and ask one question at a time.'",
       '({ company, language }) => `Help ${company} customers in ${language}. Keep replies short and ask one question at a time.`'),
     body: `const session = await ${call};

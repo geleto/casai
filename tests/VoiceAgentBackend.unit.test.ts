@@ -17,16 +17,16 @@ function provider() {
 	return { openai, requests };
 }
 
-describe('experimental voice session setup', () => {
+describe('experimental voice agent backend', () => {
 	it('omits cleared and conditional settings before native Live setup', async () => {
 		const { openai, requests } = provider();
 		const model = openai.experimental_realtime('live-model', { api: 'live' });
 		await assert.rejects(model.doCreateWebRTCSession({ sdp: 'offer', sessionConfig: { turnDetection: undefined } }), /OpenAI Live session setting: turnDetection/);
-		const parent = create.VoiceSessionSetup({ model, instructions: 'old', turnDetection: null, inputAudioTranscription: { model: 'whisper-1' } });
-		const cleared = create.VoiceSessionSetup({ instructions: undefined, turnDetection: undefined, inputAudioTranscription: undefined }, parent);
+		const parent = create.VoiceAgentBackend({ model, instructions: 'old', turnDetection: null, inputAudioTranscription: { model: 'whisper-1' } });
+		const cleared = create.VoiceAgentBackend({ instructions: undefined, turnDetection: undefined, inputAudioTranscription: undefined }, parent);
 		assert.deepEqual(await cleared.prepareSessionConfig(), {});
 		await cleared.createWebRTCSession({ sdp: 'offer' });
-		const conditional = create.VoiceSessionSetup({ model, instructions: 'policy', turnDetection: undefined, inputAudioTranscription: undefined });
+		const conditional = create.VoiceAgentBackend({ model, instructions: 'policy', turnDetection: undefined, inputAudioTranscription: undefined });
 		assert.deepEqual(await conditional.prepareSessionConfig(), { instructions: 'policy' });
 		await conditional.createWebRTCSession({ sdp: 'offer' });
 		assert.equal(requests.length, 2);
@@ -38,7 +38,7 @@ describe('experimental voice session setup', () => {
 	it('rebinds tool dependencies without requiring or preparing session instructions', async () => {
 		const { openai, requests } = provider();
 		const lookup = create.Function.asTool({ inputSchema: z.object({}), context: { db: (): string => 'configured' }, execute: ({ db }) => db() });
-		const setup = create.VoiceSessionSetup.withFunction({ model: openai.experimental_realtime('gpt-realtime'),
+		const setup = create.VoiceAgentBackend.withFunction({ model: openai.experimental_realtime('gpt-realtime'),
 			inputSchema: z.object({ company: z.string() }), instructions: ({ company }) => { throw new Error(`Unexpected preparation for ${company}`); }, tools: { lookup } });
 		const call = { toolCallId: 'lookup-call', toolName: 'lookup' as const, args: {} };
 		assert.equal(await setup.executeTool(call), 'configured');
@@ -53,7 +53,7 @@ describe('experimental voice session setup', () => {
 		for (const prepared of [false, true]) {
 			const config = prepared ? { model, ...sourceModes.function.config, instructions: () => 'ready' }
 				: { model, ...sourceModes.text.config };
-			const session = create.VoiceSessionSetup(config);
+			const session = create.VoiceAgentBackend(config);
 			const settings = await session.prepareSessionConfig({ voice: 'alloy' });
 			assert.equal(settings.voice, 'alloy');
 			assert.equal(settings.instructions, prepared ? 'ready' : undefined);
@@ -64,7 +64,7 @@ describe('experimental voice session setup', () => {
 	it('keeps the captured model fixed across every session entry point', async () => {
 		const { openai, requests } = provider();
 		const model = openai.experimental_realtime('gpt-realtime');
-		const setup = create.VoiceSessionSetup({ model });
+		const setup = create.VoiceAgentBackend({ model });
 		for (const [method, settings] of [[setup.run, { model }], [setup.prepareSessionConfig, { model }], [setup.createWebRTCSession, { model, sdp: 'offer' }]] as const) {
 			await assert.rejects(async () => { await Reflect.apply(method, undefined, [settings]); }, /Configuration-only.*model/);
 		}
@@ -75,7 +75,7 @@ describe('experimental voice session setup', () => {
 		const { openai, requests } = provider();
 		const lookup = create.Function.asTool({ inputSchema: z.object({ key: z.string(), language: z.string() }),
 			context: { language: 'en', secret: 'private' }, execute: ({ key, language, secret }) => ({ key, language, secret }) });
-		const setup = create.VoiceSessionSetup.withTemplate({ model: openai.experimental_realtime('gpt-realtime'),
+		const setup = create.VoiceAgentBackend.withTemplate({ model: openai.experimental_realtime('gpt-realtime'),
 			instructions: 'Help {{ name }}', inputSchema: z.object({ name: z.string() }),
 			tools: { lookup }, toolsContext: { lookup: { language: 'fr' } }, expiresAfterSeconds: 60 });
 		const result = await setup({ name: 'Ada' });
@@ -97,7 +97,7 @@ describe('experimental voice session setup', () => {
 	it('omits empty tools for Live WebRTC and leaves provider capability limits intact', async () => {
 		const { openai, requests } = provider();
 		const model = openai.experimental_realtime('live-model', { api: 'live' });
-		const setup = create.VoiceSessionSetup({ model, instructions: 'Server policy' });
+		const setup = create.VoiceAgentBackend({ model, instructions: 'Server policy' });
 		assert.deepEqual(await setup.prepareSessionConfig(), { instructions: 'Server policy' });
 		const signal = new AbortController().signal;
 		assert.deepEqual(await setup.createWebRTCSession({ sdp: 'offer', abortSignal: signal }), { sessionId: 'session', sdp: 'answer' });
@@ -107,9 +107,9 @@ describe('experimental voice session setup', () => {
 		assert.equal(Object.hasOwn(requests[0].body.session, 'tools'), false);
 		await assert.rejects(setup(), UnsupportedFunctionalityError);
 		const lookup = create.Function.asTool({ inputSchema: z.object({}), execute: () => 'ok' });
-		const withTools = create.VoiceSessionSetup({ tools: { lookup } }, setup);
+		const withTools = create.VoiceAgentBackend({ tools: { lookup } }, setup);
 		await assert.rejects(withTools.createWebRTCSession({ sdp: 'offer' }), /OpenAI Live session setting: tools/);
-		const legacy = create.VoiceSessionSetup({ model: openai.experimental_realtime('gpt-realtime') });
+		const legacy = create.VoiceAgentBackend({ model: openai.experimental_realtime('gpt-realtime') });
 		await assert.rejects(legacy.createWebRTCSession({ sdp: 'offer' }), UnsupportedFunctionalityError);
 		assert.equal(requests.length, 1);
 		assert.equal((await model.getServerWebSocketConfig()).url, 'wss://api.openai.com/v1/live/sessions');
@@ -119,7 +119,7 @@ describe('experimental voice session setup', () => {
 		const { openai, requests } = provider();
 		let release!: () => void;
 		const ready = new Promise<void>(resolve => { release = resolve; });
-		const setup = create.VoiceSessionSetup.withFunction({
+		const setup = create.VoiceAgentBackend.withFunction({
 			model: openai.experimental_realtime('live-model', { api: 'live' }),
 			instructions: async () => { await ready; return 'Server policy'; },
 		});
@@ -145,7 +145,7 @@ describe('experimental voice session setup', () => {
 				metadata.push(_toolOptions);
 				return { query, username, password, language };
 			} });
-		const setup = create.VoiceSessionSetup({ model: openai.experimental_realtime('gpt-realtime'), tools: { lookup },
+		const setup = create.VoiceAgentBackend({ model: openai.experimental_realtime('gpt-realtime'), tools: { lookup },
 			toolsContext: { lookup: { username: 'alice', language: 'fr' } } });
 		const signal = new AbortController().signal;
 		const [alice, bob] = await Promise.all([
@@ -171,7 +171,7 @@ describe('experimental voice session setup', () => {
 		const empty = create.Function.asTool({ inputSchema: z.object({}), execute: () => undefined });
 		const fail = create.Function.asTool({ inputSchema: z.object({}), execute: () => { throw failure; } });
 		const unavailable = tool({ inputSchema: z.object({}) });
-		const setup = create.VoiceSessionSetup({ model: openai.experimental_realtime('gpt-realtime'),
+		const setup = create.VoiceAgentBackend({ model: openai.experimental_realtime('gpt-realtime'),
 			tools: { native, empty, fail, unavailable }, toolsContext: { native: { user: 'alice' } } });
 		assert.equal(await setup.executeTool({ toolName: 'native', toolCallId: 'native-id', args: { count: '2' } }), 'final');
 		assert.deepEqual(observed, [{ count: 2, toolCallId: 'native-id', messages: [], abortSignal: undefined, context: { user: 'alice' } }]);

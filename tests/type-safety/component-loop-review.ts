@@ -130,7 +130,7 @@ create.Embedder({ model: embedding, input: 'fixed', inputSchema: closedInput, as
 // @ts-expect-error Live speech cannot become a tool on any branch.
 create.StreamingSpeechGenerator({ model: speech, text: 'fixed', inputSchema: z.object({}), asTool: toolMode });
 // @ts-expect-error Voice sessions cannot become a tool on any branch.
-create.VoiceSessionSetup({ model: realtime, inputSchema: z.object({}), asTool: toolMode });
+create.VoiceAgentBackend({ model: realtime, inputSchema: z.object({}), asTool: toolMode });
 declare const inputChoice: { inputSchema: typeof openInput; asTool?: undefined } | { inputSchema: typeof closedInput; asTool: true };
 create.Embedder({ model: embedding, input: 'fixed' }, { config: inputChoice });
 

@@ -1,9 +1,9 @@
 // These helpers generate source text; they never execute a displayed example.
 export const has = (options, name) => options.includes(name);
-export const sourceModes = ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
+export const sourceModes = ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript', 'loadAudio'];
 export const sourceMode = options => sourceModes.find(name => has(options, name));
 export const sourceKind = options => sourceMode(options)?.includes('Template') ? 'cat' : sourceMode(options)?.includes('Script') ? 'cas' : has(options, 'loadText') ? 'txt' : undefined;
-export const prepared = options => Boolean(sourceMode(options)) && !has(options, 'loadText') && !has(options, 'withText');
+export const prepared = options => Boolean(sourceMode(options)) && !['loadText', 'withText', 'loadAudio'].some(mode => has(options, mode));
 export const literal = value => JSON.stringify(value);
 export const indent = (text, spaces = 2) => text.split('\n').map(line => line ? ' '.repeat(spaces) + line : '').join('\n');
 
@@ -25,6 +25,7 @@ export function factory(component, options) {
 
 export function source(component, field, options, resources, plain, fn, defaultKind) {
   const mode = sourceMode(options);
+  if (mode === 'loadAudio') return { fields: plain === undefined ? [] : [`${field}: ${plain},`], files: [], loaded: false };
   const kind = sourceKind(options) ?? defaultKind;
   if (mode === 'withFunction') return { fields: [`${field}: ${fn},`], files: [], loaded: false };
   if (!kind) return { fields: plain === undefined ? [] : [`${field}: ${plain},`], files: [], loaded: false };
@@ -89,17 +90,13 @@ return {
 };`;
 }
 
-export function renderExample({ component, options, variable, functionName, params = [], modelType, streamingFactory,
+export function renderExample({ component, options, variable, functionName, params = [], modelType,
   imports = [], setup = [], fields = [], source: input = { fields: [], files: [] },
   description, toolDescription, schema, toolArgs = '{}', toolCaller = 'agent', toolPrompt,
   call = `${variable}()`, named = '{}', result = 'return result;', body, typeImports = [], aiImports = [] }) {
   const asTool = has(options, 'asTool');
   if (asTool && !toolDescription) throw new Error(`Supply a model-facing toolDescription for ${component}`);
-  // Keep one matrix family while the current audio API has separate factories.
-  const separateStream = has(options, 'asStream') && streamingFactory;
-  const api = separateStream || component;
-  const modifiers = separateStream ? options.filter(id => id !== 'asStream') : options;
-  const casai = new Set([api, ...imports]);
+  const casai = new Set([component, ...imports]);
   const types = new Set(typeImports);
   const ai = new Set(aiImports);
   const parameters = [];
@@ -125,13 +122,13 @@ export function renderExample({ component, options, variable, functionName, para
     ...(asTool ? [`description: ${literal(toolDescription)},`] : []),
     ...(schema ? [`inputSchema: ${schema},`] : []), ...input.fields,
   ];
-  const declaration = `const ${variable} = ${factory(api, modifiers)}({\n${indent(config.join('\n'))}\n});`;
+  const declaration = `const ${variable} = ${factory(component, options)}({\n${indent(config.join('\n'))}\n});`;
   const invocation = body ?? (asTool && !has(options, 'run') ? toolUse(variable, toolArgs, toolCaller, toolPrompt)
     : `const result = await ${has(options, 'run') ? `${variable}.run(${asTool ? `{ context: ${toolArgs} }` : named})` : call};\n${result}`);
   let code = `${importLines.join('\n')}\n\n// ${description}\nexport async function ${functionName}(${parameters.join(', ')}) {\n${indent([...setup, declaration, invocation].filter(Boolean).join('\n\n'))}\n}\n`;
   if (input.inlineText !== undefined) code = code.replace('__MATRIX_SOURCE__', () => multiline(input.inlineText));
   return { id: exampleId(component, options),
-    configuration: { component, factory: factory(api, modifiers), variable,
+    configuration: { component, factory: factory(component, options), variable,
       properties: config.flatMap(field => field.match(/^([\w$]+)\s*(?=[:,])/)?.slice(1) ?? []) },
     files: [{ name: `${component}.ts`, language: 'typescript', code }, ...input.files] };
 }

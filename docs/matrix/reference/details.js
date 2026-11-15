@@ -1,7 +1,18 @@
 // Amend only missing native prose; preserve native fields, types and attribution.
 // Key by extracted shape, not component-specific branches in the resolver.
 export const shapeProperties = {
-  VoiceSessionSetup_result: { tools: { description: 'Prepared native tool definitions for this session.', detail: 'RealtimeToolDefinition', appliesTo: 'Each tool definition' } },
+  VideoGenerator_result: {
+    video: { detail: 'GeneratedFile', appliesTo: 'First generated video' },
+    videos: { detail: 'GeneratedFile', appliesTo: 'Each generated video' },
+  },
+  VoiceAgentClient_result: {
+    getSnapshot: { description: 'Read the current native session state. The snapshot identity is stable between native state changes; treat it and its contents as read-only.', detail: 'VoiceClientSnapshot', appliesTo: 'Returned snapshot' },
+    subscribe: { description: 'Subscribe to state changes. Returns an unsubscribe function. Read getSnapshot after subscribing for initial rendering; subscribing does not connect or replay events.' },
+    dispose: { description: 'Immediately disconnect using native disposal. Unsubscribe application state listeners separately; use close first when graceful completion is required.' },
+  },
+  TranscriberFile_settings: { audio: { description: 'Supplied encoded audio bytes/ArrayBuffer or base64; paths and URLs use .loadsAudio preparation.' } },
+  TranscriberStream_settings: { audio: { description: 'Raw bytes/ArrayBuffer or a fresh stream matching inputAudioFormat; finite bytes are wrapped once for native dispatch.' } },
+  VoiceAgentBackend_result: { tools: { description: 'Prepared native tool definitions for this session.', detail: 'RealtimeToolDefinition', appliesTo: 'Each tool definition' } },
   VoiceWebRTC_result: {
     sessionId: { description: 'The provider identifier for the created session.' },
     sdp: { description: 'The SDP answer to give to the browser peer connection.' },
@@ -17,6 +28,11 @@ export const shapeProperties = {
     images: { detail: 'GeneratedFile', appliesTo: 'Each generated file' },
   },
   SpeechGenerator_result: { audio: { detail: 'GeneratedAudioFile', appliesTo: 'Generated file' } },
+  SpeechCollected_result: {
+    audio: { description: 'Collected audio from one native streaming execution, with GeneratedAudioFile byte/base64 access.', detail: 'GeneratedAudioFile', appliesTo: 'Generated file' },
+    audioFormat: { description: 'The actual emitted audio format, including sample rate where applicable.', detail: 'SpeechAudioFormat' },
+  },
+  Translator_result: { audio: { description: 'Collected translated audio bytes; empty on native text-only success. No media type is inferred.' } },
   RenderOptions: {
     autoescape: { description: 'Escape HTML-sensitive output characters. Casai defaults standalone rendering to false; AI input preparers always disable it.' },
     throwOnUndefined: { description: 'Throw when a template outputs null or undefined. Defaults to false.' },
@@ -31,13 +47,32 @@ export const shapeProperties = {
   },
 };
 export const componentDetails = {
+  VideoGenerator: {
+    prompt: { detail: 'VideoPrompt', appliesTo: 'Native object prompt' },
+    poll: { detail: 'VideoPoll' },
+    frameImages: { detail: 'VideoFrame', appliesTo: 'Each role-tagged frame' },
+    inputReferences: { detail: 'VideoReference', appliesTo: 'Object-form reference input; raw DataContent is also accepted' },
+  },
+  VoiceAgentClient: { api: { detail: 'VoiceClientApi' }, sessionConfig: { detail: 'VoiceClientSessionConfig' } },
   LLMAgent: { prompt: { detail: 'ModelMessage', appliesTo: 'A direct or prepared message, or each message in an array' } },
   Decision: { questions: { detail: 'DecisionQuestion', appliesTo: 'Each named question' } },
   ImageGenerator: { prompt: { detail: 'ImagePrompt', appliesTo: 'A direct or prepared image-prompt object' } },
-  StreamingSpeechGenerator: { outputFormat: { detail: 'AudioFormat' } },
+  SpeechGeneratorStream: { outputFormat: { detail: 'SpeechAudioFormat' } },
 };
 const fields = descriptions => Object.fromEntries(Object.entries(descriptions).map(([name, description]) => [name, { description }]));
 export const detailProperties = {
+  VoiceClientApi: fields({
+    token: 'Application endpoint that returns the native short-lived token response.',
+    session: 'Application endpoint that accepts the browser SDP offer and returns the native WebRTC answer.',
+    websocket: 'Application-owned relay WebSocket URL.',
+    protocols: 'Optional native WebSocket subprotocols for the relay connection.',
+  }),
+  SpeechTextPart: fields({ type: 'Identifies a text part.', text: 'The text to synthesize in this part.' }),
+  MediaSettings: fields({
+    track: 'A non-negative zero-based absolute container stream index, not the ordinal audio-track number. Omit for the native best audio stream. Missing, non-audio or undecodable selections fail. For a video at index 0 and audio at index 1, select track: 1. This does not select channels within an audio track.',
+    format: 'Optional native input demuxer name. Omit to let FFmpeg detect the container using content and native filename/extension/MIME hints. It is not an output encoding or a model format. Raw input may need an explicit demuxer and native raw-format options.',
+    options: 'Input AVOptions with native names, scalar values and units. For example headers: "Authorization: Bearer TOKEN\\r\\n" for an HTTP input. This is not a CLI argument list, output settings or model headers. Native handling determines applicability and may ignore unknown options.',
+  }),
   Timeout: fields({
     totalMs: 'Total time limit for the call, in milliseconds.',
     stepMs: 'Time limit for a complete step, including generation, retries and local tool execution.',

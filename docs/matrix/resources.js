@@ -25,7 +25,10 @@ export default {
   "Template.cat": "{{ company }} delivery update\nHello {{ name }}, order {{ orderId }} is due {{ deliveryDay() }}.\nTrack it using the link in your order confirmation.\n",
   "Transcriber.cas": "return getRecording(findRecording())\n",
   "Translator.cas": "return recordings[findRecording()]()\n",
-  "VoiceSessionSetup.cas": "return 'Help ' + company + ' customers in ' + language + '. Keep replies short and ask one question at a time.'\n",
-  "VoiceSessionSetup.cat": "Help {{ company }} customers in {{ language }}. Keep replies short and ask one question at a time.\n",
-  "VoiceSessionSetup.txt": "Help Northstar customers in English. Keep replies short and ask one question at a time.\n"
+  "VideoGenerator.cas": "return \"A Trail mug beside \" + scene + \". \" + lookupInfo()\n",
+  "VideoGenerator.cat": "A Trail mug beside {{ scene }}. {{ lookupInfo() }}\n",
+  "VideoGenerator.txt": "A slow camera move around a Trail mug beside a mountain lake at sunrise.\n",
+  "VoiceAgentBackend.cas": "return 'Help ' + company + ' customers in ' + language + '. Keep replies short and ask one question at a time.'\n",
+  "VoiceAgentBackend.cat": "Help {{ company }} customers in {{ language }}. Keep replies short and ask one question at a time.\n",
+  "VoiceAgentBackend.txt": "Help Northstar customers in English. Keep replies short and ask one question at a time.\n"
 };

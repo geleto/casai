@@ -47,7 +47,7 @@ declare const speech: ComponentConfig<'SpeechGenerator'>['model'];
 declare const transcription: ComponentConfig<'Transcriber'>['model'];
 declare const liveSpeech: ComponentConfig<'StreamingSpeechGenerator'>['model'];
 declare const translation: ComponentConfig<'StreamingTranslator'>['model'];
-declare const realtime: ComponentConfig<'VoiceSessionSetup'>['model'];
+declare const realtime: ComponentConfig<'VoiceAgentBackend'>['model'];
 declare const decision: ComponentConfig<'Decision'>['model'];
 const embeddingConfig: ComponentConfig<'Embedder'> = { model: embedding };
 const imageConfig: ComponentConfig<'ImageGenerator'> = { model: image };
@@ -57,7 +57,7 @@ const transcriptionConfig: ComponentConfig<'Transcriber'> = { model: transcripti
 const liveTranscriptionConfig: ComponentConfig<'StreamingTranscriber'> = { model: transcription };
 const liveSpeechConfig: ComponentConfig<'StreamingSpeechGenerator'> = { model: liveSpeech };
 const translationConfig: ComponentConfig<'StreamingTranslator'> = { model: translation };
-const voiceConfig: ComponentConfig<'VoiceSessionSetup'> = { model: realtime };
+const voiceConfig: ComponentConfig<'VoiceAgentBackend'> = { model: realtime };
 const decisionConfig: ComponentConfig<'Decision'> = { model: decision, questions: {} };
 create.Embedder(embeddingConfig);
 create.ImageGenerator(imageConfig);
@@ -67,7 +67,7 @@ create.Transcriber(transcriptionConfig);
 create.StreamingTranscriber(liveTranscriptionConfig);
 create.StreamingSpeechGenerator(liveSpeechConfig);
 create.StreamingTranslator(translationConfig);
-create.VoiceSessionSetup(voiceConfig);
+create.VoiceAgentBackend(voiceConfig);
 create.Decision(decisionConfig);
 // @ts-expect-error Ordinary annotations do not select tool mode.
 expectType<ComponentConfig<'Embedder'>>({ model: embedding, asTool: true });

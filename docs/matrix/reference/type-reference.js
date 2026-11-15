@@ -1,6 +1,7 @@
 // Reader-facing explanations for public aliases. Keep the exact contract in
 // property.type; these labels and notes explain what an application supplies.
 export const typeReference = {
+  GenerateVideoPrompt: { display: 'string | { image: DataContent; text?: string }', description: 'A video description or an object with an input image and optional text. Image data uses the native DataContent representations.', covers: ['DataContent'] },
   PromptValue: {
     display: 'string | ModelMessage | ModelMessage[]',
     description: 'A text string, one message object, or an array of messages. A message has `role` and `content`, for example `{ role: "user", content: "Summarize this report." }`. Content may also contain image, file or other parts supported by that role.',

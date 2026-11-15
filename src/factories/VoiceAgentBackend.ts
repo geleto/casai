@@ -18,15 +18,15 @@ import { definedSettings, prepareRegistry } from '../runtime/execution.js';
 type SecretOptions = Parameters<NonNullable<Experimental_RealtimeModel['doCreateClientSecret']>>[0];
 type Settings = Omit<Experimental_RealtimeSessionConfig, 'tools'> & Pick<SecretOptions, 'expiresAfterSeconds'> & { model: Experimental_RealtimeModel };
 export const definition = {
-	name: 'VoiceSessionSetup', defaultMode: 'text', main: 'instructions', modifiers: textModifiers, toolModes: [], required: ['model'], fixedSettings: ['model'],
+	name: 'VoiceAgentBackend', defaultMode: 'text', main: 'instructions', modifiers: textModifiers, toolModes: [], required: ['model'], fixedSettings: ['model'],
 } as const satisfies import('./component-factory.js').ComponentDefinition<Settings>;
 
 export type VoiceSetupResult = Awaited<ReturnType<NonNullable<Experimental_RealtimeModel['doCreateClientSecret']>>>
 	& { tools: NonNullable<Experimental_RealtimeSessionConfig['tools']> };
 type HasSource<P extends PromptType, T> = P extends 'text' ? true : Configured<T, 'instructions'>;
 export interface Calls<P extends PromptType, T> {
-	arguments: SourceArguments<'VoiceSessionSetup', P, T, [], HasSource<P, T>>;
-	settings: BaseRunSettings<'VoiceSessionSetup', T, SourceSettings<'VoiceSessionSetup', P, T, HasSource<P, T>>>;
+	arguments: SourceArguments<'VoiceAgentBackend', P, T, [], HasSource<P, T>>;
+	settings: BaseRunSettings<'VoiceAgentBackend', T, SourceSettings<'VoiceAgentBackend', P, T, HasSource<P, T>>>;
 }
 type RunSettings<P extends PromptType, T> = CommonInputs<{ [M in P]: Calls<M, ConfigForMode<T, M, P>>['settings'] }>;
 export interface VoiceMethods<P extends PromptType, T> {
@@ -40,7 +40,7 @@ export interface VoiceMethods<P extends PromptType, T> {
 }
 
 export type VoiceComponent<P extends PromptType, T, A extends boolean> =
-	CallableComponent<'VoiceSessionSetup', P, T, A, { [M in P]: Calls<M, ConfigForMode<T, M, P>> }> & VoiceMethods<P, T>;
+	CallableComponent<'VoiceAgentBackend', P, T, A, { [M in P]: Calls<M, ConfigForMode<T, M, P>> }> & VoiceMethods<P, T>;
 
 async function voiceConfig(request: Fields, registry: PreparedToolRegistry): Promise<Experimental_RealtimeSessionConfig> {
 	const { model: _model, expiresAfterSeconds: _expiry, ...settings } = request;
@@ -56,7 +56,7 @@ export interface Types<P extends PromptType, T, A extends boolean> {
 	toolResult: never;
 }
 
-function createVoiceSessionSetup(config: RuntimeComponentConfig) {
+function createVoiceAgentBackend(config: RuntimeComponentConfig) {
 	const runtime = createComponentRuntime(config, definition);
 	const model = config.model as Experimental_RealtimeModel;
 	async function session(raw: Fields) {
@@ -88,6 +88,10 @@ function createVoiceSessionSetup(config: RuntimeComponentConfig) {
 	});
 }
 
-type Factory = import('./component-factory.js').SourceFactory<'VoiceSessionSetup'>;
-/** @experimental Uses the AI SDK's experimental realtime session API. */
-export const VoiceSessionSetup = createComponentFactory(definition, createVoiceSessionSetup) as Factory;
+type Factory = import('./component-factory.js').SourceFactory<'VoiceAgentBackend'>;
+/**
+ * Prepares voice sessions and executes server-side tools without exposing the provider API key to the browser.
+ * The application server owns user authentication and authorization of session setup and tool calls.
+ * @experimental Uses the AI SDK's experimental realtime session API.
+ */
+export const VoiceAgentBackend = createComponentFactory(definition, createVoiceAgentBackend) as Factory;

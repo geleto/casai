@@ -22,7 +22,7 @@ try {
   fs.writeFileSync(path.join(temporary, 'components.ts'), `
 import { create, z } from 'casai';
 import type { ComponentConfig, LLMAgentConfig, TemplateConfig, ScriptConfig } from 'casai';
-declare const models: { [K in 'LLMAgent' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'StreamingTranscriber' | 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceSessionSetup' | 'Decision']: ComponentConfig<K>['model'] };
+declare const models: { [K in 'LLMAgent' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'StreamingTranscriber' | 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceAgentBackend' | 'Decision']: ComponentConfig<K>['model'] };
 export const config = create.Config({ context: { prefix: 'hello' } });
 export const preparedConfig = create.Config.withFunction({ inputSchema: z.object({ name: z.string() }), input: ({ name }) => name });
 export const toolConfig = create.Config.withTemplate.asTool({ inputSchema: z.object({ name: z.string() }), template: '{{ name }}' });
@@ -42,7 +42,7 @@ export const streamingTranscriber = create.StreamingTranscriber({ model: models.
 export const speech = create.SpeechGenerator({ model: models.SpeechGenerator });
 export const streamingSpeech = create.StreamingSpeechGenerator({ model: models.StreamingSpeechGenerator });
 export const translator = create.StreamingTranslator({ model: models.StreamingTranslator });
-export const voice = create.VoiceSessionSetup({ model: models.VoiceSessionSetup });
+export const voice = create.VoiceAgentBackend({ model: models.VoiceAgentBackend });
 export const decision = create.Decision({ model: models.Decision, questions: { ready: { type: 'boolean' } } });
 export const prepared = create.Embedder.withFunction({ model: models.Embedder, inputSchema: z.object({ name: z.string() }), input: ({ name }) => name });
 export const tool = create.ImageGenerator.withTemplate.asTool({ model: models.ImageGenerator, inputSchema: z.object({ subject: z.string() }), prompt: '{{ subject }}' });

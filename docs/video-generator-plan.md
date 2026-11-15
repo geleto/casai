@@ -1,0 +1,41 @@
+# VideoGenerator implementation contract
+
+Work in progress. [Phase 8](plan.md#phase-8-videogenerator) adds this component and its complete matrix reference. Keep the component stateless: immutable reusable settings in the component, invocation-local preparation/execution, native returned files and metadata as result state.
+
+## Purpose and native execution
+
+Expose the installed SDK's `experimental_generateVideo` through Casai's common configuration, source preparation, ordinary/`.run()` calls and tool binding. The operation fills a concrete workflow gap alongside ImageGenerator and SpeechGenerator. A configured component is directly callable from Cascada:
+
+```javascript
+var scene = writeScene(brief).output
+return makeVideo(scene).video
+```
+
+Use the SDK for model resolution, native input normalization, direct generation, asynchronous start/status completion, polling/webhooks, request splitting, retries, cancellation and downloads. Add no Casai scheduler, job store, retry loop, transport or video conversion backend. Native `experimental_startVideo`/`experimental_getVideoStatus` remain available for detached jobs; this phase does not add detached-job component methods or implicit workflow durability. Generated media and SDK metadata are returned per call, never stored on the reusable component.
+
+## Public surface
+
+- Export `VideoGenerator` through the main entry and `create`, with plain naming and explicit experimental SDK documentation. Derive configuration, invocation and native result types from the installed operation.
+- Support plain/`.withText`, `.withTemplate`, `.withScript`, `.withFunction`, `.loadsText`, `.loadsTemplate`, `.loadsScript`, and their compatible ordinary `.asTool` forms. Reuse existing source/inheritance/schema/context/tool-preparer machinery. No `.asStream`, video-loading modifier or public selector flags. `.loadsText` loads prompt text, not video data.
+- Require the video `model` in the finished configuration, possibly inherited. The main input is native `prompt`: a string or `{ image, text? }`. Resolve it from configuration or invocation; do not impose extra nonempty-text requirements or infer prompt intent from object field names. Preserve the installed native handling of reference-only requests and image prompts without text.
+- Shorthand: `generate(prompt?, n?)`, or `generate(context, n?)` on prepared forms. Preserve existing omission and explicit-source/context rules, with `.run({ prompt?, context?, n?, ...nativeOverrides })` for named inputs. `n` is the sole positional generation setting; rate/duration/frame/reference settings stay named. Match existing rendered-object ambiguity rules and use named `.run()` to select structured source on tools. No separate `image`/`images`/`mask` settings or aliases are introduced.
+- String templates render normally; native object prompts render only their explicit `text` field, leaving image bytes/URLs untouched. Script/function preparers may return either native prompt form. An explicitly supplied complete prompt replaces the previous prompt; no hidden image merge or file access is implied by a text replacement. Independent native `frameImages` and `inputReferences` settings retain ordinary whole-value configuration/invocation replacement.
+- Expose all supported native settings: `n`, `maxVideosPerCall`, `aspectRatio`, `resolution`, `duration`, `fps`, `seed`, `frameImages`, `inputReferences`, `generateAudio`, `providerOptions`, `maxRetries`, `headers`, `download`, `poll` and `webhook`; cancellation remains invocation-only. Defaults, capability limits, warnings and operation selection remain native. Compatible Config fragments may be incomplete; completed components follow existing required-configuration checks.
+- Keep provider credentials, callback functions, webhook ownership, download hooks and execution settings trusted. Plain tools use the native `prompt` argument; custom public argument names require a preparer. All schema boundaries consume parsed values, as in other specialized components. Model arguments do not become arbitrary SDK settings.
+
+## Results, tools and UI
+
+Ordinary calls and `.run()` return the same native completed result from one execution. At the inspected `ai@7.0.162` version this includes `video`, `videos`, `warnings`, `responses` and `providerMetadata`; generated files expose `uint8Array`, `base64` and `mediaType`. Preserve future native changes only after checking the implementation and emitted declarations; do not add fields solely because moving online documentation advertises them.
+
+Tool execution reuses the existing generated-file payload convention: `{ mediaType, base64 }[]`. Its default `toModelOutput` uses native file-content parts; preserve provider limitations for video inputs. An application can explicitly map output to another representation using `toModelOutput`. Do not silently upload files, invent URLs, embed binary bytes into a new JSON envelope or guarantee every calling model accepts video. Direct use in Cascada is independent of `.asTool` and returns the full ordinary result.
+
+UI support is application rendering of native returned files or application-managed storage. There is no need for a Casai player, React hook or custom UI protocol. Compatibility with native SDK consumers applies where their declared contracts match; it is not a promise that all components implement the SDK chat Agent interface.
+
+## Acceptance
+
+1. Inventory all installed video options, native input forms, result fields and completion paths. Compare direct calls with SDK generation probes using a scoped mock video model; verify start/status, polling and webhook paths without implementing parallel behavior in Casai.
+2. Cover all selected source/tool forms, compatible Config inheritance, required model/prompt, shorthand/count omissions, named overrides, parsed input/output, structured image prompts and native frame/reference media. Reuse the existing structured-object text renderer (currently the internal `image` rendering mode); it already preserves all fields while rendering only `text`, so no video-specific renderer is needed. Test ordinary concurrent calls for unchanged reusable settings and independent result state. Reject modifier flags and `.asStream` chains.
+3. Preserve native cancellation/errors, downloads and per-call credentials/callbacks. Check preparation failure, native failure and inherited options without adding unrelated protection or cleanup machinery. Source loading follows existing text-loader rules; video generation has no node-av dependency.
+4. Verify tool schema/native argument boundaries, file payloads and default/custom model-output mappings. Include native rejection of unsupported video content rather than claiming universal language-model video support.
+5. Run a real Cascada Script composing the configured component, inspect generated SDK requests and returned file access, and prove results remain invocation-local. Reuse common workflow/source tests rather than adding a video-specific orchestration layer.
+6. Update the component map, shared types, factory/`create` exports, documentation and matrix. Replace extraction-only planned aliases with production declarations and enable real type/mock execution for matrix examples. Check source and installed-package consumers, remove stale generated exports and mark complete only after a subsequent complete review without important unresolved findings.

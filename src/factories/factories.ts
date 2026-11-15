@@ -12,4 +12,4 @@ export { StreamingTranscriber } from './StreamingTranscriber.js';
 export { SpeechGenerator } from './SpeechGenerator.js';
 export { StreamingSpeechGenerator } from './StreamingSpeechGenerator.js';
 export { StreamingTranslator } from './StreamingTranslator.js';
-export { VoiceSessionSetup } from './VoiceSessionSetup.js';
+export { VoiceAgentBackend } from './VoiceAgentBackend.js';

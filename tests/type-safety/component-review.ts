@@ -254,7 +254,7 @@ void helperDecision.run({ toolsContext: { lookup: { value: 4 } } });
 // @ts-expect-error State preparers rely on the same helper guarantee.
 void helperDecision.run({ toolsContext: { lookup: {} } });
 declare const realtime: Experimental_RealtimeModel;
-const helperSession = create.VoiceSessionSetup.withFunction({ ...helperDefaults, model: realtime, instructions: async ({ lookup }) => String(await lookup({})) });
+const helperSession = create.VoiceAgentBackend.withFunction({ ...helperDefaults, model: realtime, instructions: async ({ lookup }) => String(await lookup({})) });
 void helperSession.run({ toolsContext: { lookup: { value: 4 } } });
 // @ts-expect-error Instruction preparers rely on the same helper guarantee.
 void helperSession.run({ toolsContext: { lookup: {} } });
@@ -262,7 +262,7 @@ void helperSession.run({ toolsContext: { lookup: {} } });
 // Tool-only execution checks bindings, independently of the session's source/preparer.
 void helperSession.executeTool({ toolCallId: 'call', toolName: 'lookup', args: { value: 4 } }, { toolsContext: { lookup: {} } });
 const dependency = create.Function.asTool({ inputSchema: z.object({}), context: { db: (): string => 'safe' }, execute: ({ db }) => db() });
-const toolSession = create.VoiceSessionSetup.withTemplate({ model: realtime, instructions: 'Help {{ company }}',
+const toolSession = create.VoiceAgentBackend.withTemplate({ model: realtime, instructions: 'Help {{ company }}',
 	inputSchema: z.object({ company: z.string() }), tools: { dependency } });
 const toolCall = { toolCallId: 'call', toolName: 'dependency' as const, args: {} };
 void toolSession.executeTool(toolCall);

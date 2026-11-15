@@ -603,7 +603,7 @@ for await (const chunk of answer.textStream) {
 
 ## Specialized AI components
 
-These components prepare inputs and call the corresponding AI SDK operations. Ordinary calls return native SDK results. Decision, StreamingTranscriber, StreamingSpeechGenerator, StreamingTranslator and VoiceSessionSetup depend on experimental AI SDK contracts.
+These components prepare inputs and call the corresponding AI SDK operations. Ordinary calls return native SDK results. Decision, StreamingTranscriber, StreamingSpeechGenerator, StreamingTranslator and VoiceAgentBackend depend on experimental AI SDK contracts.
 
 ### Decision
 
@@ -987,15 +987,17 @@ Shorthand takes `(audio, inputAudioFormat?, targetLanguage?)`. Configure either 
 
 Consume the single `fullStream` before final text/metadata promises when both are needed. Audio parts keep their native bytes-or-base64 form; final source/translation text comes from the SDK's finish data. An audio-only provider may return empty translation text. There is no separate audioStream alias or collected-audio tool mode. Provider language/format validation, errors and cancellation retain native behavior.
 
-### VoiceSessionSetup
+### VoiceAgentBackend
 
-`VoiceSessionSetup` prepares browser voice connections with a realtime model. It uses the AI SDK's experimental realtime API. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
+`VoiceAgentBackend` prepares browser voice sessions and executes their server-side tools. Server-side setup keeps the provider API key out of the browser. For direct provider connections, the browser receives a short-lived session credential or a WebRTC setup response. A session credential authenticates the provider connection. Your application server still authenticates users and authorizes session creation and tool calls.
+
+It uses the AI SDK's experimental realtime API. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
 
 In token-based turn-based sessions, the browser runs capture/playback, text input and supported interruption controls, and receives tool calls. The server creates a short-lived token with initial instructions/voice and runs tools that need server-side data or secrets. This setup form is:
 
 <!-- typecheck: voice-token -->
 ```typescript
-const support = create.VoiceSessionSetup.withTemplate({
+const support = create.VoiceAgentBackend.withTemplate({
   model: realtimeModel,
   instructions: 'You are the support agent for {{ company }}. Keep answers short.',
   inputSchema: z.object({ company: z.string() }),
@@ -1076,11 +1078,11 @@ For Live, use the SDK's WebRTC SDP setup or server WebSocket relay capability. L
 
 With no tool definitions, prepared session configuration omits the `tools` property entirely. OpenAI Live rejects that property even when undefined; configuring function tools on Live preserves the native setup/startup error. Use its native delegation protocol rather than advertising turn-based function tools. The documented `executeTool` route serves turn-based sessions; Live applications call selected components directly and send native context/delegation events. The helper does not add Live function-tool support.
 
-One `VoiceSessionSetup` accepts a native realtime model instance. Ordinary calls and `.run()` perform token setup; `createWebRTCSession` performs native SDP setup and returns `{ sdp, sessionId }`. `prepareSessionConfig` supplies prepared configuration for relay/browser startup, and `executeTool` runs allowed server tools. Use the existing model directly for server WebSocket connection information. Unsupported capabilities report their native limitation; the component does not silently choose another transport.
+One `VoiceAgentBackend` accepts a native realtime model instance. Ordinary calls and `.run()` perform token setup; `createWebRTCSession` performs native SDP setup and returns `{ sdp, sessionId }`. `prepareSessionConfig` supplies prepared configuration for relay/browser startup, and `executeTool` runs allowed server tools. Use the existing model directly for server WebSocket connection information. Unsupported capabilities report their native limitation; the component does not silently choose another transport.
 
 <!-- typecheck: voice-live -->
 ```typescript
-const liveSupport = create.VoiceSessionSetup.withTemplate({
+const liveSupport = create.VoiceAgentBackend.withTemplate({
   model: liveModel,
   instructions: 'Help customers of {{ company }}. Keep answers concise.',
   inputSchema: z.object({ company: z.string() }),
@@ -1109,7 +1111,7 @@ const sessionConfig = await liveSupport.prepareSessionConfig({
 
 The component prepares configuration and setup responses; the native model supplies relay connection information. Neither opens a connection or captures audio. The browser continues to use the SDK's experimental realtime interface.
 
-Text and template modifiers prepare the instructions; script and function modifiers return them. VoiceSessionSetup has no `.asTool`. See [SDK realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) for the browser session and provider support.
+Text and template modifiers prepare the instructions; script and function modifiers return them. VoiceAgentBackend has no `.asTool`. See [SDK realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) for the browser session and provider support.
 
 ## Sources, loaders and rendering
 
@@ -1498,7 +1500,7 @@ const makeIllustration = create.Function.asTool({
 
 An LLM exposed as a tool must finish its own workflow within that tool execution. If it pauses for an inner approval, a client tool without `execute`, or a deferred provider result, the tool adapter rejects and the outer SDK records a tool error. The adapter exposes neither the inner history nor its pending approvals to the outer agent. Such tools are allowed because the pending path may never be taken or approval may be automatic. If the application must manage an inner pause, invoke that agent directly and retain its result/history for explicit continuation.
 
-Tools expose completed application results. LLMAgent tools use generation only; Template tools return a rendered string; Script/Function declared stream results are collected, and StreamingTranscriber tools require a script/function preparer that opens bounded audio and return completed transcripts. VoiceSessionSetup has a separate session lifecycle and no implicit collection adapter. Plain SDK tools also work in an LLMAgent's `tools` map.
+Tools expose completed application results. LLMAgent tools use generation only; Template tools return a rendered string; Script/Function declared stream results are collected, and StreamingTranscriber tools require a script/function preparer that opens bounded audio and return completed transcripts. VoiceAgentBackend has a separate session lifecycle and no implicit collection adapter. Plain SDK tools also work in an LLMAgent's `tools` map.
 
 An SDK tool can yield preliminary results from an async generator. When called through a coded component's injected tool wrapper, a directly returned generator is consumed once and returns its final yielded value, following the [SDK convention](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#preliminary-tool-results). Explicit SDK tools retain native result normalization, including the installed SDK's treatment of a promise resolving to an iterable as a single final value. Casai component tools require a declared stream kind: text joins into a string, and elements collect into an array. They reject an undeclared root async iterable instead of returning it to the SDK or guessing how to collect it. Progress updates are not collected into application data.
 

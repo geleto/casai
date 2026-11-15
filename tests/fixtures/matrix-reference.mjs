@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import ts from 'typescript';
 import { describe, getSourceControl, selectSource, setLoads, configSections } from '../../docs/matrix/reference.js';
-import { components, render, validateOptions, getControls, getSourceControl as catalogSourceControl, normalizeOptions, referenceSelection, referenceSelections, versions, sourceUrl, selectOption } from '../../docs/matrix/matrix.js';
+import { components, render, validateOptions, getControls, getSourceControl as catalogSourceControl, normalizeOptions, referenceSelection, referenceSelections, versions, sourceUrl, selectOption, matchesOptions } from '../../docs/matrix/matrix.js';
 import api from '../../docs/matrix/reference/api.js';
 import sdkDocs from '../../docs/matrix/reference/sdk-docs.js';
 import { componentReference } from '../../docs/matrix/reference/components.js';
@@ -128,7 +128,23 @@ export async function checkReference(examples) {
     const ref = describe(example.component, example.activeOptions);
     contract('ComponentReference', ref);
     for (const [key, name] of Object.entries({ form: 'ReferenceForm', info: 'ReferenceInfo', config: 'ReferenceConfig', result: 'ReferenceResult' })) contract(name, ref[key]);
-    assert.equal(ref.status, example.status, example.id);
+    assert(!Object.hasOwn(ref, 'status'));
+    const pending = components.find(component => component.name === example.component).workInProgress;
+    assert.deepEqual(ref.form.workInProgress, pending);
+    assert.deepEqual(example.workInProgress, pending);
+    for (const notice of pending) {
+      assert.match(notice, /^Work in progress:/);
+      assert(ref.form.notices.includes(notice));
+      assert(example.explanations.includes(notice));
+    }
+    for (const name of ['asTool', 'streaming', 'promptType']) assert(!ref.config.properties[name], `${example.id}: ${name} is not a setting`);
+    if (example.activeOptions.includes('asStream')) {
+      assert(ref.config.supportedSources.every(source => !source.toolSupported));
+      assert(!ref.config.properties.asTool);
+      assert(!ref.config.sections.flatMap(section => section.methods ?? []).some(method => method.name === 'asTool'));
+      assert(ref.info.selectionNote);
+      assert.throws(() => validateOptions(example.component, [...ref.canonical.activeOptions, 'asTool']));
+    }
     assert.deepEqual(ref.activeOptions, example.activeOptions);
     assert.deepEqual(getControls(example.component, example.activeOptions), ref.info.controls);
     assert.deepEqual(catalogSourceControl(example.component, example.activeOptions), getSourceControl(example.component, example.activeOptions));
@@ -173,6 +189,7 @@ export async function checkReference(examples) {
       completeNativeProperties(method.result ?? [], `${example.id}.${method.name}.result`);
     }
     for (const shape of ref.result.shapes) completeNativeProperties(shape.properties, `${example.id}.result`);
+    for (const alternative of ref.config.operationAlternatives) completeNativeProperties(alternative.properties, `${example.id}.${alternative.operation}`);
     for (const section of ref.config.sections) for (const note of section.notes ?? []) {
       assert(![ref.info.result, ref.result.description, ref.result.tool].includes(note), `${example.id}: return explanations belong in result, not configuration`);
     }
@@ -186,7 +203,7 @@ export async function checkReference(examples) {
       assert(!property.name.startsWith('_'), `${example.id}.${property.name}: internal fields are not configuration options`);
       assert(!property.upstream?.tags?.some(tag => ['internal', 'private', 'protected'].includes(tag.name)), `${example.id}.${property.name}: public visibility`);
       if (['abortSignal', 'messageHistory'].includes(property.name)) assert(!property.locations.includes('construction'), `${example.id}.${property.name}: invocation only`);
-      assert.notEqual(property.name, 'promptType');
+      assert(!['promptType', 'asTool', 'streaming'].includes(property.name));
       for (const key of ['name', 'type', 'displayType', 'description', 'override', 'inheritance', 'scope', 'origin']) assert(property[key], `${example.id}.${property.name}: missing ${key}`);
       assert(property.default === null || typeof property.default === 'string' && property.default.length > 0, `${example.id}.${property.name}: documented default or null`);
       assert(property.displayType.length <= 150, `${example.id}.${property.name}: compact type`);
@@ -200,13 +217,18 @@ export async function checkReference(examples) {
     // Every applicable field must survive; broad factory types also admit settings
     // retained for later derived components that the selected source does not use.
     const factory = ref.form.factory?.split('.')[0];
-    if (ref.status === 'implemented' && factory && ref.info.kind !== 'configuration') {
-      const expected = api.shapes[`${factory}_config`].map(id => api.properties[id].name);
+    if (factory && ref.info.kind !== 'configuration') {
+      const base = componentReference[example.component];
+      const item = components.find(item => item.name === example.component);
+      const spec = { types: factory, ...base, ...base.variants?.find(variant => matchesOptions(item, variant, example.activeOptions)) };
+      const expected = (spec.propertyShapes ?? [`${spec.types}_config`]).flatMap(shape => api.shapes[shape].map(id => api.properties[id].name));
       expected.push('abortSignal');
       if (componentReference[example.component].runShape) expected.push('messageHistory');
       if (example.activeOptions.includes('asTool')) expected.push(...api.shapes.Tool.map(id => api.properties[id].name));
       const cascadaSource = ref.form.sourceMode?.startsWith('async-');
       const applicable = expected.filter(name => {
+        if (spec.omit?.includes(name)) return false;
+        if (name === 'mediaSettings') return ref.form.sourceMode === 'audio-name';
         if (name === 'filters' || name === 'renderOptions') return cascadaSource;
         if (name === 'loader') return cascadaSource || ref.form.sourceMode === 'text-name';
         if (name === 'toolContextSchema') return example.activeOptions.includes('asTool');
@@ -232,7 +254,7 @@ export async function checkReference(examples) {
     if (!example.activeOptions.length || example.activeOptions.length === 1 && ['asStream', 'asTool', 'withFunction', 'prepareSession', 'webRTC'].includes(example.activeOptions[0])) {
       const data = { ...example };
       delete data.url;
-      consumerCases.push(`const case${consumerCases.length} = ${JSON.stringify({ schemaVersion: 3, reference: ref, example: data })} satisfies SelectionExport;`);
+      consumerCases.push(`const case${consumerCases.length} = ${JSON.stringify({ schemaVersion: 5, reference: ref, example: data })} satisfies SelectionExport;`);
     }
   }
   await writeFile(new URL('.cache/matrix/_data-contracts.ts', root), `import type { Component } from '../../docs/matrix/matrix.js';\nimport type { SelectionExport } from '../../docs/matrix/reference.js';\nconst catalog = ${JSON.stringify(components)} satisfies Component[];\n${consumerCases.join('\n')}\n`);
@@ -263,15 +285,42 @@ export async function checkReference(examples) {
   assert.deepEqual(selectSource('Reranker', ['loadTemplate'], 'default'), ['loadText']);
   assert.deepEqual(selectSource('Reranker', ['loadText'], 'script'), ['loadScript']);
   assert.deepEqual(selectSource('Reranker', ['loadText'], 'function'), ['withFunction']);
-  assert.throws(() => setLoads('Transcriber', [], true), /unavailable/);
+  assert.deepEqual(setLoads('Transcriber', [], true), ['loadAudio']);
+  assert.deepEqual(setLoads('Transcriber', ['loadAudio'], false), []);
+  assert.deepEqual(selectSource('Config', [], 'audio'), ['loadAudio']);
+  assert.deepEqual(setLoads('Config', ['loadAudio'], false), []);
   assert.equal(describe('Reranker', ['loadText']).form.factory, 'Reranker.loadsText');
   assert.match(describe('Reranker').config.supportedSources.find(source => source.mode === 'text').description, /The search text used to rank the candidate documents/);
   assert.throws(() => setLoads('LLMAgent', ['withFunction'], true), /unavailable/);
   assert.throws(() => selectSource('Transcriber', [], 'template'), /Unsupported/);
   assert.equal(getSourceControl('Function'), null);
-  assert.deepEqual(selectSource('Transcriber', ['asTool', 'asStream', 'loadScript'], 'default'), ['asStream']);
+  assert.deepEqual(selectSource('Transcriber', ['asTool', 'asStream', 'loadScript'], 'audio'), ['asStream', 'loadAudio']);
   validateOptions('Transcriber', selectSource('Transcriber', ['asStream', 'loadScript'], 'function'));
   const llm = describe('LLMAgent');
+  const voiceClient = describe('VoiceAgentClient');
+  const videoGenerator = describe('VideoGenerator');
+  assert.equal(videoGenerator.form.operation, 'experimental_generateVideo');
+  assert.deepEqual(videoGenerator.result.shapes[0].properties.map(property => property.name).sort(), ['video', 'videos', 'warnings', 'responses', 'providerMetadata'].sort());
+  for (const name of ['frameImages', 'inputReferences', 'generateAudio', 'poll', 'webhook', 'download']) assert(videoGenerator.config.properties[name], `VideoGenerator exposes native ${name}`);
+  assert(!videoGenerator.config.properties.images);
+  assert(!videoGenerator.config.properties.mediaSettings);
+  assert.throws(() => validateOptions('VideoGenerator', ['asStream']));
+  assert(describe('VideoGenerator', ['asTool']).activeOptions.includes('asTool'));
+  assert(videoGenerator.config.properties.prompt.details.variants[0].properties.every(property => property.descriptionOrigin === 'ai'));
+  assert.equal(getSourceControl('VoiceAgentClient'), null);
+  assert.deepEqual(voiceClient.config.supportedSources, []);
+  assert.deepEqual(Object.keys(voiceClient.config.properties).sort(), api.shapes.VoiceAgentClient_settings.map(id => api.properties[id].name).sort());
+  assert(voiceClient.config.properties.model.required.construction);
+  assert(voiceClient.config.properties.api.required.construction);
+  assert(!voiceClient.config.properties.model.locations.includes('run'));
+  assert(voiceClient.config.properties.api.locations.includes('run'));
+  assert.equal(voiceClient.config.properties.api.details.variants.length, 3);
+  assert.equal(voiceClient.config.properties.onToolCall.descriptionOrigin, 'ai');
+  const clientResult = voiceClient.result.shapes[0].properties;
+  assert.deepEqual(clientResult.map(property => property.name).sort(), ['onToolCall', 'onEvent', 'onError', 'connect', 'disconnect', 'close', 'sendEvent', 'sendTextMessage', 'sendAudio', 'commitAudio', 'clearAudioBuffer', 'requestResponse', 'cancelResponse', 'addToolOutput', 'startAudioCapture', 'resumeAudioCapture', 'stopAudioCapture', 'stopPlayback', 'resumePlayback', 'dispose', 'getSnapshot', 'subscribe'].sort());
+  assert.deepEqual(clientResult.find(property => property.name === 'getSnapshot').details.variants[0].properties.map(property => property.name).sort(), ['status', 'messages', 'events', 'isCapturing', 'isPlaying', 'session'].sort());
+  for (const option of ['asTool', 'asStream', 'withFunction']) assert.throws(() => validateOptions('VoiceAgentClient', [option]));
+  assert((await render('VoiceAgentClient')).workInProgress.some(marker => marker.includes('VoiceAgentClient')));
   assert.equal(llm.info.shortDescription, sdkDocs.generateText.description);
   assert.equal(llm.info.shortDescriptionSource.reuse, 'verbatim');
   assert.equal(describe('LLMAgent', ['asStream']).info.shortDescription, sdkDocs.streamText.description);
@@ -304,7 +353,7 @@ export async function checkReference(examples) {
   const llmMethods = llm.config.sections.at(-1).methods;
   assert.equal(llmMethods.find(method => method.name === 'generate').arguments.find(property => property.name === 'options').descriptionOrigin, 'casai');
   assert.equal(describe('Decision').result.shapes[0].properties.find(property => property.name === 'answers').descriptionSource.package, 'ai');
-  assert.equal(describe('VoiceSessionSetup', ['webRTC']).result.shapes[0].properties.find(property => property.name === 'sdp').descriptionOrigin, 'casai');
+  assert.equal(describe('VoiceAgentBackend', ['webRTC']).result.shapes[0].properties.find(property => property.name === 'sdp').descriptionOrigin, 'casai');
   const resume = llmMethods.find(method => method.name === 'resume');
   assert(resume.propertyIds.includes('context') && resume.propertyIds.includes('temperature'));
   assert(!resume.propertyIds.includes('prompt') && !resume.propertyIds.includes('messageHistory'));
@@ -329,32 +378,79 @@ export async function checkReference(examples) {
     }
   }
   assert(describe('Config').config.properties.filters, 'Reusable fragments may configure a future Cascada component');
+  assert.deepEqual(describe('Context').form.workInProgress, [], 'Do not mark unrelated application context as unfinished');
+  assert(describe('LLMAgent').form.workInProgress.some(text => text.includes('modifier-only')));
+  assert(describe('Config', ['loadAudio']).form.workInProgress.some(text => text.includes('.loadsAudio')));
+  const speechCatalog = components.find(component => component.name === 'SpeechGenerator');
+  const pendingSpeech = speechCatalog.workInProgress;
+  assert(!pendingSpeech.some(text => text.includes('.loadsAudio')), 'Speech generation does not load input audio');
+  try {
+    speechCatalog.workInProgress = [];
+    const completedReference = describe('SpeechGenerator', ['asStream']);
+    const completedExample = await render('SpeechGenerator', ['asStream']);
+    assert.deepEqual(completedReference.form.workInProgress, []);
+    assert.deepEqual(completedExample.workInProgress, []);
+    assert(!completedReference.form.notices.some(text => text.startsWith('Work in progress:')));
+    assert(!completedExample.explanations.some(text => text.startsWith('Work in progress:')));
+    assert(completedReference.form.notices.some(text => text.includes('experimental')), 'Clearing progress preserves SDK qualifications');
+  } finally {
+    speechCatalog.workInProgress = pendingSpeech;
+  }
+  for (const [shape, ids] of Object.entries(api.shapes)) {
+    if (shape.endsWith('_config') || shape.endsWith('_settings') || ['Tool', 'AgentRun', 'ExecutionOptions'].includes(shape)) {
+      for (const id of ids) assert(!['asTool', 'streaming', 'promptType'].includes(api.properties[id].name), `${shape}: remove selectors at extraction, not only display`);
+    }
+  }
   assert(!describe('LLMAgent', ['asTool']).config.sections.at(-1).methods.some(method => method.name === 'resume'));
   assert(describe('LLMAgent', ['asTool']).config.sections.at(-1).methods.some(method => method.name === 'bindToolContext'));
   assert(describe('SpeechGenerator').config.properties.outputFormat.type.includes('"mp3"'));
   assert(describe('SpeechGenerator', ['asStream']).config.properties.outputFormat.type.includes('AudioFormat'));
+  const speechText = api.shapes.SpeechGeneratorStream_settings.map(id => api.properties[id]).find(property => property.name === 'text');
+  for (const options of [[], ['asStream']]) {
+    const properties = describe('SpeechGenerator', options).config.properties;
+    assert.equal(properties.text.description, speechText.description, 'Both delivery forms accept the native streaming text input');
+    assert.equal(properties.text.descriptionOrigin, 'ai');
+    assert.equal(properties.text.upstream.line, speechText.source.line, 'Provenance follows the operation that admits text streams');
+    assert(properties.text.details.variants[0].properties.some(property => property.name === 'voice'), 'Document per-part voice settings');
+    assert.equal(properties.outputFormat.details.name, 'SpeechAudioFormat', 'Object formats have details in both delivery forms');
+  }
+  for (const name of ['Transcriber', 'Translator', 'VoiceAgentBackend']) {
+    const property = describe(name).config.properties.inputAudioFormat;
+    assert.equal(property.description, property.upstream.description, `${name}: retain native format prose and put preparation rules in notes`);
+  }
+  assert.deepEqual(describe('Config', ['loadAudio']).config.properties.mediaSettings.locations, ['construction'], 'Fragments have no run method');
   assert(!describe('SpeechGenerator', ['asStream']).config.properties.maxRetries);
-  assert(!describe('Transcriber').config.properties.inputAudioFormat);
+  assert(describe('Transcriber').config.properties.inputAudioFormat);
   assert(describe('Transcriber', ['asStream']).config.properties.inputAudioFormat);
-  assert(!describe('Transcriber', ['asStream', 'asTool', 'withScript']).config.supportedSources.find(source => source.modifier === null).applicable);
+  assert.deepEqual(describe('Transcriber').config.properties.maxRetries.applicability.operations, ['transcribe']);
+  assert.deepEqual(describe('SpeechGenerator').config.properties.onError.applicability.operations, ['experimental_streamSpeech']);
+  for (const name of ['Transcriber', 'Translator']) {
+    const loaded = describe(name, ['loadAudio', 'asTool']);
+    assert.equal(loaded.config.properties.audio.type, 'string | URL');
+    assert.equal(loaded.config.properties.audio.required.construction, false);
+    assert(loaded.config.properties.mediaSettings.locations.includes('run'));
+    assert(!loaded.config.properties.loader && !loaded.config.properties.audioLoader && !loaded.config.properties.download);
+    assert(loaded.config.properties.mediaSettings.details.variants[0].properties.some(property => property.name === 'track'));
+    for (const mode of [[], ['withScript'], ['withFunction'], ['loadScript'], ['loadAudio']]) assert.throws(() => describe(name, [...mode, 'asStream', 'asTool']));
+  }
+  assert.throws(() => describe('Transcriber', ['asStream', 'asTool', 'withScript']));
   assert(describe('Transcriber', ['asStream']).config.supportedSources.find(source => source.modifier === null).applicable);
   assert(describe('SpeechGenerator', ['asStream', 'withFunction']).config.properties.text.type.includes('AsyncIterable'));
   assert(!describe('Function').config.properties.execute.locations.includes('run'));
-  assert(!describe('VoiceSessionSetup').config.properties.model.locations.includes('run'));
+  assert(!describe('VoiceAgentBackend').config.properties.model.locations.includes('run'));
   assert(!describe('Decision').config.properties.questions.locations.includes('run'));
-  assert.equal(describe('Translator').status, 'planned');
-  assert.equal(describe('Translator', []).status, 'planned');
-  assert(describe('Translator', []).result.additionalProperties.some(property => property.name === 'audio' && property.type === 'Uint8Array'));
-  assert.equal(describe('Translator', ['asStream']).status, 'implemented');
+  assert.equal(describe('Translator').form.factory, 'Translator');
+  assert(describe('Translator').result.shapes[0].properties.some(property => property.name === 'audio' && property.type.includes('Uint8Array')));
+  assert.equal(describe('Translator', ['asStream']).form.factory, 'Translator.asStream');
   for (const [options, type] of [[[], /^Uint8Array/], [['withScript'], /^string$/], [['loadScript'], /^string$/], [['withFunction'], /^\(context: PreparedContext\) => Uint8Array/]]) {
     assert.match(describe('Translator', options).config.properties.audio.type, type);
   }
-  assert.match(describe('Translator', ['asStream', 'withFunction']).config.properties.audio.type, /^\(context: PreparedContext\) => ReadableStream/);
+  assert.match(describe('Translator', ['asStream', 'withFunction']).config.properties.audio.type, /^\(context: PreparedContext\) => Uint8Array/);
   assert(describe('Script', ['loadScript']).config.properties.script.required.operation);
-  assert(!describe('VoiceSessionSetup').config.properties.instructions.required.operation);
-  assert(describe('VoiceSessionSetup', ['withFunction']).config.properties.instructions.required.operation);
+  assert(!describe('VoiceAgentBackend').config.properties.instructions.required.operation);
+  assert(describe('VoiceAgentBackend', ['withFunction']).config.properties.instructions.required.operation);
   for (const [options, operation, field] of [[[], 'doCreateClientSecret', 'token'], [['prepareSession'], 'prepareSessionConfig', 'instructions'], [['webRTC'], 'doCreateWebRTCSession', 'sdp']]) {
-    const ref = describe('VoiceSessionSetup', options);
+    const ref = describe('VoiceAgentBackend', options);
     assert.equal(ref.form.operation, operation);
     assert(ref.result.shapes[0].properties.some(property => property.name === field));
     if (options.length) assert(!ref.result.shapes[0].properties.some(property => property.name === 'token'));
@@ -370,7 +466,7 @@ export async function checkReference(examples) {
   assert.equal(fragments.form.factory, 'Config');
   assert.equal(fragments.form.sourceMode, null);
   assert.match(fragments.info.selectionNote, /inheriting component must support every selected modifier and setting/);
-  assert.deepEqual(getSourceControl('Config').choices.map(choice => choice.id), ['text', 'template', 'script', 'function']);
+  assert.deepEqual(getSourceControl('Config').choices.map(choice => choice.id), ['audio', 'text', 'template', 'script', 'function']);
   assert.equal(getSourceControl('Config').kind, null);
   assert.equal(getSourceControl('Config').loads.available, false);
   assert.deepEqual(selectSource('Config', ['loadScript'], null), []);
@@ -385,7 +481,7 @@ export async function checkReference(examples) {
   }
   assert.deepEqual(setLoads('Config', ['loadText'], false), ['withText']);
   assert.throws(() => validateOptions('Config', ['asTool', 'asStream']));
-  assert.deepEqual(describe('Config', ['asStream', 'loadTemplate']).config.alternatives.map(item => item.factory), ['LLMAgent.loadsTemplate.asStream']);
+  assert.deepEqual(describe('Config', ['asStream', 'loadTemplate']).config.alternatives.map(item => item.factory), ['LLMAgent.loadsTemplate.asStream', 'SpeechGenerator.loadsTemplate.asStream']);
   for (const selection of referenceSelections('Config')) {
     const ref = describe('Config', selection.activeOptions);
     assert.equal(ref.form.factory, (await render('Config', selection.activeOptions)).configuration.factory);
@@ -401,15 +497,15 @@ export async function checkReference(examples) {
   }
   const templateTools = describe('Config', ['withTemplate', 'asTool']).config.alternatives;
   assert(templateTools.some(item => item.factory === 'Template.asTool'));
-  assert(!templateTools.some(item => ['Function', 'Transcriber', 'VoiceSessionSetup', 'Translator'].includes(item.component)));
-  assert.deepEqual(fragments.config.alternatives.map(item => item.factory), Object.keys(api.definitions));
-  assert.deepEqual(fragments.relatedComponents, Object.keys(api.definitions));
+  assert(!templateTools.some(item => ['Function', 'Transcriber', 'VoiceAgentBackend', 'Translator'].includes(item.component)));
+  assert.deepEqual(fragments.config.alternatives.map(item => item.factory), Object.keys(api.definitions).filter(name => !['TranscriberStream', 'SpeechGeneratorStream', 'TranslatorStream'].includes(name)));
+  assert.deepEqual([...fragments.relatedComponents].sort(), Object.keys(api.definitions).filter(name => !['TranscriberStream', 'SpeechGeneratorStream', 'TranslatorStream'].includes(name)).sort());
   for (const alternative of fragments.config.alternatives) {
     assert(api.shapes[alternative.shape]);
     assert(components.some(component => component.name === alternative.component));
     const target = describe(alternative.component, alternative.activeOptions);
     assert.equal(target.form.factory, alternative.factory, 'Config navigation resolves the exact implemented factory');
-    assert.equal(target.status, 'implemented');
+    assert(!Object.hasOwn(target, 'status'));
     assert(!Object.hasOwn(alternative, 'requires'), 'Config alternatives are API shapes, not example selections');
   }
   assert(describe('Context').relatedProperties.some(property => property.name === 'inputSchema'));
@@ -430,7 +526,7 @@ export async function checkReference(examples) {
   assert.equal(streamSwitch.available, false);
   assert.match(streamSwitch.unavailableReasons[0], /Conflicts with: As a tool/);
   assert.deepEqual(streamSwitch.transition, { activeOptions: ['asStream'], cleared: ['asTool'], added: ['asStream'] });
-  const sourcePreview = getSourceControl('Transcriber', ['asTool', 'asStream', 'withScript']).choices.find(choice => choice.id === 'default').transition;
+  const sourcePreview = getSourceControl('Transcriber', ['asTool', 'asStream', 'withScript']).choices.find(choice => choice.id === 'audio').transition;
   assert.deepEqual(sourcePreview.activeOptions, ['asStream']);
   assert.deepEqual(sourcePreview.cleared, ['asTool', 'withScript']);
   assert.deepEqual(referenceSelection('Template', ['withTemplate', 'run']).activeOptions, []);
@@ -438,14 +534,14 @@ export async function checkReference(examples) {
   const exportJSON = (...args) => JSON.parse(execFileSync(process.execPath, ['scripts/export-matrix.mjs', ...args], { cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }));
   const catalog = exportJSON();
   contract('CatalogExport', catalog);
-  assert.equal(catalog.schemaVersion, 3);
+  assert.equal(catalog.schemaVersion, 5);
   assert.deepEqual(catalog.components.map(component => component.name), components.map(component => component.name));
   assert(catalog.concepts.context.paragraphs.length);
   const exported = exportJSON('LLMAgent', 'loadTemplate', 'asTool');
   contract('SelectionExport', exported);
   contract('Example', exported.example);
   assert.deepEqual(exported.reference, JSON.parse(JSON.stringify(describe('LLMAgent', ['loadTemplate', 'asTool']))));
-  assert.equal(exported.example.status, 'implemented');
+  assert(!Object.hasOwn(exported.example, 'status'));
   assert(exported.example.files.some(file => file.name.endsWith('.cat') && file.code.includes('{{')));
   console.log(`Checked full documentation and example metadata for ${examples.length} selections.`);
 }

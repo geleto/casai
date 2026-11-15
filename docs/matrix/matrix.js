@@ -1,5 +1,5 @@
 /**
- * Example catalog for current and explicitly marked planned Casai APIs.
+ * Example catalog for the documented Casai API.
  * No UI or model execution.
  *
  * One selected choice per group, or none. activeOptions supplies the initial
@@ -13,9 +13,7 @@
  * Renderers are JavaScript; generated, copyable examples are TypeScript.
  * .cat/.cas/.txt files are canonical text; generated resources.js embeds them for
  * portable rendering without fetch or bundler asset configuration.
- * render() returns { id, component, activeOptions, status, explanations, files }.
- * Planned selections also return a notice and include it in the code comments.
- * A component's planned note uses the same requires rules as choices.
+ * render() returns { id, component, activeOptions, explanations, files }.
  * Each file has { name, language, code }; save all files in one directory.
  * Names stay stable across toggles; the derived id identifies the selection.
  * Use getControls() for UI controls and selectOption() to update
@@ -29,8 +27,7 @@
  * Keep existing scenario, names and source order stable when options change.
  * Check the displayed code with npm run test:matrix (no provider calls).
  * Each audio family shares one renderer across complete and streaming modes.
- * Streaming choices use today's Streaming* factories until the API migration
- * in docs/streaming-modifiers-plan.md lands. Complete Translator is planned.
+ * Audio streaming uses source-first .asStream modifiers.
  */
 import { exampleId, sourceMode, sourceKind } from './shared.js';
 import sdkDocs from './reference/sdk-docs.js';
@@ -63,7 +60,9 @@ const renderers = {
   'Transcriber.js': () => import('./Transcriber.js'),
   'SpeechGenerator.js': () => import('./SpeechGenerator.js'),
   'Translator.js': () => import('./Translator.js'),
-  'VoiceSessionSetup.js': () => import('./VoiceSessionSetup.js'),
+  'VoiceAgentBackend.js': () => import('./VoiceAgentBackend.js'),
+  'VoiceAgentClient.js': () => import('./VoiceAgentClient.js'),
+  'VideoGenerator.js': () => import('./VideoGenerator.js'),
 };
 
 // Keep upstream wording and provenance together. Supply text only for a real
@@ -81,8 +80,8 @@ const sdkGuide = page => ({
 });
 
 const choices = {
-  asTool: { name: 'As a tool', shortDescription: 'Let other components call it as a [tool](property:asTool).', description: 'Lets an AI agent or workflow call this component using declared input fields.', properties: ['asTool', 'inputSchema', 'toolContextSchema', 'description', 'toModelOutput', 'strict', 'inputExamples'] },
-  asStream: { name: 'Stream results', shortDescription: 'Streaming data.', description: 'Returns the live AI SDK result so you can consume output as it arrives.', properties: ['streaming', 'inputAudioFormat', 'outputFormat', 'outputAudioFormat', 'onChunk', 'onError', 'onAbort', 'streamRetries'] },
+  asTool: { name: 'As a tool', shortDescription: 'Let other components call it with declared [inputs](property:inputSchema).', description: 'The .asTool modifier lets an AI agent or workflow call this component using declared input fields.', properties: ['inputSchema', 'toolContextSchema', 'description', 'toModelOutput', 'strict', 'inputExamples'] },
+  asStream: { name: 'Stream results', shortDescription: 'Streaming data.', description: 'The .asStream modifier returns the live AI SDK result so you can consume output as it arrives.', properties: ['inputAudioFormat', 'outputFormat', 'outputAudioFormat', 'onChunk', 'onError', 'onAbort', 'streamRetries'] },
   useTools: { name: 'Use tools', shortDescription: 'Call registered [tools](property:tools).', description: 'Registers tools that this component can call from its model, workflow or input preparer.', properties: ['tools', 'toolsContext', 'toolChoice', 'stopWhen'] },
   run: { name: '.run() call', shortDescription: 'Use named inputs.', description: 'Calls this component with named inputs. For an asTool component, demonstrates direct invocation rather than a host agent calling it.' },
   prepareSession: { name: 'Session configuration', shortDescription: 'Prepare [instructions](property:instructions) and [tools](property:tools).', description: 'Prepares instructions and tool definitions without opening a provider session.' },
@@ -95,6 +94,8 @@ const choices = {
   count: { name: 'Several images', shortDescription: 'Generate [three variations](property:n).', description: 'Requests three variations of the same scene.', properties: ['n'] },
   voice: { name: 'Select voice', shortDescription: 'Choose a supported [voice](property:voice).', description: 'Passes a voice supported by the selected speech model.', properties: ['voice'] },
   textStream: { name: 'Streamed text input', shortDescription: 'Speak while [text](property:text) is arriving.', description: 'Feeds text in chunks while the model produces speech.', properties: ['text'] },
+  audioStream: { name: 'Raw audio input', shortDescription: 'Supply raw samples with their [format](property:inputAudioFormat).', description: 'Uses raw audio with native streaming transcription. The example supplies a fresh stream, or configured bytes for a tool. Ordinary calls await the completed transcript.', properties: ['audio', 'inputAudioFormat'] },
+  nativeStream: { name: 'Native streaming format', shortDescription: 'Select a native [audio format](property:outputFormat).', description: 'An object outputFormat selects native streaming speech. Ordinary calls and tools collect its output; .asStream returns the live result.', properties: ['outputFormat'] },
   messages: { name: 'Message history', shortDescription: 'Continue an earlier [conversation](property:messageHistory).', description: 'Supplies previous conversation messages and returns the updated history.', properties: ['messageHistory'] },
   resume: { name: 'Approval and resume()', shortDescription: '[Approve a tool call](property:toolApproval), then continue.', description: 'Pauses a tool call for approval, then resumes the conversation.', properties: ['messageHistory', 'toolApproval'] },
   withTemplate: { name: 'Inline template', description: 'The input text is a Cascada Template; the context object supplies its variables.' },
@@ -104,10 +105,11 @@ const choices = {
   loadTemplate: { name: 'Template file', description: 'Loads a Cascada Template from the accompanying .cat file.', properties: ['loader'] },
   loadScript: { name: 'Script file', description: 'Loads a Cascada Script from the accompanying .cas file.', properties: ['loader'] },
   loadText: { name: 'Text file', description: 'Reads text from the accompanying .txt file.', properties: ['loader'] },
+  loadAudio: { name: 'Media file or URL', description: 'FFmpeg opens the file or URL, selects audio, and converts it to the model input format. Requires an installed node-av build; no loader setting is needed.', properties: ['mediaSettings', 'inputAudioFormat'] },
 };
 const textSources = ['withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
-const audioSources = ['withScript', 'withFunction', 'loadScript'];
-const referenceChoices = ['asTool', 'asStream', 'withText', ...textSources, 'prepareSession', 'webRTC'];
+const audioSources = ['withScript', 'withFunction', 'loadScript', 'loadAudio'];
+const referenceChoices = ['asTool', 'asStream', 'withText', ...textSources, 'loadAudio', 'prepareSession', 'webRTC'];
 const choice = (id, rules = {}) => ({ id, properties: [], ...choices[id], affectsReference: referenceChoices.includes(id), ...rules });
 const group = (id, name, ids, rules = {}) => ({ id, name, optional: true, choices: ids.map(value => choice(value, rules)) });
 
@@ -120,25 +122,32 @@ const invocation = (ids = ['run']) => ({ ...group('invocation', 'Invocation', id
   id === 'run' ? { defaultControl: { name: 'Shorthand call', shortDescription: 'Use [`component(input)`](method:call) instead of [`component.run({...})`](method:run?option=run).', description: 'Use component(input). Turn off to show component.run({ ... }) with named inputs. Tool examples show an agent or workflow calling the tool; .run() calls it directly.' } } : {})) });
 const workflowTools = { shortDescription: 'Call registered [tools](property:tools) from code.', description: 'Makes registered tools available as functions inside this component.' };
 const preparerTools = sources => tools({
-  requires: { source: sources.filter(id => id !== 'loadText') },
+  requires: { source: sources.filter(id => !['loadText', 'loadAudio'].includes(id)) },
   shortDescription: 'Call [tools](property:tools) to prepare input.',
   description: 'Lets the template, script or function call registered tools to build the input.',
 });
 const experimental = 'Uses an experimental AI SDK operation.';
+// Remove each entry when its implementation and acceptance checks land.
+// These markers describe pending changes, not the availability of every example.
+const modifierWork = ['Work in progress: modifier-only configuration (removal of public streaming/asTool settings).'];
+const audioWork = [...modifierWork, 'Work in progress: audio .asStream modifiers and completed results from native streaming.'];
+const mediaWork = 'Work in progress: .loadsAudio media preparation and audio conversion helpers.';
 
 const component = (name, shortDescription, details = {}) => ({
   name, kind: 'component', file: `${name}.js`, ...(typeof shortDescription === 'string' ? { shortDescription } : shortDescription),
   activeOptions: [], resources: [], groups: [], sourceDefault: 'default', descriptionSources: [], ...details,
+  workInProgress: details.kind === 'concept' ? [] : (details.workInProgress ?? modifierWork),
 });
 
 export const components = [
   component('Config', 'Shares settings such as context and tools between components.', {
-    description: 'Define common settings once and pass them as a parent when creating components. For example, several agents can share a model and tools, while each supplies its own instructions. A child inherits omitted settings and can replace individual values. Context and tool maps merge by key.\n\nConfig supports the same source selectors as components, followed by compatible .asTool or .asStream modifiers. For example, Config.withTemplate.asTool selects template preparation and tool mode for its consuming component. Plain Config preserves an inherited mode without selecting a default.\n\nA Config is a reusable settings object; it does not execute a task. It may leave settings incomplete until a component is created. The combined settings must fit that component, so unrelated options from different component types cannot be mixed. Source selection belongs to modifiers; promptType is not a configuration property.',
+    description: 'Define common settings once and pass them as a parent when creating components. For example, several agents can share a model and tools, while each supplies its own instructions. A child inherits omitted settings and can replace individual values. Context and tool maps merge by key.\n\nConfig supports the same source selectors as components, followed by compatible .asTool or .asStream modifiers. For example, Config.withTemplate.asTool selects template preparation and tool mode for its consuming component. Plain Config preserves an inherited mode without selecting a default.\n\nA Config is a reusable settings object; it does not execute a task. It may leave settings incomplete until a component is created. The combined settings must fit that component, so unrelated options from different component types cannot be mixed. All modes are selected through modifiers; promptType, streaming and asTool are not configuration properties.',
+    workInProgress: [...modifierWork, mediaWork],
     kind: 'configuration', sourceDefault: null, resources: ['Config.cat', 'Config.cas', 'Config.txt'],
     groups: [
-      tool({ excludes: ['asStream'], shortDescription: 'Expose inheriting components as [tools](property:asTool).', description: 'The inheriting component becomes a tool and must meet its tool requirements.' }),
-      stream({ excludes: ['asTool'], description: 'The inheriting component must support streaming, as LLMAgent does. Streaming and tool mode cannot currently be combined.' }),
-      source(['withText', ...textSources]), tools(),
+      tool({ excludes: ['asStream'], shortDescription: 'Expose inheriting components as tools.', description: 'The inheriting component becomes a tool and must meet its tool requirements.' }),
+      stream({ excludes: ['asTool'], description: 'The inheriting component must support streaming. Streaming and tool mode cannot be combined.' }),
+      source(['withText', ...textSources, 'loadAudio']), tools({ excludes: ['loadAudio'] }),
     ],
   }),
   component('Context', 'An object containing application values and private helpers available to a component. Declared input fields can be supplied by the caller.', {
@@ -210,42 +219,59 @@ export const components = [
     ],
   }),
   component('Transcriber', sdk('transcribe', 'Generates a transcript from an audio file or a raw-audio stream.'), {
-    description: 'Turn a recorded conversation, voice note or other audio file into text using a transcription model. Supply audio data or a URL to the recording. The completed result contains the transcript and, when the provider supplies them, timed segments, the detected language and the recording duration.\n\nUse this complete form for whole recordings. For captions or other applications that need text while audio is arriving, select streaming and supply raw audio chunks with their input format. Supported file formats and streaming capabilities depend on the selected model.',
-    descriptionSources: [sdkGuide('36-transcription')],
-    resources: ['Transcriber.cas'],
+    description: 'Turn a recorded conversation, voice note or other audio into text. Supply encoded audio bytes without inputAudioFormat for native file transcription, or raw bytes/a fresh stream with inputAudioFormat for native streaming transcription. Ordinary calls await the completed result in either case.\n\nSelect .asStream for live transcript events. Use .loadsAudio for a file path or URL: FFmpeg selects and prepares its audio, including audio inside video files. Set the target inputAudioFormat when the model does not expose its requirements. Supported operations and formats belong to the model.',
+    descriptionSources: [sdkGuide('36-transcription'), sdkDocs.experimental_streamTranscribe.source],
+    resources: ['Transcriber.cas'], sourceDefault: 'audio', workInProgress: [...audioWork, mediaWork],
     groups: [
-      tool({ requires: [{ stream: [null] }, { source: audioSources }] }),
-      stream({ requires: [{ tool: [null] }, { source: audioSources }], experimental,
-        description: 'Produces transcript events from raw audio. Tool callers receive the completed transcript.' }),
+      tool({ excludes: ['asStream'] }),
+      stream({ excludes: ['asTool'], experimental,
+        description: 'Returns native transcript events and final promises from raw audio. Requires native streaming support.' }),
       source(audioSources), preparerTools(audioSources), invocation(),
+      group('inputDelivery', 'Audio input', ['audioStream'], { requires: { source: [null, 'withScript', 'withFunction', 'loadScript'] } }),
     ],
   }),
   component('SpeechGenerator', sdk('generateSpeech'), {
-    description: 'Turn written text into spoken audio using a speech model. Use it for narration, spoken notifications, accessibility features or a voice response in an application. Choose a voice and audio format supported by the selected provider.\n\nThe complete form returns a generated audio file that you can save, send or play, with its bytes or base64 data and native metadata. Select streaming when playback should begin before generation finishes, or when the text itself arrives gradually, such as a response from a language model.',
-    descriptionSources: [sdkGuide('37-speech')],
-    resources: ['SpeechGenerator.cat', 'SpeechGenerator.cas', 'SpeechGenerator.txt'],
+    description: 'Turn written text into spoken audio using a speech model. Use it for narration, spoken notifications, accessibility features or a voice response in an application. Choose a voice and audio format supported by the selected provider.\n\nOrdinary calls return a generated audio file with bytes, base64 data and metadata. Select .asStream when playback should begin before generation finishes. Both forms accept a complete text string or text arriving gradually, such as a language model response. Incremental text requires a model with streaming support, even when the call returns a completed audio file.',
+    descriptionSources: [sdkGuide('37-speech'), sdkDocs.experimental_streamSpeech.source],
+    resources: ['SpeechGenerator.cat', 'SpeechGenerator.cas', 'SpeechGenerator.txt'], workInProgress: audioWork,
     groups: [
       tool({ excludes: ['asStream'] }),
       stream({ excludes: ['asTool'], experimental, description: 'Returns speech in audio chunks from a supporting model.' }),
       source(textSources), preparerTools(textSources), invocation(),
       group('voice', 'Voice', ['voice']),
-      group('inputDelivery', 'Text input', ['textStream'], { requires: { stream: ['asStream'], source: [null] } }),
+      group('inputDelivery', 'Text input', ['textStream'], { requires: { source: [null] } }),
+      group('nativeOperation', 'Speech operation', ['nativeStream']),
     ],
   }),
   component('Translator', sdk('experimental_streamTranslate', 'Translates speech into target-language audio and text, with a completed result or incremental events.'), {
-    description: 'Translate spoken content into audio and text in another language using a speech translation model. The planned complete form accepts a finite recording and returns the collected translated audio, final source text, translated text and metadata. It is not implemented yet; select streaming to use the available API.\n\nInput audio must match the declared raw-audio format. Encoded recordings need preparation before translation. Supported languages and formats depend on the provider. For ordinary written-text translation, use LLMAgent with instructions naming the target language.',
+    description: 'Translate spoken content into audio and text in another language using a speech translation model. Ordinary calls and tools collect one native execution into audio bytes, final source text, translated text and metadata. Select .asStream for incremental events.\n\nSupply raw audio bytes or a fresh stream with its inputAudioFormat and targetLanguage. Use .loadsAudio for a media file or URL, including audio tracks inside video. Input conversion uses the resolved model target; supply it explicitly when model requirements are unknown. For written-text translation, use LLMAgent with translation instructions.',
     descriptionSources: [sdkDocs.experimental_streamTranslate.source],
-    resources: ['Translator.cas'], experimental,
-    planned: {
-      requires: { stream: [null] },
-      description: 'Planned API: complete Translator is not implemented yet. Select streaming translation for the available API.',
-    },
-    groups: [stream(), source(audioSources), preparerTools(audioSources), invocation()],
+    resources: ['Translator.cas'], experimental, sourceDefault: 'audio', workInProgress: [...audioWork, mediaWork],
+    groups: [tool({ excludes: ['asStream'] }), stream({ excludes: ['asTool'] }), source(audioSources), preparerTools(audioSources), invocation()],
   }),
-  component('VoiceSessionSetup', 'Prepares a browser voice session and exposes server-side tool execution. The application owns transport and authentication.', {
-    description: 'Prepare the server side of a voice conversation with an AI model. Keep the model, instructions and tools on the server, then use the setup method supported by the provider: create a short-lived client secret, prepare session configuration or answer a browser WebRTC offer. These methods return the information your client needs to establish the session.\n\nWhen the session supports tools, executeTool runs a registered tool with the incoming call information and trusted server context. Your application handles authentication, network connections, audio capture and playback, and the conversation lifecycle.',
+  component('VideoGenerator', 'Generates videos from text or an image using a video model.', {
+    description: 'Generate video clips from text or an image prompt, with provider-supported reference media and generation settings. Configure a reusable component, prepare its prompt with a template, script or function, and call it from JavaScript or Cascada Script.\n\nOrdinary calls return the native completed video result. The AI SDK owns asynchronous provider jobs, polling, webhook completion, retries and downloads. Each call is independent; configuration contains no job state. This component has no .asStream modifier. Tool forms return file payloads; the calling model must support the video file type or the application must supply a suitable toModelOutput mapping.',
+    descriptionSources: [sdkDocs.experimental_generateVideo.source],
+    resources: ['VideoGenerator.cat', 'VideoGenerator.cas', 'VideoGenerator.txt'], experimental,
+    workInProgress: ['Work in progress: VideoGenerator component and native video generation integration.'],
+    groups: [tool(), source(textSources), preparerTools(textSources),
+      { ...group('count', 'Video count', ['count']), choices: [choice('count', { name: 'Several videos', shortDescription: 'Generate [two clips](property:n).', description: 'Requests two clips for the same prompt.' })] },
+      invocation()],
+  }),
+  component('VoiceAgentClient', 'Connects a browser voice conversation with native session controls and observable state.', {
+    description: 'Create independent browser voice sessions from a stateless reusable component. Pass the returned handle between browser Cascada scripts or application callbacks. Each call returns a disconnected session; connect explicitly to start the conversation. Use native microphone, playback, text, audio and tool controls, and subscribe to snapshots to update any framework or plain JavaScript UI.\n\nImport from casai/client. Your application routes pair with VoiceAgentBackend for session setup and private tools, keeping provider API keys and tool executors on the server. Native token, WebRTC and relay options retain their provider and browser restrictions. Share explicitly public typed preferences when useful; do not pass backend configuration to the browser.',
+    sourceDefault: null, experimental: 'Uses the experimental AI SDK realtime session interface.',
+    workInProgress: ['Work in progress: VoiceAgentClient browser entry, session factory and state subscriptions.'],
+    groups: [{ ...invocation(), choices: [choice('run', {
+      description: 'Create a disconnected session through client.run(settings?), with optional native session-setting overrides.',
+      shortDescription: 'Create a session with [`client.run(settings?)`](method:run?option=run).',
+      defaultControl: { name: 'Shorthand call', shortDescription: 'Create a session with [`client()`](method:call).', description: 'Create a disconnected session from configured settings. Turn off to show client.run().' },
+    })] }],
+  }),
+  component('VoiceAgentBackend', 'Prepares browser voice sessions and executes server-side tools while keeping provider API keys on the server.', {
+    description: 'Prepare the server side of a realtime voice conversation with an AI model. Configure the model, instructions and tools on the server, then use the setup method supported by the provider: create a short-lived client secret, prepare session configuration or answer a browser WebRTC offer. Server-side setup lets the browser connect without receiving your provider API key. For direct provider connections, it receives a short-lived session credential or a WebRTC setup response.\n\nWhen the session supports tools, executeTool runs a registered tool with the incoming call information and trusted server context. Your application server authenticates users and authorizes session creation and tool calls. A session credential authenticates the provider connection; it does not replace these application access checks. Your application owns network connections and the conversation lifecycle; the browser handles audio capture and playback.',
     descriptionSources: [sdkGuide('36-realtime')],
-    resources: ['VoiceSessionSetup.cat', 'VoiceSessionSetup.cas', 'VoiceSessionSetup.txt'], experimental,
+    resources: ['VoiceAgentBackend.cat', 'VoiceAgentBackend.cas', 'VoiceAgentBackend.txt'], experimental,
     groups: [
       source(textSources),
       tools({ description: 'Adds tools to the voice session and shows the server adapter for executing incoming tool calls. Requires a model with session-tool support.' }),
@@ -332,6 +358,7 @@ export const infoSections = [
 ];
 const sourceKinds = [
   { id: 'default', name: 'Direct input', inline: null, loaded: 'loadText' },
+  { id: 'audio', name: 'Audio', inline: null, loaded: 'loadAudio' },
   { id: 'text', name: 'Text', inline: 'withText', loaded: 'loadText' },
   { id: 'template', name: 'Template', inline: 'withTemplate', loaded: 'loadTemplate' },
   { id: 'script', name: 'Script', inline: 'withScript', loaded: 'loadScript' },
@@ -341,12 +368,15 @@ function sourceState(name, selected) {
   const component = getComponent(name);
   const group = component.groups.find(group => group.id === 'source');
   if (!group) return null;
-  const kinds = sourceKinds.filter(kind => kind.inline === null ? component.sourceDefault === kind.id : group.choices.some(choice => choice.id === kind.inline));
+  const kinds = sourceKinds.filter(kind => kind.inline === null ? component.sourceDefault === kind.id || kind.id === 'audio' && group.choices.some(choice => choice.id === kind.loaded) : group.choices.some(choice => choice.id === kind.inline));
   const current = kinds.find(kind => selected.includes(kind.inline) || kind.loaded && selected.includes(kind.loaded)) ?? kinds.find(kind => kind.id === component.sourceDefault);
   return { id: 'source', name: 'Source', kind: current?.id ?? null, affectsReference: true,
     choices: kinds.map(kind => ({ id: kind.id, name: kind.id === 'default' && group.choices.some(choice => choice.id === 'loadText') ? 'Text' : kind.name,
-      description: group.choices.find(choice => choice.id === kind.inline)?.description ?? 'Use the supplied input.' })),
-    loads: { id: 'loads', name: 'Load from file', active: Boolean(current?.loaded && selected.includes(current.loaded)), available: Boolean(current?.loaded && group.choices.some(choice => choice.id === current.loaded)), shortDescription: 'Use the configured [loader](property:loader).', description: 'Read the source file using the configured loader.' },
+      description: group.choices.find(choice => choice.id === kind.inline)?.description
+        ?? (kind.id === 'audio' ? component.sourceDefault === 'audio' ? 'Supply audio data directly, or enable Load media for a file path or URL.' : choices.loadAudio.description : 'Use the supplied input.') })),
+    loads: { id: 'loads', name: current?.id === 'audio' ? 'Load media' : 'Load from file', active: Boolean(current?.loaded && selected.includes(current.loaded)), available: Boolean(current?.loaded && group.choices.some(choice => choice.id === current.loaded)),
+      shortDescription: current?.id === 'audio' ? 'Read a file or URL using [mediaSettings](property:mediaSettings).' : 'Use the configured [loader](property:loader).',
+      description: current?.id === 'audio' ? 'FFmpeg opens the file or URL and prepares its selected audio. Install node-av; no loader configuration is needed.' : 'Read the source file using the configured loader.' },
     modifier: sourceMode(selected)?.replace(/^load/, 'loads') ?? null,
     description: 'The source property keeps its name; this choice changes how its value is interpreted.',
   };
@@ -360,12 +390,13 @@ export function selectSource(name, selected, kind) {
   const group = getComponent(name).groups.find(group => group.id === 'source');
   const loaded = control.loads.active && group.choices.some(option => option.id === choice.loaded);
   if (!loaded && kind === getComponent(name).sourceDefault) return current ? selectOption(name, selected, current, false) : [...selected];
-  return selectOption(name, selected, loaded ? choice.loaded : choice.inline);
+  return selectOption(name, selected, loaded || choice.inline === null ? choice.loaded : choice.inline);
 }
 export function setLoads(name, selected, active) {
   const control = sourceState(name, selected);
   if (!control?.loads.available) throw new Error(`Loading is unavailable for the selected ${name} source`);
   const choice = sourceKinds.find(choice => choice.id === control.kind);
+  if (!active && choice.inline === null) return selectOption(name, selected, choice.loaded, false);
   if (!active && control.kind === getComponent(name).sourceDefault) return selectOption(name, selected, choice.loaded, false);
   return selectOption(name, selected, active ? choice.loaded : choice.inline);
 }
@@ -453,9 +484,6 @@ export async function render(name, selected, { readText } = {}) {
   const resources = Object.fromEntries(await Promise.all(files.map(async file => [file, readText ? await readText(new URL(`./${file}`, import.meta.url)) : bundledResources[file]])));
   const module = await renderers[item.file]();
   const example = module.default(options, resources);
-  const notice = item.planned && enabled(item, item.planned, options) ? item.planned.description : undefined;
-  return { ...example, id: exampleId(name, options), component: name, activeOptions: options,
-    status: notice ? 'planned' : 'implemented', ...(notice ? { notice } : {}),
-    files: example.files.map((file, index) => index === 0 && notice ? { ...file, code: `// ${notice}\n${file.code}` } : file),
-    explanations: allChoices(item).filter(option => options.includes(option.id)).map(option => option.description) };
+  return { ...example, id: exampleId(name, options), component: name, activeOptions: options, workInProgress: item.workInProgress,
+    explanations: [...item.workInProgress, ...allChoices(item).filter(option => options.includes(option.id)).map(option => option.description)] };
 }

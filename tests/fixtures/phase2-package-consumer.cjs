@@ -44,7 +44,7 @@ try {
   }
   assert.ok(!packed.files.some(({ path: file }) => /(?:TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt|types\/cascada|(?:factories|runtime|types)\/specialized|types\/operations)\./.test(file)),
     'Removed factories and adapters must not survive in the published package.');
-  assert.ok(!packed.files.some(({ path: file }) => /factories\/Experimental_/.test(file)),
+  assert.ok(!packed.files.some(({ path: file }) => /factories\/(?:Experimental_|VoiceSession(?:Setup|Backend)\.)/.test(file)),
     'Renamed component factories must not survive in the published package.');
   fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
   npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', path.join(temporary, packed.filename), ...engine ? [engine] : []]);
@@ -81,11 +81,15 @@ import { MockLanguageModelV3, MockEmbeddingModelV4, convertArrayToReadableStream
 import { makeSharedIterable as nativeSharedIterable, raceLoaders as nativeRaceLoaders } from 'cascada-engine';
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
 assert.notEqual(create.Function, foreignCreate.Function);
+assert.equal('VoiceSessionSetup' in casai, false);
+assert.equal('VoiceSessionSetup' in create, false);
+assert.equal('VoiceSessionBackend' in casai, false);
+assert.equal('VoiceSessionBackend' in create, false);
 const foreignSource = foreignCreate.Config.withFunction({ input: () => 'packed' });
 const foreignEmbedding = create.Embedder({ model: new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) }) }, create.Config({}, foreignSource));
 assert.deepEqual((await foreignEmbedding()).embedding, [6]);
 assert.equal(await create.Template({ template: 'entry', loader: { load: () => '{{ value }}' }, context: { value: 'rendered' } }, foreignCreate.Config.loadsTemplate({}))(), 'rendered');
-for (const name of ['Decision', 'StreamingTranscriber', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceSessionSetup']) {
+for (const name of ['Decision', 'StreamingTranscriber', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceAgentBackend']) {
   assert.equal(typeof casai[name], 'function');
   assert.equal(casai[name], create[name]);
   assert.equal('Experimental_' + name in casai, false);

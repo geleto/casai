@@ -105,7 +105,7 @@ create.LLMAgent({ model, tools: { secured } }, { config: optionalContext });
 // @ts-expect-error Specialized components use the shared registry requirement.
 create.Embedder({ model: embedding, tools: { secured } }, { config: optionalContext });
 // @ts-expect-error Supplementary voice methods need a complete registry.
-create.VoiceSessionSetup({ model: realtime, tools: { secured } }, { config: optionalContext });
+create.VoiceAgentBackend({ model: realtime, tools: { secured } }, { config: optionalContext });
 create.Config({ tools: { secured }, toolsContext: maybeContext });
 create.Function({ tools: { secured }, toolsContext: { secured: { tenant: 'child' } }, execute: () => 1 }, { config: optionalContext });
 const boundParent = create.Config({ tools: { secured }, toolsContext: { secured: { tenant: 'parent' } } });

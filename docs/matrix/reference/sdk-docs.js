@@ -78,6 +78,17 @@ export default {
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe"
     }
   },
+  "experimental_generateVideo": {
+    "description": "Generates videos based on a given prompt using a video model.",
+    "source": {
+      "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx",
+      "line": 13,
+      "package": "ai",
+      "version": "7.0.162",
+      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L13",
+      "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video"
+    }
+  },
   "experimental_streamTranscribe": {
     "description": "Streams a transcript from live raw audio using a transcription model with streaming support.",
     "source": {

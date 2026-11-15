@@ -6,9 +6,12 @@ import { relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { updateResources } from './update-matrix-resources.mjs';
+import { audioContracts } from './matrix-audio-contracts.mjs';
+import { voiceClientContracts } from './matrix-voice-client-contracts.mjs';
+import { videoContracts } from './matrix-video-contracts.mjs';
 
 const root = new URL('../', import.meta.url);
-const names = ['Template', 'Script', 'Function', 'LLMAgent', 'Decision', 'Embedder', 'Reranker', 'ImageGenerator', 'Transcriber', 'StreamingTranscriber', 'SpeechGenerator', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceSessionSetup'];
+const names = ['Template', 'Script', 'Function', 'LLMAgent', 'Decision', 'Embedder', 'Reranker', 'ImageGenerator', 'Transcriber', 'StreamingTranscriber', 'SpeechGenerator', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceAgentBackend'];
 const aliases = {};
 // Data-shaped settings/results need their fields, not just an imported type name.
 // Keep union branches separate; their options must never be flattened together.
@@ -59,7 +62,16 @@ for (const [name, operation] of Object.entries(operations)) {
   aliases[`${name}_result`] = `Awaited<ReturnType<typeof import('ai').${operation}>>`;
   aliases[`${name}_native`] = `Parameters<typeof import('ai').${operation}>[0]`;
 }
-aliases.VoiceSessionSetup_result = "import('../src/factories/VoiceSessionSetup.js').VoiceSetupResult";
+aliases.VoiceAgentBackend_result = "import('../src/factories/VoiceAgentBackend.js').VoiceSetupResult";
+audioContracts(aliases, detailAliases);
+voiceClientContracts(aliases, detailAliases);
+videoContracts(aliases, detailAliases);
+// Selected modifier-only API: remove legacy named selectors from the extracted
+// configuration and invocation contracts until production declarations migrate.
+// Keep native SDK shapes and application/schema data untouched.
+for (const [name, type] of Object.entries(aliases)) {
+  if (name.endsWith('_config') || name.endsWith('_settings') || ['Tool', 'AgentRun', 'ExecutionOptions'].includes(name)) aliases[name] = `Omit<${type}, 'streaming' | 'asTool' | 'promptType'>`;
+}
 Object.assign(aliases, detailAliases);
 const probe = new URL('.cache/matrix-reference-types.ts', root);
 await mkdir(new URL('.cache/', root), { recursive: true });
@@ -75,7 +87,7 @@ for (const name of ['ai', '@ai-sdk/provider-utils', '@ai-sdk/provider', 'cascada
 const properties = {}, shapes = {}, definitions = {}, details = {};
 function literal(type, node) {
   if (type.isLiteral()) return type.value;
-  if (type.flags & ts.TypeFlags.Undefined) return null;
+  if (type.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)) return null;
   if (type.flags & ts.TypeFlags.BooleanLiteral) return type.intrinsicName === 'true';
   if (type.isUnion()) return type.types.flatMap(value => literal(value, node));
   if (checker.isTupleType(type) || checker.isArrayType(type)) return checker.getTypeArguments(type).flatMap(value => literal(value, node));
@@ -135,6 +147,7 @@ const pages = {
   generateText: '01-generate-text', streamText: '02-stream-text',
   embed: '05-embed', embedMany: '06-embed-many', rerank: '06-rerank',
   generateImage: '10-generate-image', transcribe: '11-transcribe',
+  experimental_generateVideo: '13-generate-video',
   experimental_streamTranscribe: '11-stream-transcribe',
   generateSpeech: '12-generate-speech', experimental_streamSpeech: '12-stream-speech',
   experimental_streamTranslate: '11-stream-translate', experimental_decide: '14-decide',
@@ -176,6 +189,52 @@ for (const [name, builder] of Object.entries({ OutputObject: 'object', OutputArr
       if (!property.description && tag) documentation[variant.shape][property.name] = { description: tag.text.slice(property.name.length + 3), descriptionSource: parent.source };
     }
   }
+}
+// Awaiting native fields changes their types, not their documented meaning.
+for (const [target, native] of Object.entries({ TranscriberCollected: 'TranscriberStream', SpeechCollected: 'SpeechGeneratorStream', Translator: 'TranslatorStream' })) {
+  documentation[`${target}_result`] = Object.fromEntries(shapes[`${native}_result`].map(id => properties[id]).filter(property => property.description).map(property => [property.name, {
+    description: property.description, descriptionSource: property.source, descriptionOrigin: 'ai',
+  }]));
+}
+// The public session class has sparse JSDoc. Reuse matching native UI reference
+// prose for its options/state/controls, without adopting a React hook contract.
+const realtimePath = 'node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx';
+const realtimeText = (await readFile(new URL(realtimePath, root), 'utf8')).replaceAll('\r\n', '\n');
+function sdkPropertyTable(heading, text = realtimeText, path = realtimePath, link = 'https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime') {
+  const section = text.split(`### ${heading}\n`)[1]?.split(/^## /m)[0];
+  const array = section?.match(/content=\{(\[[\s\S]*?\n {2}\])\}/)?.[1];
+  assert(array, `Review the native ${heading} table in ${path}`);
+  const parsed = ts.createSourceFile('table.ts', `const entries = ${array};`, ts.ScriptTarget.Latest, true);
+  const entries = parsed.statements[0].declarationList.declarations[0].initializer;
+  const prose = {};
+  function visit(node) {
+    if (ts.isObjectLiteralExpression(node)) {
+      const value = name => node.properties.find(property => property.name?.getText(parsed) === name)?.initializer;
+      const name = value('name'), description = value('description');
+      if (name && ts.isStringLiteral(name) && description && ts.isStringLiteral(description)) {
+        const line = text.slice(0, text.indexOf(description.getText(parsed))).split('\n').length;
+        prose[name.text] = { description: description.text, descriptionOrigin: 'ai', descriptionSource: {
+          path, line, package: 'ai', version: packages.ai,
+          url: `https://unpkg.com/ai@${packages.ai}/${path.replace('node_modules/ai/', '')}#L${line}`,
+          documentation: link,
+        } };
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(entries);
+  return prose;
+}
+const realtimeParameters = sdkPropertyTable('Parameters'), realtimeReturns = sdkPropertyTable('Returns');
+for (const shape of ['VoiceAgentClient_config', 'VoiceAgentClient_settings', 'VoiceAgentClient_native', 'VoiceAgentClient_result',
+  ...details.VoiceClientApi.variants.map(variant => variant.shape), ...details.VoiceClientSnapshot.variants.map(variant => variant.shape)]) {
+  const prose = shape === 'VoiceAgentClient_result' || shape.startsWith('VoiceClientSnapshot:') ? { ...realtimeParameters, ...realtimeReturns } : realtimeParameters;
+  documentation[shape] = Object.fromEntries(shapes[shape].map(id => properties[id].name).filter(name => prose[name]).map(name => [name, prose[name]]));
+}
+const videoPath = 'node_modules/ai/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx';
+const videoParameters = sdkPropertyTable('Parameters', (await readFile(new URL(videoPath, root), 'utf8')).replaceAll('\r\n', '\n'), videoPath, 'https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video');
+for (const { shape } of details.VideoPrompt.variants) {
+  documentation[shape] = Object.fromEntries(shapes[shape].map(id => properties[id].name).filter(name => videoParameters[name]).map(name => [name, videoParameters[name]]));
 }
 const data = { packages, definitions, shapes, properties, details, documentation };
 const output = '// Generated from installed public declarations. AI SDK: Apache-2.0; Cascada: BSD-2-Clause.\n// Modified by Casai: extracted, deduplicated and grouped for documentation. See THIRD_PARTY.md for notices and licenses.\nexport default ' + JSON.stringify(data, null, 2) + ';\n';

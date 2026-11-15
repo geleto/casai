@@ -24,7 +24,7 @@ create.Function({ tools: annotated, execute: () => 1 });
 create.Template({ template: 'ready', tools: annotated });
 create.Script({ script: 'return 1', tools: annotated });
 create.Embedder({ model: embedding, tools: annotated });
-create.VoiceSessionSetup({ model: realtime, tools: annotated });
+create.VoiceAgentBackend({ model: realtime, tools: annotated });
 const annotatedAgent = create.LLMAgent({ model, tools: annotated });
 expectEqual<typeof annotatedAgent.tools, ToolSet>();
 void annotatedAgent.run({ tools: annotated, prompt: 'ready' });

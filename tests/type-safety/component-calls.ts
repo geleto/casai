@@ -219,7 +219,7 @@ create.Transcriber({ model: transcription, abortSignal: new AbortController().si
 create.Transcriber({ model: transcription, ...sourceModes["async-template"].config, audio: 'template' });
 
 declare const realtime: Experimental_RealtimeModel;
-const voice = create.VoiceSessionSetup({ model: realtime });
+const voice = create.VoiceAgentBackend({ model: realtime });
 void voice();
 void voice.run({ voice: 'voice', turnDetection: null });
 void voice.createWebRTCSession({ sdp: 'offer' });

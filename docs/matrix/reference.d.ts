@@ -27,11 +27,13 @@ export interface PropertyReference {
   applicability: { component: string; sourceMode: string | null; operations: string[] | null };
   section: ConfigSectionId; sdkGroup: SDKGroupId; notes: string | null; sourceMode: string | null; relatedOptions: ChoiceId[];
   upstream: (SourceLocation & { description: string; type: string; tags: NativeProperty['tags'] }) | null;
-  source: SourceLocation | null; nested: NativeProperty[]; details: TypeDetail | null; status: 'implemented' | 'planned';
+  source: SourceLocation | null; nested: NativeProperty[]; details: TypeDetail | null;
   deprecated: string | null; aliasFor: string | null;
 }
 export interface Concept { title: string; paragraphs: string[]; link: string }
-export interface SourceForm { modifier: string | null; mode: string; name: string; value: string; description: string; explanation: string; toolSupported: boolean; applicable: boolean }
+export interface SourceForm { modifier: string | null; mode: string; name: string; value: string; description: string; explanation: string;
+  /** Tool compatibility of this source in the selected form. Always false with .asStream, for every component and Config. */
+  toolSupported: boolean; applicable: boolean }
 /** Method-only inputs may have local explanatory fields without a native type. */
 export interface LocalProperty {
   name: string; description?: string; type?: string; default?: string | null; required?: string;
@@ -54,6 +56,8 @@ export interface ConfigSection extends Section {
 export interface ReferenceForm {
   factory: string | null; primaryProperty: string | null; operation: string | null;
   sourceMode: string | null; sourceModifier: string | null; notices: string[];
+  /** Pending API changes, also included in notices. Independent of experimental SDK status. */
+  workInProgress: string[];
 }
 export interface ReferenceInfo {
   shortDescription: string; shortDescriptionSource: DescriptionSource | null; kind: 'component' | 'configuration' | 'concept'; input: string; result: string;
@@ -68,21 +72,23 @@ export interface ReferenceConfig {
   index: { name: string; propertyId: string; section: ConfigSectionId; deprecated: string | null; aliasFor: string | null }[];
   highlightedPropertyIds: string[]; requiredPropertyIds: string[]; supportedSources: SourceForm[];
   alternatives: { component: ComponentName; factory: string; shape: string; activeOptions: ChoiceId[] }[];
+  /** Native request alternatives, selected by resolved input/format. Do not merge their settings. */
+  operationAlternatives: { operation: string; when: string; properties: NativeProperty[] }[];
 }
 export interface ReferenceResult {
   description: string; tool: string | null; shapes: { name: string; properties: NativeProperty[] }[];
   additionalProperties: { name: string; type: string; description: string; displayType?: string; typeDescription?: string | null }[];
 }
 export interface ComponentReference {
-  component: ComponentName; activeOptions: ChoiceId[]; canonical: ReferenceSelection; status: 'implemented' | 'planned'; versions: Record<string, string>;
+  component: ComponentName; activeOptions: ChoiceId[]; canonical: ReferenceSelection; versions: Record<string, string>;
   form: ReferenceForm; info: ReferenceInfo; config: ReferenceConfig; result: ReferenceResult;
   concepts: (Concept & { id: string })[];
   /** Actual factory names; config.alternatives maps each to its matrix family. */
   relatedComponents: string[]; relatedProperties: PropertyReference[];
   example: { constraints: (Rules & { id: string })[]; note: string };
 }
-export interface CatalogExport { schemaVersion: 3; components: Component[]; concepts: Record<string, Concept>; versions: Record<string, string> }
-export interface SelectionExport { schemaVersion: 3; reference: ComponentReference; example: Example }
+export interface CatalogExport { schemaVersion: 5; components: Component[]; concepts: Record<string, Concept>; versions: Record<string, string> }
+export interface SelectionExport { schemaVersion: 5; reference: ComponentReference; example: Example }
 export type MatrixExport = CatalogExport | SelectionExport;
 
 export const configSections: (Section & { id: ConfigSectionId })[];

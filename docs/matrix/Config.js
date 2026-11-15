@@ -1,6 +1,7 @@
 import { has, factory, prepared, source, lookup, literal, multiline, indent } from './shared.js';
 
 export default function render(options, resources) {
+  if (has(options, 'loadAudio')) return renderAudio(options);
   const coded = prepared(options), asTool = has(options, 'asTool'), stream = has(options, 'asStream');
   const useTools = has(options, 'useTools');
   const input = source('Config', 'prompt', options, resources, literal('Write a delivery update for Ada.'),
@@ -34,4 +35,31 @@ ${indent(call)}
   return { configuration: { component: 'Config', factory: factory('Config', options), variable: 'shared',
     properties: fields.flatMap(field => field.match(/^([\w$]+)\s*(?=[:,])/)?.slice(1) ?? []) },
     files: [{ name: 'Config.ts', language: 'typescript', code }, ...input.files] };
+}
+
+function renderAudio(options) {
+  const asTool = has(options, 'asTool'), stream = has(options, 'asStream');
+  const fields = ['model,', 'audio: recordingUrl,', "inputAudioFormat: { type: 'audio/pcm', rate: 24000 },", 'mediaSettings: {},',
+    ...(asTool ? ["description: 'Transcribe the available delivery note.',", 'inputSchema: z.object({}),'] : [])];
+  const call = asTool ? `const workflow = Script({ tools: { outlet }, script: 'return outlet({})' });
+return await workflow();` : `const result = await outlet();
+${stream ? 'for await (const part of result.fullStream) console.log(part);\n' : ''}return ${stream ? 'await ' : ''}result.text;`;
+  return {
+    configuration: { component: 'Config', factory: factory('Config', options), variable: 'shared', properties: fields.map(field => field.split(/[:,]/)[0]) },
+    files: [{ name: 'Config.ts', language: 'typescript', code: `import { Config, Transcriber${asTool ? ', Script, z' : ''} } from 'casai';
+import type { TranscriptionModel } from 'ai';
+
+// Share media preparation settings with compatible audio components.
+// This example requires a model with streaming support for 24 kHz mono PCM16.
+export async function shareDeliverySettings(model: TranscriptionModel, recordingUrl: URL) {
+  // Install node-av. FFmpeg handles loading and format detection internally.
+  // Supply an application-authorized recordingUrl, including trusted redirects/playlist resources.
+  const shared = ${factory('Config', options)}({
+${indent(fields.join('\n'), 4)}
+  });
+  const outlet = Transcriber({}, shared);
+${indent(call)}
+}
+` }],
+  };
 }

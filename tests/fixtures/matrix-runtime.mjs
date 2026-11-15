@@ -6,6 +6,7 @@ import { MockLanguageModelV3, MockEmbeddingModelV4, MockRerankingModelV4, MockIm
   convertArrayToReadableStream as stream } from 'ai/test';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generate, typecheck } from './matrix-examples.mjs';
+import { executesCurrentSource } from './matrix-availability.mjs';
 
 const examples = await generate();
 typecheck();
@@ -17,7 +18,7 @@ globalThis.fetch = (input, init) => {
 };
 const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const pcm = new Uint8Array(19202);
-const recording = new URL('data:audio/wav;base64,AQI=');
+const recording = new Uint8Array(Buffer.from('524946462800000057415645666d74201000000001000100c05d000080bb000002001000646174610400000001000200', 'hex'));
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
 
 function languageModel(allowTools = true, toolArguments = {}) {
@@ -68,7 +69,7 @@ function fixture(name) {
       assert.deepEqual(new Uint8Array(chunks), pcm); assert.equal(targetLanguage, 'fr');
       return { stream: stream([{ type: 'output-text-delta', delta: 'Vendredi.' }, { type: 'finish', sourceText: finish.text, outputText: 'Vendredi.' }]) };
     }) }),
-    VoiceSessionSetup: () => Object.assign(createOpenAI({ apiKey: 'unused-test-key' }).experimental_realtime('fixture'), {
+    VoiceAgentBackend: () => Object.assign(createOpenAI({ apiKey: 'unused-test-key' }).experimental_realtime('fixture'), {
       doCreateClientSecret: capture({ token: 'fixture', url: 'https://example.invalid', expiresAt: 1 }),
       doCreateWebRTCSession: capture({ sdp: 'answer' }),
     }),
@@ -84,7 +85,7 @@ async function runExample(url, ...args) {
   return exported[0](...args);
 }
 let passed = 0;
-for (const example of examples.filter(example => example.status === 'implemented')) {
+for (const example of examples.filter(executesCurrentSource)) {
   const selected = id => example.activeOptions.includes(id);
   const operation = example.component === 'Config' ? 'LLMAgent' : selected('asStream') && ['SpeechGenerator', 'Transcriber', 'Translator'].includes(example.component) ? `Streaming${example.component}` : example.component;
   const { model, requests } = fixture(operation);
@@ -101,7 +102,7 @@ for (const example of examples.filter(example => example.status === 'implemented
       routeRequest: prepared ? { issue: 'My mug arrived cracked.' } : loadedText ? {} : { state: 'My mug arrived cracked.' },
       findPolicy: prepared ? { question: 'How do I replace a damaged mug?' } : loadedText ? {} : { query: 'How do I replace a damaged mug?' },
       productScene: prepared ? { scene: 'a picnic table beside a mountain lake' } : loadedText ? {} : { prompt: 'Place a Trail mug on a picnic table beside a mountain lake. Keep the mug shape and markings unchanged.' },
-      transcribeNote: prepared ? {} : { audio: recording.href },
+      transcribeNote: {},
       speakUpdate: prepared ? { name: 'Ada' } : loadedText ? {} : { text: 'Hello Ada. Your Northstar order is due Friday.' },
     }));
   }
@@ -110,7 +111,7 @@ for (const example of examples.filter(example => example.status === 'implemented
   if (selected('voice')) args.push('test-voice');
   if (operation === 'Transcriber') args.push(recording);
   if (['StreamingTranscriber', 'StreamingTranslator'].includes(operation)) args.push(pcm);
-  if (example.component === 'VoiceSessionSetup' && selected('webRTC')) args.push('offer');
+  if (example.component === 'VoiceAgentBackend' && selected('webRTC')) args.push('offer');
   let approvals = 0;
   if (selected('resume')) args.push(async ids => { assert.equal(ids.length, 1); approvals++; return ids; });
   try {
@@ -140,7 +141,7 @@ for (const example of examples.filter(example => example.status === 'implemented
     else if (example.component === 'ImageGenerator') assert.equal(result.length, selected('count') ? 3 : 1);
     else if (example.component === 'Transcriber') assert.equal(result, 'Your order arrives Friday.');
     else if (example.component === 'Translator') assert.equal(result, 'Vendredi.');
-    else if (example.component === 'VoiceSessionSetup' && selected('useTools')) {
+    else if (example.component === 'VoiceAgentBackend' && selected('useTools')) {
       assert.deepEqual(await result.executeTool({ toolCallId: 'actual-call', toolName: 'lookupOrder', args: { orderId: 'N-1042' } }), { orderId: 'N-1042', deliveryDay: 'Friday' });
     }
     if (model && !['LLMAgent', 'Config'].includes(example.component)) assert.equal(requests.length, selected('prepareSession') ? 0 : 1);
@@ -175,8 +176,12 @@ for (const example of examples.filter(example => example.status === 'implemented
       assert.equal(request.n, selected('count') ? 3 : 1);
     }
     if (operation === 'SpeechGenerator') assert.equal(request.text.trim(), 'Hello Ada. Your Northstar order is due Friday.');
+    if (operation === 'Transcriber') {
+      assert.deepEqual(request.audio, recording);
+      assert.equal(request.mediaType, 'audio/wav');
+    }
     if (['StreamingTranscriber', 'StreamingTranslator'].includes(operation)) assert.deepEqual(request.inputAudioFormat, { type: 'audio/pcm', rate: 24000 });
-    if (example.component === 'VoiceSessionSetup') {
+    if (example.component === 'VoiceAgentBackend') {
       const session = selected('prepareSession') ? (selected('useTools') ? result.session : result) : request.sessionConfig;
       assert.match(session.instructions, /Help Northstar customers in English/);
       assert.deepEqual(session.tools?.map(tool => tool.name) ?? [], selected('useTools') ? ['lookupOrder'] : []);

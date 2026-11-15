@@ -223,7 +223,7 @@ void create.StreamingSpeechGenerator({ model: speech })((async function* () { yi
 
 declare const sessions: (SourceMode<'text'> & { model: Experimental_RealtimeModel; })
 	| (SourceMode<'function'> & { model: Experimental_RealtimeModel; instructions: () => string });
-const session = create.VoiceSessionSetup(sessions);
+const session = create.VoiceAgentBackend(sessions);
 void session();
 void session.run({});
 void session.prepareSessionConfig({ voice: 'alloy' });

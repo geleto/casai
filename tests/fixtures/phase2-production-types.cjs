@@ -856,7 +856,7 @@ const scriptMode: 'async-script-name' = Script({}, Config({}, loadedScript)).con
   const phase5Contracts = fs.readFileSync(path.join(workspace, 'tests/type-safety/component-review.ts'), 'utf8')
     .replace("from 'casai'", "from './src/index.js'").replace("from './assert.js'", "from '../../tests/type-safety/assert.js'");
   const phase5Mutations = [
-    ['Phase5 voice tool bindings', '& NoInfer<ValidateToolsContext<Options, MergedConfig<T, Options>>>', '', /Unused '@ts-expect-error'/, 'src/factories/VoiceSessionSetup.ts'],
+    ['Phase5 voice tool bindings', '& NoInfer<ValidateToolsContext<Options, MergedConfig<T, Options>>>', '', /Unused '@ts-expect-error'/, 'src/factories/VoiceAgentBackend.ts'],
     ['Phase5 preparer helper ownership', "import('./config.js').CallbackFromConfig<TConfig>", "ConfigValue<TConfig, 'execute'> | ConfigValue<TConfig, 'prompt'>", /Unused '@ts-expect-error'/, 'src/types/tool-binding.ts'],
     ['Phase5 empty child validation', '[Keys] extends [never] ? EmptyMap : C', 'C', /Unused '@ts-expect-error'/, 'src/factories/component-factory.ts'],
     ['Phase5 context and format roles', 'CanOmitComponentInput<T> extends true ? WithoutContext<Tail> : never', 'CanOmitComponentInput<T> extends true ? Tail : never', /Unused '@ts-expect-error'/, 'src/types/input.ts'],
