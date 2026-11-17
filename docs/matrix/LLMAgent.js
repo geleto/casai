@@ -1,4 +1,4 @@
-import { has, prepared, source, lookup, contextField, renderExample, literal } from './shared.js';
+import { has, prepared, source, lookup, contextField, renderExample, literal, invoke, indent } from './shared.js';
 
 export default function render(options, resources) {
   const coded = prepared(options), tools = has(options, 'useTools'), history = has(options, 'messages');
@@ -12,17 +12,22 @@ export default function render(options, resources) {
     ...contextField(coded ? ['policy'] : []),
     ...(tools ? [...tool.fields, "instructions: 'Call lookupPolicy before answering the customer.',", 'stopWhen: isStepCount(3),'] : []),
     ...(resume ? ["toolApproval: { lookupPolicy: 'user-approval' },"] : []),
-    ...(structured ? ['output: Output.object({ schema: z.object({ answer: z.string(), nextStep: z.string() }) }),'] : []),
+    ...(structured ? ['output: Output.object({\n  schema: z.object({\n    answer: z.string(),\n    nextStep: z.string(),\n  }),\n}),'] : []),
   ];
   const named = [...(coded ? [`context: ${context}`] : []), ...(history ? ['messageHistory'] : [])];
-  const call = has(options, 'run') ? `returnsAdvisor.run({${named.length ? ' ' + named.join(', ') + ' ' : ''}})`
-    : `returnsAdvisor(${[...(coded ? [context] : []), ...(history ? ['messageHistory'] : [])].join(', ')})`;
+  const settings = named.length > 1 ? `{\n${indent(named.join(',\n'))}\n}` : `{${named.length ? ' ' + named[0] + ' ' : ''}}`;
+  const call = has(options, 'run') ? invoke('returnsAdvisor.run', settings)
+    : invoke('returnsAdvisor', [...(coded ? [context] : []), ...(history ? ['messageHistory'] : [])].join(', '));
   const consume = name => stream ? `for await (const part of ${name}.fullStream) console.log(part);\n` : '';
-  const final = name => `return { output: ${stream ? 'await ' : ''}${name}.output, messageHistory: await ${name}.messageHistory };`;
+  const final = name => `return {\n  output: ${stream ? 'await ' : ''}${name}.output,\n  messageHistory: await ${name}.messageHistory,\n};`;
   const body = resume ? `const pending = await ${call};
 ${consume('pending')}const content = await pending.content;
-const requests = content.flatMap(part => part.type === 'tool-approval-request' ? [part.approvalId] : []);
-if (!requests.length) { ${final('pending')} }
+const requests = content.flatMap(part =>
+  part.type === 'tool-approval-request' ? [part.approvalId] : []
+);
+if (!requests.length) {
+${indent(final('pending'))}
+}
 // Collect a decision for this paused turn; unselected requests are denied.
 const approvedIds = await chooseApprovals(requests);
 const result = await returnsAdvisor.resume(await pending.messageHistory, {
@@ -41,7 +46,7 @@ ${consume('result')}${final('result')}` : (has(options, 'asTool') && !has(option
     fields, schema: coded ? 'z.object({ question: z.string() })' : has(options, 'asTool') ? 'z.object({})' : undefined,
     source: source('LLMAgent', 'prompt', options, resources,
       literal(`Policy: ${policy}\nQuestion: ${question}`),
-      '({ policy, question }) => `Policy: ${policy}\\nQuestion: ${question}`'),
+      '({ policy, question }) =>\n  `Policy: ${policy}\\nQuestion: ${question}`'),
     toolPrompt: coded ? literal(question) : "'Explain the return steps for the saved damaged-mug request.'",
     toolArgs: coded ? context : '{}', body,
   });

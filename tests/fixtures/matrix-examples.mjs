@@ -10,7 +10,7 @@ import { multiline, renderExample } from '../../docs/matrix/shared.js';
 import { checkReference } from './matrix-reference.mjs';
 import { checkBundle } from './matrix-bundle.mjs';
 import { checkPackage } from './matrix-package.mjs';
-import { executesCurrentSource } from './matrix-availability.mjs';
+import { compilesCurrentSource, executesCurrentSource } from './matrix-availability.mjs';
 
 export const root = new URL('../../', import.meta.url);
 export const destination = new URL('.cache/matrix/', root);
@@ -31,7 +31,7 @@ export async function generate() {
   assert.equal(relative(await realpath(root), target).replaceAll('\\', '/'), '.cache/matrix', 'Only clear the matrix cache inside this workspace');
   await rm(destination, { recursive: true, force: true });
   const authored = await readdir(new URL('docs/matrix/', root));
-  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'shared.js', 'reference.js', 'resources.js', 'introduction.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
+  assert.deepEqual(authored.filter(name => name.endsWith('.js')).sort(), ['matrix.js', 'profiles.js', 'shared.js', 'reference.js', 'resources.js', 'introduction.js', ...components.map(item => item.file)].sort(), 'One renderer per catalog family plus shared documentation modules');
   assert.deepEqual(authored.filter(name => /\.(cat|cas|txt)$/.test(name)).sort(), components.flatMap(item => item.resources).sort(), 'No duplicated streaming resources');
   const tricky = '{{ value }}\n${notJavaScript}\n`backticks` \\ slashes';
   assert.equal(Function(`return ${multiline(tricky)}`)(), tricky);
@@ -64,7 +64,7 @@ export async function generate() {
       assert.equal(example.files[0].name, `${component.name}.ts`);
       assert(!example.files[0].code.includes('__MATRIX_'), example.id);
       assert(example.files[0].code.includes(`export async function ${functionName}(`), `${example.id}: keep the scenario name across options`);
-      const future = !executesCurrentSource(example);
+      const future = !compilesCurrentSource(example);
       assert(!Object.hasOwn(example, 'status'));
       assert(!Object.hasOwn(example, 'notice'));
       if (future) assert(example.workInProgress.length, `${example.id}: pending examples need a work-in-progress marker`);
@@ -170,12 +170,13 @@ void source;
 `);
   // Compile only against real source. Syntax and data contracts cover every example.
   await writeFile(new URL('tsconfig.json', destination), JSON.stringify({
-    extends: '../../tsconfig.json', compilerOptions: { noEmit: true, customConditions: ['casai-source'] },
-    include: [], files: ['_contracts.ts', '_data-contracts.ts', ...examples.filter(executesCurrentSource).map(example => `${example.id}/${example.files[0].name}`)],
+    extends: '../../tsconfig.json', compilerOptions: { noEmit: true, customConditions: ['casai-source'],
+      incremental: true, tsBuildInfoFile: '../../node_modules/.cache/casai/matrix.tsbuildinfo' },
+    include: [], files: ['_contracts.ts', '_data-contracts.ts', ...examples.filter(compilesCurrentSource).map(example => `${example.id}/${example.files[0].name}`)],
   }, null, 2));
   await checkReference(examples);
   await checkBundle(examples);
-  console.log(`Checked ${examples.filter(example => !executesCurrentSource(example)).length} planned API selections for syntax, data contracts and shared sources; runtime coverage awaits production implementation.`);
+  console.log(`Checked ${examples.filter(example => !compilesCurrentSource(example)).length} planned API selections for syntax and data contracts; ${examples.filter(example => compilesCurrentSource(example) && !executesCurrentSource(example)).length} native-media selections compile and require the optional native stage for execution.`);
   return examples;
 }
 

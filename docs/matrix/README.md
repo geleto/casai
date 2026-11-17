@@ -1,8 +1,8 @@
 # Component documentation data
 
-This directory supplies the **full component documentation and quick reference**. The website, layout and UI live in another project. There is no UI implementation here. A simplified main-page version is deferred.
+This directory supplies the **full component documentation, quick reference and simplified homepage matrix**. The website, layout and UI live in another project. There is no UI implementation here. Both matrices reuse the same component descriptions, examples, selection rules and work-in-progress notices.
 
-The matrix and future full documentation are for people first: clear descriptions, examples and reference pages. Data reuse supplies that readable content to both publications. JSON and Markdown exports additionally make it accessible to agents, bots and scrapers.
+The homepage, matrix and future full documentation are for people first: clear descriptions, examples and reference pages. Data reuse supplies that readable content to each publication. JSON and Markdown exports additionally make it accessible to agents, bots and scrapers.
 
 See [Maintaining the matrix](MAINTENANCE.md) for content ownership, SDK reuse, writing conventions and updates. `introduction.js` supplies the matrix page’s opening explanation of orchestration and shared component principles. Full documentation will reuse this introduction and the reference data, with additional topic pages. Keep the introductory content shared; layout belongs to the website.
 
@@ -36,6 +36,31 @@ const example = await render('LLMAgent', selected);
 `describe()` is synchronous and returns plain serializable data. `render()` loads the selected component renderer. Canonical `.cat`/`.cas`/`.txt` text is included in a generated resource module, so rendering works in Node and browsers without fetching files or configuring assets. An optional `{ readText: url => ... }` overrides resource reading; it is called only for the selected source. These modules do not import the Casai runtime or call a model. Omitting the selection uses the component's `activeOptions`; passing `[]` explicitly chooses no options.
 
 Bundlers can discover the package's literal renderer imports; no custom resource handling is needed. The check suite executes an esbuild browser bundle without copying assets. Importing controls and examples from the main entry does not load the full reference snapshot. Keep the package's third-party notices/licenses with distributed data. The consuming project owns selection state, layout, tabs, syntax highlighting, navigation and persistence. Resolve repository-relative documentation links against the website's documentation/source base. Generated build artifacts are disposable; do not maintain an authored copy of the data in the UI repository.
+
+### Full and simplified profiles
+
+Import `createMatrix` from `@casai/matrix/profiles`. `createMatrix('full')` exposes
+the complete catalog and controls. `createMatrix('simple')` exposes Config first, then components,
+their short descriptions and a curated set of example choices. Both return
+`components`, `getControls()`, `normalizeOptions()` and `render()` with the same
+selection and example contracts as the main entry.
+
+The simple profile keeps tools, streaming, structured output, basic component
+features and inline input preparation. It omits Context entries, file
+loading, invocation variants, conversation history/resume, masking and advanced
+audio/session options. Config uses its shared description and example in the same picker.
+The policy lives in `profiles.js`; new choices are full-reference-only until
+explicitly included. Consumers should not keep their own lists of hidden IDs.
+
+Use `normalizeOptions()` when restoring URL or saved selections. Rendering and
+controls reject choices excluded by a profile; every returned transition stays
+within that profile. Loading is unavailable in simple source controls. The full
+reference and API applicability remain unchanged. Examples use the existing
+family renderers and canonical resources, with no separate simplified copies.
+
+The website decides how to present each profile: the homepage shows a short
+description and example, with optional customization and a full-reference link;
+the quick reference retains all its documentation views.
 
 ### Website snapshot integration
 
@@ -80,9 +105,9 @@ For every `.asStream` selection, every `config.supportedSources` entry has `tool
 
 `Component.workInProgress`, `describe().form.workInProgress` and `Example.workInProgress` contain concise notices for pending selected API changes; an empty array means none remain. Display these near the overview/example. The same text is included in `form.notices` and example `explanations` for existing consumers; avoid displaying duplicates if using both fields. These markers describe particular changes, not the availability of every example. They remain independent of experimental SDK notices and are removed when their implementation and acceptance checks pass. The matrix follows the latest plan throughout that work.
 
-`matrix.d.ts` and `reference.d.ts` describe the public exports, including `ComponentReference`, `Example` and the `MatrixExport` JSON union. Tests compile a consumer and representative real exports against these declarations, and check returned fields across every selection.
+`matrix.d.ts`, `profiles.d.ts` and `reference.d.ts` describe the public exports, including `Matrix`, `ComponentReference`, `Example` and the `MatrixExport` JSON union. Tests compile a consumer and representative real exports against these declarations, and check returned fields across every selection.
 
-Each catalog component has `shortDescription` for its original short summary and `description` for the full explanation in Markdown paragraphs. `describe().info` exposes the same two fields for the selected form; streaming selections have their own explanations. Use `shortDescription` for compact labels or summaries and `description` for the component overview. `descriptionSources` lists the pinned SDK documentation used as the basis for adapted full explanations; an empty list identifies locally written Casai content. The original short text and its attribution are preserved in `shortDescription` and `shortDescriptionSource`. These fields are included in the package and JSON exports.
+Each catalog component has `shortDescription` for its concise, action-first summary and `description` for the full explanation in Markdown paragraphs. `describe().info` exposes the same two fields for the selected form; streaming selections have their own explanations. Use `shortDescription` for compact labels, homepage listings or summaries and `description` for the component overview. `descriptionSources` lists the pinned SDK documentation used as the basis for adapted full explanations; an empty list identifies locally written Casai content. Original SDK summary text and its attribution remain in `shortDescriptionSource`, which marks adapted wording. These fields are included in the package and JSON exports.
 
 `relatedComponents` on Config lists public component family names. `config.alternatives` lists factories compatible with the selected source and behavior modifiers and maps each one to its matrix family (`component`) and base configuration inventory (`shape`); for example, `Translator.asStream` belongs to the `Translator` family. The fragment’s settings must also fit the receiving component. To open its full matching reference, call `describe(alternative.component, alternative.activeOptions)`: its property index and `config.operationAlternatives` include every admitted native operation. The base `shape` alone is not the complete settings contract for a family such as ordinary SpeechGenerator or Transcriber. These options preserve the selected modifiers; the UI does not need to infer streaming choices from factory names. Deprecated settings carry `deprecated` and `aliasFor` in their property and index entries.
 
@@ -142,7 +167,7 @@ VoiceAgentClient remains stateless while returning handles that browser Cascada 
 
 VideoGenerator follows ordinary source/call/tool conventions and exposes the installed SDK's complete native video options and results. It has no streaming selector. Its work-in-progress marker covers production implementation; current examples receive syntax/reference checks only. Native video settings and completion are extracted from the pinned SDK, not inferred from the example selection.
 
-Persistence, reset/share controls and the visual treatment of unavailable choices belong to the UI project. This package supplies their selection rules, restoration and transition data. Simplified main-page content remains separate work.
+Persistence, reset/share controls and the visual treatment of unavailable choices belong to the UI project. This package supplies their selection rules, restoration and transition data, including the simplified profile for the homepage.
 
 ## Portable data
 

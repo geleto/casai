@@ -92,16 +92,14 @@ const componentFixtures = {
   'multimodal-template': {}, decision: {}, embedder: {}, 'embedding-settings': { includes: ['embedder'] },
   reranker: {}, 'retrieval-tool': {}, 'image-generator': {}, 'image-style-tool': {}, 'image-preparer': {},
   'image-edit': { includes: ['image-generator'] }, 'image-template': { setup: "import { readFile } from 'node:fs/promises';" },
-  transcriber: {}, 'transcriber-url': {}, 'audio-download': {}, 'streaming-transcriber': {},
+  transcriber: {}, 'transcriber-url': {}, 'streaming-transcriber': {},
   'configured-live-input': {}, 'transcription-tool': {}, speech: {}, 'speech-response': { includes: ['speech'] },
-  'streaming-speech': {}, 'streaming-translation': {}, 'voice-token': {}, 'voice-relay-errors': {},
+  'streaming-speech': {}, 'streaming-translation': {}, 'completed-streaming-speech': {}, 'completed-translation': {}, 'pcm-wav': {}, 'native-file-preparation': {}, 'voice-token': {}, 'voice-relay-errors': {},
   'voice-live': {}, 'voice-relay': { includes: ['voice-live'] }, 'image-tool-preparer': {},
   'image-storage-tool': { includes: ['image-generator'] }, rag: {},
 };
-const futureAudioExamples = ['transcriber-url', 'audio-download', 'streaming-transcriber', 'configured-live-input', 'transcription-tool', 'streaming-speech', 'streaming-translation'];
+componentFixtures['pcm-resampling'] = {};
 Object.assign(fixtures, componentFixtures);
-// These identifiers remain executable in README while README2 shows the selected future API.
-for (const name of futureAudioExamples) delete fixtures[name];
 const componentPrelude = `declare const visionModel: LanguageModel;
 declare const decisionModel: Parameters<typeof import('ai').experimental_decide>[0]['model'];
 declare const embeddingModel: Parameters<typeof import('ai').embed>[0]['model'];
@@ -117,6 +115,8 @@ declare const liveModel: import('ai').Experimental_RealtimeModel;
 declare const styleReferences: Uint8Array[];
 declare const otherReferences: Uint8Array[];
 declare const audioStream: ReadableStream<Uint8Array>;
+declare const authorizedRecordingUrl: URL;
+declare const recordingPcm: Uint8Array;
 declare const requestAudio: ReadableStream<Uint8Array>;
 declare const request: Request;
 declare function sendAudio(chunk: string | Uint8Array, format: { type: string; rate?: number | undefined }): Promise<void>;
@@ -139,7 +139,6 @@ assert.deepEqual([...blocks.keys()].sort(), Object.keys(fixtures).sort(), 'READM
 // Promoted examples use the same checked source in both guides. Current-only
 // examples also compile verbatim, and every current TypeScript fence is inventoried.
 const currentFixtures = {
-  ...Object.fromEntries(futureAudioExamples.map(name => [name, componentFixtures[name]])),
   'current-quick-start': { prelude: false },
   'current-config-inheritance': {},
   'current-input-defaults': {},
@@ -180,8 +179,13 @@ function source(name, included = new Set()) {
     + [fixture.setup, fixture.before, blocks.get(name), fixture.after].filter(Boolean).join('\n');
 }
 fs.mkdirSync(destination, { recursive: true });
+for (const name of fs.readdirSync(destination)) {
+  if (name.endsWith('.ts') && !Object.hasOwn(fixtures, name.slice(0, -3))) fs.unlinkSync(path.join(destination, name));
+}
 for (const [name, fixture] of Object.entries(fixtures)) {
-  fs.writeFileSync(path.join(destination, name + '.ts'), `// Generated from ${Object.hasOwn(currentFixtures, name) ? 'README.md' : 'README2.md'}; shared examples are checked for equality.\n`
-    + (fixture.prelude === false ? '' : prelude) + (name in componentFixtures ? componentPrelude : '') + source(name) + '\n');
+  const file = path.join(destination, name + '.ts');
+  const content = `// Generated from ${Object.hasOwn(currentFixtures, name) ? 'README.md' : 'README2.md'}; shared examples are checked for equality.\n`
+    + (fixture.prelude === false ? '' : prelude) + (name in componentFixtures ? componentPrelude : '') + source(name) + '\n';
+  if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== content) fs.writeFileSync(file, content);
 }
 console.log(`Prepared ${current.length} README2 examples and all ${implementedBlocks.length} README TypeScript examples (${currentOnlyNames.length} current-only); ${fences.length - current.length} future-API examples explicitly skipped.`);

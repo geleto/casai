@@ -137,7 +137,7 @@ export const componentReference = {
     toolResult: 'Return text, segments, language and durationInSeconds; the model receives transcript text. Plain public audio arguments are URLs parsed to native URL values for the SDK downloader. .loadsAudio.asTool requires configured audio and model arguments cannot replace it. Configured media stays private. Explicit Function/Script workflows handle dynamic native resources; source preparers retain application-defined payloads and native audio results.',
     concepts: ['sources', 'context', 'audio', 'media', 'audio-conversion', 'tools', 'multimodal-tools', 'media-tool-compatibility', 'inheritance'], call: 'transcribe(audio, inputAudioFormat?) or transcribe(context, inputAudioFormat?)', positional: ['inputAudioFormat'],
     variants: [{ requires: { stream: ['asStream'] }, types: 'TranscriberStream', streamModifier: true, activeOptions: ['asStream'],
-      propertyShapes: ['TranscriberStream_config', 'AudioPreparation_config'], settingsShapes: ['TranscriberStream_settings'], resultShapes: ['TranscriberStream'],
+      propertyShapes: ['TranscriberStream_config', 'RawAudioPreparation_config'], settingsShapes: ['TranscriberStream_settings'], resultShapes: ['TranscriberStream'],
       descriptionSources: [sdkDocs.experimental_streamTranscribe.source],
       description: 'Produce transcript updates using a transcription model with streaming support. Use this for live captions, voice input or transcript updates from a recording. Supply raw audio bytes or a fresh stream with inputAudioFormat. Use .loadsAudio.asStream to prepare a path/URL, encoded bytes or a byte stream.\n\nThe result exposes transcript events and promises for the final transcript and metadata. Consume fullStream before awaiting the final values if you need the events. Supported raw-audio formats depend on the provider; encoded file bytes must be decoded before they can be used as raw samples.',
       summaryOperation: 'experimental_streamTranscribe', ...native('experimental_streamTranscribe', 'TranscriberStream'),
@@ -175,7 +175,7 @@ export const componentReference = {
   },
   Translator: {
     ...native('experimental_streamTranslate (one execution, collected)', 'Translator'),
-    propertyShapes: ['Translator_config', 'AudioPreparation_config'],
+    propertyShapes: ['Translator_config', 'RawAudioPreparation_config'],
     input: 'Raw audio bytes or a stream that ends, its format and target language; .loadsAudio prepares paths/URLs, encoded bytes and byte streams.',
     sourceDescriptions: { text: 'Raw audio bytes or a finite stream of audio chunks to translate.' },
     resultSummary: 'Completed audio bytes, final source/translated text and native final metadata.',
@@ -185,7 +185,7 @@ export const componentReference = {
     call: 'translate(audio, inputAudioFormat?, targetLanguage?) or translate(context, inputAudioFormat?, targetLanguage?)', positional: ['inputAudioFormat', 'targetLanguage'],
     inputTypes: { direct: recordedAudio, prepared: recordedAudio },
     variants: [{ requires: { stream: ['asStream'] }, types: 'TranslatorStream', streamModifier: true, activeOptions: ['asStream'],
-      propertyShapes: ['TranslatorStream_config', 'AudioPreparation_config'],
+      propertyShapes: ['TranslatorStream_config', 'RawAudioPreparation_config'],
       descriptionSources: [sdkDocs.experimental_streamTranslate.source],
       description: 'Translate speech into target-language audio and text as raw audio arrives. Use this when an application needs translation updates before a recording ends. Supply raw bytes or a fresh stream, its input format and the target language. Use .loadsAudio.asStream to prepare a path/URL, encoded bytes or a byte stream.\n\nConsume fullStream to receive translated audio and text events, then read the final source text, translated text and metadata. The model must support speech translation. Supported languages and formats depend on the provider; written-text translation uses LLMAgent.',
       summaryOperation: 'experimental_streamTranslate', ...native('experimental_streamTranslate', 'TranslatorStream'), input: 'Raw audio bytes/a fresh stream, its format and target language; .loadsAudio prepares paths/URLs, encoded bytes and byte streams.',
@@ -208,7 +208,7 @@ export const componentReference = {
     ...native('doCreateClientSecret', 'VoiceAgentBackend'), input: 'Server-owned instructions, model, session preferences and optional tools.',
     sourceDescriptions: { text: 'Instructions defining how the voice assistant should respond.', 'text-name': 'A file containing instructions for the voice assistant.' },
     resultSummary: 'Client-secret information plus prepared tool definitions.',
-    resultDescription: 'Ordinary calls and run create a short-lived client secret where the model supports it, letting the browser connect without receiving the provider API key. Token, WebRTC and Live capabilities differ by provider. The application server authenticates users, authorizes session creation and tool calls, and supplies matching trusted context; the application owns transport.',
+    resultDescription: 'Ordinary calls and run return a short-lived client secret and prepared tool definitions where the model supports this setup. Pass that setup data to the browser for its provider connection; the provider API key stays on the server. Token, WebRTC and Live capabilities differ by provider. The application server authenticates users, authorizes session creation and tool calls, and supplies matching trusted context; the application owns transport.',
     concepts: ['sources', 'context', 'voice-session', 'tools', 'multimodal-tools', 'media-tool-compatibility', 'inheritance'], call: 'setup(instructions?) or setup(context)', preparedSourceRequired: true,
     variants: [
       { requires: { invocation: ['prepareSession'] }, operation: 'prepareSessionConfig', result: 'VoiceSessionConfig',
@@ -224,7 +224,7 @@ export const componentReference = {
     methods: [
       { name: 'prepareSessionConfig', signature: 'setup.prepareSessionConfig(settings?)', description: 'Prepares instructions and tool definitions without opening a provider session. Empty tool definitions are omitted.', settings: 'run', omit: ['expiresAfterSeconds'], resultShape: 'SessionConfig' },
       { name: 'createWebRTCSession', signature: 'setup.createWebRTCSession({ sdp, ...settings })', description: 'Answers a browser SDP offer using the configured model.', settings: 'run', omit: ['expiresAfterSeconds'], properties: ['sdp'], resultShape: 'VoiceWebRTC_result' },
-      { name: 'executeTool', signature: 'setup.executeTool({ toolCallId, toolName, args }, { toolsContext?, abortSignal? }?)', description: 'Validates and executes a registered tool with the real call metadata. Returns the tool execution value without language-model toModelOutput formatting. Applications own HTTP transport and map undefined results to JSON null.', properties: ['toolCallId', 'toolName', 'args', 'toolsContext', 'abortSignal'] },
+      { name: 'executeTool', signature: 'setup.executeTool({ toolCallId, toolName, args }, { toolsContext?, abortSignal? }?)', description: 'Validates and executes a registered server tool with the real call metadata and trusted context. Returns the tool execution value without language-model toModelOutput formatting. Applications own HTTP transport and map undefined results to JSON null.', properties: ['toolCallId', 'toolName', 'args', 'toolsContext', 'abortSignal'] },
     ],
   },
 };

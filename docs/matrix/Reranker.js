@@ -1,4 +1,4 @@
-import { has, prepared, source, lookup, contextField, renderExample } from './shared.js';
+import { has, prepared, source, lookup, contextField, renderExample, invoke } from './shared.js';
 
 export default function render(options, resources) {
   const coded = prepared(options);
@@ -17,8 +17,8 @@ export default function render(options, resources) {
     fields: ['documents: policies,', ...(has(options, 'topN') ? ['topN: 2,'] : []), ...(coded ? [...contextField(tool.context), ...tool.fields] : [])],
     schema: coded ? 'z.object({ question: z.string() })' : has(options, 'asTool') ? loadedText ? 'z.object({})' : 'z.object({ query: z.string() })' : undefined,
     source: source('Reranker', 'query', options, resources, undefined,
-      'async ({ question, lookupInfo }) => `${question} ${await lookupInfo()}`'),
-    call: `findPolicy(${coded ? context : loadedText ? '' : question})`, named: coded ? `{ context: ${context} }` : loadedText ? '{}' : `{ query: ${question} }`,
+      'async ({ question, lookupInfo }) =>\n  `${question} ${await lookupInfo()}`'),
+    call: invoke('findPolicy', coded ? context : loadedText ? '' : question), named: coded ? `{ context: ${context} }` : loadedText ? '{}' : `{ query: ${question} }`,
     toolPrompt: question,
     toolArgs: coded ? context : loadedText ? '{}' : `{ query: ${question} }`, result: 'return result.ranking;',
   });

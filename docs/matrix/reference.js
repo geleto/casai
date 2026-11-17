@@ -145,24 +145,24 @@ function sourceForms(definition, tool, spec) {
     { modifier: null, mode: definition.defaultMode, ...sourceModes[definition.defaultMode] },
     ...Object.entries(definition.modifiers).map(([modifier, mode]) => ({ modifier, mode, ...sourceModes[mode] })),
   ].map(form => ({ ...form, ...sourceDocumentation(form.mode, definition, spec),
-    toolSupported: definition.toolModes.includes(form.mode), applicable: !tool || definition.toolModes.includes(form.mode) })) : [];
+    toolSupported: !spec.streamModifier && definition.toolModes.includes(form.mode), applicable: !tool || !spec.streamModifier && definition.toolModes.includes(form.mode) })) : [];
 }
 
 function fragmentAlternatives(options, mode) {
-  return Object.values(api.definitions).flatMap(definition => {
+  return Object.entries(api.definitions).flatMap(([type, definition]) => {
     const source = sourceMode(options);
     if (source && mode !== definition.defaultMode && !Object.values(definition.modifiers).includes(mode)) return [];
     if (options.includes('asTool') && !definition.toolModes.includes(source ? mode : definition.defaultMode)) return [];
     if (options.includes('asStream') && !definition.asStream) return [];
     const [name] = Object.entries(componentReference).find(([name, reference]) =>
-      (reference.types ?? name) === definition.name || reference.variants?.some(variant => variant.types === definition.name));
+      (reference.types ?? name) === type || reference.variants?.some(variant => variant.types === type));
     const selected = [...options.filter(id => ['asTool', 'asStream'].includes(id)),
       ...(source && mode !== definition.defaultMode ? [source] : [])];
     const activeOptions = referenceSelection(name, selected).activeOptions;
     const spec = selectedSpec(getComponent(name), activeOptions);
-    if (spec.types !== definition.name) return [];
+    if (spec.types !== type) return [];
     return [{ component: name, factory: factory(spec.factory, activeOptions.filter(id => id !== 'asStream' || spec.streamModifier)),
-      shape: `${definition.name}_config`, activeOptions }];
+      shape: `${type}_config`, activeOptions }];
   });
 }
 

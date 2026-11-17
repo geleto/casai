@@ -8,10 +8,13 @@ export default function render(options) {
     setup: [tool.setup],
     fields: [...contextField(tool.context), ...tool.fields,
       "schema: z.object({ amount: z.number(), currency: z.literal('GBP') }),"],
-    schema: "z.object({ weightKg: z.number().positive(), service: z.enum(['standard', 'express']) })",
+    schema: "z.object({\n  weightKg: z.number().positive(),\n  service: z.enum(['standard', 'express']),\n})",
     source: { fields: [`execute: async ({ weightKg, service, getRates }) => {
   const rates = await getRates();
-  return { amount: rates[service] + Math.ceil(weightKg) * 0.5, currency: 'GBP' as const };
+  return {
+    amount: rates[service] + Math.ceil(weightKg) * 0.5,
+    currency: 'GBP' as const,
+  };
 },`], files: [] },
     toolPrompt: "'Quote express delivery for a 2 kg package.'",
     toolArgs: "{ weightKg: 2, service: 'express' }", call: "deliveryQuote({ weightKg: 2, service: 'express' })", named: "{ context: { weightKg: 2, service: 'express' } }",

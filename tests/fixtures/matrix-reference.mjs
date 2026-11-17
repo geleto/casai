@@ -13,10 +13,12 @@ import { shapeProperties, detailProperties, componentDetails } from '../../docs/
 import { checkIntegrity } from './matrix-integrity.mjs';
 import { compactType } from '../../docs/matrix/reference/type-display.js';
 import { describeType, typeReference } from '../../docs/matrix/reference/type-reference.js';
+import { checkProfiles } from './matrix-profiles.mjs';
 
 const root = new URL('../../', import.meta.url);
 
 export async function checkReference(examples) {
+  await checkProfiles();
   const defaults = describe('LLMAgent').config.properties;
   assert.equal(defaults.model.default, null);
   assert.equal(defaults.context.default, null);
@@ -228,7 +230,7 @@ export async function checkReference(examples) {
       const cascadaSource = ref.form.sourceMode?.startsWith('async-');
       const applicable = expected.filter(name => {
         if (spec.omit?.includes(name)) return false;
-        if (name === 'mediaSettings') return ref.form.sourceMode === 'audio-resource';
+        if (name === 'mediaSettings' || name === 'fileAudioTarget') return ref.form.sourceMode === 'audio-resource';
         if (name === 'download' && example.component === 'Transcriber') return ref.form.sourceMode !== 'audio-resource';
         if (name === 'filters' || name === 'renderOptions') return cascadaSource;
         if (name === 'loader') return cascadaSource || ref.form.sourceMode === 'text-name';
@@ -258,7 +260,17 @@ export async function checkReference(examples) {
       consumerCases.push(`const case${consumerCases.length} = ${JSON.stringify({ schemaVersion: 5, reference: ref, example: data })} satisfies SelectionExport;`);
     }
   }
-  await writeFile(new URL('.cache/matrix/_data-contracts.ts', root), `import type { Component } from '../../docs/matrix/matrix.js';\nimport type { SelectionExport } from '../../docs/matrix/reference.js';\nconst catalog = ${JSON.stringify(components)} satisfies Component[];\n${consumerCases.join('\n')}\n`);
+  const profileConsumer = `import { createMatrix, matrixProfiles } from '../../docs/matrix/profiles.js';
+import type { Matrix, MatrixPolicy } from '../../docs/matrix/profiles.js';
+const simple: Matrix = createMatrix('simple');
+const policy: MatrixPolicy = matrixProfiles.simple;
+const restored = simple.normalizeOptions('LLMAgent', ['withTemplate', 'run'] as const);
+const controls = simple.getControls('LLMAgent', restored.activeOptions, { unavailable: 'include' });
+const example = simple.render('LLMAgent', restored.activeOptions);
+// @ts-expect-error - unknown profiles are not part of the publishing contract.
+createMatrix('compact');
+`;
+  await writeFile(new URL('.cache/matrix/_data-contracts.ts', root), profileConsumer + `import type { Component } from '../../docs/matrix/matrix.js';\nimport type { SelectionExport } from '../../docs/matrix/reference.js';\nconst catalog = ${JSON.stringify(components)} satisfies Component[];\n${consumerCases.join('\n')}\n`);
   assert.deepEqual([...usedDetails].sort(), Object.keys(api.details).sort(), 'All extracted nested data is reachable by consumers');
   for (const component of components) {
     assert.deepEqual(component.activeOptions, [], 'Every component starts in its normal form; streaming is opt-in');
@@ -322,8 +334,9 @@ export async function checkReference(examples) {
   assert.deepEqual(clientResult.find(property => property.name === 'getSnapshot').details.variants[0].properties.map(property => property.name).sort(), ['status', 'messages', 'events', 'isCapturing', 'isPlaying', 'session'].sort());
   for (const option of ['asTool', 'asStream', 'withFunction']) assert.throws(() => validateOptions('VoiceAgentClient', [option]));
   assert((await render('VoiceAgentClient')).workInProgress.some(marker => marker.includes('VoiceAgentClient')));
-  assert.equal(llm.info.shortDescription, sdkDocs.generateText.description);
-  assert.equal(llm.info.shortDescriptionSource.reuse, 'verbatim');
+  assert.equal(llm.info.shortDescription, components.find(component => component.name === 'LLMAgent').shortDescription);
+  assert.equal(llm.info.shortDescriptionSource.description, sdkDocs.generateText.description);
+  assert.equal(llm.info.shortDescriptionSource.reuse, 'adapted');
   assert.equal(describe('LLMAgent', ['asStream']).info.shortDescription, sdkDocs.streamText.description);
   assert.equal(describe('SpeechGenerator', ['asStream']).info.shortDescription, sdkDocs.experimental_streamSpeech.description);
   assert.equal(describe('Transcriber', ['asStream']).info.shortDescription, sdkDocs.experimental_streamTranscribe.description);
@@ -380,23 +393,15 @@ export async function checkReference(examples) {
   }
   assert(describe('Config').config.properties.filters, 'Reusable fragments may configure a future Cascada component');
   assert.deepEqual(describe('Context').form.workInProgress, [], 'Do not mark unrelated application context as unfinished');
-  assert(describe('LLMAgent').form.workInProgress.some(text => text.includes('modifier-only')));
-  assert(describe('Config', ['loadAudio']).form.workInProgress.some(text => text.includes('.loadsAudio')));
-  const speechCatalog = components.find(component => component.name === 'SpeechGenerator');
-  const pendingSpeech = speechCatalog.workInProgress;
-  assert(!pendingSpeech.some(text => text.includes('.loadsAudio')), 'Speech generation does not load input audio');
-  try {
-    speechCatalog.workInProgress = [];
-    const completedReference = describe('SpeechGenerator', ['asStream']);
-    const completedExample = await render('SpeechGenerator', ['asStream']);
-    assert.deepEqual(completedReference.form.workInProgress, []);
-    assert.deepEqual(completedExample.workInProgress, []);
-    assert(!completedReference.form.notices.some(text => text.startsWith('Work in progress:')));
-    assert(!completedExample.explanations.some(text => text.startsWith('Work in progress:')));
-    assert(completedReference.form.notices.some(text => text.includes('experimental')), 'Clearing progress preserves SDK qualifications');
-  } finally {
-    speechCatalog.workInProgress = pendingSpeech;
-  }
+  assert.deepEqual(describe('LLMAgent').form.workInProgress, [], 'Modifier-only configuration is implemented and verified');
+  assert.deepEqual(describe('Config', ['loadAudio']).form.workInProgress, [], 'Native preparation and its fragment contracts are verified');
+  const speechReference = describe('SpeechGenerator', ['asStream']);
+  const speechExample = await render('SpeechGenerator', ['asStream']);
+  assert.deepEqual(speechReference.form.workInProgress, [], 'Paid streaming-speech and audio-tool reception checks pass');
+  assert.deepEqual(speechExample.workInProgress, []);
+  assert(!speechReference.form.notices.some(text => text.startsWith('Work in progress:')));
+  assert(!speechExample.explanations.some(text => text.startsWith('Work in progress:')));
+  assert(speechReference.form.notices.some(text => text.includes('experimental')), 'Clearing progress preserves SDK qualifications');
   for (const [shape, ids] of Object.entries(api.shapes)) {
     if (shape.endsWith('_config') || shape.endsWith('_settings') || ['Tool', 'AgentRun', 'ExecutionOptions'].includes(shape)) {
       for (const id of ids) assert(!['asTool', 'streaming', 'promptType'].includes(api.properties[id].name), `${shape}: remove selectors at extraction, not only display`);

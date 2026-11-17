@@ -11,12 +11,19 @@ export default function render(options, resources) {
     toolDescription: loadedText ? 'Route the saved damaged-mug request to the right support team.' : 'Route a support request to the returns, billing or delivery team.',
     imports: coded ? tool.imports : [], setup: coded ? [tool.setup] : [],
     fields: [`questions: {
-  team: { type: 'choice', instructions: 'Choose the team best placed to resolve the request.',
-    criteria: { returns: 'Damaged products and replacements', billing: 'Charges and invoices', delivery: 'Missing parcels' } },
+  team: {
+    type: 'choice',
+    instructions: 'Choose the team best placed to resolve the request.',
+    criteria: {
+      returns: 'Damaged products and replacements',
+      billing: 'Charges and invoices',
+      delivery: 'Missing parcels',
+    },
+  },
 },`, ...(coded ? [...contextField(tool.context), ...tool.fields] : [])],
     schema: coded ? 'z.object({ issue: z.string() })' : has(options, 'asTool') ? loadedText ? 'z.object({})' : 'z.object({ state: z.string() })' : undefined,
     source: source('Decision', 'state', options, resources, undefined,
-      'async ({ issue, lookupInfo }) => `Customer request: ${issue}\\n${await lookupInfo()}`'),
+      'async ({ issue, lookupInfo }) =>\n  `Customer request: ${issue}\\n${await lookupInfo()}`'),
     call: `routeRequest(${coded ? context : loadedText ? '' : issue})`, named: coded ? `{ context: ${context} }` : loadedText ? '{}' : `{ state: ${issue} }`,
     toolPrompt: issue,
     toolArgs: coded ? context : loadedText ? '{}' : `{ state: ${issue} }`, result: 'return result.answers.team.choice;',

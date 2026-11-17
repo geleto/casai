@@ -1,3 +1,7 @@
 var order = getOrder(orderId)
 var shipment = getShipment()
-return { orderId: orderId, total: order.subtotal + shipment.cost, deliveryDay: shipment.deliveryDay }
+return {
+  orderId: orderId,
+  total: order.subtotal + shipment.cost,
+  deliveryDay: shipment.deliveryDay
+}

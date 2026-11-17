@@ -7,7 +7,8 @@
   "description": "Canonical Casai component documentation and example data; no UI or runtime dependencies.",
   "exports": {
     ".": { "types": "./matrix.d.ts", "import": "./matrix.js" },
-    "./reference": { "types": "./reference.d.ts", "import": "./reference.js" }
+    "./reference": { "types": "./reference.d.ts", "import": "./reference.js" },
+    "./profiles": { "types": "./profiles.d.ts", "import": "./profiles.js" }
   },
   "files": ["*.js", "*.d.ts", "*.cat", "*.cas", "*.md", "reference"]
 }

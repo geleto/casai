@@ -807,7 +807,7 @@ The callback receives one flat context containing schema-produced application va
 
 ### LLMAgent
 
-`LLMAgent` generates a complete language-model result, or streams it when created with [`.asStream`](#streaming-with-asstream). Use it for writing, extraction, classification, image understanding, or tasks involving tools. Text is the default output. The default limit is twenty model steps; without tool activity, execution finishes after one. See [steps, hooks and continuation](#steps-hooks-and-continuation).
+`LLMAgent` generates a complete language-model result, or streams it when created with [`.asStream`](#streaming-with-asstream). Use it for writing, extraction, classification, image understanding, or tasks involving tools. Text is the default output. The default limit is twenty model steps; without tool activity, execution normally finishes after one. See [steps, hooks and continuation](#steps-hooks-and-continuation).
 
 <!-- typecheck: complete -->
 ```typescript
@@ -885,7 +885,9 @@ console.log((await calculator('Use the tool to multiply 37 by 29.')).output);
 
 `stopWhen` is a function that receives the completed steps and returns **true** to stop or **false** to allow another eligible step. It may be asynchronous. An array stops when any condition returns true.
 
-The default is `isStepCount(20)`: at most twenty model steps per invocation, unless configuration or call settings select another condition. This is a ceiling, not a request to run twenty steps. Without tool activity, the SDK finishes after one model step and does not evaluate `stopWhen`. Both call forms remain valid without tools. See [SDK loop control](https://ai-sdk.dev/docs/agents/loop-control).
+The default is `isStepCount(20)`, matching `ToolLoopAgent`: at most twenty model steps per invocation, unless configuration or call settings select another condition. This is a ceiling, not a request to run twenty steps. Without tool activity or queued steering messages, the SDK finishes after one model step and does not evaluate `stopWhen`. Both call forms remain valid without tools. Set `stopWhen: isStepCount(1)` for an explicit single-step policy. See [SDK loop control](https://ai-sdk.dev/docs/agents/loop-control).
+
+The default is supplied before `prepareCall`, without changing stored configuration. A hook that removes or clears `stopWhen` selects the core SDK's one-step fallback; Casai does not restore twenty afterward.
 
 ##### Hooks within an invocation
 
@@ -1317,7 +1319,7 @@ Use `.withScript`, `.withFunction`, or `.loadsScript` to obtain audio before tra
 
 Use `.loadsAudio.asTool` for a recording selected by your application. Configure its trusted source and the target accepted by the model:
 
-<!-- typecheck-skip: transcriber-url -->
+<!-- typecheck: transcriber-url -->
 ```typescript
 const transcribeRecording = create.Transcriber.loadsAudio.asTool({
   model: transcriptionModel,
@@ -1328,7 +1330,7 @@ const transcribeRecording = create.Transcriber.loadsAudio.asTool({
 });
 ```
 
-Install the desired node-av build; no loader setting is required. This example uses a streaming-capable model accepting 24 kHz mono PCM16 and returns a completed transcript. The model invokes the tool with no resource argument. Your application authorizes the configured resource, including redirects and playlist children. To let a model select a recording for native preparation, expose a Function/Script workflow that resolves an authorized recording ID and calls an ordinary `.loadsAudio` component through `.run({ audio, mediaSettings })`. Source credentials and native options stay in trusted settings. See [media loading](#loading-media-and-format-auto-detection).
+Install the desired node-av build; no loader setting is required. This example uses a streaming-capable model accepting 24 kHz mono PCM16 and returns a completed transcript. The model invokes the tool with no resource argument. Trusted application calls can override the recording with a path, URL, encoded bytes or a byte stream: `transcribeRecording(uploadedStream)` and `transcribeRecording.run({ audio: uploadedStream })` both select the supplied stream. Your application authorizes the configured resource, including redirects and playlist children. To let a model select a recording for native preparation, expose a Function/Script workflow that resolves an authorized recording ID and calls an ordinary `.loadsAudio` component through `.run({ audio, mediaSettings })`. Source credentials and native options stay in trusted settings. See [media loading](#loading-media-and-format-auto-detection).
 
 For a tool accepting arbitrary public URLs chosen by the model, keep the AI SDK downloader's protections: its target, redirect and resolved-address checks and byte limit do not apply to FFmpeg loading. Download in a function preparer and transcribe the encoded bytes:
 
@@ -1342,7 +1344,7 @@ const transcribePublicUrl = create.Transcriber.withFunction.asTool({
   description: 'Transcribe an audio recording at a public URL.',
   inputSchema: z.object({ url: z.url() }),
   audio: async ({ url, _toolOptions: { abortSignal } }) =>
-    (await downloadRecording({ url: new URL(url), abortSignal })).data,
+    (await downloadRecording({ url: new URL(url), ...(abortSignal ? { abortSignal } : {}) })).data,
 });
 ```
 
@@ -1354,7 +1356,7 @@ The downloaded bytes use ordinary encoded-file transcription. The response's med
 
 Finite raw bytes are also accepted, but completion follows the provider's streaming session rules. The current OpenAI adapter commits once after input ends and finishes on the first transcription-completed event. This does not establish support for arbitrary long recordings or multiple completed items; use ordinary Transcriber for whole files.
 
-<!-- typecheck-skip: streaming-transcriber -->
+<!-- typecheck: streaming-transcriber -->
 ```typescript
 const transcriberStream = create.Transcriber.asStream({
   model: streamingTranscriptionModel,
@@ -1380,7 +1382,7 @@ Use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configur
 
 A request-specific component can configure its one-shot audio and be called without arguments:
 
-<!-- typecheck-skip: configured-live-input -->
+<!-- typecheck: configured-live-input -->
 ```typescript
 const transcribeThisRequest = create.Transcriber.asStream({
   model: streamingTranscriptionModel,
@@ -1399,7 +1401,7 @@ On prepared components, one object is application context. To supply an audio fo
 
 Script/function modifiers can obtain raw audio; supply its format after context or through `.run()`. Use ordinary `Transcriber.withFunction.asTool` for named preparation arguments and a completed transcript:
 
-<!-- typecheck-skip: transcription-tool -->
+<!-- typecheck: transcription-tool -->
 ```typescript
 const transcribeRecording = create.Transcriber.withFunction.asTool({
   model: streamingTranscriptionModel,
@@ -1419,7 +1421,7 @@ Here `openRecordingAsPcmStream` is an application helper that opens a fresh, fin
 
 For a streaming-only speech model and string text, configure a supported format object once. For example, if that model accepts 24 kHz PCM:
 
-<!-- typecheck-skip: completed-streaming-speech -->
+<!-- typecheck: completed-streaming-speech -->
 ```typescript
 const completeSpeech = create.SpeechGenerator({
   model: streamingSpeechModel,
@@ -1458,7 +1460,7 @@ When saving to a file, choose an extension matching the actual media type or con
 
 `SpeechGenerator.asStream` speaks a complete string or a native stream of text deltas/parts. Use a streaming-capable speech model; the SDK reports unsupported models. The current OpenAI speech adapter generates complete audio, while the SDK's [streaming speech example](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech) uses ElevenLabs.
 
-<!-- typecheck-skip: streaming-speech -->
+<!-- typecheck: streaming-speech -->
 ```typescript
 const answerer = create.LLMAgent.asStream({ model });
 const say = create.SpeechGenerator.asStream({
@@ -1486,7 +1488,7 @@ Select either `audioStream` for bytes or `fullStream` for audio format, raw and 
 
 For a finite recording already prepared in the model's raw format:
 
-<!-- typecheck-skip: completed-translation -->
+<!-- typecheck: completed-translation -->
 ```typescript
 const translateRecording = create.Translator({
   model: translationModel,
@@ -1499,7 +1501,7 @@ console.log(completed.translationText, completed.audio);
 
 To consume incremental events instead:
 
-<!-- typecheck-skip: streaming-translation -->
+<!-- typecheck: streaming-translation -->
 ```typescript
 const translate = create.Translator.asStream({
   model: translationModel,
@@ -1526,9 +1528,9 @@ Raw-audio components accept a stream or finite raw bytes (`Uint8Array`, includin
 
 For browser microphone capture, request the provider's rate through Web Audio where supported: `new AudioContext({ sampleRate: 24000 })` for OpenAI translation. Feed the microphone through that context and capture its processed samples. Web Audio matches the source to the context's rate; check `context.sampleRate`, select mono audio and encode the floating-point samples as PCM16 little-endian bytes. The server can forward those bytes without resampling them again. Setting the context rate does not turn MediaRecorder output into raw PCM. Browser resampling implementations and source support vary; handle unsupported setup with explicit audio preparation. See the [Web Audio source-rate contract](https://www.w3.org/TR/webaudio/#MediaStreamAudioSourceNode).
 
-**PCM preparation works without `node-av`.** The helpers exported from `casai` read and write PCM WAV files and use the SDK for supported rate conversion. They handle finite PCM buffers and integer-ratio stream downsampling, including 48-to-24 and 48-to-16 kHz mono PCM16. The stream helper carries incomplete sample groups across chunks and opens its input reader on demand. An unmatched final byte is incomplete PCM16; an odd number of complete samples is valid. Matching audio passes through unchanged.
+**PCM preparation works without `node-av`.** The helpers exported from `casai` read and write PCM WAV files and perform SDK-compatible linear rate conversion directly between byte buffers, avoiding intermediate Float32 arrays. They handle finite PCM buffers and integer-ratio stream downsampling, including 48-to-24 and 48-to-16 kHz mono PCM16. The stream helper carries incomplete sample groups across chunks and opens its input reader on demand. An unmatched final byte is incomplete PCM16; an odd number of complete samples is valid. Matching audio passes through unchanged.
 
-SDK rate conversion has no anti-aliasing filter. At 48-to-24 kHz it keeps every second sample, so frequencies above 12 kHz can fold into the output band. Rate-conversion helpers depend on the experimental SDK resampler; WAV reading/writing and byte adaptation do not have that experimental dependency.
+This linear conversion has no anti-aliasing filter. At 48-to-24 kHz it selects every second sample with the SDK's PCM rounding, so frequencies above 12 kHz can fold into the output band. The helpers remain experimental because their numerical contract follows the experimental SDK resampler; compatibility is tested against it. WAV reading/writing and byte adaptation do not have that experimental dependency.
 
 The converter from `casai/node-av` requires a compatible native installation when called and uses FFmpeg's filtered rate conversion for sample changes. This includes preparation of already-supplied bytes or streams; there is no automatic SDK/local fallback when the package is missing. Choose main-entry helpers explicitly for their supported no-native operations. Native preparation requires Node.js. In a browser or other non-Node runtime, invoking `.loadsAudio` or a native helper reports a configuration error before reading media. Importing the entry and constructing a component do not load the native library. Missing installation likewise produces a configuration error before media is read. An installed library load failure or conversion error is reported without retrying through another engine. Installing node-av does not change the behavior of the main-entry helpers.
 
@@ -1552,6 +1554,64 @@ The main `casai` import can be bundled without node-av; importing it and constru
 
 The optional converter also extracts audio from video/media files. It uses the installed backend's container and required decoding/encoding support, rather than a fixed list of extensions. Compatible file targets can use native copy/remuxing; raw output requires decoding. It selects the native best audio track by default; an explicit container stream index selects another track. Preparation processes the selected audio only. Native stream inspection can read or decode frames, including video, to determine metadata. Actual compatibility depends on the installed build and the input: a container that requires seeking may work as a file or finite byte buffer but not as a forward-only stream. Supported-format lists describe available capabilities; native processing of the selected audio establishes whether a particular file works.
 
+
+Use the main-entry helpers for known PCM layouts. WAV packaging preserves samples and describes their actual rate, channels and encoding:
+
+<!-- typecheck: pcm-wav -->
+```typescript
+import { writeWav, readWav, resamplePcm16Stream } from 'casai';
+
+const wav = await writeWav(recordingPcm, {
+  sampleRate: 24000, channels: 1, encoding: 'pcm_s16le',
+});
+const { audio: samples, format: sampleLayout } = await readWav(wav);
+const lowerRate = resamplePcm16Stream(audioStream, 48000, 24000);
+```
+
+PCM sample conversion, WAV reading/writing and finite resampling return promises and run in Web Workers in browsers or worker threads in Node. Await `pcm16ToFloat32`, `float32ToPcm16`, `readWav`, `writeWav` and `resamplePcm16`. Matching-rate resampling returns the original bytes without computation.
+
+<!-- typecheck: pcm-resampling -->
+```typescript
+import { resamplePcm16, resamplePcm16Stream } from 'casai';
+
+const convertedPcm = await resamplePcm16(recordingPcm, 48000, 24000);
+// Live microphone audio can pass through as each chunk arrives.
+const convertedStream = resamplePcm16Stream(audioStream, 48000, 24000);
+```
+
+Finite calls share a lazy worker pool. Resampling uses at least one worker and adds workers when there are at least 262,144 output samples per worker, up to `min(available logical processors, 4)`. This is a conservative resource budget, not a promise of optimal throughput. Other PCM/WAV operations use one worker. Calls queue and reuse workers, which are released after five idle seconds; idle workers do not keep Node running. No setup or cleanup call is needed. Keep borrowed input unchanged until its promise settles. Copies for transfer leave caller buffers usable and yield to other tasks under one budget across all chunks. Large staging buffers are allocated in workers. Already-shared input is read directly without another copy; readWav can return a view into that same shared memory.
+
+Parallel resampling writes directly into a shared output buffer when available; all workers finish before the promise resolves. The returned `Uint8Array` may therefore have shared backing memory. The async PCM/WAV helpers and SDK audio conversion accept these bytes. For a browser `Blob`, use the encoded bytes returned by `await writeWav(...)`, which have ordinary backing memory. Browsers without cross-origin isolation retain the worker-based join, so no calling-thread join or additional browser setup is required.
+
+Workers are required for processing. Missing workers, blocked worker creation or processing failures reject the call; there is no blocking fallback. Browser CSP must allow `blob:` workers. No shared-memory or cross-origin-isolation setup is needed.
+
+`resamplePcm16Stream` uses one worker per stream, independently of the finite queue. It processes bounded chunks in order, emits each ready result without waiting for another source chunk, and preserves backpressure and cancellation. A large producer chunk is processed in blocks of about 32 KiB; only the current producer chunk and an incomplete sample group are retained. It supports integer-ratio downsampling such as 48-to-24 or 48-to-16 kHz; use native preparation for other stream rate conversions. The stream owns its worker until EOF, failure or cancellation.
+
+Native preparation runs the whole node-av pipeline in an invocation-owned Node worker, including library initialization, inspection, resampling and output assembly. Native I/O and codec operations retain their own asynchronous execution. Finite input uses the same bounded copying or shared-input reuse; uploaded streams cross into the worker in chunks of at most 64 KiB. Keep supplied bytes unchanged through consumption or cancellation, including shared stream chunks. Keep the preparation handle until the downstream result is consumed or cancelled; `close()` waits for graceful native cleanup and worker exit. This also applies to `.loadsAudio`.
+
+For encoded input, use the native helper. A file target names the output container and encoder; optional constraints apply to its rate, channels and native sample format. Accepted alternatives are considered for copying compatible audio before converting to the primary target. Set provider-specific byte and duration limits explicitly:
+
+<!-- typecheck: native-file-preparation -->
+```typescript
+import { prepareAudio } from 'casai/node-av';
+
+const prepared = await prepareAudio('./recording.m4a', {
+  fileAudioTarget: {
+    format: 'wav', codec: 'pcm_s16le',
+    alternatives: [{ format: 'flac', codec: 'flac' }],
+    maxBytes: 20 * 1024 * 1024,
+  },
+});
+try {
+  const transcribe = create.Transcriber({ model: transcriptionModel });
+  console.log((await transcribe(prepared.audio)).text);
+} finally {
+  await prepared.close();
+}
+```
+
+Use a target accepted by your provider. To preserve higher source precision during conversion, choose a compatible lossless encoder or specify an appropriate sample format. The primary encoder's native sample support still applies. For raw output, replace `fileAudioTarget` with `inputAudioFormat: { type: 'audio/pcm', rate: 24000 }`; `prepared.audio` is then a stream. Keep that handle open through downstream stream consumption and final results. Headerless input additionally needs `sourceFormat: { sampleRate, channels, encoding }` with a `PcmFormat` encoding such as `'pcm_f32le'`.
+
 ##### Loading media and format auto-detection
 
 Use `.withAudio` to return an inherited audio component to ordinary supplied-audio behavior. Clear inherited `mediaSettings` and any file-preparation target when leaving `.loadsAudio`. Source selection does not clear inherited `.asStream` or `.asTool`; an unmodified child preserves both source and delivery choices. Finite supplied bytes can be reused, while a supplied stream is single-use. A browser-local `blob:` URL is not a portable server resource: pass the File/Blob bytes or stream to native preparation. Supplied bytes/streams do not carry their former filename, URL base, seeking capability or authorization for external playlist resources. Native byte preparation therefore defaults `mediaSettings.options.protocol_whitelist` to `''`, denying referenced local files and network resources while allowing the supplied bytes themselves. Ordinary self-contained recordings still work. A trusted explicit protocol whitelist can permit intentionally authorized child resources; null/undefined retain the default. Paths and URLs keep their native protocol handling.
@@ -1564,9 +1624,11 @@ Set `mediaSettings.format` when deliberately overriding detection. It names an i
 
 The source format and the model's required input format are separate. When native model information does not determine the target, configure it explicitly; Casai does not maintain its own model capability catalog or discover accepted formats by trial requests. Raw-audio preparation uses the target `inputAudioFormat` and the helper's format convention: `audio/pcm` means mono PCM16 little-endian with an explicit rate. Preparation preserves matching audio and otherwise converts its sample representation, rate and channels to that target within the converter's supported capabilities. For example, a configured 24 kHz mono PCM16 target requires converting a 48 kHz stereo source. Channel mixing processes the selected track; it does not choose another track. Source `mediaSettings.format` cannot supply the model target.
 
-File transcription preserves the selected audio's quality within the provider's accepted formats and limits. It keeps a compatible encoding and sample properties, using native track extraction or remuxing where possible. When encoding must change, it prefers an accepted lossless representation; rate, channels and precision change only as required. It does not force every recording to PCM16 WAV or 24 kHz mono. Larger files increase memory and upload time without restoring information absent from the source. Native model information does not currently establish accepted file targets, so `.loadsAudio` file transcription requires a target describing accepted formats and limits in the finished component's trusted configuration, including inheritance. One known compatible target is sufficient; a set of accepted alternatives permits preserving more source encodings without copying a complete provider catalog. Named calls can override that target. Raw transcription instead accepts `inputAudioFormat` from configuration or the call. The file target is separate from source `mediaSettings` and cannot be combined with `inputAudioFormat`, which selects raw streaming instead. Output must also be correctly handled by the SDK's file-input path. An output that cannot fit its configured bounds fails rather than silently losing speech, being split into extra model calls or triggering a trial-upload/re-encoding loop.
+File transcription preserves the selected audio's quality within the provider's accepted formats and limits. It keeps a compatible encoding and sample properties, using native track extraction or remuxing where possible. Casai checks the primary target and then its alternatives in declaration order for a compatible copy. If none matches, it converts to the primary target, preserving sample properties within that target's constraints and native encoder support. Choose a lossless primary target when you want to avoid another lossy encoding pass; alternatives are used only for copying. It does not force every recording to PCM16 WAV or 24 kHz mono. Larger files increase memory and upload time without restoring information absent from the source. Native model information does not currently establish accepted file targets, so `.loadsAudio` file transcription requires a target describing accepted formats and limits in the finished component's trusted configuration, including inheritance. One known compatible target is sufficient; a set of accepted alternatives permits preserving more source encodings without copying a complete provider catalog. Named calls can override that target. Raw transcription instead accepts `inputAudioFormat` from configuration or the call. The file target is separate from source `mediaSettings` and cannot be combined with `inputAudioFormat`, which selects raw streaming instead. Output must also be correctly handled by the SDK's file-input path. An output that cannot fit its configured bounds fails rather than silently losing speech, being split into extra model calls or triggering a trial-upload/re-encoding loop.
 
-Opening and stream inspection may read packets, seek or wait for network data before prepared audio is available. There is no universal fixed header size or constant startup latency. Explicit `format` still permits stream-info inspection. Use invocation cancellation and applicable native probe/network options. Failed detection or an unsuitable override reports an error; preparation does not retry consumed input with another guessed format.
+Copy/remux compatibility and reported file-format metadata come from native inspection. A later format change inside a playlist may not be reflected in that metadata; Casai does not decode every packet to certify a copied file. Configured byte and duration limits still apply.
+
+Opening and stream inspection may read packets, seek or wait for network data before prepared audio is available. There is no universal fixed header size or constant startup latency. A supplied byte stream uses the native probe?s default size limit; an explicit `mediaSettings.format` bypasses that format probe but still permits stream-info inspection. Use invocation cancellation and applicable native probe/network options. Failed detection or an unsuitable override reports an error; preparation does not retry consumed input with another guessed format.
 
 `.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber separately accepts supplied encoded/raw audio or a native URL through the SDK `download` hook. Use an explicit preparer for application-owned downloads or fresh streams. FFmpeg can feed the raw-audio SDK stream while reading the resource, after required probing; the encoded-file SDK operation needs complete prepared bytes. Provider limits and first-result timing still apply. Completed audio results retain their output audio in memory.
 
@@ -1594,7 +1656,9 @@ Completed translation follows the SDK's final-result rules and requires successf
 
 ### VoiceAgentBackend
 
-`VoiceAgentBackend` prepares browser voice sessions and executes their server-side tools. Server-side setup keeps the provider API key out of the browser. For direct provider connections, the browser receives a short-lived session credential or a WebRTC setup response. A session credential authenticates the provider connection. Your application server still authenticates users and authorizes session creation and tool calls.
+`VoiceAgentBackend` sets up realtime voice sessions and executes their tool calls on the server. It prepares session configuration and credentials, and gives tools access to application data and server services. Your application owns the live connection and conversation lifecycle; the browser handles audio capture and playback.
+
+Keep provider API keys and tool executors on the server. For direct provider connections, the browser receives a short-lived session credential or a WebRTC setup response. A session credential authenticates the provider connection. Your application server still authenticates users and authorizes session creation and tool calls.
 
 It uses the AI SDK's experimental realtime API. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
 
@@ -1907,9 +1971,9 @@ Media content types alone do not establish working delivery to a model. The foll
 | --- | --- | --- |
 | `@ai-sdk/anthropic@4.0.96` | Retains inline images/PDFs; warns and drops inline audio/video file parts | Inline audio/video delivery is unsupported |
 | `@ai-sdk/openai@4.0.108`, Chat | Stringifies tool content, including base64 | Native media delivery is unsupported on this path |
-| `@ai-sdk/openai@4.0.108`, Responses | Maps images to `input_image` and other files to `input_file` | [Documented file inputs](https://developers.openai.com/api/docs/guides/file-inputs) do not establish audio/video support |
-| `@ai-sdk/google@4.0.121`, Interactions | Retains images; warns and drops audio/video tool files despite [API support](https://aistudio.google.com/docs/function-calling#multimodal) | These audio/video routes require an adapter correction |
-| `@ai-sdk/google@4.0.121`, generateContent | Retains inline audio/video in function responses on native model paths supporting response parts | Serialization works; actual model acceptance is unverified |
+| `@ai-sdk/openai@4.0.108`, Responses | Maps images to `input_image` and other files to `input_file` | Tested `gpt-6-luna` route rejects `audio/mpeg` tool output with HTTP 400 |
+| `@ai-sdk/google@4.0.111`, Interactions | Retains images; warns and drops audio/video tool files despite [API support](https://aistudio.google.com/docs/function-calling#multimodal) | These audio/video routes require an adapter correction |
+| `@ai-sdk/google@4.0.111`, generateContent | Retains inline audio/video in function responses on native model paths supporting response parts | Tested `gemini-3.8-flash` hears MP3 (`audio/mpeg`) tool results; changed-audio controls pass |
 
 The table records inspected behavior; it is not a promise to certify every adapter version or repair unsupported routes. Choose an adapter/model route verified for the actual media format. A custom formatter can deliberately return text or an application reference instead. Schema metadata does not grant media transport, and no generic Casai preflight can promise an error for an adapter that silently discards content.
 
@@ -3269,7 +3333,9 @@ For cancellation setup and nested deadlines, see [Cancellation, Timeouts, and Us
 
 Casai infers input types from schemas, context, and function signatures. Output specifications determine the type of generated values; tool maps retain typed arguments and results. Use `import type` for SDK types such as `ModelMessage` and `ToolExecutionOptions`.
 
-Use `ComponentConfig<'Embedder'>` to annotate an ordinary Embedder configuration. Use `satisfies` when you want to preserve specific schema types and configured defaults; tool factories infer their configuration through `.asTool`.
+Use `ComponentConfig<'Embedder'>` to annotate an ordinary Embedder configuration. The second parameter selects the source form; the third selects its delivery contract, for example `ComponentConfig<'Transcriber', 'audio-resource'>` or `ComponentConfig<'SpeechGenerator', 'text', 'stream'>`. These annotations describe settings; select runtime behavior through the matching factory modifiers. Use `satisfies` when you want to preserve specific schema types and configured defaults; tool factories infer their configuration through `.asTool`.
+
+Completed audio annotations keep each operation's selector: raw Transcriber settings require `inputAudioFormat`, prepared file transcription requires `fileAudioTarget`, and collected SpeechGenerator settings require an object `outputFormat`. This keeps a broadly annotated configuration callable without mixing incompatible native settings. Inferred factories can still receive raw formats at invocation or select collected speech from non-string text. Function-mode annotations receive ordinary execution context; use inference or `satisfies` to retain exact application fields.
 
 <!-- typecheck: type-checking -->
 ```typescript

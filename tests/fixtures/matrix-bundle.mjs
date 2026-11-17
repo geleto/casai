@@ -8,15 +8,17 @@ export async function checkBundle(examples) {
   const root = new URL('../../', import.meta.url);
   const output = new URL('.cache/matrix/_bundle/', root);
   const bundle = await build({
-    entryPoints: ['matrix', 'reference'].map(name => fileURLToPath(new URL(`docs/matrix/${name}.js`, root))),
+    entryPoints: ['matrix', 'reference', 'profiles'].map(name => fileURLToPath(new URL(`docs/matrix/${name}.js`, root))),
     bundle: true, splitting: true, platform: 'browser', format: 'esm',
     outdir: fileURLToPath(output), metafile: true, logLevel: 'silent',
   });
   assert(Object.keys(bundle.metafile.inputs).every(path => path.replaceAll('\\', '/').startsWith('docs/matrix/')), 'Documentation bundles must not import runtime or SDK code');
-  const lightweight = await build({ entryPoints: [fileURLToPath(new URL('docs/matrix/matrix.js', root))], bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
+  const lightweight = await build({ entryPoints: [fileURLToPath(new URL('docs/matrix/profiles.js', root))], bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
   assert(!Object.keys(lightweight.metafile.inputs).some(path => path.replaceAll('\\', '/').endsWith('/reference/api.js')), 'Example/control consumers do not load the full reference snapshot');
   const matrix = await import(new URL('matrix.js', output));
   const reference = await import(new URL('reference.js', output));
+  const { createMatrix } = await import(new URL('profiles.js', output));
+  assert.deepEqual(await createMatrix('simple').render('LLMAgent', ['withTemplate']), await matrix.render('LLMAgent', ['withTemplate']));
   for (const example of examples) {
     const expected = { ...example };
     delete expected.url;

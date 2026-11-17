@@ -15,7 +15,11 @@ export async function checkPackage(root, destination) {
   await writeFile(consumer, `import assert from 'node:assert/strict';
 import { components, render } from '@casai/matrix';
 import { describe } from '@casai/matrix/reference';
+import { createMatrix } from '@casai/matrix/profiles';
 assert.equal(components.length, 16);
+const simple = createMatrix('simple');
+assert.deepEqual(simple.normalizeOptions('LLMAgent', ['withTemplate', 'run']).activeOptions, ['withTemplate']);
+assert.deepEqual(await simple.render('LLMAgent', ['withTemplate']), await render('LLMAgent', ['withTemplate']));
 const example = await render('LLMAgent', ['loadTemplate']);
 assert(example.files.some(file => file.name === 'LLMAgent.cat'));
 assert(describe('LLMAgent').config.properties.telemetry.details.variants[0].properties.length);

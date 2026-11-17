@@ -5,7 +5,7 @@ export default {
     "ai": "7.0.162",
     "@ai-sdk/provider-utils": "5.0.74",
     "@ai-sdk/provider": "4.0.35",
-    "cascada-engine": "0.6.2"
+    "cascada-engine": "0.7.0"
   },
   "repository": "https://github.com/geleto/casai"
 };

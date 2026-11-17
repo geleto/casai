@@ -63,6 +63,7 @@ export const componentDetails = {
 };
 const fields = descriptions => Object.fromEntries(Object.entries(descriptions).map(([name, description]) => [name, { description }]));
 export const detailProperties = {
+  FileAudioTarget: { alternatives: { detail: 'FileAudioFormat', appliesTo: 'Each accepted copy alternative' } },
   VoiceClientApi: fields({
     token: 'Application endpoint that returns the native short-lived token response.',
     session: 'Application endpoint that accepts the browser SDP offer and returns the native WebRTC answer.',

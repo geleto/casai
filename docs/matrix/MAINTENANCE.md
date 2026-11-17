@@ -1,17 +1,20 @@
 # Maintaining the matrix
 
-The matrix is the canonical component reference. This repository owns its content, shared introduction, examples, data and selection rules. The separate website/documentation project owns the UI and publishing. The introduction is now part of the matrix page; topic pages and a simplified main-page version remain separate work.
+The matrix is the canonical component reference. This repository owns its content, shared introduction, examples, data and selection rules. The separate website/documentation project owns the UI and publishing. The full and simplified matrices share this data through the profiles in `profiles.js`; topic pages remain separate work.
+
+Keep profile policy separate from API applicability. Curate the simple profile's allowed choices centrally, reuse the existing renderers, and keep all transitions within the selected profile. Use short descriptions for the homepage and preserve experimental/work-in-progress notices. Do not fork examples, weaken full-reference rules or import the full API snapshot just to render a simplified example. Profile tests walk every reachable simplified selection and compare its example to the full renderer.
 
 Write for people first. Say Cascada Template or Cascada Script, and explain input handling with concrete values such as text, messages, images or files. Keep each source-mode summary to one short sentence. For standalone Template and Script, describe the property value (text, code or file name); for other components, explain how the source prepares input. Set component-specific wording in `reference/components.js` through `sourceDescriptions`, keyed by source mode. Omit filler such as "as-is" and comparisons with unselected modes. Put format requirements and meaningful limitations in the property details. The matrix will likely be the main way readers explore Casai. The full documentation must also be a normal, readable guide with clear navigation, explanations, examples and practical topics. Machine-readable formats are additional ways to access that same content, not the organizing principle for the documentation.
 
-## The two future publications
+## Publications
 
 | Publication | Content |
 | --- | --- |
+| Homepage | Short component descriptions and examples through the simple profile, with optional customization |
 | Matrix page | Introduction, matrix, then links to documentation topics |
 | Full documentation | The same introduction, optionally additional documentation-only introductory material, all reference information from the matrix, and the topics |
 
-These two publications reuse the same data. The introduction, component reference and topics have distinct responsibilities; they do not repeat one another. The matrix remains the source of reference content when the full documentation is built. Copying or rendering it at build time is fine; maintaining another authored reference is not.
+These publications reuse the same data. The introduction, component reference and topics have distinct responsibilities; they do not repeat one another. The matrix remains the source of reference content when the full documentation is built. Copying or rendering it at build time is fine; maintaining another authored reference is not.
 
 The documentation's reference pages should present matrix content as readable descriptions, signatures, property entries and examples. Readers should not need to understand the data model, read JSON or operate matrix controls to understand a component. Reusing content does not require copying the matrix's interactive layout into the documentation.
 
@@ -27,7 +30,7 @@ All modes are selected only with factory/Config modifiers. `promptType`, `stream
 
 **Plan synchronization (2026-11-14):** update the matrix whenever an API plan decision changes. Document the selected contract immediately and attach a concise `workInProgress` marker for each pending change; do not wait for production implementation or publish stale alternatives as the target API. Markers are authored centrally in `matrix.js`, exposed on the catalog, references and examples, and included in existing notice/explanation lists. Remove each marker in the change that implements and verifies its scope. Keep experimental SDK notices independent. This supersedes the earlier no-status-banner instruction.
 
-The modifier-only marker covers all callable families and Config while the named flags still exist in production. Audio delivery and media-preparation markers are separate so deliverables A and B can clear independently. A marker does not mean every example on the component is unavailable. The private execution-coverage map remains separate: implemented examples must still run even while another part of their reference is marked. On implementation, replace documentation-only aliases/projections with production declarations, enable the corresponding source type/runtime tests, verify exports and consumers, then remove that change's marker. Documentation edits or passing syntax checks alone do not clear it.
+All Phase 6 implementation and acceptance markers are now cleared after their source/type/native/package checks and paid-provider acceptance. Later-phase markers remain. A marker does not mean every example on the component is unavailable. The private execution-coverage map remains separate: implemented examples still run while another part of their reference is marked. Future migrations must replace documentation-only projections with production declarations, enable the corresponding type/runtime tests and verify exports/consumers before clearing their markers. Documentation edits or syntax checks alone do not clear them.
 
 **Configured loaded-audio tools (2026-11-15):** finished `.loadsAudio.asTool` requires configured audio, possibly inherited, using the same source-required rule as other loaded tools. Config fragments stay incomplete. The model cannot supply a resource override; declared context remains data. Examples configure the source privately and use a closed empty schema when no public data is needed. Ordinary Transcriber URL tools retain their SDK downloader; dynamic native preparation uses an explicit Function/Script workflow. Keep construction-required metadata and renderer configuration aligned with this distinction.
 
@@ -51,11 +54,12 @@ The modifier-only marker covers all callable families and Config while the named
 | `reference/api.js` | Pinned public type shapes and native JSDoc descriptions | **No**, regenerate |
 | `reference/sdk-docs.js` | Opening descriptions extracted from the matching SDK documentation | **No**, regenerate |
 | `reference/metadata.js` | Casai/dependency versions and repository URL for lightweight consumers | **No**, regenerate |
-| `matrix.d.ts`, `reference.d.ts` | Consumer types for the catalog, selection helpers, reference and JSON exports | Yes; keep tests tied to the returned fields |
+| `profiles.js` | Full and simplified catalog/control policies over the shared examples and selection rules | Yes; keep presentation policy separate from API applicability |
+| `matrix.d.ts`, `profiles.d.ts`, `reference.d.ts` | Consumer types for the catalog, profiles, selection helpers, reference and JSON exports | Yes; keep tests tied to the returned fields |
 | `reference.js` | Generic resolver that joins the selected catalog entry, native inventory and local amendments | Only when the data contract needs to change |
 | `package.json` | Private `@casai/matrix` entry points for the separate UI project's file/workspace dependency | Yes; no runtime dependencies |
 
-Types determine which settings, methods and results exist. For the selected audio API, scripts/matrix-audio-contracts.mjs derives documentation-only settings/results from the installed native declarations and the approved design. It supplies no production implementation; replace this bridge with production declarations when the migration lands. Keep native request alternatives explicit and local result adaptations separate. The configured component's types determine its accepted shape; a native documentation page does not add settings to Casai. Keep complete and streaming shapes separate. Config fragments list compatible alternatives, not one mixture of every component's properties.
+Types determine which settings, methods and results exist. For the audio API, `scripts/matrix-audio-contracts.mjs` selects production `ComponentConfig` and factory `Types` declarations for each source/delivery/native-operation alternative. It invents no settings or result shapes; regenerate the reference after changing those production declarations. Keep native request alternatives explicit and local result adaptations separate. The configured component's types determine its accepted shape; a native documentation page does not add settings to Casai. Keep complete and streaming shapes separate. Config fragments list compatible alternatives, not one mixture of every component's properties.
 
 Example controls choose teaching scenarios. They do not define API support: turning off `useTools` must not remove `tools` from the configuration reference. `render().configuration` names the factory and properties actually used by the displayed example. `describe()` describes the selected API independently of that example.
 
@@ -79,21 +83,21 @@ These explanations belong **inside the matrix**: context, inheritance, schemas, 
 
 ## Reuse AI SDK documentation first
 
-Use upstream wording verbatim whenever it accurately describes Casai. Do not paraphrase merely to give it a different voice. Keep local wording for actual differences and explanations the SDK does not provide.
+Reuse upstream wording for detailed API documentation whenever it accurately describes Casai. Keep local wording for actual differences and explanations the SDK does not provide. Short component summaries also serve the homepage: use concise, action-first language that explains the capability without requiring knowledge of the SDK, and retain the original SDK text and attribution in `shortDescriptionSource`.
 
 The installed `ai` package contains its reference pages under `node_modules/ai/docs/07-reference/01-ai-sdk-core/`. `npm run docs:matrix` extracts their opening paragraphs, selected missing result descriptions and native JSDoc from the installed public declarations. It follows exported aliases and reuses builder parameter documentation for nested options. This pins the content to the same version as the code. Online pages are useful for reading and comparison, but can describe a newer release. Generation is offline and does not evaluate MDX or import the SDK runtime.
 
 ### Component descriptions: checked against ai@7.0.162
 
-The SDK's short, action-first function descriptions are suitable for component descriptions. Use the matching operation's description, with small changes when a Casai family covers more than one operation.
+Use the matching SDK operation to check each component summary. Adapt the summary for a concise homepage listing while retaining important capabilities and distinctions. Full descriptions explain model-specific limits, input and output details. Keep streaming-form summaries specific to live delivery.
 
 | Component | SDK source | Current reuse |
 | --- | --- | --- |
-| LLMAgent | `generateText`, `streamText` | Verbatim; selected streaming form uses the streaming description. Structured output and continuation have their own reference entries. |
-| ImageGenerator | `generateImage` | Verbatim; editing/media behavior belongs in its options and properties. |
-| SpeechGenerator | `generateSpeech`, `experimental_streamSpeech` | Verbatim for each delivery form. |
-| Transcriber | `transcribe`, `experimental_streamTranscribe` | Small family-summary change to include recordings and streams; streaming description verbatim. |
-| Reranker | `rerank` | Verbatim. |
+| LLMAgent | `generateText`, `streamText` | Adapted to include structured answers and tools; selected streaming form uses the streaming description. |
+| ImageGenerator | `generateImage` | Adapted to include generation and editing; model-specific limits stay in the full reference. |
+| SpeechGenerator | `generateSpeech`, `experimental_streamSpeech` | Concise text-to-speech summary; selected streaming form keeps its native description. |
+| Transcriber | `transcribe`, `experimental_streamTranscribe` | Concise family summary includes recordings and streams; streaming description verbatim. |
+| Reranker | `rerank` | Adapted to explain ranking documents against a query. |
 | Embedder | `embed`, `embedMany` | Small combined description for one or many texts, with a plain explanation of embeddings. |
 | Decision | `experimental_decide` | Adapt the technical map/type wording to simple category, yes/no, score and location examples. |
 | Translator | `experimental_streamTranslate` | Streaming description verbatim. The completed adapter needs local wording for its collected result. |
@@ -102,7 +106,7 @@ The SDK's short, action-first function descriptions are suitable for component d
 | VideoGenerator | `experimental_generateVideo` | Native options/results and pinned prompt-field prose; Casai adds common preparation/calls/tools and preserves SDK completion ownership. |
 | Config, Context, Template, Script, Function | No equivalent AI SDK component | Local descriptions; use Cascada's terminology where it owns execution. |
 
-For example, LLMAgent reuses the `generateText` summary: “Generates text and calls tools for a given prompt using a language model.” The [SDK reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text) then uses a short example, import, parameters and returns. Follow that direct style; don't describe model execution as merely asking a model to produce something.
+For example, LLMAgent's summary is “Generate text or structured answers, and call tools with a language model.” Its attribution retains the original `generateText` description. The [SDK reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text) follows its summary with a short example, import, parameters and returns. Follow that direct style.
 
 ### Configuration, methods and results
 
@@ -139,7 +143,7 @@ Distribute [THIRD_PARTY.md](reference/THIRD_PARTY.md) and the included Apache-2.
 
 Follow the SDK's reference style throughout the matrix: a short action-first summary, a small useful example, import/signature, parameters, returns, then relevant notes and links. The matrix's Info/Example/Config views can present the same material in a different layout; layout belongs to the other project.
 
-Keep the original short component summary in `shortDescription`. `description` contains a few plain Markdown paragraphs explaining what the component does, when it is useful, its inputs and its result. Keep detailed settings in the property reference. Adapt the installed SDK guides where they fit and retain their pinned locations in `descriptionSources`; local additions explain Casai's behavior. Streaming variants may override the full description in `reference/components.js`, with their native reference page as the source. Review these manually authored adaptations on SDK changes; the generator does not rewrite them. Keep work-in-progress markers separate from the selected API prose and preserve experimental SDK qualifications.
+Keep the concise component summary in `shortDescription`, shared by the homepage and quick reference. Preserve original SDK prose in `shortDescriptionSource` when adapting it. `description` contains a few plain Markdown paragraphs explaining what the component does, when it is useful, its inputs and its result. Keep detailed settings in the property reference. Adapt the installed SDK guides where they fit and retain their pinned locations in `descriptionSources`; local additions explain Casai's behavior. Streaming variants may override the full description in `reference/components.js`, with their native reference page as the source. Review these manually authored adaptations on SDK changes; the generator does not rewrite them. Keep work-in-progress markers separate from the selected API prose and preserve experimental SDK qualifications.
 
 Use plain words, Markdown paragraphs, backticks for API names, fenced TypeScript for examples and explicit file names for secondary sources. Keep a property name, type, requiredness, description and default easy to scan. Explain conditional requirements next to the property. Preserve useful native detail instead of replacing it with a vague one-line paraphrase. Put scenario explanations in code comments.
 

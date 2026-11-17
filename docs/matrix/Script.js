@@ -7,7 +7,7 @@ export default function render(options, resources) {
     description: 'Combine order and shipping information. Independent lookups run concurrently.', toolDescription: 'Look up an order and return its total cost and delivery day.', imports: tool.imports,
     setup: ["const getOrder = async (orderId: string) => ({ orderId, subtotal: 48 });", tool.setup],
     fields: [...contextField(['getOrder', ...tool.context]), ...tool.fields,
-      'schema: z.object({ orderId: z.string(), total: z.number(), deliveryDay: z.string() }),'],
+      'schema: z.object({\n  orderId: z.string(),\n  total: z.number(),\n  deliveryDay: z.string(),\n}),'],
     schema: 'z.object({ orderId: z.string() })',
     source: source('Script', 'script', options, resources, undefined, undefined, 'cas'),
     toolPrompt: "'Summarize order N-1042, including its total cost and delivery day.'",

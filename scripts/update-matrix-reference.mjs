@@ -11,7 +11,7 @@ import { voiceClientContracts } from './matrix-voice-client-contracts.mjs';
 import { videoContracts } from './matrix-video-contracts.mjs';
 
 const root = new URL('../', import.meta.url);
-const names = ['Template', 'Script', 'Function', 'LLMAgent', 'Decision', 'Embedder', 'Reranker', 'ImageGenerator', 'Transcriber', 'StreamingTranscriber', 'SpeechGenerator', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceAgentBackend'];
+const names = ['Template', 'Script', 'Function', 'LLMAgent', 'Decision', 'Embedder', 'Reranker', 'ImageGenerator', 'Transcriber', 'SpeechGenerator', 'Translator', 'VoiceAgentBackend'];
 const aliases = {};
 // Data-shaped settings/results need their fields, not just an imported type name.
 // Keep union branches separate; their options must never be flattened together.
@@ -57,7 +57,7 @@ Object.assign(aliases, {
   VoiceSessionConfig_result: "import('ai').Experimental_RealtimeSessionConfig",
   VoiceWebRTC_result: "Awaited<ReturnType<NonNullable<import('ai').Experimental_RealtimeModel['doCreateWebRTCSession']>>>",
 });
-const operations = { LLMAgent: 'generateText', LLMAgentStream: 'streamText', Decision: 'experimental_decide', Embedder: 'embed', EmbedderBatch: 'embedMany', Reranker: 'rerank', ImageGenerator: 'generateImage', Transcriber: 'transcribe', StreamingTranscriber: 'experimental_streamTranscribe', SpeechGenerator: 'generateSpeech', StreamingSpeechGenerator: 'experimental_streamSpeech', StreamingTranslator: 'experimental_streamTranslate' };
+const operations = { LLMAgent: 'generateText', LLMAgentStream: 'streamText', Decision: 'experimental_decide', Embedder: 'embed', EmbedderBatch: 'embedMany', Reranker: 'rerank', ImageGenerator: 'generateImage', Transcriber: 'transcribe', TranscriberStream: 'experimental_streamTranscribe', SpeechGenerator: 'generateSpeech', SpeechGeneratorStream: 'experimental_streamSpeech', Translator: 'experimental_streamTranslate', TranslatorStream: 'experimental_streamTranslate' };
 for (const [name, operation] of Object.entries(operations)) {
   aliases[`${name}_result`] = `Awaited<ReturnType<typeof import('ai').${operation}>>`;
   aliases[`${name}_native`] = `Parameters<typeof import('ai').${operation}>[0]`;
@@ -66,12 +66,6 @@ aliases.VoiceAgentBackend_result = "import('../src/factories/VoiceAgentBackend.j
 audioContracts(aliases, detailAliases);
 voiceClientContracts(aliases, detailAliases);
 videoContracts(aliases, detailAliases);
-// Selected modifier-only API: remove legacy named selectors from the extracted
-// configuration and invocation contracts until production declarations migrate.
-// Keep native SDK shapes and application/schema data untouched.
-for (const [name, type] of Object.entries(aliases)) {
-  if (name.endsWith('_config') || name.endsWith('_settings') || ['Tool', 'AgentRun', 'ExecutionOptions'].includes(name)) aliases[name] = `Omit<${type}, 'streaming' | 'asTool' | 'promptType'>`;
-}
 Object.assign(aliases, detailAliases);
 const probe = new URL('.cache/matrix-reference-types.ts', root);
 await mkdir(new URL('.cache/', root), { recursive: true });
@@ -108,7 +102,8 @@ function extractShape(type, statement, name) {
   // Primitive branches have no configuration fields (not String/Number methods).
   shapes[name] = (type.flags & ts.TypeFlags.Object || type.isIntersection() || type.isUnion() ? checker.getPropertiesOfType(type) : []).filter(symbol => !symbol.declarations?.some(declaration =>
     declaration.name && ts.isComputedPropertyName(declaration.name)
-    && (checker.getTypeAtLocation(declaration.name.expression).flags & ts.TypeFlags.ESSymbolLike))).map(symbol => {
+    && (checker.getTypeAtLocation(declaration.name.expression).flags & ts.TypeFlags.ESSymbolLike)))
+    .filter(symbol => !(checker.getTypeOfSymbolAtLocation(symbol, statement).flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Never))).map(symbol => {
     const documented = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
     const declaration = documented.valueDeclaration ?? documented.declarations?.[0];
     const property = {

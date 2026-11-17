@@ -11,7 +11,7 @@ export async function prepareVoiceSupportClient(
 ) {
   const voiceSupport = VoiceAgentClient({
     model,
-    // Your application route authenticates the user and calls VoiceAgentBackend.
+    // Your route authenticates the user and calls VoiceAgentBackend.
     api: { token: '/api/voice/setup' },
     sessionConfig: { voice: 'alloy' },
   });

@@ -1,15 +1,20 @@
 // Execute the actual displayed code with SDK test models. No provider requests.
 import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { writeWav } from 'casai';
 import { MockLanguageModelV3, MockEmbeddingModelV4, MockRerankingModelV4, MockImageModelV4,
   MockTranscriptionModelV4, MockSpeechModelV4, Experimental_DecisionMockModelV4,
   Experimental_MockStreamingSpeechModelV4, Experimental_MockSpeechTranslationModelV4,
   convertArrayToReadableStream as stream } from 'ai/test';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generate, typecheck } from './matrix-examples.mjs';
-import { executesCurrentSource } from './matrix-availability.mjs';
+import { compilesCurrentSource, executesCurrentSource } from './matrix-availability.mjs';
 
 const examples = await generate();
 typecheck();
+const native = process.argv.includes('--native');
 const nativeFetch = globalThis.fetch;
 globalThis.fetch = (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
@@ -18,6 +23,8 @@ globalThis.fetch = (input, init) => {
 };
 const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const pcm = new Uint8Array(19202);
+const nativeUrl = pathToFileURL(resolve('.cache/matrix/recording.wav'));
+if (native) await writeFile(nativeUrl, await writeWav(pcm, { sampleRate: 24000, channels: 1, encoding: 'pcm_s16le' }));
 const recording = new Uint8Array(Buffer.from('524946462800000057415645666d74201000000001000100c05d000080bb000002001000646174610400000001000200', 'hex'));
 const recordingUrl = new URL(`data:audio/wav;base64,${Buffer.from(recording).toString('base64')}`);
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
@@ -65,7 +72,7 @@ function fixture(name) {
       assert.match(input, /Hello Ada\. Your Northstar order is due Friday\./);
       return { stream: stream([{ type: 'audio', audio: 'AQI=', audioFormat }, { type: 'finish' }]) };
     }) }),
-    StreamingTranslator: () => new Experimental_MockSpeechTranslationModelV4({ doStream: capture(async ({ audio, targetLanguage }) => {
+    Translator: () => new Experimental_MockSpeechTranslationModelV4({ doStream: capture(async ({ audio, targetLanguage }) => {
       const chunks = []; for await (const chunk of audio) chunks.push(...chunk);
       assert.deepEqual(new Uint8Array(chunks), pcm); assert.equal(targetLanguage, 'fr');
       return { stream: stream([{ type: 'output-text-delta', delta: 'Vendredi.' }, { type: 'finish', sourceText: finish.text, outputText: 'Vendredi.' }]) };
@@ -86,9 +93,12 @@ async function runExample(url, ...args) {
   return exported[0](...args);
 }
 let passed = 0;
-for (const example of examples.filter(executesCurrentSource)) {
+for (const example of examples.filter(native ? example => compilesCurrentSource(example) && example.activeOptions.includes('loadAudio') : executesCurrentSource)) {
   const selected = id => example.activeOptions.includes(id);
-  const operation = example.component === 'Config' ? 'LLMAgent' : selected('asStream') && ['SpeechGenerator', 'Transcriber', 'Translator'].includes(example.component) ? `Streaming${example.component}` : example.component;
+  const operation = example.component === 'Config' ? ['withAudio', 'loadAudio'].some(selected) ? 'StreamingTranscriber' : 'LLMAgent'
+    : example.component === 'Transcriber' && ['asStream', 'audioStream', 'loadAudio'].some(selected) ? 'StreamingTranscriber'
+    : example.component === 'SpeechGenerator' && ['asStream', 'textStream', 'nativeStream'].some(selected) ? 'StreamingSpeechGenerator'
+    : example.component;
   const { model, requests } = fixture(operation);
   const args = model ? [model] : [];
   const hosted = selected('asTool') && !selected('run') && !['Embedder', 'Config'].includes(example.component);
@@ -103,15 +113,15 @@ for (const example of examples.filter(executesCurrentSource)) {
       routeRequest: prepared ? { issue: 'My mug arrived cracked.' } : loadedText ? {} : { state: 'My mug arrived cracked.' },
       findPolicy: prepared ? { question: 'How do I replace a damaged mug?' } : loadedText ? {} : { query: 'How do I replace a damaged mug?' },
       productScene: prepared ? { scene: 'a picnic table beside a mountain lake' } : loadedText ? {} : { prompt: 'Place a Trail mug on a picnic table beside a mountain lake. Keep the mug shape and markings unchanged.' },
-      transcribeNote: prepared ? {} : { audio: recordingUrl.href },
-      speakUpdate: prepared ? { name: 'Ada' } : loadedText ? {} : { text: 'Hello Ada. Your Northstar order is due Friday.' },
+      transcribeNote: prepared || operation === 'StreamingTranscriber' ? {} : { audio: recordingUrl.href },
+      speakUpdate: prepared ? { name: 'Ada' } : loadedText || selected('textStream') ? {} : { text: 'Hello Ada. Your Northstar order is due Friday.' },
     }));
   }
   if (selected('referenceImage')) args.push(png);
   if (selected('mask')) args.push(png);
   if (selected('voice')) args.push('test-voice');
   if (operation === 'Transcriber') args.push(selected('asTool') && !['withScript', 'withFunction', 'loadScript'].some(selected) ? recordingUrl : recording);
-  if (['StreamingTranscriber', 'StreamingTranslator'].includes(operation)) args.push(pcm);
+  if (['StreamingTranscriber', 'Translator'].includes(operation)) args.push(selected('loadAudio') ? nativeUrl : pcm);
   if (example.component === 'VoiceAgentBackend' && selected('webRTC')) args.push('offer');
   let approvals = 0;
   if (selected('resume')) args.push(async ids => { assert.equal(ids.length, 1); approvals++; return ids; });
@@ -123,6 +133,9 @@ for (const example of examples.filter(executesCurrentSource)) {
       assert.equal(result.text, 'done');
       assert.equal(result.toolResults.length, 1);
       assert.equal(result.toolResults[0].type, 'tool-result');
+    } else if (example.component === 'Config' && ['withAudio', 'loadAudio'].some(selected)) {
+      assert.equal(selected('asTool') ? result.text : result, 'Your order arrives Friday.');
+      assert.equal(requests.length, 1);
     } else if (example.component === 'Config') {
       assert.equal(result, 'done');
       const calls = [...model.doGenerateCalls, ...model.doStreamCalls];
@@ -141,7 +154,7 @@ for (const example of examples.filter(executesCurrentSource)) {
     else if (example.component === 'Reranker') assert.equal(result.length, selected('topN') ? 2 : 3);
     else if (example.component === 'ImageGenerator') assert.equal(result.length, selected('count') ? 3 : 1);
     else if (example.component === 'Transcriber') assert.equal(result, 'Your order arrives Friday.');
-    else if (example.component === 'Translator') assert.equal(result, 'Vendredi.');
+    else if (example.component === 'Translator') assert.equal(selected('asStream') ? result : result.translationText, 'Vendredi.');
     else if (example.component === 'VoiceAgentBackend' && selected('useTools')) {
       assert.deepEqual(await result.executeTool({ toolCallId: 'actual-call', toolName: 'lookupOrder', args: { orderId: 'N-1042' } }), { orderId: 'N-1042', deliveryDay: 'Friday' });
     }
@@ -181,7 +194,7 @@ for (const example of examples.filter(executesCurrentSource)) {
       assert.deepEqual(request.audio, recording);
       assert.equal(request.mediaType, 'audio/wav');
     }
-    if (['StreamingTranscriber', 'StreamingTranslator'].includes(operation)) assert.deepEqual(request.inputAudioFormat, { type: 'audio/pcm', rate: 24000 });
+    if (['StreamingTranscriber', 'Translator'].includes(operation)) assert.deepEqual(request.inputAudioFormat, { type: 'audio/pcm', rate: 24000 });
     if (example.component === 'VoiceAgentBackend') {
       const session = selected('prepareSession') ? (selected('useTools') ? result.session : result) : request.sessionConfig;
       assert.match(session.instructions, /Help Northstar customers in English/);
@@ -192,7 +205,7 @@ for (const example of examples.filter(executesCurrentSource)) {
   finally { console.log = originalLog; }
 }
 // An AI model may answer directly even when tools are available.
-for (const streaming of [false, true]) {
+for (const streaming of native ? [] : [false, true]) {
   const example = examples.find(item => item.component === 'LLMAgent'
     && item.activeOptions.length === (streaming ? 3 : 2)
     && item.activeOptions.includes('resume') && item.activeOptions.includes('asStream') === streaming);
