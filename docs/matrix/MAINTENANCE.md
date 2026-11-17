@@ -1,6 +1,6 @@
 # Maintaining the matrix
 
-The matrix is the canonical component reference. This repository owns its content, shared introduction, examples, data and selection rules. The separate website/documentation project owns the UI and publishing. The full and simplified matrices share this data through the profiles in `profiles.js`; topic pages remain separate work.
+The matrix is the canonical component reference. This repository owns its content, shared introduction, examples, data and selection rules. The separate website/documentation project owns the UI and publishing. The full and simplified matrices share this data through the profiles in `profiles.js`. The [unified documentation plan](../documentation-plan.md) also places all explanatory sections after the matrix in one authored `documentation.md` file here. These ownership rules apply during that migration; do not create separate topic pages or another authored guide.
 
 Keep profile policy separate from API applicability. Curate the simple profile's allowed choices centrally, reuse the existing renderers, and keep all transitions within the selected profile. Use short descriptions for the homepage and preserve experimental/work-in-progress notices. Do not fork examples, weaken full-reference rules or import the full API snapshot just to render a simplified example. Profile tests walk every reachable simplified selection and compare its example to the full renderer.
 
@@ -11,14 +11,28 @@ Write for people first. Say Cascada Template or Cascada Script, and explain inpu
 | Publication | Content |
 | --- | --- |
 | Homepage | Short component descriptions and examples through the simple profile, with optional customization |
-| Matrix page | Introduction, matrix, then links to documentation topics |
-| Full documentation | The same introduction, optionally additional documentation-only introductory material, all reference information from the matrix, and the topics |
+| Documentation hub | Website-owned index of tutorials, articles, examples and Cascada documentation at `/documentation/` |
+| Unified documentation | Short expandable introduction, interactive matrix, compact workflow-article links, then `documentation.md` rendered on the same page at `/documentation/reference/`, beginning with Build your first workflow |
+| Blog articles | Extended walkthroughs authored once in `articles/*.md`, listed in `articles/index.json`, and published under `/posts/` with links immediately after every matrix |
+| Complete Markdown download | Generated introduction, chapters and complete reference with shared content included once |
+| Read all HTML | Static rendering of the complete Markdown, with every chapter and API form accessible without JavaScript |
+| Per-form publications | Static reference HTML, Markdown and JSON from the same data, preserving existing deep links |
 
-These publications reuse the same data. The introduction, component reference and topics have distinct responsibilities; they do not repeat one another. The matrix remains the source of reference content when the full documentation is built. Copying or rendering it at build time is fine; maintaining another authored reference is not.
+These publications reuse the same data. The introduction, component reference and chapters have distinct responsibilities. Short summaries can repeat an idea for context; full explanations have one authored home. The matrix remains the source of API reference content. Copying or rendering it at build time is fine; maintaining another authored reference is not.
 
-The documentation's reference pages should present matrix content as readable descriptions, signatures, property entries and examples. Readers should not need to understand the data model, read JSON or operate matrix controls to understand a component. Reusing content does not require copying the matrix's interactive layout into the documentation.
+Single page means all documentation is accessible within one HTML page, including through matrix buttons, checkboxes and tabs. Every API form need not be visible simultaneously. Present selected content as readable descriptions, signatures, property entries and examples; readers should not need to understand the internal data model or read JSON. Preserve static access and existing reference links alongside the interactive experience.
 
-Later topics should explain tasks and cross-component workflows and link to the matrix's property/method entries. Existing README material may supply them after review. Do not move existing guidance or author those topics as part of finishing the matrix.
+Render the chapters statically on the unified entry page. Direct form pages load one shared, versioned chapter fragment into the same page when needed, with initial-HTML links to the full page for readers without JavaScript or if loading fails. The complete Markdown and its Read all HTML are generated independently of selection state and linked prominently. Read all HTML is derived directly from that Markdown; it does not require fragment loading or matrix interaction.
+
+The chapters explain tasks and cross-component workflows and link to matrix property/method entries. Review both README guides and existing concepts when migrating this material, preserve example-check coverage and development status, and replace old guide links before retiring their sections. Keep working recipes in the documentation until expanded blog articles are ready; article writing does not block retiring the parallel guides.
+
+`reference/concepts.js` retains short contextual reference notes and chapter links shared by applicable components. Detailed teaching belongs in `documentation.md`; API-specific rules remain in the reference. Move full explanations before shortening their old copies. The complete download includes each full chapter and shared reference note once, with links from the relevant components.
+
+The authored chapter Markdown uses working HTTPS component links and local links to explicit `guide-` HTML anchors before its headings, with matching `id` and GitHub-supported `name` attributes. Keep those targets stable when titles change. The website enhances recognized reference links for in-page navigation, and the complete export resolves them to local anchors. Existing logical links in JavaScript data remain supported. Use the existing snapshot pipeline for all Casai documentation content; the website reuses its shared renderer, derives chapter navigation from the explicit IDs and avoids duplicate IDs without changing matrix or Cascada anchors.
+
+The plan specifies one server-side legacy-path redirect and publication sequencing. Include tracked redirect configuration in the site build, activate it only after the new destinations exist, and verify it on the actual host. Publish new README/GitHub links only after their destinations work; local commits need not wait. Full-document HTML identifies its generated Markdown source and alternate representation; canonical URLs signal the preferred search representation rather than authoring ownership or a mandatory destination for scrapers. Keep full documentation publicly discoverable with the same routing for people and bots. Consolidate only equivalent representations, preserve each distinct component form's canonical URL, and link Read all back to the interactive reference.
+
+The website publisher must implement the plan's ordered phases: assets, then pages, then the root `.htaccess`, with the same ordering shown in dry runs. Guard that routing file against unreviewed remote changes, including first-use/missing-baseline cases. Preserve the existing no-deletion policy and verify legacy redirects on every release; retained old pages returning HTTP 200 do not prove the migration still works. Any remote cleanup remains separate from this documentation migration.
 
 ## Content ownership
 
@@ -43,14 +57,16 @@ All Phase 6 implementation and acceptance markers are now cleared after their so
 | Source | Owns | Edit by hand? |
 | --- | --- | --- |
 | `matrix.js` | Component short/long descriptions and SDK sources, groups, choices, example defaults, control/transition data and selection rules | Yes |
-| `introduction.js` | Shared introduction and principles for the matrix and full documentation; examples belong in the component reference | Yes |
+| `introduction.js` | Short shared introduction and expandable principles, with links to full chapters; small teaching examples only where useful | Yes |
+| `documentation.md` | Single authored source for all post-matrix chapters, core explanations and links to extended walkthroughs | Yes |
+| `articles/*.md`, `articles/index.json` | Canonical blog walkthroughs, checked examples and article metadata; the website owns layout and publication | Yes |
 | `<Component>.js` | One example renderer per component family | Yes |
 | `.cat` / `.cas` / `.txt` resources | Canonical template, script and plain text files | Yes |
 | `resources.js` | Embedded copies of canonical `.cat`/`.cas`/`.txt` text for portable rendering | **No**, regenerate |
 | `reference/components.js` | Native operation mapping, API variants and their long descriptions, source forms, call/method/result explanations and ordering | Yes |
 | `reference/properties.js` | Casai properties and amendments: requiredness, defaults, invocation, inheritance and adapted behavior | Yes |
 | `reference/details.js` | Links to nested native data shapes and explanations for remaining undocumented members | Yes; fill gaps without replacing accurate native prose |
-| `reference/concepts.js` | Shared explanations inside the matrix | Yes |
+| `reference/concepts.js` | Brief contextual reference notes shared by applicable components and links to full chapters | Yes |
 | `reference/api.js` | Pinned public type shapes and native JSDoc descriptions | **No**, regenerate |
 | `reference/sdk-docs.js` | Opening descriptions extracted from the matching SDK documentation | **No**, regenerate |
 | `reference/metadata.js` | Casai/dependency versions and repository URL for lightweight consumers | **No**, regenerate |
@@ -79,7 +95,7 @@ Use component `variants` for operation/result changes, including method selectio
 
 The former `reference/topics.js` is now `reference/concepts.js`, exported as `concepts`. It contained locally written summaries based on the current README and inspected implementation, with audio contracts checked against the selected audio design. It was never an automatic extraction or a synchronized copy of README sections.
 
-These explanations belong **inside the matrix**: context, inheritance, schemas, tools, history and similar shared behavior. Components reference the same entries by ID. They are not the future documentation topics after the matrix. Existing `link` values record the guide locations used to check them; update those links when the documentation is later reorganized. Keep detailed behavior in its canonical property or concept entry and refer to it elsewhere instead of repeating paragraphs.
+These explanations belong **inside the matrix**: context, inheritance, schemas, tools, history and similar shared behavior. Components reference the same entries by ID. Full teaching workflows belong in `documentation.md`; `link` values point to their stable public chapter anchors. Keep API-specific qualifications in their canonical property or concept entry, including the detailed media ownership and format restrictions, and link to them instead of copying those inventories into chapters.
 
 ## Reuse AI SDK documentation first
 
@@ -174,4 +190,12 @@ The generator uses the repository's TS6 compiler API as tooling; consumer exampl
 
 `describe()` returns serializable reference data; `render()` returns the selected code files. The [JSON export command](README.md#portable-data) exposes them without browser interaction or model execution. This is an integration/export format, not the reader-facing documentation. The catalog supplies stable component/choice IDs and rules; reference entries supply property IDs, source attribution and types. Keep those identifiers stable when improving prose.
 
-The separate publishing project should present readable documentation pages and the interactive matrix from these records, and additionally expose Markdown/JSON for agents, bots and scrapers. Use clear navigation and stable links; preserve version information and complete reference sections in every format. Do not create a separate bot-only documentation structure or require readers to use exports. Generated copies are disposable output; corrections belong here. No full documentation generator, intro or topic-page authoring is part of the current matrix work.
+The separate publishing project renders these records and `documentation.md` into the unified page, the shared chapter fragment, the complete Markdown and Read all HTML. Preserve stable links, version information and complete reference sections in every format. Do not create a separate bot-only documentation structure or require readers to use exports. Generated copies are disposable output; corrections belong here.
+
+## Checking chapter examples
+
+Mark every TypeScript example in `documentation.md` and `articles/*.md` with a unique `typecheck` name and add its application dependencies to `tests/fixtures/readme2-examples.cjs`. The historical command/cache names remain for compatibility; `documentation-sources.cjs` reads the canonical chapters and every article in the catalog. The checker also verifies the README's shared example. Former examples that no longer need a second public explanation remain in `tests/fixtures/documentation-regressions.md` as consumer regressions. Do not remove their coverage merely to shorten the documentation.
+
+Keep essential behavior and previous `guide-` anchors in the reference when moving a walkthrough to an article. Replace the extended example with a short explanation and a working HTTPS article link. The complete documentation download retains those explanations and links; blog articles are additional reading. Author article prose and code here so they remain checked without requiring a sibling website checkout. The website renders the synchronized Markdown into its existing blog, feed and sitemap; do not maintain another authored copy there.
+
+Future examples have both a visible work-in-progress notice and an inventoried `typecheck-skip` marker. `npm run test:checks` compiles the current authored Cascada workflow sources and exercises the first workflow, component replacement, revision limits and concurrent retrieval without provider calls. `npm run test:types` preserves source, emitted-consumer and exact-optional checks for the extracted snippets. Update the snapshot through the website's `matrix:sync`; do not edit its copy.

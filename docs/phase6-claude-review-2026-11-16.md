@@ -46,3 +46,39 @@ Verification on 2026-11-17:
 - Worker bundle freshness and whitespace checks passed. Full lint passed on the settled candidate (191.9 seconds). Its four initial style findings were corrected; focused lint, affected compiler budgets, the full type gate and matrix-reference freshness were rechecked before the successful whole-repository run.
 
 Paid-provider payloads and native dispatch are unchanged by this pass; previous route acceptance is separate from the current package release blocker. A subsequent complete source/contract pass found no additional substantial defect. The later shared-output implementation and its verification are recorded in the benchmark follow-up linked above; SDK result assembly remains in workers.
+
+## Shared-buffer consumers and annotations (2026-11-17)
+
+The next Claude review found two audio issues, an older LLMAgent annotation failure and stale cutoff wording. The user retained shared resampling output, selected an explicit worker copy for ordinary-buffer consumers, and requested the general annotation redesign in this pass. These fixes do not change the finite worker budget, introduce inline joining or add a conversion backend.
+
+| Finding | Current disposition |
+| --- | --- |
+| Shared resampling bytes can become text in Node fetch/Response; other binary APIs reject them | Keep shared output and export the existing async `concatAudio` from `casai`. `await concatAudio([pcm])` returns ordinary bytes in a worker, preserving the source. Always-owned PCM/WAV helper return types name ArrayBuffer explicitly. Resampling and readWav views retain their potentially shared types. No automatic final copy or unsafe cast is added. |
+| Uploaded streams could be reused before the SDK identity check | Native preparation now uses the existing `claimLiveInput` registry before it can read the source, after configuration, native readiness and cancellation checks. Repeated `.loadsAudio`, standalone-helper and SDK handoffs reject with ValidationError. A pre-handoff failure does not claim the stream; a failed attempt after handoff does. |
+| Bare LLMAgent annotations failed construction or reached the compiler depth limit | Correct string-indexed tool-context name checking and ordinary ComponentConfig source/tool metadata. General `LLMAgentConfig` now describes default text settings; selected sources use the existing ComponentConfig parameter and matching factory modifier. Loaded annotations require a loader, while Config fragments remain incomplete. Optional prompts remain call-required unless their presence is preserved. No additional generic parameter or permissive factory overload is introduced. |
+| LLMAgent types admitted inherited native-audio preparation although runtime rejected it | Check source admission against the existing text-family modifier table. Explicit replacement with a supported source remains valid. |
+| AGENTS still called the twenty-step default unimplemented | Correct the current guidance to the implemented `isStepCount(20)` default before prepareCall, retaining complete hook replacement semantics. |
+
+Implementation verification before the documentation handoff:
+
+- Source/build/emitted and exact-optional type checks passed. Physical package consumers exported and consumed the general and source-specific wrappers in both optional-property modes. All LLMAgent compiler-cost workloads stayed within their existing budgets.
+- Five focused type mutations and the explicit shared-output-copy mutation were caught. The unchanged controls passed.
+- All 22 LGPL native integration cases and 12 native mutations passed, including detected/explicit-raw uploads, repeated helper/component handoffs and pre-aborted input reuse.
+- Node ESM/CommonJS main/helper bundles and Chromium source/emitted consumers passed. The byte-copy checks exercise actual HTTP payloads, Response, Blob, WebCrypto and transfer semantics, preserving zero-copy resampling separately from explicit conversion. A browser test-server upload/response stall was corrected in the fixture without changing Casai or increasing timeouts.
+- The modifier suite passed 33 cases; affected-file lint and whitespace checks passed. The initial full local run recorded 1,917 passes and five failures because two examples had moved out of README. Coverage remained at 99.58% lines/statements, 100% functions and 96.31% branches; the separate augmentation gate passed.
+
+Documentation was initially postponed at the user's request while the guide migration was in progress. The resumed documentation work uses `docs/matrix/documentation.md` and the catalogued articles as their authored homes, preserves the short README/retired README2 arrangement, and redirects the runtime example readers without removing assertions. The guide adds checked binary-upload and annotation examples; matrix notes, the current plan, AGENTS and review practice describe the same contracts. The documentation verification below records the settled checks separately from the earlier failed run.
+
+### Documentation verification
+
+The settled documentation and example readers passed on 2026-11-17:
+
+- The extractor checked 108 chapter/article examples, 10 retained consumer regressions and the shared README workflow. Five planned examples remain explicitly excluded. Source/build/emitted and exact-optional type checks passed.
+- All eight check-workflow and authored-workflow cases passed. The 19 focused documentation/runtime cases passed, resolving all five failures caused by the earlier example moves without removing their assertions.
+- Matrix generation and verification checked 143 shapes, 785 property records and 1,571 selections, including browser exports and 324 simplified examples. All 1,458 current SDK-mock examples and 15 optional-native examples executed successfully. The 98 planned selections retain syntax/data coverage only. The prepared Transcriber tool export was also inspected directly.
+- Full lint passed in 381.8 seconds. The full local suite passed all 1,923 cases; coverage reached 99.58% lines/statements, 100% functions and 96.31% branches. The separate result-augmentation coverage gate passed.
+- Active plan links now target the canonical chapters, with their destination anchors checked. Whitespace checks passed. Documentation changes remain unstaged; no publishing or staging action was performed.
+
+No documentation work from this handoff remains postponed. These checks establish the updated documentation and consumer regressions; they do not claim a new whole-implementation architectural review or release acceptance.
+
+Native-worker pooling and coordinated Cascada publication/dependency updates remain previously identified follow-up work. Native platform/distribution gates also remain separate; no new paid-provider acceptance is claimed by these consumer and documentation corrections.

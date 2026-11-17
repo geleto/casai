@@ -4,11 +4,13 @@ This directory supplies the **full component documentation, quick reference and 
 
 The homepage, matrix and future full documentation are for people first: clear descriptions, examples and reference pages. Data reuse supplies that readable content to each publication. JSON and Markdown exports additionally make it accessible to agents, bots and scrapers.
 
-See [Maintaining the matrix](MAINTENANCE.md) for content ownership, SDK reuse, writing conventions and updates. `introduction.js` supplies the matrix page’s opening explanation of orchestration and shared component principles. Full documentation will reuse this introduction and the reference data, with additional topic pages. Keep the introductory content shared; layout belongs to the website.
+See [Maintaining the matrix](MAINTENANCE.md) for content ownership, SDK reuse, writing conventions and updates, and the [unified documentation plan](../documentation-plan.md) for the migration. `introduction.js` supplies the short opening explanation and expandable principles. The unified page at `/documentation/reference/` will keep the interactive matrix and render all following chapters from one authored `documentation.md` file in this package. `/documentation/` remains the resource hub. Keep the introductory content shared; layout belongs to the website.
 
 Introductory component links use `component:Name`, with optional `?options=asStream` (or comma-separated choice IDs) to identify a specific form. Add `property=prompt`, for example `component:LLMAgent?property=prompt`, to target a configuration property. Consumers resolve these logical references to their documentation URLs. This keeps component selection in the canonical content and website routes in the publishing project. Ordinary documentation links remain standard URLs.
 
 The data supports input and return summaries, examples, configuration, source modes and detailed results for one shared component selection. Config groups required settings, component behavior or tool configuration, source preparation, common configuration, adapted behavior, remaining SDK settings and invocation reference. Required settings have a separate lookup index; consumers need not display a second copy. Native settings are grouped by purpose, with an alphabetical property index for lookup.
+
+Extended walkthroughs live in `articles/*.md`, with titles, summaries and publication dates in `articles/index.json`. Their examples use the same checks as the chapters. The website publishes them as blog articles and shows their links immediately after the matrix; core explanations and stable chapter anchors stay in `documentation.md`.
 
 ## Consume the data
 
@@ -65,7 +67,7 @@ the quick reference retains all its documentation views.
 ### Website snapshot integration
 
 The sibling `cascada.dev` project publishes this package at Casai's
-`/documentation/quick-reference/`. It uses a generated package snapshot so its
+`/documentation/reference/`. It uses a generated package snapshot so its
 ordinary builds do not require this checkout. From the website repository, run
 `npm run matrix:sync` (or append `-- --source /path/to/casai`) after changing
 matrix content. `npm run matrix:check` verifies freshness without writing.

@@ -10,5 +10,5 @@
     "./reference": { "types": "./reference.d.ts", "import": "./reference.js" },
     "./profiles": { "types": "./profiles.d.ts", "import": "./profiles.js" }
   },
-  "files": ["*.js", "*.d.ts", "*.cat", "*.cas", "*.md", "reference"]
+  "files": ["*.js", "*.d.ts", "*.cat", "*.cas", "*.md", "reference", "articles"]
 }
