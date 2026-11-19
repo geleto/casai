@@ -66,6 +66,8 @@ Share models, tools and defaults with Config. Compose agents, templates, scripts
 
 Supported components become tools with `.asTool`, a task description and an `inputSchema`. Use them alongside [Vercel AI SDK](https://ai-sdk.dev/) and MCP tools. Stream model text and media as they arrive, or return completed values for the next workflow step. The reference identifies experimental SDK APIs and capabilities still in development.
 
+Pass a WAV file or a Web Audio `AudioBuffer` directly to `Transcriber` or `Translator`. Casai reads its format and prepares it for the model. For other codecs or audio tracks in video, `.loadsAudio` uses FFmpeg in Node.js with `node-av` installed. [Audio with and without node-av](docs/matrix/documentation.md#guide-recorded-audio-and-optional-codecs)
+
 ## Documentation and examples
 
 - [Documentation and component reference](https://casai.run/documentation/reference/)

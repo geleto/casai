@@ -62,6 +62,7 @@
 		"test:types": "node tests/fixtures/readme2-examples.cjs && npm run typecheck:src && npm run build && node tests/fixtures/component-declarations.cjs && npm run typecheck && npm run typecheck:exact",
 		"test:local": "mocha",
 		"test:matrix": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs",
+		"test:matrix:native": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs --native",
 		"docs:matrix": "node scripts/update-matrix-reference.mjs",
 		"docs:matrix:export": "node scripts/export-matrix.mjs",
 		"test:component-mutations": "node tests/fixtures/component-review-mutations.cjs",
@@ -70,7 +71,8 @@
 		"test:phase2-production": "node tests/fixtures/phase2-factory-cost.cjs && node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
 		"test:package": "npm run build && node tests/fixtures/phase2-package-consumer.cjs",
 		"test:watch": "npm run test:local -- --watch",
-		"check": "npm run test:types && npm run test:matrix && npm run lint && npm run test:coverage"
+		"test:checks": "node --test tests/fixtures/check-workflow.test.mjs tests/fixtures/documentation-workflows.test.mjs",
+		"check": "npm run test:checks && npm run test:types && npm run test:matrix && npm run lint && npm run test:coverage"
 	},
 	"c8": {
 		"all": true,

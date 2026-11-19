@@ -88,11 +88,11 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-template",
         "async-template-name",
         "async-script",
         "async-script-name",
+        "text",
         "text-name"
       ],
       "required": [
@@ -119,11 +119,11 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-template",
         "async-template-name",
         "async-script",
         "async-script-name",
+        "text",
         "text-name"
       ],
       "required": [
@@ -149,11 +149,11 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-template",
         "async-template-name",
         "async-script",
         "async-script-name",
+        "text",
         "text-name"
       ],
       "required": [
@@ -175,11 +175,11 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-template",
         "async-template-name",
         "async-script",
         "async-script-name",
+        "text",
         "text-name"
       ],
       "required": [
@@ -202,11 +202,11 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-template",
         "async-template-name",
         "async-script",
         "async-script-name",
+        "text",
         "text-name"
       ],
       "required": [
@@ -226,9 +226,9 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-script",
         "async-script-name",
+        "text",
         "audio-resource"
       ],
       "required": [
@@ -251,11 +251,11 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-template",
         "async-template-name",
         "async-script",
         "async-script-name",
+        "text",
         "text-name"
       ],
       "required": [
@@ -276,9 +276,9 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-script",
         "async-script-name",
+        "text",
         "audio-resource"
       ],
       "required": [
@@ -324,9 +324,9 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-script",
         "async-script-name",
+        "text",
         "audio-resource"
       ],
       "required": [
@@ -349,11 +349,11 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-template",
         "async-template-name",
         "async-script",
         "async-script-name",
+        "text",
         "text-name"
       ],
       "required": [
@@ -374,9 +374,9 @@ export default {
       },
       "toolModes": [
         "function",
-        "text",
         "async-script",
         "async-script-name",
+        "text",
         "audio-resource"
       ],
       "required": [
@@ -432,7 +432,6 @@ export default {
   },
   "shapes": {
     "Template_config": [
-      "template-902b6327f5ff",
       "inputSchema-f335a5a81f68",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -441,7 +440,8 @@ export default {
       "debug-cdff8d93c93d",
       "description-094750903948",
       "tools-05ebb5c95a02",
-      "toolsContext-492a80518673"
+      "toolsContext-492a80518673",
+      "template-902b6327f5ff"
     ],
     "Template_settings": [
       "template-902b6327f5ff",
@@ -461,8 +461,6 @@ export default {
       "prepared-01eff35c8614"
     ],
     "Script_config": [
-      "script-3ee7336160ef",
-      "schema-288e8cf2b21a",
       "inputSchema-f335a5a81f68",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -471,7 +469,9 @@ export default {
       "debug-cdff8d93c93d",
       "description-094750903948",
       "tools-05ebb5c95a02",
-      "toolsContext-492a80518673"
+      "toolsContext-492a80518673",
+      "schema-288e8cf2b21a",
+      "script-56e0c02bea00"
     ],
     "Script_settings": [
       "script-3ee7336160ef",
@@ -833,8 +833,10 @@ export default {
       "headers-23ed9be29275",
       "model-b8a9484641b3",
       "telemetry-72cc4604f7aa",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "download-f08788366d4c",
-      "audio-0c1c18aa3172",
+      "audio-2605fab956b9",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -853,12 +855,14 @@ export default {
       "headers-23ed9be29275",
       "model-d63e7d77f371",
       "telemetry-72cc4604f7aa",
-      "audio-2c7771e7c87b",
-      "download-f08788366d4c"
+      "download-f08788366d4c",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
+      "audio-77fb26eba0fb"
     ],
     "Transcriber_inputs": [
-      "direct-4eb90bf2e85d",
-      "prepared-f49532ea2973"
+      "direct-fad7b13e388e",
+      "prepared-e71d276d5c69"
     ],
     "SpeechGenerator_config": [
       "providerOptions-b4ea33bb4d7b",
@@ -909,6 +913,8 @@ export default {
       "inputAudioFormat-2df44b715671",
       "targetLanguage-94fcfd26675f",
       "outputAudioFormat-89e588aef43c",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "sourceLanguage-af6309dbca4a",
       "audio-c563898406e8",
       "filters-e21828790709",
@@ -931,6 +937,8 @@ export default {
       "inputAudioFormat-a9437bf10d0a",
       "targetLanguage-f5006a68aa47",
       "outputAudioFormat-89e588aef43c",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "sourceLanguage-af6309dbca4a"
     ],
     "Translator_inputs": [
@@ -1685,7 +1693,7 @@ export default {
       "sourceText-61a4fc8c3ce4",
       "translationText-5685980a9448",
       "durationInSeconds-3e9796df05cf",
-      "audio-8895374197f1"
+      "audio-e6a2faccc8b9"
     ],
     "Translator_native": [
       "model-2844db232f29",
@@ -1736,6 +1744,8 @@ export default {
       "telemetry-237457941031",
       "includeRawChunks-7d3f5f2a41a1",
       "inputAudioFormat-7e0e83a62aca",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "audio-c563898406e8",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -1756,6 +1766,8 @@ export default {
       "telemetry-237457941031",
       "includeRawChunks-7d3f5f2a41a1",
       "inputAudioFormat-a530ffc7dab7",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "audio-68daa1e68956"
     ],
     "TranscriberStream_inputs": [
@@ -1812,6 +1824,8 @@ export default {
       "inputAudioFormat-2df44b715671",
       "targetLanguage-94fcfd26675f",
       "outputAudioFormat-89e588aef43c",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "sourceLanguage-af6309dbca4a",
       "audio-c563898406e8",
       "filters-e21828790709",
@@ -1835,6 +1849,8 @@ export default {
       "targetLanguage-f5006a68aa47",
       "outputAudioFormat-89e588aef43c",
       "sourceLanguage-af6309dbca4a",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "audio-87d9e2ee44af"
     ],
     "TranslatorStream_inputs": [
@@ -1848,8 +1864,10 @@ export default {
       "headers-23ed9be29275",
       "model-d63e7d77f371",
       "telemetry-72cc4604f7aa",
-      "audio-2c7771e7c87b",
-      "download-f08788366d4c"
+      "download-f08788366d4c",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
+      "audio-77fb26eba0fb"
     ],
     "TranscriberRaw_settings": [
       "providerOptions-0e700395c4b1",
@@ -1858,7 +1876,9 @@ export default {
       "model-e9ed376d43a6",
       "telemetry-237457941031",
       "audio-68daa1e68956",
-      "inputAudioFormat-a530ffc7dab7"
+      "inputAudioFormat-a530ffc7dab7",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb"
     ],
     "TranscriberRaw_config": [
       "providerOptions-0e700395c4b1",
@@ -1866,6 +1886,8 @@ export default {
       "model-93d3f90bcfb6",
       "telemetry-237457941031",
       "inputAudioFormat-a530ffc7dab7",
+      "maxPreparedAudioBytes-595959558a15",
+      "sourceFormat-160cb13602cb",
       "audio-c563898406e8",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -1931,13 +1953,13 @@ export default {
       "outputFormat-6e087775d340"
     ],
     "AudioPreparation_config": [
-      "inputAudioFormat-097845fd3e9d",
-      "mediaSettings-3808626983b1",
-      "fileAudioTarget-9bd52ea3e5e2"
+      "inputAudioFormat-9d5855cee1c6",
+      "mediaSettings-9a4327368f34",
+      "fileAudioTarget-d18884450161"
     ],
     "RawAudioPreparation_config": [
-      "inputAudioFormat-097845fd3e9d",
-      "mediaSettings-3808626983b1"
+      "inputAudioFormat-9d5855cee1c6",
+      "mediaSettings-9a4327368f34"
     ],
     "VoiceAgentClient_config": [
       "model-8d90286adc15",
@@ -2225,6 +2247,11 @@ export default {
       "useCache-fea750cb2b63",
       "async-83ca33f9d83e"
     ],
+    "PcmSourceFormat:0": [
+      "sampleRate-e218b27f2dde",
+      "channels-be4c78da1440",
+      "encoding-eb246eac9517"
+    ],
     "MediaSettings:0": [
       "track-98df75e50d51",
       "format-73ad4ac5e40e",
@@ -2234,14 +2261,14 @@ export default {
       "alternatives-59b9f94fb784",
       "maxBytes-fca8f7c77776",
       "maxDurationSeconds-f26f5bb9cf39",
-      "format-10df040fb44f",
+      "format-3830762ed05e",
       "codec-1ed700c3b786",
       "rate-1a21e41da923",
       "channels-bc7a34f98268",
       "sampleFormat-44a58aaa5de6"
     ],
     "FileAudioFormat:0": [
-      "format-10df040fb44f",
+      "format-3830762ed05e",
       "codec-1ed700c3b786",
       "rate-1a21e41da923",
       "channels-bc7a34f98268",
@@ -2306,16 +2333,6 @@ export default {
     ]
   },
   "properties": {
-    "template-902b6327f5ff": {
-      "name": "template",
-      "type": "string",
-      "optional": false,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "src/types/config.ts"
-      }
-    },
     "inputSchema-f335a5a81f68": {
       "name": "inputSchema",
       "type": "SchemaType<Record<string, any>> | undefined",
@@ -2406,6 +2423,16 @@ export default {
         "path": "src/types/config.ts"
       }
     },
+    "template-902b6327f5ff": {
+      "name": "template",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/config.ts"
+      }
+    },
     "direct-c287cb6ac7c7": {
       "name": "direct",
       "type": "string",
@@ -2427,9 +2454,9 @@ export default {
       "description": "",
       "tags": []
     },
-    "script-3ee7336160ef": {
-      "name": "script",
-      "type": "string | undefined",
+    "schema-288e8cf2b21a": {
+      "name": "schema",
+      "type": "SchemaType<unknown> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
@@ -2437,9 +2464,19 @@ export default {
         "path": "src/types/config.ts"
       }
     },
-    "schema-288e8cf2b21a": {
-      "name": "schema",
-      "type": "SchemaType<unknown> | undefined",
+    "script-56e0c02bea00": {
+      "name": "script",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/types/config.ts"
+      }
+    },
+    "script-3ee7336160ef": {
+      "name": "script",
+      "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
@@ -4512,6 +4549,26 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10985"
       }
     },
+    "maxPreparedAudioBytes-595959558a15": {
+      "name": "maxPreparedAudioBytes",
+      "type": "number | undefined",
+      "optional": true,
+      "description": "Byte budget for recording preparation and decoded PCM sent to an encoder. Defaults to 32 MiB.",
+      "tags": [],
+      "source": {
+        "path": "src/audio.ts"
+      }
+    },
+    "sourceFormat-160cb13602cb": {
+      "name": "sourceFormat",
+      "type": "PcmSourceFormat | undefined",
+      "optional": true,
+      "description": "Original layout of headerless PCM. Omit for WAV or Web Audio AudioBuffer. Numeric sample arrays supply their encoding.",
+      "tags": [],
+      "source": {
+        "path": "src/audio.ts"
+      }
+    },
     "download-f08788366d4c": {
       "name": "download",
       "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
@@ -4531,9 +4588,9 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10992"
       }
     },
-    "audio-0c1c18aa3172": {
+    "audio-2605fab956b9": {
       "name": "audio",
-      "type": "DataContent | URL | undefined",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | Blob | AudioBuffer | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | undefined",
       "optional": true,
       "description": "",
       "tags": []
@@ -4566,30 +4623,26 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10947"
       }
     },
-    "audio-2c7771e7c87b": {
+    "audio-77fb26eba0fb": {
       "name": "audio",
-      "type": "DataContent | URL",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | Blob | AudioBuffer | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike>",
       "optional": false,
-      "description": "The audio data to transcribe.",
+      "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10951,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
+        "path": "src/factories/Transcriber.ts"
       }
     },
-    "direct-4eb90bf2e85d": {
+    "direct-fad7b13e388e": {
       "name": "direct",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+      "type": "string | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | RawAudio",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "prepared-f49532ea2973": {
+    "prepared-e71d276d5c69": {
       "name": "prepared",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
+      "type": "string | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | RawAudio",
       "optional": false,
       "description": "",
       "tags": []
@@ -9641,6 +9694,20 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10939"
       }
     },
+    "audio-2c7771e7c87b": {
+      "name": "audio",
+      "type": "DataContent | URL",
+      "optional": false,
+      "description": "The audio data to transcribe.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index.d.ts",
+        "line": 10951,
+        "package": "ai",
+        "version": "7.0.162",
+        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
+      }
+    },
     "_internal-a4d65510b686": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
@@ -10298,9 +10365,9 @@ export default {
       "description": "",
       "tags": []
     },
-    "audio-8895374197f1": {
+    "audio-e6a2faccc8b9": {
       "name": "audio",
-      "type": "Uint8Array<ArrayBufferLike>",
+      "type": "Uint8Array<ArrayBuffer>",
       "optional": false,
       "description": "",
       "tags": [],
@@ -10597,34 +10664,34 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9511"
       }
     },
-    "inputAudioFormat-097845fd3e9d": {
+    "inputAudioFormat-9d5855cee1c6": {
       "name": "inputAudioFormat",
-      "type": "SharedV4AudioFormat | undefined",
+      "type": "(LoadedPcmFormat & { type: \"audio/pcm\"; rate: number; }) | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/audio/preparation.ts"
+        "path": "src/factories/Transcriber.ts"
       }
     },
-    "mediaSettings-3808626983b1": {
+    "mediaSettings-9a4327368f34": {
       "name": "mediaSettings",
       "type": "MediaSettings | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/audio/preparation.ts"
+        "path": "src/factories/Transcriber.ts"
       }
     },
-    "fileAudioTarget-9bd52ea3e5e2": {
+    "fileAudioTarget-d18884450161": {
       "name": "fileAudioTarget",
       "type": "FileAudioTarget | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "src/audio/preparation.ts"
+        "path": "src/factories/Transcriber.ts"
       }
     },
     "model-8d90286adc15": {
@@ -12592,6 +12659,36 @@ export default {
         "path": "../cascada/dist/types/index.d.ts"
       }
     },
+    "sampleRate-e218b27f2dde": {
+      "name": "sampleRate",
+      "type": "number",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/audio/pcm.ts"
+      }
+    },
+    "channels-be4c78da1440": {
+      "name": "channels",
+      "type": "number",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/audio/pcm.ts"
+      }
+    },
+    "encoding-eb246eac9517": {
+      "name": "encoding",
+      "type": "\"pcm_u8\" | \"pcm_s16le\" | \"pcm_s24le\" | \"pcm_s32le\" | \"pcm_f32le\" | \"pcm_f64le\" | undefined",
+      "optional": true,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/audio/pcm.ts"
+      }
+    },
     "track-98df75e50d51": {
       "name": "track",
       "type": "number | undefined",
@@ -12652,11 +12749,11 @@ export default {
         "path": "src/audio/preparation.ts"
       }
     },
-    "format-10df040fb44f": {
+    "format-3830762ed05e": {
       "name": "format",
       "type": "string",
       "optional": false,
-      "description": "Native output container name, such as wav or flac.",
+      "description": "Use wav, flac, ogg, opus, mp3, mp4, ipod, adts or webm for file transcription.",
       "tags": [],
       "source": {
         "path": "src/audio/preparation.ts"
@@ -13232,6 +13329,15 @@ export default {
         {
           "type": "{ useCache?: boolean | undefined; async?: boolean | undefined; }",
           "shape": "RenderWeb:0"
+        }
+      ]
+    },
+    "PcmSourceFormat": {
+      "type": "import(\"../src/audio/pcm.js\").PcmSourceFormat",
+      "variants": [
+        {
+          "type": "import(\"../src/audio/pcm.js\").PcmSourceFormat",
+          "shape": "PcmSourceFormat:0"
         }
       ]
     },

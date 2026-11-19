@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { writeWav } from 'casai';
+import { writeWav } from '../../src/audio/pcm.ts';
 import { MockLanguageModelV3, MockEmbeddingModelV4, MockRerankingModelV4, MockImageModelV4,
   MockTranscriptionModelV4, MockSpeechModelV4, Experimental_DecisionMockModelV4,
   Experimental_MockStreamingSpeechModelV4, Experimental_MockSpeechTranslationModelV4,
@@ -26,6 +26,19 @@ const pcm = new Uint8Array(19202);
 const nativeUrl = pathToFileURL(resolve('.cache/matrix/recording.wav'));
 if (native) await writeFile(nativeUrl, await writeWav(pcm, { sampleRate: 24000, channels: 1, encoding: 'pcm_s16le' }));
 const recording = new Uint8Array(Buffer.from('524946462800000057415645666d74201000000001000100c05d000080bb000002001000646174610400000001000200', 'hex'));
+// One Web Audio channel and its equivalent WAV must deliver the same 24 kHz PCM samples.
+const channel = Float32Array.of(-.5, .75, -.25, .5);
+// The Node matrix fixture supplies the Web Audio interface. The browser suite uses Chromium's real AudioBuffer.
+globalThis.AudioBuffer ??= class AudioBuffer {
+  sampleRate = 48000;
+  numberOfChannels = 2;
+  getChannelData(index) { return [channel, new Float32Array(channel.length)][index]; }
+};
+const decoded = new globalThis.AudioBuffer({ sampleRate: 48000, numberOfChannels: 2, length: channel.length });
+decoded.copyToChannel?.(channel, 0);
+const wavFile = new globalThis.File([await writeWav(new Uint8Array(channel.buffer), { channels: 1, sampleRate: 48000, encoding: 'pcm_f32le' })], 'delivery-note.wav');
+const converted = new Uint8Array(Int16Array.of(-16384, -8192).buffer);
+const mixed = new Uint8Array(Int16Array.of(-8192, -4096).buffer);
 const recordingUrl = new URL(`data:audio/wav;base64,${Buffer.from(recording).toString('base64')}`);
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
 
@@ -48,7 +61,7 @@ function languageModel(allowTools = true, toolArguments = {}) {
   } });
 }
 
-function fixture(name) {
+function fixture(name, expectedAudio = pcm) {
   const requests = [];
   const capture = result => async request => { requests.push(request); return typeof result === 'function' ? result(request) : result; };
   const response = { timestamp: new Date(0), modelId: 'matrix' };
@@ -63,7 +76,7 @@ function fixture(name) {
     Transcriber: () => new MockTranscriptionModelV4({ doGenerate: capture({ text: finish.text, segments: [], language: 'en', durationInSeconds: 1, warnings: [], response }) }),
     StreamingTranscriber: () => new MockTranscriptionModelV4({ doStream: capture(async ({ audio }) => {
       const chunks = []; for await (const chunk of audio) chunks.push(...chunk);
-      assert.deepEqual(new Uint8Array(chunks), pcm);
+      assert.deepEqual(new Uint8Array(chunks), expectedAudio);
       return { stream: stream([{ type: 'transcript-delta', delta: finish.text }, finish]) };
     }) }),
     SpeechGenerator: () => new MockSpeechModelV4({ doGenerate: capture({ audio: 'AQI=', warnings: [], response }) }),
@@ -74,7 +87,7 @@ function fixture(name) {
     }) }),
     Translator: () => new Experimental_MockSpeechTranslationModelV4({ doStream: capture(async ({ audio, targetLanguage }) => {
       const chunks = []; for await (const chunk of audio) chunks.push(...chunk);
-      assert.deepEqual(new Uint8Array(chunks), pcm); assert.equal(targetLanguage, 'fr');
+      assert.deepEqual(new Uint8Array(chunks), expectedAudio); assert.equal(targetLanguage, 'fr');
       return { stream: stream([{ type: 'output-text-delta', delta: 'Vendredi.' }, { type: 'finish', sourceText: finish.text, outputText: 'Vendredi.' }]) };
     }) }),
     VoiceAgentBackend: () => Object.assign(createOpenAI({ apiKey: 'unused-test-key' }).experimental_realtime('fixture'), {
@@ -96,10 +109,10 @@ let passed = 0;
 for (const example of examples.filter(native ? example => compilesCurrentSource(example) && example.activeOptions.includes('loadAudio') : executesCurrentSource)) {
   const selected = id => example.activeOptions.includes(id);
   const operation = example.component === 'Config' ? ['withAudio', 'loadAudio'].some(selected) ? 'StreamingTranscriber' : 'LLMAgent'
-    : example.component === 'Transcriber' && ['asStream', 'audioStream', 'loadAudio'].some(selected) ? 'StreamingTranscriber'
+    : example.component === 'Transcriber' && ['asStream', 'audioStream', 'loadAudio', 'wavFile', 'webAudioBuffer', 'channelSamples'].some(selected) ? 'StreamingTranscriber'
     : example.component === 'SpeechGenerator' && ['asStream', 'textStream', 'nativeStream'].some(selected) ? 'StreamingSpeechGenerator'
     : example.component;
-  const { model, requests } = fixture(operation);
+  const { model, requests } = fixture(operation, selected('webAudioBuffer') ? mixed : selected('wavFile') || selected('channelSamples') ? converted : pcm);
   const args = model ? [model] : [];
   const hosted = selected('asTool') && !selected('run') && !['Embedder', 'Config'].includes(example.component);
   if (hosted) {
@@ -121,7 +134,7 @@ for (const example of examples.filter(native ? example => compilesCurrentSource(
   if (selected('mask')) args.push(png);
   if (selected('voice')) args.push('test-voice');
   if (operation === 'Transcriber') args.push(selected('asTool') && !['withScript', 'withFunction', 'loadScript'].some(selected) ? recordingUrl : recording);
-  if (['StreamingTranscriber', 'Translator'].includes(operation)) args.push(selected('loadAudio') ? nativeUrl : pcm);
+  if (['StreamingTranscriber', 'Translator'].includes(operation)) args.push(selected('wavFile') ? wavFile : selected('channelSamples') || selected('webAudioBuffer') ? decoded : selected('loadAudio') ? nativeUrl : pcm);
   if (example.component === 'VoiceAgentBackend' && selected('webRTC')) args.push('offer');
   let approvals = 0;
   if (selected('resume')) args.push(async ids => { assert.equal(ids.length, 1); approvals++; return ids; });

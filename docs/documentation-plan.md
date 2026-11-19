@@ -8,6 +8,18 @@ Local implementation and content destinations are recorded in the
 [migration report](documentation-migration.md). Deployment and public-release
 verification remain separate from the local implementation.
 
+## Publication size revision - 2026-11-17
+
+This revision supersedes the earlier per-form publishing, fragment and canonical-URL requirements below. The original build produced about 80 MB across 650 files and exhausted the 100 MB host while retaining the old reference. The user requested shared data/templates and grouped files instead.
+
+- Publish one interactive reference page, using the existing shared data and browser renderer. Group all known form URLs into catalog-derived server rewrites to that page; keep the URLs, selection, query parameters, anchors and history working. The local preview must use the same route catalog.
+- Generate individual Markdown/JSON downloads in the browser. Old export URLs redirect to the selected form's download route; these are no longer raw HTTP data endpoints. Keep the generated selection JSON schema unchanged, and version the website index to describe browser exports.
+- Retain one complete Markdown download and one static Read all HTML file with all chapters and component contracts. Link the forms index to static anchors as well as the interactive views. Do not publish per-form HTML, Markdown, JSON or chapter fragments.
+- Resolve method links to shared property anchors before deduplicating the complete export. Each form already identifies its applicable contracts; omit repeated reverse lists under every contract.
+- All interactive form URLs share the entry page's canonical URL. Read all keeps its own canonical. Routing is identical for people and crawlers.
+- Keep assets/pages/routing publication order, routing drift protection, verified SSH host keys and bounded upload retries. A smaller build does not delete the retained old reference or interrupted uploads. Remote cleanup remains a separate backed-up, explicitly authorized action.
+- Verify every route and export selection, static completeness, links and history. Enforce a build budget below 50 files and 12 MB.
+
 ## Intended result
 
 One continuous documentation page contains the existing introduction and

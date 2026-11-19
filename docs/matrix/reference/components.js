@@ -4,9 +4,9 @@ import { configSourceForms } from './sources.js';
 export { sourceModes } from './sources.js';
 const native = (operation, result, details = {}) => ({ operation, result, ...details });
 const nativeContext = { options: { description: 'Application input for Casai context validation. Required exactly when configured public defaults do not satisfy inputSchema.' } };
-const historyResult = [{ name: 'messageHistory', type: 'ModelMessage[]', description: 'Original conversation plus native response messages. This is the only result property added by Casai.' }];
-const streamedHistoryResult = [{ name: 'messageHistory', type: 'Promise<ModelMessage[]>', description: 'Resolves to the original conversation plus native response messages, independently of output parsing. It shares the same execution.' }];
-const recordedAudio = 'Uint8Array | ArrayBuffer | ReadableStream<string | Uint8Array>';
+const historyResult = [{ name: 'messageHistory', type: 'ModelMessage[]', description: 'The original conversation followed by the SDK response messages. Changes a hook makes to the provider request do not rewrite this history. Casai adds this field to the SDK result.' }];
+const streamedHistoryResult = [{ name: 'messageHistory', type: 'Promise<ModelMessage[]>', description: 'Resolves to the original conversation followed by the SDK response messages from the same execution. History can still be available when parsing the final output fails.' }];
+const recordedAudio = 'Uint8Array | ArrayBuffer | Blob | File | AudioBuffer | Int16Array | Int32Array | Float32Array | Float64Array | ReadableStream<string | Uint8Array>';
 export const componentReference = {
   Config: {
     input: 'A partial configuration and an optional compatible parent.',
@@ -62,8 +62,17 @@ export const componentReference = {
     sourceDescriptions: { text: 'The text or messages to send to the model.', 'text-name': 'A file containing the prompt text to send to the model.' },
     templateNotes: 'For a message object or array of messages, templates are rendered in text content. Images, files and other message parts are passed through unchanged.',
     resultSummary: 'The native SDK result with parsed output and Casai messageHistory.',
-    resultDescription: 'output is text unless an SDK Output specification selects another value. Casai adds messageHistory; other result fields and methods retain native behavior. Output validity does not prove that every tool task finished.',
-    toolResult: 'The completed text or parsed structured application value directly. Paused, unfinished or stop-condition-cut-off workflows still fail. A custom formatter receives that value and replaces the default. Ordinary calls retain the full native result, including output, files and toolResults. Use an explicit Function tool to select media and map its application-defined result through toModelOutput.',
+    resultDescription: [
+      'Read `output` for the final step’s parsed value. Casai adds `messageHistory` to the SDK result. Use it to save the conversation or continue a paused turn.',
+      'With an omitted or undefined `output`, or with `Output.text()`, the value is a string. An object, array, choice, JSON or custom SDK Output returns its parsed type. An optional specification includes the string fallback in the inferred type. The caller owns any iterable returned by a custom parser. A structured generation can reject during parsing before it returns a result.',
+      'Inspect `steps` for the completed model steps and `finalStep` for the last one. When tools participate, check `finishReason`, `rawFinishReason` and any pending approvals or tool results before treating the task as finished. Even schema-valid output can accompany a pause.',
+    ].join('\n\n'),
+    toolResult: [
+      'SDK tool execution and injected tool calls return the completed text or parsed structured application value. A custom `toModelOutput` receives that value. Direct calls and `.run()` on the same component return the full SDK generation result, including `files`, `toolResults` and `messageHistory`.',
+      'A nested agent may take several model steps in one tool call. A provider `pause_turn`, an error finish, or outstanding tool or approval work from this invocation rejects with `NoOutputGeneratedError`. Local calls and provider calls with deferred results need a matching result. A provider approval needs its matching decision sent on a scheduled step or a result that settles the call. An automatic decision alone cannot settle another approval ID. These checks include decisions supplied by `prepareStep` and cover work emitted by this invocation. Earlier input history follows the SDK’s handling.',
+      'If any `stopWhen` condition cuts off another eligible step, the tool rejects even if every result is present and the output matches its schema. This applies to the default limit, custom predicates and intentional terminal-tool conditions. Finishing naturally on the last allowed step succeeds. Casai uses the SDK’s stop decision without calling the predicate again.',
+      'Native output and parsing errors propagate to the parent tool loop. The SDK rejects a `tool-calls` ending or empty non-stop output. Empty text on a completed `stop` is valid, and nonempty truncated output still follows the output parser. A failed inner tool call supplies no resumable history. To return selected files as a tool result, call an ordinary agent from a Function tool and format its result with `toModelOutput`.',
+    ].join('\n\n'),
     concepts: ['context', 'sources', 'history', 'hooks', 'steps', 'tools', 'multimodal-tools', 'media-tool-compatibility', 'inheritance', 'errors'],
     call: 'agent(prompt?, context?, messageHistory?)', contextPositional: true, positional: ['messageHistory'],
     runShape: 'AgentRun', nativeDocs: 'StreamSettings',
@@ -72,12 +81,16 @@ export const componentReference = {
       descriptionSources: [sdkDocs.streamText.source],
       description: 'Generate a response while making text, structured-output updates and tool events available as they arrive. Streaming is useful for chat and other interactive interfaces where readers should see progress before the full response is ready. Prompts, input preparation and tool calling work with the same underlying AI SDK generation flow.\n\nConsume the parts your application needs and await the final output or messageHistory when the response is complete. Partial structured values are still being built and do not establish that the finished output matches its schema. The stream and final values belong to the same execution.',
       resultSummary: 'A live SDK result; consume its streams and await final output and history.',
-      resultDescription: 'textStream, partialOutputStream, elementStream and execution events share one native execution. Partial values do not establish whole-result validity. messageHistory resolves independently of output parsing.',
+      resultDescription: [
+        'The stream views and final values share one native execution. Use `textStream` for live text, `stream` for execution events, and `await result.output` for the final step’s parsed value.',
+        'The `output` field is promise-like. It resolves to a string for omitted or undefined output and for `Output.text()`, or to the parsed type of the configured Output. An optional specification includes the text fallback. The caller owns any iterable produced by a custom parser.',
+        'Use `partialOutputStream` for values still being assembled or `elementStream` for elements when the output specification supports them. Whole-result schema validation occurs on the final output. `steps` and `finalStep` resolve to completed SDK records. `messageHistory` resolves independently of final output parsing.',
+      ].join('\n\n'),
       additionalResults: streamedHistoryResult }],
     methods: [
       { name: 'id', kind: 'property', signature: 'agent.id', description: 'The configured SDK Agent ID, or undefined.', requires: { tool: [null] } },
       { name: 'version', kind: 'property', signature: 'agent.version', description: 'The native Agent protocol marker: agent-v1.', requires: { tool: [null] } },
-      { name: 'tools', kind: 'property', signature: 'agent.tools', description: 'The prepared native tool registry used by Agent integrations.', requires: { tool: [null] } },
+      { name: 'tools', kind: 'property', signature: 'agent.tools', description: 'The prepared SDK tool definitions used by Agent integrations, including their argument schemas and available executors. Defaults to an empty object.', requires: { tool: [null] } },
       { name: 'resume', signature: 'agent.resume(history, { context?, approve?, ...overrides }?)', description: 'Continues a saved conversation without preparing another source. It also supports provider pauses and deferred results; tools are needed only for the approval example. Supply required raw context and any per-call overrides again.', properties: ['history', 'approve'], settings: 'run', omit: ['prompt', 'messageHistory'], requires: { tool: [null] } },
       { name: 'generate', signature: 'agent.generate({ prompt? | messages?, options?, ...settings })', description: 'Runs the native SDK Agent generation method. Content is literal: source loading/rendering is skipped. options supplies application input and still passes through Casai context validation and hooks.', shape: 'NativeGenerate', argumentOverrides: nativeContext, resultShape: 'LLMAgent_result', additionalProperties: historyResult, requires: { tool: [null] } },
       { name: 'stream', signature: 'agent.stream({ prompt? | messages?, options?, ...settings })', description: 'Runs the native streaming Agent method, even when ordinary calls use generation. It shares the same validated context and hooks and skips source preparation.', shape: 'NativeStream', argumentOverrides: nativeContext, resultShape: 'LLMAgentStream_result', additionalProperties: streamedHistoryResult, requires: { tool: [null] } },
@@ -94,14 +107,14 @@ export const componentReference = {
   Embedder: {
     ...native('embed / embedMany', 'Embedder'), input: 'One text or an array of texts.', resultSummary: 'One embedding or a list of embeddings, plus native metadata.',
     sourceDescriptions: { text: 'The text or array of texts to embed.', 'text-name': 'A file containing the text to embed as one vector.' },
-    resultDescription: 'A string selects embed and returns embedding. An array selects embedMany and returns embeddings.',
+    resultDescription: 'A string returns one vector in `embedding`. An array, even with one item, returns `embeddings` in input order. Each result also includes the SDK’s usage and metadata.',
     resultShapes: ['Embedder', 'EmbedderBatch'], toolResult: 'The vector or array of vectors.',
     concepts: ['sources', 'context', 'tools', 'multimodal-tools', 'media-tool-compatibility', 'inheritance'], call: 'embed(input) or embed(context)',
   },
   Reranker: {
     ...native('rerank', 'Reranker'), input: 'A query, candidate documents and optional result limit.', resultSummary: 'Native ranking entries with original indexes, documents and relevance scores.',
     sourceDescriptions: { text: 'The search text used to rank the candidate documents.', 'text-name': 'A file containing the search query used to rank the candidate documents.' },
-    toolResult: 'The ranking entries.', concepts: ['sources', 'context', 'tools', 'multimodal-tools', 'media-tool-compatibility', 'inheritance'],
+    toolResult: 'The `ranking` entries. Each carries the original candidate index, document and relevance score in `{ originalIndex, document, score }`.', concepts: ['sources', 'context', 'tools', 'multimodal-tools', 'media-tool-compatibility', 'inheritance'],
     call: 'rank(query, documents?, topN?) or rank(context, documents?, topN?)', positional: ['documents', 'topN'],
   },
   ImageGenerator: {
@@ -124,11 +137,11 @@ export const componentReference = {
     call: 'generate(prompt?, n?) or generate(context, n?)', positional: ['n'],
   },
   Transcriber: {
-    ...native('transcribe / experimental_streamTranscribe', 'Transcriber'), input: 'Encoded audio bytes/base64 or a native URL; raw bytes/a fresh stream with a format; or a path/URL, encoded bytes or a byte stream prepared by .loadsAudio.', resultSummary: 'Completed transcript text, segments, language, duration and native metadata.',
+    ...native('transcribe / experimental_streamTranscribe', 'Transcriber'), input: 'Pass an encoded file, bytes, base64 or a native URL for file transcription. For a raw-input model, Casai reads the source format from a WAV or AudioBuffer. For headerless sample arrays, supply the sample rate and channel count. A fresh raw stream can go straight to a matching model format. Use .loadsAudio to decode a path, URL or upload with FFmpeg.', resultSummary: 'Completed transcript text, segments, language, duration and native metadata.',
     propertyShapes: ['TranscriberRaw_config', 'Transcriber_config', 'AudioPreparation_config'], settingsShapes: ['Transcriber_settings', 'TranscriberRaw_settings'],
     resultShapes: ['Transcriber'],
     inputTypes: { direct: `string | URL | ${recordedAudio}`, prepared: `string | URL | ${recordedAudio}` },
-    sourceDescriptions: { text: 'Encoded recording bytes/base64 or a URL downloaded by the SDK, or raw audio bytes/a stream with inputAudioFormat.' },
+    sourceDescriptions: { text: 'An encoded recording, base64 or an SDK URL for file transcription. With inputAudioFormat, pass a WAV, AudioBuffer, described samples or raw chunks.' },
     resultDescription: 'Returns the completed transcript and metadata. Encoded-file transcription returns the native transcribe result; raw-audio transcription awaits the final fields from native streaming. The input and inputAudioFormat select the operation, which the model must support. A supplied native URL plus inputAudioFormat is rejected before dispatch; .loadsAudio can prepare a URL into raw audio and remains valid with that target.',
     operationForms: [
       { operation: 'transcribe', when: 'Encoded audio or a native URL without inputAudioFormat.', shape: 'TranscriberFile_settings' },
@@ -141,12 +154,12 @@ export const componentReference = {
       descriptionSources: [sdkDocs.experimental_streamTranscribe.source],
       description: 'Produce transcript updates using a transcription model with streaming support. Use this for live captions, voice input or transcript updates from a recording. Supply raw audio bytes or a fresh stream with inputAudioFormat. Use .loadsAudio.asStream to prepare a path/URL, encoded bytes or a byte stream.\n\nThe result exposes transcript events and promises for the final transcript and metadata. Consume fullStream before awaiting the final values if you need the events. Supported raw-audio formats depend on the provider; encoded file bytes must be decoded before they can be used as raw samples.',
       summaryOperation: 'experimental_streamTranscribe', ...native('experimental_streamTranscribe', 'TranscriberStream'),
-      input: 'Raw audio bytes/a fresh stream and its input format; or a path/URL, encoded bytes or a byte stream prepared by .loadsAudio.',
-      sourceDescriptions: { text: 'Raw audio bytes or a fresh stream of raw audio chunks to transcribe.' },
+      input: 'Supply a WAV, AudioBuffer, headerless samples or a fresh raw stream and select the model target with inputAudioFormat. Use .loadsAudio to decode a path, URL or upload with FFmpeg.',
+      sourceDescriptions: { text: 'A WAV file, AudioBuffer, headerless samples or a fresh raw stream to transcribe.' },
       inputTypes: { direct: recordedAudio, prepared: recordedAudio },
       operationForms: [{ operation: 'experimental_streamTranscribe', when: 'Every .asStream call; the model must support streaming.', shape: 'TranscriberStream_settings' }],
       resultSummary: 'Native transcription events and final transcript promises.',
-      resultDescription: 'Calls return the native live result. Consume events and await final transcript promises from the same execution. .asStream cannot be combined with .asTool; ordinary tools return a completed transcript, using native URL input or explicit source preparation.',
+      resultDescription: 'Use `fullStream` for transcript deltas, partial transcripts and final events. If you also need final fields such as `text`, consume the stream before accessing those promises. Reading a final-result promise first lets the SDK consume the stream.\n\nA transport or iteration failure can deliver a prefix and then reject the pending results. An `error` event followed by a valid finish can still yield a final transcript. All views use the same SDK execution.',
       call: 'transcribe(audio, inputAudioFormat?) or transcribe(context, inputAudioFormat?)', positional: ['inputAudioFormat'],
     }],
   },
@@ -176,10 +189,10 @@ export const componentReference = {
   Translator: {
     ...native('experimental_streamTranslate (one execution, collected)', 'Translator'),
     propertyShapes: ['Translator_config', 'RawAudioPreparation_config'],
-    input: 'Raw audio bytes or a stream that ends, its format and target language; .loadsAudio prepares paths/URLs, encoded bytes and byte streams.',
-    sourceDescriptions: { text: 'Raw audio bytes or a finite stream of audio chunks to translate.' },
+    input: 'Supply a WAV, AudioBuffer, headerless samples or a finite raw stream along with the model target format and target language. Use .loadsAudio to decode a path, URL or upload with FFmpeg.',
+    sourceDescriptions: { text: 'A WAV file, AudioBuffer, headerless samples or a finite raw stream to translate.' },
     resultSummary: 'Completed audio bytes, final source/translated text and native final metadata.',
-    resultDescription: 'Returns audio as Uint8Array, final source/translated text and resolved native metadata after consuming the audio stream. The call rejects if that stream fails, even if final text is already available. A provider may return empty audio for text-only output or empty translated text for audio-only output. Use the provider’s output-format contract to interpret the audio bytes.',
+    resultDescription: 'Returns `audio` as a Uint8Array together with final source text, translated text and native metadata. Use the provider’s actual output format to interpret the bytes. A provider may return empty audio for text-only output or empty translated text for audio-only output.\n\nThe call waits for audio collection. A stream failure rejects the call even if final-text promises have resolved. A nonfatal `error` event followed by a successful finish can still yield a completed result. Use `Translator.asStream` to inspect individual events in `fullStream`.',
     toolResult: 'Completed source/translated text, base64 audio and optional duration from one execution. The default model output contains only translationText; audio remains in the execution result and is available to optional toModelOutput. Ten seconds of 24 kHz mono PCM16 is 640,000 base64 characters. Audio-only output can give empty model text without a new Casai error or confirmation; supply a formatter when that needs useful media content.',
     concepts: ['sources', 'context', 'audio', 'media', 'audio-conversion', 'translation', 'tools', 'multimodal-tools', 'media-tool-compatibility', 'inheritance'],
     call: 'translate(audio, inputAudioFormat?, targetLanguage?) or translate(context, inputAudioFormat?, targetLanguage?)', positional: ['inputAudioFormat', 'targetLanguage'],
@@ -188,8 +201,8 @@ export const componentReference = {
       propertyShapes: ['TranslatorStream_config', 'RawAudioPreparation_config'],
       descriptionSources: [sdkDocs.experimental_streamTranslate.source],
       description: 'Translate speech into target-language audio and text as raw audio arrives. Use this when an application needs translation updates before a recording ends. Supply raw bytes or a fresh stream, its input format and the target language. Use .loadsAudio.asStream to prepare a path/URL, encoded bytes or a byte stream.\n\nConsume fullStream to receive translated audio and text events, then read the final source text, translated text and metadata. The model must support speech translation. Supported languages and formats depend on the provider; written-text translation uses LLMAgent.',
-      summaryOperation: 'experimental_streamTranslate', ...native('experimental_streamTranslate', 'TranslatorStream'), input: 'Raw audio bytes/a fresh stream, its format and target language; .loadsAudio prepares paths/URLs, encoded bytes and byte streams.',
-      sourceDescriptions: { text: 'Raw audio bytes or a fresh stream of raw audio chunks to translate.' },
+      summaryOperation: 'experimental_streamTranslate', ...native('experimental_streamTranslate', 'TranslatorStream'), input: 'A WAV, AudioBuffer, headerless samples or a fresh raw stream, its format and target language; .loadsAudio prepares paths/URLs, encoded bytes and byte streams.',
+      sourceDescriptions: { text: 'A WAV file, AudioBuffer, headerless samples or a fresh raw stream to translate.' },
       resultSummary: 'Live translated audio/text events and native final promises.',
       resultDescription: 'Returns native fullStream and final metadata promises. Consume fullStream before awaiting final values if you need the audio and text events; reading a final promise first can consume the stream. .asStream cannot be combined with .asTool.',
     }],

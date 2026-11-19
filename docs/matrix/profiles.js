@@ -8,7 +8,7 @@ export const matrixProfiles = {
     kinds: ['configuration', 'component'],
     choices: [
       'asTool', 'asStream', 'useTools', 'structured', 'batch', 'topN',
-      'referenceImage', 'count', 'voice',
+      'referenceImage', 'count', 'voice', 'wavFile', 'webAudioBuffer', 'channelSamples',
       'withText', 'withAudio', 'withTemplate', 'withScript', 'withFunction',
     ],
   },

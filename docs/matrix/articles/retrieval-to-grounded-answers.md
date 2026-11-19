@@ -1,20 +1,33 @@
 # From retrieval to grounded answers
 
-A model can write a plausible answer without having the information your application needs it to use. Retrieval-augmented generation gives it relevant material first: search your documents, select useful passages, then ask it to answer from those passages.
+A model can write a convincing answer without having the information your application needs it to use. Retrieval-augmented generation (RAG) fixes this by finding relevant material first: search your documents, pick the most useful passages, then ask the model to answer using only those passages.
 
-Casai connects those operations. Your search service still owns the index and documents. The workflow makes their order and dependencies visible, including which work can start together.
+Casai connects these steps. Your search service still holds the index and the documents. The workflow makes it clear which step depends on which, and which work can start at the same time.
 
-## Retrieve candidates before generating an answer
+## Find candidates before writing an answer
 
-This example combines two searches. A semantic search embeds the question and looks up similar passages. A keyword search uses the question directly. Those branches are independent, so the keyword search can run while the embedding and vector search are in progress.
+This example uses two searches:
 
-The workflow merges their candidates, uses a [Reranker](https://casai.run/documentation/reference/reranker/) to select five passages, and supplies those passages to an [LLMAgent](https://casai.run/documentation/reference/llmagent/). If both searches return nothing, it returns an explicit no-results answer without calling the reranker or answer model.
+- A **semantic search** turns the question into an embedding (a list of numbers that captures its meaning) and looks up passages with a similar meaning.
+- A **keyword search** looks for passages that match the words in the question.
 
-## Supply models and your search functions
+The two searches don't depend on each other, so the keyword search can run while the question is still being embedded and the vector search is in progress.
 
-The function below takes a language model, an embedding model, a reranking model, and two application search functions. These are different model capabilities; use the corresponding factories from your [provider](https://casai.run/documentation/reference/#guide-first-workflow).
+The workflow then combines the results of both searches, uses a [Reranker](https://casai.run/documentation/reference/reranker/) to pick the five best passages, and gives those passages to an [LLMAgent](https://casai.run/documentation/reference/llmagent/) to write the answer. If neither search finds anything, it returns a clear "no results" answer without calling the reranker or the answer model.
 
-`searchIndex` accepts a vector and `searchKeywords` accepts a question. Each returns document strings. They are ordinary application functions, so you can connect your existing database or search service without changing the workflow.
+## Pass in your models and search functions
+
+The function below takes three models and two search functions from your application:
+
+- a language model, which writes the answer
+- an embedding model, which turns the question into a vector
+- a reranking model, which ranks the candidate passages
+- `searchIndex`, which takes a vector
+- `searchKeywords`, which takes the question
+
+The three models do different jobs, so use the matching factory for each one from your [provider](https://casai.run/documentation/reference/#guide-first-workflow).
+
+Both search functions return a list of document strings. They're ordinary functions in your application, so you can connect your existing database or search service without changing the workflow.
 
 <!-- typecheck: rag -->
 ```typescript
@@ -78,18 +91,18 @@ export function createKnowledgeAssistant(options: {
 }
 ```
 
-Create the assistant with your models and search functions, then call it with `{ question: 'How are damaged orders replaced?' }`. It returns the answer together with the passages supplied to the model. Those passages make the answer easier to inspect; they are not automatic proof that every claim is supported.
+Create the assistant with your models and search functions, then call it with `{ question: 'How are damaged orders replaced?' }`. It returns the answer together with the passages the model was given. Those passages make the answer easier to check, but they don't prove that every claim in it is supported.
 
-## Keep the index and query embeddings compatible
+## Use the same embeddings for documents and questions
 
-Build the document index with the same embedding model and representation used for queries. [Embedder](https://casai.run/documentation/reference/embedder/) can embed a batch of document strings during indexing and one question during retrieval. Reuse stored document embeddings across questions instead of rebuilding the index on every call.
+Build your document index with the same embedding model you use for questions, and prepare the text the same way in both cases. Otherwise, the vectors can't be meaningfully compared. [Embedder](https://casai.run/documentation/reference/embedder/) can embed a whole batch of document strings while you build the index, and a single question when you search. Store the document embeddings and reuse them for every question, instead of rebuilding the index on each call.
 
-The example deduplicates identical strings and bounds the reranking input to twenty candidates. For a larger corpus, use stable document or chunk identifiers, preserve source metadata, and choose candidate limits appropriate to your search service. Both search functions should already return their best candidates first.
+The example removes duplicate passages and sends at most twenty candidates to the reranker. Because it keeps only the first twenty, both search functions should return their best results first. For a larger collection of documents, give each document or chunk a stable ID, keep track of where it came from, and choose candidate limits that suit your search service.
 
 ## Concurrency follows the useful work
 
-This is normal sequential CascadaScript. Keyword retrieval does not depend on the vector, so it starts without waiting for the semantic branch. Reranking waits for the merged candidates, and generation waits for the selected passages. The runtime preserves those logical dependencies and the resulting value order.
+This is ordinary step-by-step CascadaScript. The keyword search doesn't need the vector, so it starts without waiting for the semantic search. Reranking waits for the combined candidates, and the answer waits for the selected passages. Cascada respects those dependencies and keeps the results in the order the code describes.
 
-If you use just one search method, remove the other branch and the merge operation. Adding independent searches is useful only when they improve retrieval; concurrency does not make an irrelevant source useful.
+If you only use one search method, remove the other search and the merge step. Add more searches only when they actually improve the results - running a search at the same time as the others doesn't make an irrelevant source useful.
 
-For a model-directed retrieval tool, see [the retrieve-and-rerank example](https://casai.run/documentation/reference/#guide-rank-retrieved-candidates). For the underlying component inputs and results, use the [reference matrix](https://casai.run/documentation/reference/#component-factories). The core [RAG explanation](https://casai.run/documentation/reference/#guide-embedding-and-rag-integration) remains part of the complete documentation download.
+For a version where the model decides when to search, see [the retrieve-and-rerank example](https://casai.run/documentation/reference/#guide-rank-retrieved-candidates). For each component's inputs and results, see the [reference matrix](https://casai.run/documentation/reference/#component-factories). The main [RAG explanation](https://casai.run/documentation/reference/#guide-embedding-and-rag-integration) is also included in the complete documentation download.

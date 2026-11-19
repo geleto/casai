@@ -2,21 +2,21 @@
   {
     "slug": "change-implementation-keep-workflow",
     "title": "Change the implementation. Keep the workflow.",
-    "description": "Route support tickets with rules, a model, or both while keeping the calling workflow unchanged.",
+    "description": "Route support tickets with rules, a model, or both - without changing the workflow that uses them.",
     "date": "2026-11-17",
     "tags": ["components", "workflows"]
   },
   {
     "slug": "draft-review-revise",
     "title": "Draft, review, revise - with a stopping point",
-    "description": "Build a revision loop with structured feedback, a quality target and a clear limit on iterations.",
+    "description": "Build a writing loop that reviews each draft, aims for a quality score and knows when to stop.",
     "date": "2026-11-17",
     "tags": ["agents", "workflows"]
   },
   {
     "slug": "retrieval-to-grounded-answers",
     "title": "From retrieval to grounded answers",
-    "description": "Run independent searches concurrently, rank their results and give an agent useful context for its answer.",
+    "description": "Run two searches at the same time, pick the best passages and have a model answer from them.",
     "date": "2026-11-17",
     "tags": ["retrieval", "concurrency"]
   }

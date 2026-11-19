@@ -1,14 +1,20 @@
 # Draft, review, revise - with a stopping point
 
-A useful writing workflow needs more than a request to "try again." It needs feedback the next step can use, a reason to stop, and a limit on how much work it can do.
+A good writing workflow needs more than a request to "try again." Each round needs feedback the next step can act on, the loop needs a reason to stop, and there has to be a limit on how much work it does.
 
-Casai can express that process as a normal loop: produce a draft, review it, revise it, and review the new version. The models supply the text and feedback; your script controls the iterations.
+In Casai, this is an ordinary loop: write a draft, review it, revise it, then review the new version. The models write the text and the feedback; your script decides how many rounds to run.
 
 ## Give each component one job
 
-The draft generator writes an initial post. The reviewer returns a score and a list of suggestions as structured output. The revision generator applies those suggestions. [Config](https://casai.run/documentation/reference/config/) shares the model and retry settings, while a separate revision model is optional.
+Three components share the work:
 
-The example accepts AI SDK language models, so you can use the [provider setup](https://casai.run/documentation/reference/#guide-first-workflow) from the documentation. It returns a reusable workflow whose call inputs include the topic and revision limits.
+- The **draft generator** writes the first version of the post.
+- The **reviewer** returns a score and a list of suggestions as structured output.
+- The **revision generator** rewrites the draft using those suggestions.
+
+A [Config](https://casai.run/documentation/reference/config/) holds the model and retry settings they share. Using a different model for revisions is optional.
+
+The example takes AI SDK language models, so you can use the [provider setup](https://casai.run/documentation/reference/#guide-first-workflow) from the documentation. It returns a workflow you can reuse. Each call takes a topic and, optionally, a quality target and revision limits.
 
 ## Put the stopping rules in the workflow
 
@@ -85,20 +91,30 @@ export function createRevisionWorkflow(
 }
 ```
 
-Create it with `createRevisionWorkflow(model)`, then call it with a topic, for example `{ topic: 'Reducing food waste at home' }`. With the defaults, it performs at least one revision and stops once the score reaches eight, or after three revisions. Set `minRevisions: 0` to accept a good first draft. Set `maxRevisions: 0` to draft and review once without revising.
+Create the workflow with `createRevisionWorkflow(model)`, then call it with a topic, for example `{ topic: 'Reducing food waste at home' }`. With the default settings, it always revises at least once, then stops as soon as the score reaches eight - or after three revisions, whichever comes first.
 
-The maximum always wins, including when it is lower than the minimum. The returned `finalScore` makes it visible when the workflow reached its limit without meeting the quality target. A model's score is feedback from your chosen rubric, not an independent guarantee of factual accuracy or quality.
+You can change these limits on each call:
+
+- Set `minRevisions: 0` to accept a good first draft as it is.
+- Set `maxRevisions: 0` to write and review once, without revising.
+
+The maximum always wins, even if you set it lower than the minimum. The returned `finalScore` shows you when the workflow hit its limit before reaching the quality target. Keep in mind that the score is the model's judgment, based on the review criteria you gave it. It doesn't guarantee that the post is accurate or good.
 
 ## Dependencies decide what can run together
 
-Reviewing requires the draft. Revising requires the review. This loop has real logical dependencies, so those operations wait for one another. Concurrent execution does not remove dependencies that the task needs.
+Reviewing needs the draft. Revising needs the review. Each step really does depend on the one before it, so they run one after another. Running work at the same time can't remove a dependency the task actually has.
 
-You can still run this workflow for several topics concurrently, or add independent reviewers that inspect different aspects of the same draft. Cascada follows the dependencies in the code, so independent work can overlap while dependent steps keep their source-order results. See [concurrency and ordering](https://casai.run/documentation/reference/#guide-concurrency-ordering-and-recovery).
+You can still run this workflow for several topics at once, or add more reviewers that each check a different aspect of the same draft. Cascada follows the dependencies in your code: independent work runs at the same time, and dependent steps still produce their results in the order they're written. See [concurrency and ordering](https://casai.run/documentation/reference/#guide-concurrency-ordering-and-recovery).
 
 ## Keep retries separate from revisions
 
-`maxRetries` applies to a provider call through the AI SDK. `maxRevisions` limits successful passes through your editorial loop. One does not replace the other.
+`maxRetries` and `maxRevisions` limit different things:
 
-The component is reusable and stores no current draft. Each call owns its input, draft and iteration count. For application cancellation and provider time limits, follow the [current execution controls](https://casai.run/documentation/reference/#guide-errors); the reference distinguishes these from planned workflow-wide deadlines.
+- `maxRetries` is how many times the AI SDK retries a single provider call that fails.
+- `maxRevisions` is how many successful rounds your editing loop can run.
 
-This article's workflow is tested with deterministic component replacements, including a good first review, a persistently low score, and zero allowed revisions. No model call is needed to verify the loop's stopping rules. The [testing chapter](https://casai.run/documentation/reference/#guide-testing) explains that separation.
+One doesn't replace the other.
+
+The workflow doesn't keep a draft between calls, so you can safely reuse it. Each call has its own input, draft and revision count. To cancel a run or put a time limit on provider calls, see the [current execution controls](https://casai.run/documentation/reference/#guide-errors). The reference explains how these differ from workflow-wide deadlines, which are still planned.
+
+The tests for this article's workflow replace the models with stand-ins that always give the same answers. They cover a good first review, a score that stays low, and zero allowed revisions. No real model call is needed to check that the loop stops when it should. The [testing chapter](https://casai.run/documentation/reference/#guide-testing) explains this approach.

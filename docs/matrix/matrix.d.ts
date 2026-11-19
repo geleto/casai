@@ -1,7 +1,7 @@
 /** Public data contract for the separate matrix/documentation project. */
 export type ComponentName = 'Config' | 'Context' | 'Template' | 'Script' | 'Function' | 'LLMAgent' | 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'SpeechGenerator' | 'Translator' | 'VoiceAgentBackend' | 'VoiceAgentClient' | 'VideoGenerator';
-export type ChoiceId = 'asTool' | 'asStream' | 'useTools' | 'run' | 'prepareSession' | 'webRTC' | 'structured' | 'batch' | 'topN' | 'referenceImage' | 'mask' | 'count' | 'voice' | 'textStream' | 'audioStream' | 'nativeStream' | 'messages' | 'resume' | 'withAudio' | 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadText' | 'loadTemplate' | 'loadScript' | 'loadAudio';
-export type GroupId = 'tool' | 'stream' | 'source' | 'tools' | 'invocation' | 'conversation' | 'output' | 'batch' | 'limit' | 'media' | 'mask' | 'count' | 'voice' | 'inputDelivery' | 'nativeOperation';
+export type ChoiceId = 'asTool' | 'asStream' | 'useTools' | 'run' | 'prepareSession' | 'webRTC' | 'structured' | 'batch' | 'topN' | 'referenceImage' | 'mask' | 'count' | 'voice' | 'textStream' | 'audioStream' | 'wavFile' | 'webAudioBuffer' | 'channelSamples' | 'nativeStream' | 'messages' | 'resume' | 'withAudio' | 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadText' | 'loadTemplate' | 'loadScript' | 'loadAudio';
+export type GroupId = 'tool' | 'stream' | 'source' | 'tools' | 'invocation' | 'conversation' | 'output' | 'batch' | 'limit' | 'media' | 'mask' | 'count' | 'voice' | 'inputDelivery' | 'recording' | 'nativeOperation';
 export type SourceKind = 'default' | 'audio' | 'text' | 'template' | 'script' | 'function';
 export type ComponentKind = 'component' | 'configuration' | 'concept';
 export type InfoSectionId = 'summary' | 'variants' | 'source' | 'features' | 'invocation';

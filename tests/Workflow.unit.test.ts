@@ -10,11 +10,10 @@ function deferred<T>() {
 	return { promise, resolve };
 }
 
-function readmeScript(component: string): string {
-	const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
-	const start = readme.indexOf(`const ${component} = create.Script({`);
-	const script = start < 0 ? undefined : /script:\s*`([\s\S]*?)`/.exec(readme.slice(start))?.[1];
-	if (!script) throw new Error(`README script example '${component}' was not found`);
+function documentedRevisionScript(): string {
+	const article = readFileSync(new URL('../docs/matrix/articles/draft-review-revise.md', import.meta.url), 'utf8');
+	const script = /script:\s*`([\s\S]*?)`/.exec(article)?.[1];
+	if (!script) throw new Error('The documented revision script was not found.');
 	return script;
 }
 
@@ -169,7 +168,7 @@ describe('Component workflow contracts', () => {
 				context: { draftGenerator, critiqueGenerator, revisionGenerator, qualityThreshold: 8, topic: 'testing' },
 				inputSchema: z.object({ minRevisions: z.number(), maxRevisions: z.number() }),
 				schema: z.object({ finalDraft: z.string(), finalScore: z.number(), revisionCount: z.number() }),
-				script: readmeScript('contentAgent'),
+				script: documentedRevisionScript(),
 			});
 			expect(await agent({ minRevisions: scenario.min, maxRevisions: scenario.max })).to.deep.equal({
 				finalDraft: `draft${'+revision'.repeat(scenario.revisions)}`,

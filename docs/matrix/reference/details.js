@@ -1,6 +1,6 @@
 // Amend only missing native prose; preserve native fields, types and attribution.
 // Key by extracted shape, not component-specific branches in the resolver.
-const rawAudioSettings = { audio: { description: 'Raw bytes/ArrayBuffer or a fresh stream matching inputAudioFormat; finite bytes are wrapped once for native dispatch.' } };
+const rawAudioSettings = { audio: { description: 'WAV, AudioBuffer, headerless PCM or raw chunks. Casai prepares samples in the model target format.' } };
 export const shapeProperties = {
   VideoGenerator_result: {
     video: { detail: 'GeneratedFile', appliesTo: 'First generated video' },
@@ -11,7 +11,7 @@ export const shapeProperties = {
     subscribe: { description: 'Subscribe to state changes. Returns an unsubscribe function. Read getSnapshot after subscribing for initial rendering; subscribing does not connect or replay events.' },
     dispose: { description: 'Immediately disconnect using native disposal. Unsubscribe application state listeners separately; use close first when graceful completion is required.' },
   },
-  TranscriberFile_settings: { audio: { description: 'Supplied encoded audio bytes/ArrayBuffer, base64 or a native URL using the SDK downloader; .loadsAudio separately prepares paths, URLs or supplied encoded media.' } },
+  TranscriberFile_settings: { audio: { description: 'Supplied recording as a File, Blob, encoded bytes or base64, or a native URL using the SDK downloader. For an AudioBuffer or described headerless PCM, Casai supplies a WAV.' } },
   TranscriberStream_settings: rawAudioSettings,
   TranscriberRaw_settings: rawAudioSettings,
   VoiceAgentBackend_result: { tools: { description: 'Prepared native tool definitions for this session.', detail: 'RealtimeToolDefinition', appliesTo: 'Each tool definition' } },
@@ -34,7 +34,7 @@ export const shapeProperties = {
     audioFormat: { description: 'The actual emitted format on collected streaming speech, including sample rate where applicable; absent on native complete results.', detail: 'SpeechAudioFormat' },
     usage: { description: 'Resolved native usage from collected streaming speech; absent when the native complete result does not expose it.' },
   },
-  Translator_result: { audio: { description: 'Collected translated audio bytes; empty on native text-only success. No media type is inferred.' } },
+  Translator_result: { audio: { description: 'Collected translated audio bytes backed by an ordinary ArrayBuffer. A successful translation with zero audio bytes returns an empty array. The application supplies any media type it knows.' } },
   RenderOptions: {
     autoescape: { description: 'Escape HTML-sensitive output characters. Casai defaults standalone rendering to false; AI input preparers always disable it.' },
     throwOnUndefined: { description: 'Throw when a template outputs null or undefined. Defaults to false.' },
@@ -71,10 +71,15 @@ export const detailProperties = {
     protocols: 'Optional native WebSocket subprotocols for the relay connection.',
   }),
   SpeechTextPart: fields({ type: 'Identifies a text part.', text: 'The text to synthesize in this part.' }),
+  PcmSourceFormat: fields({
+    sampleRate: 'Original samples per second per channel.',
+    channels: 'Original number of interleaved channels.',
+    encoding: 'Required for headerless bytes or stream chunks being converted. A numeric sample array supplies this from its element type.',
+  }),
   MediaSettings: fields({
     track: 'A non-negative zero-based absolute container stream index, not the ordinal audio-track number. Omit for the native best audio stream. Missing, non-audio or undecodable selections fail. For a video at index 0 and audio at index 1, select track: 1. This does not select channels within an audio track.',
     format: 'Optional native input demuxer name. Omit to let FFmpeg detect the container using content and native filename/extension/MIME hints. It is not an output encoding or a model format. Raw input may need an explicit demuxer and native raw-format options.',
-    options: 'Input AVOptions with native names, scalar values and units. For example headers: "Authorization: Bearer TOKEN\\r\\n" for an HTTP input. This is not a CLI argument list, output settings or model headers. Native handling determines applicability and may ignore unknown options.',
+    options: 'Input AVOptions use native names, scalar values and units. For example, headers: "Authorization: Bearer TOKEN\\r\\n" authenticates the HTTP media request. For private URLs, import { Log, AV_LOG_QUIET } from "node-av" and call Log.setLevel(AV_LOG_QUIET) at Node startup. FFmpeg diagnostics can print signed URLs to stderr. The host controls this setting for the whole process. Native handling determines which options apply.',
   }),
   Timeout: fields({
     totalMs: 'Total time limit for the call, in milliseconds.',

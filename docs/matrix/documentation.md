@@ -22,7 +22,7 @@ Then install the provider you want to use. Choose one, or add more as needed:
 
 Each command selects the latest 4.x release of that provider package. The workflow below uses OpenAI; see the [AI SDK provider directory](https://ai-sdk.dev/providers/ai-sdk-providers) for more options.
 
-Use TypeScript 7.0.2 or newer with `strictNullChecks` enabled (normally through `strict: true`). The main Casai entry targets Node.js. Browser chat clients call your Casai server. The separate VoiceAgentClient browser entry is planned; see the voice section for its development status. Keep provider credentials and private tools on the server.
+Use TypeScript 7.0.2 or newer with `strictNullChecks` enabled (normally through `strict: true`). This workflow runs on a Node.js server, where you keep provider credentials and private tools. Browser chat clients call that server. For a browser voice conversation, use the AI SDK’s realtime client with Casai’s `VoiceAgentBackend`. [Audio with and without node-av](#guide-recorded-audio-and-optional-codecs) · [Browser voice sessions](#guide-browser-voice-sessions)
 
 Use ESM imports in your JavaScript or TypeScript application (`"type": "module"` in `package.json`). Run provider calls in your server or Node.js process, with credentials in its environment. For a local example, create `.env`:
 
@@ -144,7 +144,7 @@ Ordinary calls and `.run()` return promises. After `await`, Template, Script and
 
 The actual output-setting names are `schema` for Script/Function and `output` for LLMAgent; there is no shared `outputSchema` property. A schema's returned value is used, including defaults, stripping and transforms. Script/Function producers return schema input; their callers receive schema output directly, without an added `.output` envelope.
 
-A stream schema returns a stream whose elements are parsed as consumed; awaiting the component does not collect it or validate the entire stream in advance. See [stream schemas](#guide-stream-schemas). LLMAgent's native `.output` is a parsed value after generation or a promise in streaming mode; use `textStream` for live text. See the [agent result table](#guide-llmagent-results).
+A stream schema parses each element as the caller consumes it. On a streaming LLMAgent, read `textStream` for live text and await `output` for the completed application value. [Stream schemas](#guide-stream-schemas) · [LLMAgent results](#guide-llmagent-results)
 
 To interchange model and coded implementations in a workflow, have a small adapter extract the model result's application value. The workflow can then consume the same value type from either implementation; see [replacement examples](#guide-interchanging-components-in-workflows).
 
@@ -305,7 +305,7 @@ const report = await researcher({ topic: 'battery recycling' });
 console.log(report.output.summary);
 ```
 
-`output` determines parsing, validation, and the inferred type of the final application value. It is fixed when the component is created. With `.asStream`, `output` is a promise of the completed parsed value; see the [result table](#guide-llmagent-results). Structured output can be combined with tools. See [SDK structured output](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data).
+`output` determines parsing, validation and the inferred type of the final application value. It is fixed when the component is created. Structured output can be combined with tools. [LLMAgent results](#guide-llmagent-results) · [SDK structured output](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data)
 
 Use schema descriptions and the output specification's supported `name` and `description` fields to explain the desired data to the model. The selected model must support the requested output and tool capabilities; Casai does not make every model support every schema or media type.
 
@@ -313,37 +313,11 @@ Use schema descriptions and the output specification's supported `name` and `des
 
 ### LLMAgent Results
 
-Casai returns the native SDK result and adds only `messageHistory`. There is no `value` property. Use native `output` for the final step's parsed output, `textStream` for live text, and `stream` for execution events. These views share one execution and native parsing.
+After `const result = await agent(prompt)`, pass `result.output` to the next workflow step. With `.asStream`, you can display `result.textStream` as text arrives and then await `result.output` for the final parsed value from the same run. Each form’s **Return** tab lists its fields and types. [Generation return](https://casai.run/documentation/reference/llmagent/?view=return#return) · [Streaming return](https://casai.run/documentation/reference/llmagent_asstream/?view=return#return)
 
-| Output configuration | Generation `output` | Streaming `output` |
-| --- | --- | --- |
-| Omitted, undefined, or `Output.text()` | `string` | `PromiseLike<string>` |
-| Object, array, choice, JSON, or custom SDK Output | Parsed value `T` | `PromiseLike<T>` |
+When the next step depends on a tool having finished, also inspect the finish reasons and outstanding tool or approval events. A provider can return schema-valid text while work is pending. For example, Anthropic’s raw `pause_turn` can appear as a normalized `stop`, and an OpenAI Chat refusal can appear as empty `stop` text. Save `messageHistory` if the workflow needs to continue. Once the required input is available, call `agent.resume(history, options)` with the original application context, relevant per-call settings and any provider state the next request requires, such as an Anthropic container ID. [Approvals and continuation](#guide-tool-approvals-and-continuation)
 
-An optional output specification includes the native text fallback in its result type. Custom parsed iterables remain application-owned values; Casai does not consume or replay them.
-
-Native output availability and schema validity do not prove workflow completion. The SDK can return text or schema-valid output while tool work is unresolved, or after an error finish reason. Applications inspect native finish reasons, raw provider reasons, tool/approval events and errors according to their workflow. A promise waits for the current invocation; a paused invocation needs a new continuation call and cannot finish by leaving its old promise pending.
-
-`messageHistory` contains the original conversation and native response messages: an array after generation or a promise in streaming mode. Hooks may change the request sent to the provider without rewriting this retained conversation. History resolution does not establish success. Native structured generation may fail during parsing before returning a result; streaming can retain history after final parsing fails.
-
-A provider can pause even when native output contains text. For example, Anthropic's raw `pause_turn` can be normalized to `stop`. Inspect both raw and normalized finish reasons, then [continue the conversation](#guide-tool-approvals-and-continuation). An OpenAI Chat refusal can instead appear as empty `stop` text; an empty result is not proof that the requested task succeeded.
-
-Continue with `agent.resume(history, { context: rawContext, ...overrides })`. Component configuration supplies the model, tools and other settings; supply again any per-call overrides needed from the paused invocation. Keep provider state, such as an `anthropic.container.id`, when the provider requires it. Resume uses the component's generation or streaming mode.
-
-
-`steps` and `finalStep` retain completed SDK records (promises in streaming). Use `stream` or callbacks for live events. Native errors, finish reasons and response metadata are unchanged.
-
-LLMAgent tools are generation-only. Combining `.asStream` and `.asTool`, including through inherited configuration, is rejected. Ordinary calls and `.run()` on a tool component return the full generation result with history, native files and tool results. SDK descriptor execution and injected tool calls await that invocation, check completion, and return the completed text or parsed structured value directly. A formatter receives that selected value. Use an explicit Function tool to select files from an ordinary agent result and return them alongside application data through native `toModelOutput`.
-
-The tool adapter rejects a provider `pause_turn`, an error ending, or unresolved tool/approval work emitted during this invocation with `NoOutputGeneratedError`. Native `output` rejects a `tool-calls` ending or empty non-stop output; Casai does not duplicate those checks. A matching output schema alone cannot make an unfinished inner run a successful outer tool result. Native execution and parsing failures propagate; a parent SDK loop handles the rejection as a tool error. No inner history or resumable promise is returned as a successful tool result. Completed empty stop text is valid; nonempty truncated output remains subject to native parsing and the caller's finish-reason policy.
-
-One tool invocation can contain multiple model steps, controlled by the configured SDK stop conditions. Approval policies may resolve asynchronously within that invocation. A `prepareStep` hook runs only when the SDK schedules another step; Casai does not restart a paused run or add a continuation loop.
-
-If any effective `stopWhen` condition cuts off another eligible SDK step, tool execution rejects with `NoOutputGeneratedError`, even if all tool results exist and the model produced schema-valid text. This includes the default step limit, explicit limits, custom predicates and arrays, including intentional terminal-tool conditions. Natural completion on the last allowed step succeeds: the SDK does not evaluate stop conditions when no further step is eligible. Casai observes the SDK's normal predicate evaluations without rerunning them or adding a counter. Ordinary calls, `.run()` and native Agent methods retain native results. LLMAgent tools expose no `resume()`; a cutoff is a failed tool invocation.
-
-Completion checks cover tool work emitted by the nested invocation and provider approval decisions supplied through its `prepareStep` hook. They do not certify settlement of tool work supplied in the initial prompt history; that follows native SDK/provider handling. Local calls and provider calls with deferred results need results before the tool can return successfully. Request-hook changes do not rewrite the retained conversation history.
-
-For provider approvals, an automatic policy decision does not prove that the provider received it. Each outstanding approval request needs a matching decision sent on a scheduled model step, or a result that settles the call. A decision for another approval ID does not clear that wait.
+When an outer agent invokes an `LLMAgent.asTool`, it receives the inner agent’s completed application value. A pause or an unfinished tool call reaches the outer agent as a tool error. Use a directly called agent when your workflow needs to retain and resume the inner conversation. [Tool return and completion rules](https://casai.run/documentation/reference/llmagent_astool/?view=return#return)
 
 <a id="guide-concurrency" name="guide-concurrency"></a>
 
@@ -591,8 +565,8 @@ Choose the mechanism that expresses who controls the next operation:
 | Template | Text preparation and presentation, including calls to helpers |
 | LLMAgent tools | Operations the model chooses while responding to a task |
 | Decision | Routing or evaluation through a configured set of questions |
-| VoiceAgentBackend | Server setup and tool execution for a browser voice conversation |
-| VoiceAgentClient | Browser conversation controls and observable state, paired with application-owned backend routes |
+| VoiceAgentBackend + AI SDK realtime client | Run a browser voice conversation with server-side session setup and private tools |
+| VoiceAgentClient (planned) | Create independent browser sessions and observe their state from any UI or browser Cascada script |
 
 These can be combined. A Script can call an LLMAgent that uses tools; an LLMAgent tool can run a Script or another LLMAgent; a Template can format the resulting data. Keep reusable application functions in context and expose them as tools when the model should decide whether to invoke them.
 
@@ -1147,7 +1121,7 @@ Media content types alone do not establish working delivery to a model. The foll
 | `@ai-sdk/openai@4.0.108`, Chat | Stringifies tool content, including base64 | Native media delivery is unsupported on this path |
 | `@ai-sdk/openai@4.0.108`, Responses | Maps images to `input_image` and other files to `input_file` | Tested `gpt-6-luna` route rejects `audio/mpeg` tool output with HTTP 400 |
 | `@ai-sdk/google@4.0.111`, Interactions | Retains images; warns and drops audio/video tool files despite [API support](https://aistudio.google.com/docs/function-calling#multimodal) | These audio/video routes require an adapter correction |
-| `@ai-sdk/google@4.0.111`, generateContent | Retains inline audio/video in function responses on native model paths supporting response parts | Tested `gemini-3.8-flash` hears MP3 (`audio/mpeg`) tool results; changed-audio controls pass |
+| `@ai-sdk/google@4.0.111`, generateContent | Retains inline audio/video in function responses on native model paths supporting response parts | Both `gemini-3.1-flash-lite` and `gemini-3.8-flash` identified the spoken color and number in two different MP3 (`audio/mpeg`) tool results without receiving transcripts |
 
 The table records inspected behavior; it is not a promise to certify every adapter version or repair unsupported routes. Choose an adapter/model route verified for the actual media format. A custom formatter can deliberately return text or an application reference instead. Schema metadata does not grant media transport, and no generic Casai preflight can promise an error for an adapter that silently discards content.
 
@@ -1737,7 +1711,7 @@ When calling `.run()` or reading `.config` from Cascada, expose the component di
 
 Template and script sources execute application code with access to their configured context. They are not a sandbox: even a template expression can execute arbitrary JavaScript. Use trusted authored sources, including stored/loaded templates, and pass end-user or model text as context data. Error messages can include values used by a failing expression; sanitize errors before exposing them to a model or browser.
 
-`debug: true` logs configuration and invocation data without redaction, including headers and private context. Enable it only where those logs are appropriate.
+`debug: true` reports Casai operations such as configuration merging, component creation and invocation, and rendering. Each entry contains an operation label. SDK telemetry, native-library logs and application callbacks have their own logging settings.
 
 <a id="guide-streaming-with-asstream" name="guide-streaming-with-asstream"></a>
 
@@ -1756,7 +1730,7 @@ for await (const text of textResult.textStream) {
 console.log(await textResult.usage);
 ```
 
-Create a streaming LLMAgent when callers need live output or SDK events, such as a chat handler or a streaming Template. To stream an existing LLMAgent, derive one from it: `create.LLMAgent.asStream({}, writer)`. Within a Template or Script, select the child's streaming mode explicitly; the parent does not change ordinary nested calls. The [`output` table](#guide-llmagent-results) shows delivery for each output specification.
+Create a streaming LLMAgent when callers need live output or SDK events, such as a chat handler or a streaming Template. To stream an existing LLMAgent, derive one from it with `create.LLMAgent.asStream({}, writer)`. Within a Template or Script, select the child's streaming mode explicitly. [Streaming result fields](https://casai.run/documentation/reference/llmagent_asstream/?view=return#return)
 
 `.asStream` follows an input modifier and remains enabled in derived components. LLMAgent tools cannot combine it with `.asTool`, directly or through inheritance.
 
@@ -1957,6 +1931,8 @@ Streams deliver text chunks and complete elements in logical order, even when pr
 
 Use the component reference for each provider operation's settings and result fields. These examples explain how to pass media between operations, consume it, and keep ownership of streams and voice sessions clear.
 
+Pass a WAV file or a Web Audio `AudioBuffer` directly to `Transcriber` or `Translator`. Casai reads its format and prepares the samples in the browser or Node.js. For other codecs, ordinary `Transcriber` can send a recording the provider accepts. To decode compressed audio locally or extract a track from video, use `.loadsAudio` in Node.js with `node-av` installed. [Audio formats and examples](#guide-recorded-audio-and-optional-codecs)
+
 <a id="guide-images-and-files-in-llmagent-messages" name="guide-images-and-files-in-llmagent-messages"></a>
 
 ### Images and Files in LLMAgent Messages
@@ -1987,7 +1963,9 @@ The model and provider determine supported media and formats. Generated files an
 
 ### ImageGenerator
 
-`ImageGenerator` generates images from a prompt and supports editing when the model provides it.
+**Work in progress:** image and mask inputs will accept selected generated files, File/Blob and HTTP(S) URL objects directly. Tagged inline LLMAgent/Decision attachments will likewise accept selected files and normalize them before hooks and retained history. Bare provider references keep their native meaning. Explicit MIME wins during Casai normalization, but the SDK can re-detect image bytes in its model request; history metadata is not a guarantee of the final transport label. Existing examples below use currently supported inputs.
+
+`ImageGenerator` generates images from a prompt and supports editing when the model provides it. A function preparer can return `null` or `undefined` for an image-only edit when the component has configured images. With a prompt string, the same component sends both the text and the images.
 
 <!-- typecheck: image-generator -->
 ```typescript
@@ -2008,18 +1986,17 @@ Configured images can provide a reusable visual style while each call describes 
 
 <!-- typecheck: image-style-tool -->
 ```typescript
-const drawInStyle = create.ImageGenerator.withFunction.asTool({
+const drawInStyle = create.ImageGenerator.asTool({
   model: imageModel,
   description: 'Draw the requested subject using the reference style.',
   images: styleReferences,
-  prompt: ({ prompt }) => prompt,
   inputSchema: z.object({ prompt: z.string() }),
 });
 
 const cabin = await drawInStyle({ prompt: 'A mountain cabin at sunset.' });
 ```
 
-The preparer explicitly selects the validated payload text and retains `styleReferences`; model tool execution with the same payload does the same. For plain components, `.run({ prompt: 'New subject' })` retains configured images and mask. Positional or named media inputs override supplied fields and retain omitted defaults, with the image/mask coupling below. Image arrays replace rather than concatenate. In split/field overrides, an empty resolved array selects text-only generation; a mask without images is rejected, and a text value must be available. Complete native objects are passed through with native semantics. Supplying new images, including `[]`, drops the configured mask unless that call also supplies a mask. Text-only changes and omitted/undefined images retain the configured images and mask.
+The tool uses the validated `prompt` field directly. Changing the text retains the configured reference images and mask, including through `.run({ prompt: 'New subject' })`. Supplying new images replaces the old ones and drops the previous mask unless the call includes a new mask. An empty image array selects text-only generation and requires prompt text. A complete native prompt object follows the SDK's own rules.
 
 You can also configure `images` and `mask` separately from the source. This is useful when `prompt` holds a function, script or loaded resource rather than a native image-prompt object:
 
@@ -2095,7 +2072,7 @@ console.log(transcript.text);
 console.log(transcript.segments);
 ```
 
-Use this ordinary call when the provider already accepts the recording. Reading accepted file bytes needs no `node-av`, preparation target or conversion. Use `.loadsAudio` when you need native media opening, audio-track extraction or format preparation; compatible audio may be copied/remuxed.
+Use this ordinary call when the provider already accepts the recording. In Node.js, `readFile` supplies the bytes. In a browser, pass the selected `File` directly. Both use the AI SDK file operation without `node-av`. To have FFmpeg open a recording, select a track or convert its format, use `.loadsAudio` on the server. [Audio with and without node-av](#guide-recorded-audio-and-optional-codecs)
 
 `recordedAudio` contains encoded audio bytes (`Uint8Array`, Buffer or `ArrayBuffer`) or base64 data. A native `URL` instead uses the SDK downloader, including its address checks and byte limit. The installed SDK default is 2 GiB; for model-selected URLs, always set an application-appropriate limit with `download: createDownload({ maxBytes })`. Strings remain encoded data. Outside `.loadsAudio`, a native `URL` cannot be combined with `inputAudioFormat`: URLs use encoded-file execution, while that format selects supplied raw audio. The `download` setting is available only on the encoded-file path. Use `.loadsAudio` for FFmpeg preparation of paths/URLs. The selected provider determines supported formats. The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) retains text, segments, language information, and other available SDK fields.
 
@@ -2116,23 +2093,21 @@ const transcribeRecording = create.Transcriber.loadsAudio.asTool({
 
 Install the desired node-av build; no loader setting is required. This example uses a streaming-capable model accepting 24 kHz mono PCM16 and returns a completed transcript. The model invokes the tool with no resource argument. Trusted application calls can override the recording with a path, URL, encoded bytes or a byte stream: `transcribeRecording(uploadedStream)` and `transcribeRecording.run({ audio: uploadedStream })` both select the supplied stream. Your application authorizes the configured resource, including redirects and playlist children. To let a model select a recording for native preparation, expose a Function/Script workflow that resolves an authorized recording ID and calls an ordinary `.loadsAudio` component through `.run({ audio, mediaSettings })`. Source credentials and native options stay in trusted settings. See [media loading](#guide-recorded-audio-and-optional-codecs).
 
-For a tool accepting arbitrary public URLs chosen by the model, keep the AI SDK downloader's protections: its target, redirect and resolved-address checks and byte limit do not apply to FFmpeg loading. Download in a function preparer and transcribe the encoded bytes:
+For a tool that accepts a public recording URL from the model, pass a validated URL to ordinary Transcriber. The SDK checks the target, redirects and resolved addresses. Configure the download size limit on the component.
 
 <!-- typecheck: protected-url-transcription -->
 ```typescript
 import { createDownload } from 'ai';
 
-const downloadRecording = createDownload({ maxBytes: 20 * 1024 * 1024 });
-const transcribePublicUrl = create.Transcriber.withFunction.asTool({
+const transcribePublicUrl = create.Transcriber.asTool({
   model: transcriptionModel,
   description: 'Transcribe an audio recording at a public URL.',
-  inputSchema: z.object({ url: z.url() }),
-  audio: async ({ url, _toolOptions: { abortSignal } }) =>
-    (await downloadRecording({ url: new URL(url), ...(abortSignal ? { abortSignal } : {}) })).data,
+  inputSchema: z.object({ audio: z.url().transform(value => new URL(value)) }),
+  download: createDownload({ maxBytes: 20 * 1024 * 1024 }),
 });
 ```
 
-The downloaded bytes use ordinary encoded-file transcription. The response's media type is not forwarded, so use a format the SDK can identify from the bytes; unrecognized content falls back to WAV in native transcription.
+The model supplies `{ audio: "https://example.com/recording" }`. The SDK downloads it once, forwards cancellation and uses the response media type when available. When FFmpeg opens a URL through `.loadsAudio`, the application authorizes that resource and its redirects and children separately.
 
 <a id="guide-streaming-transcription" name="guide-streaming-transcription"></a>
 
@@ -2160,9 +2135,7 @@ for await (const part of transcriptStream.fullStream) {
 console.log(await transcriptStream.text);
 ```
 
-Awaiting the call gives you the live result. The [result contract](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-transcribe#returns) has a single-consumer event stream: access and consume `fullStream` before awaiting final-result promises when you need both. Awaiting final results first lets the SDK consume the stream internally.
-
-Casai preserves transcript delta, partial, and final events rather than converting them into `textStream` chunks. Consume `fullStream` explicitly for incremental transcription, or await `text` for use in a workflow. Automatic forwarding into a Template or Script text stream is not part of this contract. A transport or iteration failure can throw after delivering a prefix and reject pending final-result promises. An `error` event is different: native final results can still resolve if a valid finish follows. Casai preserves those SDK outcomes; it does not recover a final transcript from partial events or add a stricter error policy.
+For live captions, read `fullStream` first so your application sees each event. After the loop, await `text` for the transcript to pass to the next step. A workflow that only needs the final transcript can await `text` directly. To show captions in a Template or Script, select the text from the events you consume. [Streaming transcription return fields and errors](https://casai.run/documentation/reference/transcriber_asstream/?view=return#return)
 
 Use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configure `inputAudioFormat` to shorten this to `transcriberStream(audioStream)`; both entry paths require an unconfigured format. Ordinary Transcriber tools using raw audio require a configured format because their model-facing arguments are input/preparation data; `Transcriber.asStream` has no tool form.
 
@@ -2278,7 +2251,7 @@ Select either `audioStream` for bytes or `fullStream` for audio format, raw and 
 
 `Translator` translates raw speech into target-language audio and text through one native [streaming translation operation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate). Ordinary calls collect its completed result; `Translator.asStream` exposes live events. A supporting provider model is required; OpenAI exposes `translation('gpt-realtime-translate')`.
 
-For a finite recording already prepared in the model's raw format:
+Pass an uncompressed WAV, a Web Audio `AudioBuffer` or raw samples to `Translator`. Configure the model's target format and language once. For compressed recordings or video, `Translator.loadsAudio` on Node.js detects the source and prepares the audio. [Audio formats and examples](#guide-recorded-audio-and-optional-codecs)
 
 <!-- typecheck: completed-translation -->
 ```typescript
@@ -2314,133 +2287,141 @@ Consume the single `fullStream` before final text/metadata promises when both ar
 
 <a id="guide-recorded-audio-and-optional-codecs" name="guide-recorded-audio-and-optional-codecs"></a>
 
-#### Recorded audio and optional codecs
+### Audio with and without node-av
 
-For a file-only transcription model, passing raw PCM with `inputAudioFormat` selects native streaming and may fail. Use the no-native WAV writer to package finite PCM with its known layout, then pass those WAV bytes to ordinary Transcriber without `inputAudioFormat`. The file operation receives a real encoded recording; no automatic retry or model-operation change occurs.
+**Work in progress — browser recordings:** browser `.loadsAudio` preparation with Mediabunny/WebCodecs is selected but not implemented. It will accept supported encoded files, bytes, streams and HTTP(S) resources; codec support depends on the browser. Initial support excludes explicit browser track selection, playlists and native FFmpeg settings. Combined HTTP ranges require readable, consistent strong ETags and range metadata; servers without them can be used through application-supplied bytes or a single response stream. Preparation must preserve pauses and presentation timing. Node.js continues to use node-av; the examples below describe current execution.
 
-Raw-audio components accept a stream or finite raw bytes (`Uint8Array`, including Buffer, or `ArrayBuffer`). Both Translator result modes and streaming transcription accept these inputs. Each call wraps reusable bytes in a fresh stream of bounded chunks. Supply the format required by the model: OpenAI translation requires **24 kHz, mono, signed 16-bit little-endian PCM**. Bytes passed to a raw-audio component are not automatically recognized as MP3 or WAV, including when inherited from a complete Transcriber.
+**Work in progress — input composition:** receiving components will accept selected generated audio and compatible async-iterable/binary Node streams internally. Encoded streams use `.loadsAudio`; ordinary raw streams retain their raw contract.
 
-For browser microphone capture, request the provider's rate through Web Audio where supported: `new AudioContext({ sampleRate: 24000 })` for OpenAI translation. Feed the microphone through that context and capture its processed samples. Web Audio matches the source to the context's rate; check `context.sampleRate`, select mono audio and encode the floating-point samples as PCM16 little-endian bytes. The server can forward those bytes without resampling them again. Setting the context rate does not turn MediaRecorder output into raw PCM. Browser resampling implementations and source support vary; handle unsupported setup with explicit audio preparation. See the [Web Audio source-rate contract](https://www.w3.org/TR/webaudio/#MediaStreamAudioSourceNode).
+Self-describing recordings supply their layout. With a reusable raw layout configured, `.loadsAudio` classifies supplied bytes and streams using a retained prefix of at most 4 KiB; it reads stream prefixes only after claiming the source. Node paths/URLs use native opening without `sourceFormat`. Headerless paths/URLs use explicit native demuxer/sample settings, which take precedence for non-array inputs. A declared encoded File/Blob MIME selects encoded handling even without a recognizable header; it does not certify the codec. Empty or generic MIME follows the bytes. Ordinary raw streams remain unsniffed. Headerless MP3/ADTS can resemble PCM, so use `.loadsAudio` for encoded resources rather than relying on weak frame prefixes.
 
-**PCM preparation works without `node-av`.** The helpers exported from `casai` read and write PCM WAV files and perform SDK-compatible linear rate conversion directly between byte buffers, avoiding intermediate Float32 arrays. They handle finite PCM buffers and integer-ratio stream downsampling, including 48-to-24 and 48-to-16 kHz mono PCM16. The stream helper carries incomplete sample groups across chunks and opens its input reader on demand. An unmatched final byte is incomplete PCM16; an odd number of complete samples is valid. Matching audio passes through unchanged.
+For ordinary file transcription, a reusable `sourceFormat` applies to headerless samples. The same component accepts an SDK URL object or a base64 recording with an identifiable container, such as WAV. With this layout configured, base64 starting with only an MP3 or ADTS frame prefix is ambiguous and the call fails. For headerless PCM, decode the string to bytes and pass those bytes with the layout. For an encoded recording without a recognizable header, pass encoded bytes to `.loadsAudio` with an appropriate declared MIME or demuxer. The SDK downloader handles URL objects and their returned MIME. Casai checks the SDK's file label and rejects known mismatches such as Matroska labeled as WebM. Use `.loadsAudio` with a WAV or FLAC target for those recordings. It can also decode AIFF and Sun AU for raw model input. A headerless PCM Blob's declared rate and channel count must agree with the layout used for conversion. Ordinary direct PCM, PCMU and PCMA delivery checks those declarations against the model target.
 
-This linear conversion has no anti-aliasing filter. At 48-to-24 kHz it selects every second sample with the SDK's PCM rounding, so frequencies above 12 kHz can fold into the output band. The helpers remain experimental because their numerical contract follows the experimental SDK resampler; compatibility is tested against it. WAV reading/writing and byte adaptation do not have that experimental dependency.
+The installed SDK looks past up to 128 KiB of leading ID3 metadata to identify MP3 audio. Embedded artwork can exceed that limit. A declared `audio/mpeg` MIME cannot override the SDK's byte detector. Use `.loadsAudio` with WAV or FLAC output when the SDK cannot identify the file.
 
-The converter from `casai/node-av` requires a compatible native installation when called and uses FFmpeg's filtered rate conversion for sample changes. This includes preparation of already-supplied bytes or streams; there is no automatic SDK/local fallback when the package is missing. Choose main-entry helpers explicitly for their supported no-native operations. Native preparation requires Node.js. In a browser or other non-Node runtime, invoking `.loadsAudio` or a native helper reports a configuration error before reading media. Importing the entry and constructing a component do not load the native library. Missing installation likewise produces a configuration error before media is read. An installed library load failure or conversion error is reported without retrying through another engine. Installing node-av does not change the behavior of the main-entry helpers.
+Ordinary PCM conversion reads extensible WAV recordings with left-aligned integer samples, including 20 bits stored in 24 and 24 bits stored in 32. With a reusable raw layout, MPEG transport streams, ASF/WMA and FLV uploads go through `.loadsAudio`. Untagged MP3 and ADTS AAC also count as encoded when three consistent frame headers fit within the 4 KiB prefix at their declared offsets. Shorter or inconclusive prefixes can be valid PCM. Supply a declared encoded Blob MIME or a native demuxer for those recordings.
 
-Install the upstream LGPL build under the native dependency name that Casai resolves:
+Configure the model's **target** once. For example, `inputAudioFormat: { type: 'audio/pcm', rate: 24000 }` requests 24 kHz mono, signed 16-bit little-endian PCM for the model. It applies to transcription with a raw-input model and to translation. For ordinary file transcription, omit it and Casai sends the provider an encoded recording.
+
+<a id="guide-audio-without-node-av" name="guide-audio-without-node-av"></a>
+
+#### What to pass for each audio source
+
+| Your input | Source format information you supply | How Casai handles it |
+| --- | --- | --- |
+| Uncompressed WAV as a `File`, `Blob`, `Uint8Array` or `ArrayBuffer` | None. The WAV header contains encoding, sample rate and channel count. | For raw model input, Casai reads the header, mixes channels to mono and resamples to the target. For file transcription it passes the WAV through. |
+| Web Audio `AudioBuffer` | None. The buffer exposes its rate, channels and floating-point samples. | Pass the whole buffer directly. Casai reads its channels and prepares a WAV or the model's raw PCM. |
+| Headerless `Int16Array`, `Int32Array`, `Float32Array` or `Float64Array` | Set `sourceFormat.sampleRate` in Hz and `sourceFormat.channels`. The array type supplies the encoding. | Casai reads interleaved samples. For file transcription it wraps them in WAV. For raw model input it converts them to the target. |
+| Headerless bytes or a raw chunk stream that **already matches** `inputAudioFormat` | None beyond the configured model target. | An ordinary component forwards the samples as supplied. |
+| Headerless bytes or a raw chunk stream that **needs conversion** | Set `sourceFormat` with `sampleRate`, `channels` and `encoding`. A byte buffer or base64 chunk carries none of those fields. | Casai converts integer or floating-point PCM. A raw stream is processed as chunks arrive. |
+| Another encoded recording, such as WebM/Opus, MP3, or video | None for normal files. | For file transcription, send a recording the provider accepts directly. For decoding, track extraction or conversion, `.loadsAudio` in Node.js lets FFmpeg inspect the container and its audio tracks. |
+
+WAV recordings from streaming writers can leave the RIFF and final audio sizes at zero or `0xffffffff`. For raw input, Casai reads those samples to the end of the supplied recording. An incomplete PCM frame or a file ending before its declared size raises a validation error.
+
+For example, a browser file picker can hand its WAV `File` straight to a translation component. The recording can be stereo or sampled at a different rate.
+
+<!-- typecheck: translate-wav-file -->
+```typescript
+const translate = create.Translator({
+  model: translationModel,
+  inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
+  targetLanguage: 'fr',
+});
+const { translationText } = await translate(wavFile);
+```
+
+If `recording` is a decoded Web Audio `AudioBuffer`, `await translate(recording)` includes all its channels. Some capture or editing workflows take just one channel, for example the microphone on channel 0 of a stereo interview. `getChannelData(0)` returns that channel as a `Float32Array`. The array contains the sample values. The rate stays on the original `AudioBuffer`, and selecting a single channel gives `channels: 1`. [Web Audio specification](https://www.w3.org/TR/webaudio-1.0/#dom-audiobuffer-getchanneldata)
+
+<!-- typecheck: translate-channel-samples -->
+```typescript
+const result = await translate.run({
+  audio: recording.getChannelData(0),
+  sourceFormat: { sampleRate: recording.sampleRate, channels: 1 },
+});
+```
+
+Live microphone capture is another common source of headerless PCM. An `AudioWorklet` receives samples per channel. If the capture code sends just the samples to a server, send the capture rate and channel count once alongside them. Sending the underlying bytes also drops the typed array's encoding. Uploading a complete WAV preserves all three fields in its header. [Web Audio worklets](https://www.w3.org/TR/webaudio-1.0/#AudioWorklet)
+
+Choose **WAV file**, **Web Audio AudioBuffer** or **Headerless PCM** under **Recording example** in either component's matrix. All three examples use the same model target. [WAV file](https://casai.run/documentation/reference/transcriber/?options=wavFile) · [Whole AudioBuffer](https://casai.run/documentation/reference/transcriber/?options=webAudioBuffer) · [First-channel PCM](https://casai.run/documentation/reference/transcriber/?options=channelSamples)
+
+Direct WAV conversion supports little-endian RIFF/WAVE containing integer PCM or IEEE floating-point audio. Use `.loadsAudio` for compressed WAV, WebM/Opus or other containers that need decoding. For a model that accepts a different raw encoding, such as G.711, supply chunks already in that encoding.
+
+For byte input, Casai accepts `pcm_u8`, `pcm_s16le`, `pcm_s24le`, `pcm_s32le`, `pcm_f32le` and `pcm_f64le`. The browser and Node.js use workers for PCM conversion. In a browser, allow `blob:` workers in the Content Security Policy. The verified browser pairing uses `cascada-engine` version 0.7.0. Casai's published dependency range still requires a coordinated update.
+
+A direct `ReadableStream` supplies raw model chunks, optionally with `sourceFormat` for conversion. For a WAV, pass the `File` or `Blob` itself. If a finite encoded recording arrives only as a stream in the browser, `await new Response(stream).blob()` gives Casai the whole recording with its header. On Node.js, `.loadsAudio` accepts an encoded byte stream directly. Keep supplied samples unchanged until consumption finishes and supply a fresh stream for each call.
+
+An application can pass a recording from a same-origin iframe through the same positional calls and `.run()`. For example, a file picker in the iframe can supply a `File` directly. AVI, Core Audio Format (CAF) and Sony Wave64 carry recognizable container headers. Use `.loadsAudio` on Node to decode their audio tracks.
+
+When a completed transcription or translation needs PCM stream conversion, Casai releases the original reader and its worker when the provider finishes or fails, including when the provider reads only a prefix. With `.asStream`, the caller owns the live result. Pass an `abortSignal` and abort it when abandoning the input to release a pending read even if the provider still holds its reader.
+
+<a id="guide-audio-with-node-av" name="guide-audio-with-node-av"></a>
+
+#### Open and convert recordings with node-av
+
+Install the LGPL build in the Node.js application that will open the media. The npm alias gives the binding the name Casai resolves. Casai calls FFmpeg through that binding, so a separate command-line installation is unnecessary.
 
 ```sh
 npm install node-av@npm:node-av-lgpl@7.1.0
 ```
 
-This keeps the `casai/node-av` entry and native API unchanged. The matching `@seydx/node-av-ffmpeg-lgpl` command-line package is optional; Casai uses the native binding and does not need it. Applications deliberately choosing the GPL build can instead install `node-av@7.1.0`. Build choice belongs to installation, not `mediaSettings.options` or a runtime license-mode setting. The LGPL build retains FFmpeg's own AAC encoder and audio decoding/resampling; it omits GPL components and libfdk_aac. The JavaScript wrapper's MIT license does not replace the native artifact's LGPL/GPL license. See [upstream variants and alias installation](https://github.com/seydx/node-av/blob/v7.1.0/README.md#variants).
+Pass the original recording to `Transcriber.loadsAudio` or `Translator.loadsAudio`. FFmpeg detects the input container, codec, rate and channels and selects the best audio track. Usually the only format setting is the **target** your model accepts. For a raw-input model use `inputAudioFormat`. For file transcription use `fileAudioTarget` with the accepted container and codec. Add a target rate or channel count only when the model requires it.
 
-Installing a library independently for internal use is different from redistributing it. If you ship an application, native addon, installer or container image containing LGPL-covered code, check the exact license version and distribution requirements: notices, corresponding source/build materials, and the ability to replace or relink the library with modifications. Static FFmpeg code inside a dynamically loaded Node addon still needs the appropriate relinking arrangement. Making a dependency optional does not remove these obligations. [LGPL 2.1](https://github.com/FFmpeg/FFmpeg/blob/n8.1/COPYING.LGPLv2.1), [LGPL 3](https://github.com/FFmpeg/FFmpeg/blob/n8.1/COPYING.LGPLv3)
+Node preserves interior pauses when it decodes a raw track or converts a file. An interior pause is time between two groups of recorded samples. For example, if one group ends at 0.5 s and the next begins at 1.5 s, the recording contains a one-second pause. A WebM/Opus packet copy keeps that interval in the packet timestamps. Raw PCM and PCM WAV write silent samples at the output rate. A compressed packet copy into a flat file fails if it would shorten the pause. Choose a primary target such as PCM WAV to convert compressed input. Playback duration includes the pause in every case.
 
-Importing fewer JavaScript functions does not remove codecs from a native binary. Check the selected build's OS/CPU, libc requirements, codec set, footprint and native dependency notices. GPL permits commercial use, but a GPL distribution has different obligations from LGPL; choosing GPL requires assessing the actual application/linking/distribution arrangement. Builds marked nonfree are outside the supported choices. Audio extraction from a video does not require x264, which is an H.264 encoder; codec patent questions remain separate from software licensing. [FFmpeg license details](https://ffmpeg.org/doxygen/trunk/md_LICENSE.html), [x264 licensing](https://x264.org/licensing/)
+`maxPreparedAudioBytes` defaults to 32 MiB. It bounds finite PCM conversion, WAV wrapping and the PCM prepared for a raw model or a native encoder. For example, a 16 kHz mono PCM16 encoder uses 32,000 bytes per second of audio including generated silence, even when an AAC decoder works in floating point. A timestamp-only copy spends bytes on the packets and container it stores. The buffered file has the same default limit. Set `fileAudioTarget.maxBytes` to give the completed file, including its headers, a separate limit. Use `fileAudioTarget.maxDurationSeconds` to limit playback time.
 
-A script/function preparer supplies fresh prepared audio for each call. Share one target-format value between preparation and the component's `inputAudioFormat`; provide the original format explicitly for raw audio. The selected preparation helper reads encoded-audio headers when needed; native helpers first require node-av, while main-entry utilities retain their documented PCM/WAV limits. It preserves read-ahead bytes for the same execution and starts audio processing on demand. Header/open failures occur during preparation; later decode failures can reach the live result after the provider connection opens. Cancel prepared audio if you abandon it before handing it to the component; cancellation and failure release resources owned by the preparation helper.
+For raw model input, a PCM WAV or standalone FLAC with a known sample count can be rejected before the provider call at its original rate or when upsampling. Other inputs, including downsampled recordings and codecs that trim padding, enforce the byte budget as audio is produced. Their provider call may already have started. Ordinary live raw streams remain open-ended.
 
-The prepared result provides its actual audio format after any necessary header inspection and before consumption. Choose main-entry helpers for the documented SDK/local operations, or native helpers for FFmpeg preparation. Native preparation can copy/remux compatible encoded audio without changing its samples, or perform required conversion; requiring the native package does not mean every input must be re-encoded.
+For example, POST a browser's original `MediaRecorder` recording or a video file to your server. This application accepts up to five minutes and a 10 MiB output file. Its transcription model takes a 16 kHz mono PCM16 WAV.
 
-The main `casai` import can be bundled without node-av; importing it and constructing components do not check whether node-av is installed. Invoking a component created with `.loadsAudio` activates native preparation lazily. It shares the private runtime loader used by the `casai/node-av` converter, including in ESM and CommonJS Node bundles. Importing `casai/node-av` also remains lazy. Install the chosen compatible native distribution for every helper invoked through that entry and for `.loadsAudio`; the bundle does not embed its native binaries. A missing package fails that invocation instead of selecting a different converter. An installed package with a missing entry or dependency remains an error.
+On an upload server, FFmpeg's default diagnostics can write resource URLs to stderr, including signed query strings on referenced files. At Node process startup, use `import { Log, AV_LOG_QUIET } from 'node-av'` and call `Log.setLevel(AV_LOG_QUIET)` before opening media. The host owns this process-wide setting, including all Casai workers and other node-av users.
 
-The optional converter also extracts audio from video/media files. It uses the installed backend's container and required decoding/encoding support, rather than a fixed list of extensions. Compatible file targets can use native copy/remuxing; raw output requires decoding. It selects the native best audio track by default; an explicit container stream index selects another track. Preparation processes the selected audio only. Native stream inspection can read or decode frames, including video, to determine metadata. Actual compatibility depends on the installed build and the input: a container that requires seeking may work as a file or finite byte buffer but not as a forward-only stream. Supported-format lists describe available capabilities; native processing of the selected audio establishes whether a particular file works.
-
-
-Use the main-entry helpers for known PCM layouts. WAV packaging preserves samples and describes their actual rate, channels and encoding:
-
-<!-- typecheck: pcm-wav -->
+<!-- typecheck: transcribe-video-track -->
 ```typescript
-import { writeWav, readWav, resamplePcm16Stream } from 'casai';
-
-const wav = await writeWav(recordingPcm, {
-  sampleRate: 24000, channels: 1, encoding: 'pcm_s16le',
-});
-const { audio: samples, format: sampleLayout } = await readWav(wav);
-const lowerRate = resamplePcm16Stream(audioStream, 48000, 24000);
-```
-
-PCM sample conversion, WAV reading/writing and finite resampling return promises and run in Web Workers in browsers or worker threads in Node. Await `pcm16ToFloat32`, `float32ToPcm16`, `readWav`, `writeWav` and `resamplePcm16`. Matching-rate resampling returns the original bytes without computation.
-
-<!-- typecheck: pcm-resampling -->
-```typescript
-import { resamplePcm16, resamplePcm16Stream } from 'casai';
-
-const convertedPcm = await resamplePcm16(recordingPcm, 48000, 24000);
-// Live microphone audio can pass through as each chunk arrives.
-const convertedStream = resamplePcm16Stream(audioStream, 48000, 24000);
-```
-
-Finite calls share a lazy worker pool. Resampling uses at least one worker and adds workers when there are at least 262,144 output samples per worker, up to `min(available logical processors, 4)`. This is a conservative resource budget, not a promise of optimal throughput. Other PCM/WAV operations use one worker. Calls queue and reuse workers, which are released after five idle seconds; idle workers do not keep Node running. No setup or cleanup call is needed. Keep borrowed input unchanged until its promise settles. Copies for transfer leave caller buffers usable and yield to other tasks under one budget across all chunks. Large staging buffers are allocated in workers. Already-shared input is read directly without another copy; readWav can return a view into that same shared memory.
-
-Parallel resampling writes directly into a shared output buffer when available; all workers finish before the promise resolves. The returned `Uint8Array` may therefore have shared backing memory. The async PCM/WAV helpers and SDK audio conversion accept these bytes. For a browser `Blob`, use the encoded bytes returned by `await writeWav(...)`, which have ordinary backing memory. Browsers without cross-origin isolation retain the worker-based join, so no calling-thread join or additional browser setup is required.
-
-For `fetch`, `Response`, `Blob`, WebCrypto or a transfer list, obtain ordinary backing memory with `await concatAudio([audio])`. Passing a shared-backed view directly is not portable: Node's `fetch` and `Response` can turn it into comma-separated text instead of sending its bytes, while other consumers reject it. A TypeScript cast does not convert the buffer. Whether resampling returns shared memory depends on the input size and available workers; short recordings alone do not test this boundary.
-
-`concatAudio` joins byte chunks or independently base64-encoded chunks in a worker and returns fresh, ordinary bytes, including for a single input. It leaves the input usable and changes no audio encoding or container. Use `writeWav` when you need a WAV file; copying raw PCM does not make it a playable file.
-
-<!-- typecheck: pcm-binary-consumers -->
-```typescript
-import { concatAudio } from 'casai';
-
-const uploadBytes = await concatAudio([convertedPcm]);
-await fetch('https://example.com/audio', { method: 'POST', body: uploadBytes });
-```
-
-The return types make the distinction explicit: `concatAudio`, `float32ToPcm16` and `writeWav` return `Promise<Uint8Array<ArrayBuffer>>`; `pcm16ToFloat32` returns `Promise<Float32Array<ArrayBuffer>>`. Resampling and the `audio` view from `readWav` may retain shared backing memory. `new Blob([await writeWav(...)])` therefore needs no cast or extra copy.
-
-Workers are required for processing. Missing workers, blocked worker creation or processing failures reject the call; there is no blocking fallback. Browser CSP must allow `blob:` workers. No shared-memory or cross-origin-isolation setup is needed.
-
-`resamplePcm16Stream` uses one worker per stream, independently of the finite queue. It processes bounded chunks in order, emits each ready result without waiting for another source chunk, and preserves backpressure and cancellation. A large producer chunk is processed in blocks of about 32 KiB; only the current producer chunk and an incomplete sample group are retained. It supports integer-ratio downsampling such as 48-to-24 or 48-to-16 kHz; use native preparation for other stream rate conversions. The stream owns its worker until EOF, failure or cancellation.
-
-Native preparation runs the whole node-av pipeline in an invocation-owned Node worker, including library initialization, inspection, resampling and output assembly. Native I/O and codec operations retain their own asynchronous execution. Finite input uses the same bounded copying or shared-input reuse; uploaded streams cross into the worker in chunks of at most 64 KiB. Keep supplied bytes unchanged through consumption or cancellation, including shared stream chunks. Keep the preparation handle until the downstream result is consumed or cancelled; `close()` waits for graceful native cleanup and worker exit. This also applies to `.loadsAudio`.
-
-For encoded input, use the native helper. A file target names the output container and encoder; optional constraints apply to its rate, channels and native sample format. Accepted alternatives are considered for copying compatible audio before converting to the primary target. Set provider-specific byte and duration limits explicitly:
-
-<!-- typecheck: native-file-preparation -->
-```typescript
-import { prepareAudio } from 'casai/node-av';
-
-const prepared = await prepareAudio('./recording.m4a', {
+const transcribeUpload = create.Transcriber.loadsAudio({
+  model: transcriptionModel,
   fileAudioTarget: {
-    format: 'wav', codec: 'pcm_s16le',
-    alternatives: [{ format: 'flac', codec: 'flac' }],
-    maxBytes: 20 * 1024 * 1024,
+    format: 'wav', codec: 'pcm_s16le', rate: 16000, channels: 1,
+    maxDurationSeconds: 300, maxBytes: 10 * 1024 * 1024,
   },
 });
-try {
-  const transcribe = create.Transcriber({ model: transcriptionModel });
-  console.log((await transcribe(prepared.audio)).text);
-} finally {
-  await prepared.close();
-}
+if (!request.body) throw new Error('The request needs a recording.');
+const { text } = await transcribeUpload(request.body);
 ```
 
-Use a target accepted by your provider. To preserve higher source precision during conversion, choose a compatible lossless encoder or specify an appropriate sample format. The primary encoder's native sample support still applies. For raw output, replace `fileAudioTarget` with `inputAudioFormat: { type: 'audio/pcm', rate: 24000 }`; `prepared.audio` is then a stream. Keep that handle open through downstream stream consumption and final results. Headerless input additionally needs `sourceFormat: { sampleRate, channels, encoding }` with a `PcmFormat` encoding such as `'pcm_f32le'`.
+The request body is forward-only. For a container that needs seeking, pass a file path such as `'./interview.mp4'` or complete encoded bytes. Casai copies compatible encoded audio when possible, converts when needed and owns cleanup. To select a different audio track, set `mediaSettings.track` to its zero-based stream index. Headerless PCM needs an input description even at the model rate. Supply `sourceFormat` for numeric samples or raw bytes/streams. Casai keeps paths/URLs on native opening: headerless resources use `mediaSettings.format` and native sample options, not a reusable `sourceFormat`. An ordinary component can forward already-compatible raw bytes with only `inputAudioFormat`. An explicit native demuxer override takes precedence for non-array inputs.
+
+A reusable PCM layout also recognizes HLS and FFconcat manifest headers. Uploaded manifests retain the same child-resource access limits as other uploads. Pass a trusted playlist by its original path or URL when its segments use relative references.
+
+For a headerless G.711 upload labeled `audio/pcmu`, set `mediaSettings.format` to `'mulaw'`. For `audio/pcma`, use `'alaw'`. Supply the recording's native sample options, for example `mediaSettings: { format: 'mulaw', options: { sample_rate: 8000, ch_layout: 'mono' } }`. A recognized container such as WAV supplies its own format when the input demuxer is omitted.
+
+Currently, `.loadsAudio` loads the optional binding on invocation and requires Node.js with `node-av` installed. `.asStream` selects incremental results for either direct or native input. Ordinary `SpeechGenerator` and `Translator` calls return completed audio bytes. [Completed audio](#guide-completed-audio-and-tools)
 
 <a id="guide-loading-media-and-format-auto-detection" name="guide-loading-media-and-format-auto-detection"></a>
 
 ##### Loading media and format auto-detection
 
-Use `.withAudio` to return an inherited audio component to ordinary supplied-audio behavior. Clear inherited `mediaSettings` and any file-preparation target when leaving `.loadsAudio`. Source selection does not clear inherited `.asStream` or `.asTool`; an unmodified child preserves both source and delivery choices. Finite supplied bytes can be reused, while a supplied stream is single-use. A browser-local `blob:` URL is not a portable server resource: pass the File/Blob bytes or stream to native preparation. Supplied bytes/streams do not carry their former filename, URL base, seeking capability or authorization for external playlist resources. Native byte preparation therefore defaults `mediaSettings.options.protocol_whitelist` to `''`, denying referenced local files and network resources while allowing the supplied bytes themselves. Ordinary self-contained recordings still work. A trusted explicit protocol whitelist can permit intentionally authorized child resources; null/undefined retain the default. Paths and URLs keep their native protocol handling.
+Use `.withAudio` to return an inherited audio component to ordinary supplied-audio behavior. Clear inherited `mediaSettings` and any file-preparation target when leaving `.loadsAudio`. Source selection does not clear inherited `.asStream` or `.asTool`; an unmodified child preserves both source and delivery choices. Finite supplied bytes can be reused, while a supplied stream is single-use. Upload the File or Blob itself when sending a browser recording to a server. Supplied bytes/streams do not carry their former filename, URL base, seeking capability or authorization for external playlist resources. Native byte preparation therefore defaults `mediaSettings.options.protocol_whitelist` to `''`, denying referenced local files and network resources while allowing the supplied bytes themselves. Ordinary self-contained recordings still work. A trusted explicit protocol whitelist can permit intentionally authorized child resources; null/undefined retain the default. Paths and URLs keep their native protocol handling.
 
-The single-use check is shared by `.loadsAudio`, `prepareAudio` and native SDK stream dispatch. Handing the same `ReadableStream` to Casai again raises `ValidationError` before another native read or provider request. A failure after handoff still claims that stream; validation, missing-installation and cancellation failures before handoff do not. Supply a fresh stream for another attempt. This identity check does not detect external consumption or every reused iterator, and never buffers or replays the input.
+Casai tracks each stream handed to a component or to native preparation. Handing the same `ReadableStream` to Casai again raises `ValidationError` before another native read or provider request. A failure after handoff still claims that stream; validation, missing-installation and cancellation failures before handoff do not. Supply a fresh stream for another attempt. This identity check does not detect external consumption or every reused iterator, and never buffers or replays the input.
 
 Use `Transcriber.loadsAudio` or `Translator.loadsAudio` for a file path, media URL, encoded `Uint8Array`/`ArrayBuffer` or `ReadableStream<Uint8Array>`. FFmpeg/node-av handles acquisition internally; no loader or public backend binding is configured. A relative path therefore resolves against the process working directory, not a loader root. Every `.loadsAudio` call requires node-av, including a simple WAV recording; it has no JavaScript file/fetch fallback. A missing native installation is reported when preparation is requested. Construction does not open media. Source settings live in `mediaSettings`: `track` selects an absolute container stream index, `format` optionally forces an input demuxer, and `options` is an open dictionary of native FFmpeg input options and native-compatible scalar values. Option availability and handling belong to the installed backend. Omit `format` for normal recordings.
 
-When FFmpeg opens a file, URL or finite buffer, it probes the content and considers filename-extension and available MIME hints. Casai does not map extensions to forced formats. An extensionless recording can therefore work; an incorrect extension or Content-Type does not establish the actual format or guarantee detection will succeed. Available demuxers/codecs and source seekability still determine compatibility. Supplied byte streams use the internal native adapter; detection retains read-ahead for the same execution, but a forward-only stream does not gain file-like seeking.
+FFmpeg probes the content. A path or URL can also provide a filename or response Content-Type. Casai currently passes an uploaded `File` or `Blob` to FFmpeg as bytes, so detection uses its contents. An extensionless recording can work. Stream inspection may read packets or decode frames from other tracks, including video, to discover their metadata. Only the selected audio goes into the prepared output. Compatibility depends on the installed build's demuxers/codecs and the input's ability to seek. A supplied byte stream retains its read-ahead for the same execution and remains forward-only.
 
-Set `mediaSettings.format` when deliberately overriding detection. It names an input demuxer, not an output encoding or the model's raw `inputAudioFormat`. For example, an MP4 container can hold AAC audio, which preparation can convert to the raw PCM required by the selected model. A forced demuxer neither transcodes the media by itself nor removes its need to seek. Headerless raw input requires an explicit source description, including sample rate, channels and sample representation; a `.pcm` suffix supplies none of those facts. Normal raw-audio component calls do not automatically interpret MP3/WAV bytes as prepared PCM.
+Set `mediaSettings.format` only to override native input detection. For example, FFmpeg can open an MP4 container, select its AAC track and convert it to the model's PCM target. Headerless PCM needs a source description because a `.pcm` filename carries no rate, channel count or encoding. For an uncompressed WAV, an ordinary component can read the header and convert the samples directly.
 
-The source format and the model's required input format are separate. When native model information does not determine the target, configure it explicitly; Casai does not maintain its own model capability catalog or discover accepted formats by trial requests. Raw-audio preparation uses the target `inputAudioFormat` and the helper's format convention: `audio/pcm` means mono PCM16 little-endian with an explicit rate. Preparation preserves matching audio and otherwise converts its sample representation, rate and channels to that target within the converter's supported capabilities. For example, a configured 24 kHz mono PCM16 target requires converting a 48 kHz stereo source. Channel mixing processes the selected track; it does not choose another track. Source `mediaSettings.format` cannot supply the model target.
+Configure `inputAudioFormat` for the raw format the model accepts. Casai prepares an `audio/pcm` target as mono, signed 16-bit little-endian samples at the requested rate. For a 24 kHz target and a 48 kHz stereo recording, it mixes the selected track's channels and resamples to 24 kHz.
 
 File transcription preserves the selected audio's quality within the provider's accepted formats and limits. It keeps a compatible encoding and sample properties, using native track extraction or remuxing where possible. Casai checks the primary target and then its alternatives in declaration order for a compatible copy. If none matches, it converts to the primary target, preserving sample properties within that target's constraints and native encoder support. Choose a lossless primary target when you want to avoid another lossy encoding pass; alternatives are used only for copying. It does not force every recording to PCM16 WAV or 24 kHz mono. Larger files increase memory and upload time without restoring information absent from the source. Native model information does not currently establish accepted file targets, so `.loadsAudio` file transcription requires a target describing accepted formats and limits in the finished component's trusted configuration, including inheritance. One known compatible target is sufficient; a set of accepted alternatives permits preserving more source encodings without copying a complete provider catalog. Named calls can override that target. Raw transcription instead accepts `inputAudioFormat` from configuration or the call. The file target is separate from source `mediaSettings` and cannot be combined with `inputAudioFormat`, which selects raw streaming instead. Output must also be correctly handled by the SDK's file-input path. An output that cannot fit its configured bounds fails rather than silently losing speech, being split into extra model calls or triggering a trial-upload/re-encoding loop.
 
-Copy/remux compatibility and reported file-format metadata come from native inspection. A later format change inside a playlist may not be reflected in that metadata; Casai does not decode every packet to certify a copied file. Configured byte and duration limits still apply.
+Copy/remux compatibility and reported file-format metadata come from native inspection. A later format change inside a playlist may not be reflected in that metadata. File duration limits include encoder padding and accept recordings exactly at the limit. The SDK can label these file transcription muxers (`wav`, `flac`, `ogg`, `opus`, `mp3`, `mp4`, `ipod`, `adts` and `webm`). This applies to the primary target and every alternative. Matroska, AIFF and Sun AU remain supported inputs. Choosing them as outputs raises `ConfigError` at construction or `ValidationError` on a named override before media I/O. Casai also checks the SDK label against the completed file before dispatch.
 
-Opening and stream inspection may read packets, seek or wait for network data before prepared audio is available. There is no universal fixed header size or constant startup latency. A supplied byte stream uses the native probe?s default size limit; an explicit `mediaSettings.format` bypasses that format probe but still permits stream-info inspection. Use invocation cancellation and applicable native probe/network options. Failed detection or an unsuitable override reports an error; preparation does not retry consumed input with another guessed format.
+If the endpoint accepts the source M4A recording, ordinary file transcription can send it directly. Choose ADTS only for an endpoint that accepts AAC in that form. Repackaging the existing AAC frames keeps the upload compressed and avoids encoding them again. M4A can tell a player how many initial encoder samples to skip. Plain ADTS has no equivalent trim instruction. In one 48 kHz recording the same words began 1,024 samples (21.3 ms) later after copying. Casai accepts native encoder padding at the beginning or end of an explicitly requested compressed recording. To keep the decoded sample boundaries, convert the original to PCM WAV at its source rate. FLAC also applies the source trims, but the installed native encoder can fill its last block with silence. A pause between parts of the recording still follows the interior-pause rules above. [AAC timing in M4A](https://developer.apple.com/documentation/quicktime-file-format/appendix_g_audio_priming_handling_encoder_delay_in_aac)
+
+Opening and stream inspection may read packets, seek or wait for network data before prepared audio is available. A supplied byte stream uses FFmpeg's default probe size. An explicit `mediaSettings.format` bypasses format detection and still allows stream-info inspection. Use invocation cancellation and applicable native probe or network options. Failed detection or an unsuitable override reports an error.
+
+MOV and M4A recordings can contain playback edits that skip part of a take. When the native track information shows a longer edit, Casai decodes the edited audio and encodes the requested primary format. If a copy reveals omitted material only after processing has started, the call fails before upload. An explicit PCM WAV target applies the edits during decoding.
 
 `.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber separately accepts supplied encoded/raw audio or a native URL through the SDK `download` hook. Use an explicit preparer for application-owned downloads or fresh streams. FFmpeg can feed the raw-audio SDK stream while reading the resource, after required probing; the encoded-file SDK operation needs complete prepared bytes. Provider limits and first-result timing still apply. Completed audio results retain their output audio in memory.
 
@@ -2448,35 +2429,45 @@ The native media path does not inherit the SDK downloader's URL protections or b
 
 A `.loadsAudio.asTool` component requires configured `audio`, possibly inherited. SDK tool execution and injected tool calls use that source; model arguments cannot replace it. Declared context fields may still serve callbacks, but even a field named `audio` is application data rather than a resource override. Use a closed empty schema when no public data is needed. Ordinary application calls and `.run({ audio, ... })` retain explicit trusted source overrides. Dynamic model-selected native resources belong in an explicit Function/Script workflow that resolves and authorizes the recording before invoking `.loadsAudio.run()`. Ordinary Transcriber tools still accept native SDK URL input with downloader protections. FFmpeg protocol options do not provide a general destination/redirect/playlist authorization mechanism.
 
-`.loadsAudio` owns resources it opens until the SDK accepts them. Preparation, cancellation or an early dispatch failure closes those resources. After handoff, consume or cancel the native stream result under its existing ownership rules. When preparing audio independently, cancel the prepared audio if you abandon it before handoff.
+`.loadsAudio` owns resources it opens until the SDK accepts them. Preparation, cancellation or an early dispatch failure closes those resources. After handoff, consume or cancel the native stream result under its existing ownership rules.
 
-The native preparation helper is also available through `casai/node-av`, accepting the same resource/byte inputs, target, `mediaSettings` and cancellation. A Function/Script workflow can resolve a recording ID and call a configured `.loadsAudio` component through `.run({ audio, mediaSettings })` with fresh private credentials or a track choice. That component owns preparation cleanup. When using a standalone helper, keep its cleanup handle until the downstream result has been consumed or cancelled. Streaming calls return a live result before input processing finishes: put consumption of the selected result stream and required final values inside the try/finally or supported disposal scope, not outside it. If you return the live result, its outer owner must retain the handle. Cleanup is idempotent and harmless after input EOF or cancellation; on failure or early exit, follow native result-cancellation rules and release the handle. A source-only preparer cannot see a later dispatch failure: return finite prepared bytes after resources close, or use an outer workflow that owns the prepared stream. No public backend setup or media store is needed.
+A Function or Script workflow can resolve a recording ID and call a configured `.loadsAudio` component through `.run({ audio, mediaSettings })` with fresh private credentials or a track choice. The component owns preparation and cleanup.
 
-Keep source headers in `mediaSettings.options.headers`; model `headers` authenticate the model request separately. A supplied `mediaSettings` object in `.run()` replaces the whole configured group. Include settings you want to retain when supplying fresh credentials; `{}` restores media defaults, while an omitted group retains configuration.
+Keep media credentials in `mediaSettings.options.headers` and model credentials in `headers`. A supplied `mediaSettings` object in `.run()` replaces the whole configured group. Include settings you want to retain when supplying fresh credentials; `{}` restores media defaults, while an omitted group retains configuration.
+
+For private URLs, for example `await transcribeUpload(signedRecordingUrl)`, FFmpeg can include the URL or a playlist child's URL in native stderr diagnostics, even on failure. In the Node entry point use `import { Log, AV_LOG_QUIET } from 'node-av'` and call `Log.setLevel(AV_LOG_QUIET)` before any media request. Raising the log level later affects the whole process. Returned native errors can also contain resource details. Keep those details in trusted application diagnostics.
+
+<a id="guide-distributing-node-av" name="guide-distributing-node-av"></a>
+
+##### Choosing and distributing a native build
+
+The LGPL build includes FFmpeg's own AAC encoder, audio decoding and resampling. It omits GPL components and libfdk_aac. Applications choosing the GPL build can install `node-av@7.1.0` under the same dependency name. The same Casai calls work with either build. The separate `@seydx/node-av-ffmpeg-lgpl` package supplies command-line tools. [Upstream variants and alias installation](https://github.com/seydx/node-av/blob/v7.1.0/README.md#variants)
+
+Check the selected binary's OS/CPU and libc requirements, codec set, footprint and license notices. JavaScript imports do not reduce the codecs in that binary. The JavaScript wrapper uses MIT and the native artifacts have their own licenses. If you redistribute LGPL-covered code in an application, addon, installer or container image, check the exact license version for notices, corresponding source and build materials, and the ability to replace or relink the library with modifications. This applies to static FFmpeg code inside a dynamically loaded Node addon. [LGPL 2.1](https://github.com/FFmpeg/FFmpeg/blob/n8.1/COPYING.LGPLv2.1) · [LGPL 3](https://github.com/FFmpeg/FFmpeg/blob/n8.1/COPYING.LGPLv3)
+
+GPL permits commercial use and has its own distribution requirements. Assess the application, linking and distribution arrangement for the build you ship. Casai supports the LGPL and GPL builds. Audio extraction from a video does not require the x264 H.264 encoder. Codec patents are a separate consideration. [FFmpeg license details](https://ffmpeg.org/doxygen/trunk/md_LICENSE.html) · [x264 licensing](https://x264.org/licensing/)
 
 <a id="guide-completed-audio-and-tools" name="guide-completed-audio-and-tools"></a>
 
-##### Completed audio and tools
+#### Completed audio and tools
 
-A component created with `Translator(...)` returns completed `audio` bytes as a `Uint8Array`, together with final source/translated text and native metadata. These bytes carry no assumed file format. If the provider's actual output is known PCM, use the WAV writer with that format to make a playable WAV file. A requested output format is not evidence that the provider used it.
+Use an ordinary speech or translation call when the next step needs complete audio, such as saving a recording. For playback, use the format the provider actually emitted. Collected streaming speech includes that format. For translation, package raw PCM as WAV only when you know the sample layout. Use `.asStream` when you want to play chunks or inspect events as they arrive. [Speech return](https://casai.run/documentation/reference/speechgenerator/?view=return#return) · [Translation return](https://casai.run/documentation/reference/translator/?view=return#return)
 
-Choose ordinary Transcriber, SpeechGenerator or Translator when you need a completed result. The request shape selects native execution; a selected streaming operation is collected internally. Streaming-only speech needs an object output format or non-string text for ordinary delivery. Required input formats and provider capabilities still apply. Use `.asStream` when you want to consume incremental results yourself.
+When an agent invokes `Translator.asTool`, the application receives the audio and the calling model receives translated text by default. That keeps the full recording out of the model’s text history. An audio-only translation can have empty text. If the next model needs to hear it, use `toModelOutput` to send a supported audio format on a route that accepts it. For a recording chosen by your application, configure it on `.loadsAudio.asTool`. [Translation tool return](https://casai.run/documentation/reference/translator_astool/?view=return#return) · [Media tool compatibility](#guide-media-tool-compatibility)
 
-Completed speech collected from a native stream retains its emitted audio format, including the sample rate, alongside the audio; its tool result retains that format too. It cannot combine chunks with different formats into one audio file. This collected path, including ordinary tools, depends on the experimental SDK streaming operation. The same experimental dependency applies to completed streaming transcription; both Translator modes depend on experimental translation.
+<a id="guide-browser-voice-sessions" name="guide-browser-voice-sessions"></a>
 
-`Translator.asTool`, its script/function preparers and `.loadsAudio.asTool` expose completed translation as a tool. The loaded-audio form requires its source in trusted configuration; dynamic native resources use an explicit Function/Script workflow. A tool can configure recording bytes privately with an empty public schema, or use an explicit preparer with an application-defined payload. Configure the audio format and target language. Its execution result retains translated text and serialized audio. The default model-facing output contains only `translationText`; the application still receives all serialized audio. `toModelOutput` is optional and can package audio using its actual known sample layout; known PCM can be wrapped in WAV without changing samples. Keeping base64 out of model text avoids substantial history overhead: ten seconds of 24 kHz mono PCM16 is about 640,000 base64 characters. Native media also requires a receiving adapter/model that accepts it. Missing format metadata adds no Casai error. Audio-only output is valid and may produce empty model-facing text by default. Supply a formatter if the calling model needs useful media content in that case; Casai adds no confirmation, silent clip or missing-text error.
+### Browser voice sessions
 
-Completed translation follows the SDK's final-result rules and requires successful collection of its audio stream. A non-fatal error event does not itself make the call reject or add an errors array. A stream failure during collection rejects the call even if native final-text promises have already resolved. Use `Translator.asStream(...)` and its result's `fullStream` to observe individual events. Ordinary Transcriber retains its provider-native recording support without local conversion.
+Use the AI SDK’s experimental realtime client in the browser and `VoiceAgentBackend` on your server. For a token-based session in React, pass a browser-compatible realtime model and `api: { token: '/api/voice/setup' }` to `experimental_useRealtime` from `@ai-sdk/react`. Call `connect()` when the user starts the conversation and `close()` when it ends. For a model that supports Live WebRTC, point `api.session` at your server’s WebRTC route instead. [AI SDK browser example](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime)
 
 <a id="guide-voiceagentbackend" name="guide-voiceagentbackend"></a>
 
-### VoiceAgentBackend
+#### VoiceAgentBackend
 
-`VoiceAgentBackend` sets up realtime voice sessions and executes their tool calls on the server. It prepares session configuration and credentials, and gives tools access to application data and server services. Your application owns the live connection and conversation lifecycle; the browser handles audio capture and playback.
+Your server authenticates the user, authorizes session creation and tool calls, and keeps provider keys and tool executors private. In a token-based session, it returns a short-lived credential that lets the browser connect to the provider. The browser owns the live connection, microphone and playback.
 
-Keep provider API keys and tool executors on the server. For direct provider connections, the browser receives a short-lived session credential or a WebRTC setup response. A session credential authenticates the provider connection. Your application server still authenticates users and authorizes session creation and tool calls.
-
-It uses the AI SDK's experimental realtime API. The SDK distinguishes token-based turn-based sessions from current Live WebRTC/server-relay setup; their connection and delegation protocols differ.
+The AI SDK’s experimental realtime models offer different setup paths. The examples below show the server’s part in turn-based token setup, Live WebRTC negotiation and a server relay. [VoiceAgentBackend token return](https://casai.run/documentation/reference/voiceagentbackend/?view=return#return)
 
 In token-based turn-based sessions, the browser runs capture/playback, text input and supported interruption controls, and receives tool calls. The server creates a short-lived token with initial instructions/voice and runs tools that need server-side data or secrets. This setup form is:
 
@@ -2598,6 +2589,42 @@ The component prepares configuration and setup responses; the native model suppl
 
 Text and template modifiers prepare the instructions; script and function modifiers return them. VoiceAgentBackend has no `.asTool`. See [SDK realtime](https://ai-sdk.dev/docs/ai-sdk-core/realtime) for the browser session and provider support.
 
+<a id="guide-browser-voice-sessions-planned" name="guide-browser-voice-sessions-planned"></a>
+
+#### VoiceAgentClient (planned)
+
+> **Work in progress.** The example below previews the planned `VoiceAgentClient` export from `casai/client`.
+
+Each call will create an independent, disconnected session. A UI will be able to observe that session with `getSnapshot()` and `subscribe()` while browser Cascada scripts use the same handle.
+
+<!-- typecheck-skip: voice-agent-client -->
+```typescript
+import { VoiceAgentClient } from 'casai/client';
+
+const support = VoiceAgentClient({
+  model: browserModel,
+  api: { token: '/api/voice/setup' },
+  sessionConfig: { voice: 'alloy' },
+});
+const session = await support(); // or support.run()
+const unsubscribe = session.subscribe(() => render(session.getSnapshot()));
+render(session.getSnapshot());
+// From a UI action, subject to browser permissions:
+await session.connect();
+// connect() may return before readiness; observe connected status before sending.
+// In the UI's teardown handler:
+try {
+  await session.close();
+} finally {
+  unsubscribe();
+  session.dispose();
+}
+```
+
+The planned wrapper will use the same token, WebRTC and relay routes as the native client. To share a default voice, define a public object such as `{ voice: 'alloy' } satisfies Pick<Experimental_RealtimeSessionConfig, 'voice'>` and pass it as the browser’s `sessionConfig`. Keep credentials, instructions and tool executors on the server.
+
+A browser Cascada script will be able to return the handle for later scripts. Once the native status is `connected`, a script can call `session!.sendEvent(command)` and inspect the result with `is error`. The host owns cleanup, including when a script or graceful close fails. [Planned VoiceAgentClient controls and state](https://casai.run/documentation/reference/voiceagentclient/)
+
 <a id="guide-video-generation-planned" name="guide-video-generation-planned"></a>
 
 ### Video generation (planned)
@@ -2619,45 +2646,6 @@ const video = await workflow();
 Calls return native `video`, `videos`, warnings, responses and provider metadata. File values expose bytes, base64 and media type. Supported frame/reference inputs, dimensions, duration, audio and other settings depend on the provider. The SDK owns direct or asynchronous generation, including polling, webhook completion, retries and downloads; the component stores no job state.
 
 Use text/template/script/function preparation and compatible `.asTool` forms as with other generators. Templates render only an object prompt's text; supplied media remain native input. There is no `.asStream` form. Tools return file payloads; their default model output requires a calling model that accepts video files, or an explicit `toModelOutput` mapping. Native output files can be rendered by any UI; Casai supplies no player or framework-specific component. See the [AI SDK video reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video) and the [matrix](https://casai.run/documentation/reference/) for individual settings.
-
-<a id="guide-browser-voice-sessions-planned" name="guide-browser-voice-sessions-planned"></a>
-
-### Browser voice sessions (planned)
-
-> **Work in progress:** VoiceAgentClient, its browser entry and state subscriptions are not implemented yet.
-
-`VoiceAgentClient` creates browser voice sessions from reusable settings and pairs with `VoiceAgentBackend` through your application routes. Import it from `casai/client`; use a browser-compatible realtime model adapter without a provider API key. Ordinary calls and `.run()` create independent disconnected sessions. Connect explicitly from your UI, then observe state with `getSnapshot()` and `subscribe()`.
-
-<!-- typecheck-skip: voice-agent-client -->
-```typescript
-import { VoiceAgentClient } from 'casai/client';
-
-const support = VoiceAgentClient({
-  model: browserModel,
-  api: { token: '/api/voice/setup' },
-  sessionConfig: { voice: 'alloy' },
-});
-const session = await support(); // or support.run()
-const unsubscribe = session.subscribe(() => render(session.getSnapshot()));
-render(session.getSnapshot());
-// From a UI action, subject to browser permissions:
-await session.connect();
-// connect() may return before readiness; observe connected status before sending.
-// When the conversation ends:
-await session.close();
-unsubscribe();
-session.dispose();
-```
-
-The native `api` alternatives also accept `{ session: '/api/voice/session' }` for WebRTC and `{ websocket: relayUrl, protocols? }` for an application-owned relay. Token and SDP routes authenticate users, admit public preferences and call the corresponding backend method. Native fetch, WebSocket, microphone and playback restrictions still apply. The client does not add custom request headers or an authentication protocol.
-
-Native controls handle text/audio input, capture, playback and tool outputs with their provider-specific limits. Turn-based `onToolCall` can perform a local UI action or call an authorized server route backed by `executeTool`. Live delegations use native session metadata and events instead. There are no source, `.asStream` or `.asTool` modifiers on the client.
-
-Share a separate public settings object when browser and server need common defaults: for example, a `voicePreferences` object checked with `satisfies Pick<Experimental_RealtimeSessionConfig, 'voice'>`. Spread it into backend settings and pass it as client `sessionConfig`. Keep instructions, credentials, trusted context and tool executors server-owned. TypeScript types do not remove runtime secrets; never pass the backend configuration to the browser. Runtime user preferences come from application-approved values, independently of shared defaults.
-
-The [matrix](https://casai.run/documentation/reference/) lists the native options, session controls and state fields. Snapshots are read-only views with stable identity between native updates. UI teardown unsubscribes and disposes; each session has its own lifecycle. The adapter supports plain JavaScript and framework store subscriptions without a React dependency.
-
-The component remains stateless; the returned handle owns the session state. Browser-hosted Cascada can create it with `var session = voiceClient()` and return it for later scripts. After observing native readiness, a script can issue `session!.sendEvent(command)` and read `session!.getSnapshot()`. Inspect effect results with `is error` when failure matters. Cascada ordering preserves native promise/void semantics and does not imply provider acknowledgement. The host coordinates shared use and owns `try/finally` cleanup, including when a script or graceful close fails. Use Cascada's supported browser runtime independently of the Node Casai main entry.
 
 <a id="guide-conversations" name="guide-conversations"></a>
 
@@ -2762,15 +2750,7 @@ Template, Script, and Function use native Casai contracts. They can implement op
 
 #### Agent Properties
 
-LLMAgent supplies these SDK compatibility properties:
-
-| Property | Meaning |
-| :--- | :--- |
-| `version` | The SDK compatibility marker, currently `'agent-v1'` |
-| `id` | An optional application-assigned identifier; `undefined` when omitted |
-| `tools` | Registered SDK tool definitions, including argument schemas and available execution handlers; defaults to `{}` |
-
-The model may choose tools from this map. To reuse their application implementations from coded workflows, put [callable helpers in context](#guide-calling-tools-from-coded-components).
+SDK integrations can identify a non-tool LLMAgent through `agent.id` and `agent.version`, and read its registered tool definitions from `agent.tools`. To call the same application function from a Script, make the callable helper available in context. [Agent properties and methods](https://casai.run/documentation/reference/llmagent/?view=config#method-id) · [Calling tools from coded components](#guide-calling-tools-from-coded-components)
 
 <a id="guide-generation-streaming-and-the-chat-ui" name="guide-generation-streaming-and-the-chat-ui"></a>
 
@@ -2794,7 +2774,7 @@ console.log(complete.output);
 
 `.stream()` delegates to SDK model streaming regardless of `.asStream`. `.generate()` delegates to SDK generation. Each starts one execution with the configured stopping condition; Casai retains the SDK's result fields, events, usage, and callbacks.
 
-These methods accept native Agent parameters, including `options` for application input. Use `.run()` for ordinary calls with Casai settings overrides such as `model` or `prepareCall`; derive another component to change fixed contracts such as `output`. For a literal continuation that must skip rendering, configure or derive the component with settings outside the native call surface, then use `.generate()`/`.stream()`; see the [pause-continuation recipe](#guide-llmagent-results).
+These methods accept native Agent parameters, including `options` for application input. Use `.run()` for ordinary calls with Casai settings overrides such as `model` or `prepareCall`; derive another component to change fixed contracts such as `output`. For a literal continuation that must skip rendering, configure or derive the component with settings outside the native call surface, then use `.generate()`/`.stream()`. [Approvals and continuation](#guide-tool-approvals-and-continuation)
 
 <a id="guide-what-the-chat-ui-uses" name="guide-what-the-chat-ui-uses"></a>
 
@@ -3039,25 +3019,7 @@ AI components use their operation's SDK settings and retain its result fields. F
 
 LLMAgent exposes SDK generation settings, lifecycle callbacks, and [request/step preparation hooks](#guide-application-context-and-hooks). Its non-tool forms also implement the SDK `Agent` interface. The hooks are optional; SDK Agent compatibility does not depend on using them. Template, Script, and Function use their [native component contracts](#guide-components), with application data and callable helpers in `context`. See [cancellation](#guide-errors) for per-call signals and timeouts.
 
-For LLMAgent, common settings include:
-
-| Property | Purpose |
-| :--- | :--- |
-| `model` | Select the language model |
-| `instructions` | Supply system instructions for every call, including calls whose `prompt` replaces the configured prompt |
-| `output` | Select text or structured output; defaults to text |
-| `maxOutputTokens` | Limit output length |
-| `temperature`, `topP` | Control sampling where supported |
-| `presencePenalty`, `frequencyPenalty`, `stopSequences` | Adjust supported generation behavior |
-| `tools`, `toolChoice`, `toolsContext` | Configure tool use and execution context |
-| `toolApproval` | Configure approval decisions for SDK-executed tools |
-| `stopWhen` | Control continuation; defaults to a twenty-step ceiling, with one step without tool activity |
-| `providerOptions` | Pass provider-specific settings |
-| `maxRetries`, `timeout` | Configure retries and timeouts; a defined call timeout replaces the configured value |
-| `prepareCall` | Prepare request settings once per invocation |
-| `prepareStep` | Adjust settings before each model step, including the first |
-| `onStart`, `onStepEnd`, `onEnd` | Observe execution and completion |
-| `onChunk`, `onError`, `onAbort` | Observe streaming output, errors, and cancellation |
+Configure settings shared by calls on the component. For example, `instructions` apply when a caller supplies a new prompt. Use `.run()` for a request-specific limit or callback. The Config tab shows which settings each form accepts at construction and invocation. [LLMAgent configuration](https://casai.run/documentation/reference/llmagent/?view=config#config)
 
 Casai does not impose sampling defaults. An omitted setting uses SDK/provider behavior. Use current SDK setting names in configuration and `.run()`, such as `instructions`, `telemetry`, `repairToolCall`, and `include`; deprecated setting aliases are rejected. `abortSignal` is a per-call setting and is rejected in constructor configuration. For cancellation, pass an abort signal for one call:
 
@@ -3293,11 +3255,13 @@ For cancellation setup and nested deadlines, see [Cancellation, Timeouts, and Us
 
 Casai infers input types from schemas, context, and function signatures. Output specifications determine the type of generated values; tool maps retain typed arguments and results. Use `import type` for SDK types such as `ModelMessage` and `ToolExecutionOptions`.
 
-Use `ComponentConfig<'Embedder'>` to annotate an ordinary Embedder configuration. The second parameter selects the source form; the third selects its delivery contract, for example `ComponentConfig<'Transcriber', 'audio-resource'>` or `ComponentConfig<'SpeechGenerator', 'text', 'stream'>`. These annotations describe settings; select runtime behavior through the matching factory modifiers. Use `satisfies` when you want to preserve specific schema types and configured defaults; tool factories infer their configuration through `.asTool`.
+Use `ComponentConfig<'Embedder'>` to annotate an ordinary Embedder configuration. The second parameter selects a source the factory supports, and the third selects delivery. For example, `ComponentConfig<'Transcriber', 'audio-resource'>` describes settings for `Transcriber.loadsAudio`. Use `ComponentConfig<'SpeechGenerator', 'text', 'stream'>` with `SpeechGenerator.asStream`. Use `satisfies` to preserve specific schema types and configured defaults. Tool factories infer their settings through `.asTool`.
 
 Completed audio annotations keep each operation's selector: raw Transcriber settings require `inputAudioFormat`, prepared file transcription requires `fileAudioTarget`, and collected SpeechGenerator settings require an object `outputFormat`. This keeps a broadly annotated configuration callable without mixing incompatible native settings. Inferred factories can still receive raw formats at invocation or select collected speech from non-string text. Function-mode annotations receive ordinary execution context; use inference or `satisfies` to retain exact application fields.
 
 `LLMAgentConfig` describes authored settings with the default text source. A function accepting that annotation can pass it directly to `LLMAgent`. Use `ComponentConfig<'LLMAgent', Source>` with the matching factory modifier for an already selected source, such as `'text-name'` with `.loadsText` or `'function'` with `.withFunction`. These annotations cannot erase a fragment's different source selection. Loaded-source annotations require a loader; an unfinished reusable fragment can still use `Config.loadsText` and receive its loader from the finished component.
+
+`ComponentConfig` defaults to the component's own source mode. For Template and Script, that is inline source: their finished annotations require `template` or `script`. Use `'async-template-name'` or `'async-script-name'` with the matching loading modifier for a loaded source; those annotations require a loader and permit the file name at invocation. `TemplateConfig`, `ScriptConfig` and their tool counterparts describe inline settings. `ScriptConfig` keeps `script` optional, so a wrapper using it must preserve that field's required presence before constructing an inline Script.
 
 Optional fields remain optional after annotation. Even if a particular value supplied a prompt, a wrapper accepting `LLMAgentConfig` must supply one at the call or retain its required presence in the type. Inference and `satisfies` preserve more information about configured prompts, schemas and tool names.
 
@@ -3313,8 +3277,32 @@ function answerFromFile(config: ComponentConfig<'LLMAgent', 'text-name'>, name: 
   return create.LLMAgent.loadsText(config)(name);
 }
 
+function prepareAnswer(config: ComponentConfig<'LLMAgent', 'function'>) {
+  return create.LLMAgent.withFunction(config);
+}
+
+function renderGreeting(config: ComponentConfig<'Template'>) {
+  return create.Template(config)();
+}
+
 await answer({ model }, 'Explain solar energy.');
 await answerFromFile({ model, loader: { load: () => 'Explain solar energy.' } }, 'question');
+await prepareAnswer({ model })(() => 'Explain solar energy.');
+await renderGreeting({ template: 'Hello.' });
+```
+
+Keep tool configuration inferred. `satisfies LLMAgentConfig` can check ordinary settings while preserving the actual prompt, schema and absence of streaming before passing the value to `.asTool`. A broad `LLMAgentConfig` annotation permits streaming and erases schema details, so it is not a tool configuration type.
+
+<!-- typecheck: agent-tool-config-inference -->
+```typescript
+import type { LLMAgentConfig } from 'casai';
+
+const toolSettings = {
+  model,
+  prompt: 'Explain solar energy.',
+  inputSchema: z.object({}),
+} satisfies LLMAgentConfig;
+const explainSolarEnergy = create.LLMAgent.asTool(toolSettings);
 ```
 
 <!-- typecheck: type-checking -->
@@ -3369,11 +3357,7 @@ To exercise the LLMAgent's full model/tool protocol, supply an AI SDK mock model
 
 ## Examples and further reading
 
-Explore [Casai examples](https://github.com/geleto/casai-examples), the [Smart DB Dashboard](https://github.com/geleto/smart-db-dashboard), [tutorials and articles](https://casai.run/documentation/), and the [CascadaScript](https://cascada.dev/cascada-script/) and [template](https://cascada.dev/cascada-template/) documentation. The component examples below cover the core operations. For complete workflow walkthroughs, read:
-
-- [Change the implementation. Keep the workflow.](https://casai.run/posts/change-implementation-keep-workflow/)
-- [Draft, review, revise - with a stopping point](https://casai.run/posts/draft-review-revise/)
-- [From retrieval to grounded answers](https://casai.run/posts/retrieval-to-grounded-answers/)
+The examples below cover classification, embedding and retrieval. For complete workflow walkthroughs, browse the [Casai blog](https://casai.run/blog/). See also [Casai examples](https://github.com/geleto/casai-examples), the [Smart DB Dashboard](https://github.com/geleto/smart-db-dashboard), [tutorials](https://casai.run/documentation/), [CascadaScript](https://cascada.dev/cascada-script/) and [Cascada templates](https://cascada.dev/cascada-template/).
 
 <a id="guide-classify-and-evaluate-with-decision" name="guide-classify-and-evaluate-with-decision"></a>
 
@@ -3425,7 +3409,7 @@ console.log(one.embedding);   // number[]
 console.log(many.embeddings); // number[][], in input order
 ```
 
-An array always represents a batch, with one output vector per input. The SDK handles batch splitting and concurrency. The result retains usage and metadata as well as vectors.
+For retrieval, keep each batch vector alongside its input document. The SDK handles batch splitting and returns the vectors in input order. [Single and batch return fields](https://casai.run/documentation/reference/embedder/?view=return#return)
 
 Use `input` for either one string or an array in configuration and `.run()`. Per-call settings go through `.run()`:
 
@@ -3435,13 +3419,13 @@ await embedder.run({ input: ['First document', 'Second document'], maxParallelCa
 await embedder.run({ input: 'Another document', abortSignal: AbortSignal.timeout(5_000) });
 ```
 
-Omit `input`, including with `embedder.run()`, when it is already configured. Child configuration and call-time inputs replace that one field, whether the replacement is a string or an array. Casai sends a string to native `embed` as `value` and an array to native `embedMany` as `values`; those native field names are not additional Casai input aliases. Native results retain their own properties, including `embedding` or `embeddings`.
+Use `embedder.run()` when `input` is already configured. Supply `input` to replace it for a call. [Embedder input and overrides](https://casai.run/documentation/reference/embedder/?view=config#property-input)
 
 All input modifiers and `.asTool` are supported. `.withText` keeps the plain call form: pass a string or string array directly. With a template, script, function or loading modifier, `input` holds the source and ordinary calls supply preparation context. Text loaders and templates produce one string; a script or function preparer can return a string or string array. A plain tool, including `.withText.asTool`, declares `{ input }` in its input schema; a prepared tool declares the context fields its source consumes.
 
 As a tool, an Embedder returns vectors. Models can't compute with them, so this is an uncommon use, mainly for tool workflows where the application or another step consumes the vectors.
 
-See [single-input results](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed#returns), [batch results](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many#returns), and [RAG integration](#guide-embedding-and-rag-integration).
+To use the vectors in an answer workflow, see [Embedding and RAG integration](#guide-embedding-and-rag-integration).
 
 <a id="guide-rank-retrieved-candidates" name="guide-rank-retrieved-candidates"></a>
 
@@ -3466,9 +3450,7 @@ console.log(ranked.rerankedDocuments);
 console.log(ranked.ranking); // Original indices and relevance scores.
 ```
 
-Supply `(query, documents, topN?)` by position, or the same fields in `.run()`. Configured documents permit `reranker(question)` or `reranker(question, undefined, 5)`. Text and template modifiers prepare the query; script/function modifiers can return a query or a complete `{ query, documents }` input. With a configured query/source and no required call context, a reranker can take the candidate array alone, `reranker(candidates)`. Otherwise, supply the query/source first. Explicit call-time documents override documents returned by a preparer; a `topN` override remains available in its own slot.
-
-When a preparer returns the complete pair, its documents take precedence over configured defaults. Explicit positional or `.run({ documents })` values take precedence over the prepared pair. Configured documents serve as a fallback for a query-only result.
+If the same candidate set serves several queries, configure `documents` and call `reranker(question)`. For candidates retrieved per query, a preparer can return both `query` and `documents`. [Call forms](https://casai.run/documentation/reference/reranker/?view=config#method-call) · [Document overrides](https://casai.run/documentation/reference/reranker/?view=config#property-documents)
 
 As a tool, the model supplies only the query. Candidates come from configured `documents` or from a preparer, so the model never copies documents into its tool arguments. A function preparer can fetch candidates for each query, making one component a retrieve-and-rerank tool:
 
@@ -3483,9 +3465,7 @@ const findPolicy = create.Reranker.withFunction.asTool({
 });
 ```
 
-The model receives the native ranking entries as `{ originalIndex, document, score }`, retaining the original candidate indices. The SDK passes `topN` to the reranking operation. `searchPolicies` stands for your search service.
-
-The result preserves the SDK ranking and document mapping. Reranker operates on candidates you supply; your application or retrieval service manages the index. See [SDK reranking](https://ai-sdk.dev/docs/ai-sdk-core/reranking) and [return fields](https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank#returns).
+`searchPolicies` supplies candidates from your index. Each ranking entry includes the original `document`, ready to pass to the answering agent. Use `originalIndex` when you need to look up information held separately from the document. [Reranker tool return](https://casai.run/documentation/reference/reranker_astool/?view=return#return)
 
 <a id="guide-embedding-and-rag-integration" name="guide-embedding-and-rag-integration"></a>
 

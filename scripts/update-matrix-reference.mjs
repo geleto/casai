@@ -38,7 +38,7 @@ const detailAliases = {
 for (const name of names) {
   aliases[`${name}_config`] = name === 'LLMAgent'
     ? "import('../src/types/agent.js').AgentFactoryShape<'text', false>"
-    : `import('../src/types/component.js').ComponentConfig<'${name}', 'text'>`;
+    : `import('../src/types/component.js').ComponentConfig<'${name}'>`;
   aliases[`${name}_settings`] = `import('../src/types/component-map.js').ComponentSettings['${name}']`;
   aliases[`${name}_definition`] = `import('../src/types/component-map.js').Definitions['${name}']`;
   aliases[`${name}_inputs`] = `{ direct: import('../src/types/component.js').NativeInput<'${name}'>; template: import('../src/types/component-map.js').TemplateInputs['${name}']; prepared: import('../src/types/component-map.js').PreparedInputs['${name}'] }`;

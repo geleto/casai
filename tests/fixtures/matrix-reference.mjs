@@ -393,14 +393,19 @@ createMatrix('compact');
   }
   assert(describe('Config').config.properties.filters, 'Reusable fragments may configure a future Cascada component');
   assert.deepEqual(describe('Context').form.workInProgress, [], 'Do not mark unrelated application context as unfinished');
-  assert.deepEqual(describe('LLMAgent').form.workInProgress, [], 'Modifier-only configuration is implemented and verified');
-  assert.deepEqual(describe('Config', ['loadAudio']).form.workInProgress, [], 'Native preparation and its fragment contracts are verified');
+  const llmProgress = describe('LLMAgent').form.workInProgress;
+  assert(llmProgress.some(text => text.includes('tagged inline data')), 'Selected attachment adapters remain visibly planned');
+  assert(llmProgress.every(text => /attachments|omitted tool schemas/.test(text)), 'Do not reopen implemented modifier/delivery contracts');
+  const configProgress = describe('Config', ['loadAudio']).form.workInProgress;
+  assert(configProgress.length > 0 && configProgress.every(text => text.includes('omitted tool schemas')), 'Config notices distinguish the new schema default from implemented native fragments');
+  const browserProgress = describe('Transcriber', ['loadAudio']).form.workInProgress;
+  assert(browserProgress.some(text => text.includes('browser .loadsAudio') && text.includes('strong ETag')), 'Planned browser decoding must expose its URL compatibility limit');
   const speechReference = describe('SpeechGenerator', ['asStream']);
   const speechExample = await render('SpeechGenerator', ['asStream']);
-  assert.deepEqual(speechReference.form.workInProgress, [], 'Paid streaming-speech and audio-tool reception checks pass');
-  assert.deepEqual(speechExample.workInProgress, []);
-  assert(!speechReference.form.notices.some(text => text.startsWith('Work in progress:')));
-  assert(!speechExample.explanations.some(text => text.startsWith('Work in progress:')));
+  assert(speechReference.form.workInProgress.length > 0 && speechReference.form.workInProgress.every(text => text.includes('omitted tool schemas')), 'Speech notices concern the new tool convenience, not its accepted audio delivery');
+  assert.deepEqual(speechExample.workInProgress, speechReference.form.workInProgress);
+  assert(speechReference.form.workInProgress.every(text => speechReference.form.notices.includes(text)));
+  assert(speechExample.workInProgress.every(text => speechExample.explanations.includes(text)));
   assert(speechReference.form.notices.some(text => text.includes('experimental')), 'Clearing progress preserves SDK qualifications');
   for (const [shape, ids] of Object.entries(api.shapes)) {
     if (shape.endsWith('_config') || shape.endsWith('_settings') || ['Tool', 'AgentRun', 'ExecutionOptions'].includes(shape)) {

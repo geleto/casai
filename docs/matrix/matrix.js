@@ -94,19 +94,22 @@ const choices = {
   count: { name: 'Several images', shortDescription: 'Generate [three variations](property:n).', description: 'Requests three variations of the same scene.', properties: ['n'] },
   voice: { name: 'Select voice', shortDescription: 'Choose a supported [voice](property:voice).', description: 'Passes a voice supported by the selected speech model.', properties: ['voice'] },
   textStream: { name: 'Streamed text input', shortDescription: 'Speak while [text](property:text) is arriving.', description: 'Feeds text in chunks while the model produces speech.', properties: ['text'] },
-  audioStream: { name: 'Raw audio input', shortDescription: 'Supply raw samples with their [format](property:inputAudioFormat).', description: 'Uses raw audio with native streaming transcription. The example supplies a fresh stream, or configured bytes for a tool. Ordinary calls await the completed transcript.', properties: ['audio', 'inputAudioFormat'] },
+  audioStream: { name: 'Raw audio input', shortDescription: 'Supply raw samples in the [model format](property:inputAudioFormat).', description: 'Uses raw audio with native streaming transcription. The example supplies a fresh stream, or configured bytes for a tool. Ordinary calls await the completed transcript.', properties: ['audio', 'inputAudioFormat'] },
+  wavFile: { name: 'WAV file', shortDescription: 'Read the original format from its header.', description: 'Pass a selected WAV File directly. Casai reads the source encoding, sample rate and channel count and prepares PCM at the model rate.', properties: ['audio', 'inputAudioFormat'] },
+  webAudioBuffer: { name: 'Web Audio AudioBuffer', shortDescription: 'Pass a decoded recording with all its channels.', description: 'Pass the AudioBuffer returned by AudioContext.decodeAudioData directly. It carries its sample rate, channel count and floating-point samples.', properties: ['audio', 'inputAudioFormat'] },
+  channelSamples: { name: 'Headerless PCM', shortDescription: 'Use a channel of Web Audio samples.', description: 'getChannelData(0) returns one channel of Float32 samples. The AudioBuffer retains the rate. Pass that rate and one channel in sourceFormat.', properties: ['audio', 'sourceFormat', 'inputAudioFormat'] },
   nativeStream: { name: 'Native streaming format', shortDescription: 'Select a native [audio format](property:outputFormat).', description: 'An object outputFormat selects native streaming speech. Ordinary calls and tools collect its output; .asStream returns the live result.', properties: ['outputFormat'] },
   messages: { name: 'Message history', shortDescription: 'Continue an earlier [conversation](property:messageHistory).', description: 'Supplies previous conversation messages and returns the updated history.', properties: ['messageHistory'] },
   resume: { name: 'Approval and resume()', shortDescription: '[Approve a tool call](property:toolApproval), then continue.', description: 'Pauses a tool call for approval, then resumes the conversation.', properties: ['messageHistory', 'toolApproval'] },
   withTemplate: { name: 'Inline template', description: 'The input text is a Cascada Template; the context object supplies its variables.' },
-  withAudio: { name: 'Direct audio', description: 'Explicitly selects ordinary supplied-audio input, replacing inherited preparation.' },
+  withAudio: { name: 'Direct audio', description: 'Pass audio in a format the provider accepts, without node-av. This replaces inherited source preparation.' },
   withText: { name: 'Text', description: 'Explicitly selects direct text input for the inheriting component.' },
   withScript: { name: 'Inline script', description: 'Runs a Cascada Script to prepare input or coordinate workflow steps.' },
   withFunction: { name: 'JavaScript function', description: 'Prepares input with a JavaScript function that can await application services.' },
   loadTemplate: { name: 'Template file', description: 'Loads a Cascada Template from the accompanying .cat file.', properties: ['loader'] },
   loadScript: { name: 'Script file', description: 'Loads a Cascada Script from the accompanying .cas file.', properties: ['loader'] },
   loadText: { name: 'Text file', description: 'Reads text from the accompanying .txt file.', properties: ['loader'] },
-  loadAudio: { name: 'Prepare media', description: 'FFmpeg opens a path/URL or supplied encoded bytes/byte stream, selects audio, and converts it to the model input format. Requires an installed node-av build; no loader setting is needed.', properties: ['mediaSettings', 'inputAudioFormat'] },
+  loadAudio: { name: 'Prepare media', description: 'Requires node-av in Node.js. FFmpeg opens a path, URL, encoded bytes or byte stream, selects an audio track and copies or converts it to the requested format.', properties: ['mediaSettings', 'inputAudioFormat'] },
 };
 const textSources = ['withTemplate', 'withScript', 'withFunction', 'loadText', 'loadTemplate', 'loadScript'];
 const audioSources = ['withAudio', 'withScript', 'withFunction', 'loadScript', 'loadAudio'];
@@ -119,6 +122,9 @@ const tool = rules => group('tool', 'Expose as a tool', ['asTool'], rules);
 const stream = rules => group('stream', 'Result delivery', ['asStream'], rules);
 const source = ids => group('source', 'Input preparation', ids);
 const tools = rules => group('tools', 'Call other tools', ['useTools'], rules);
+const recordingExamples = (excludes = []) => group('recording', 'Recording example', ['wavFile', 'webAudioBuffer', 'channelSamples'], {
+  requires: { source: [null, 'withAudio'] }, excludes: ['asTool', ...excludes],
+});
 const invocation = (ids = ['run']) => ({ ...group('invocation', 'Invocation', ids), choices: ids.map(id => choice(id,
   id === 'run' ? { defaultControl: { name: 'Shorthand call', shortDescription: 'Use [`component(input)`](method:call) instead of [`component.run({...})`](method:run?option=run).', description: 'Use component(input). Turn off to show component.run({ ... }) with named inputs. Tool examples show an agent or workflow calling the tool; .run() calls it directly.' } } : {})) });
 const workflowTools = { shortDescription: 'Call registered [tools](property:tools) from code.', description: 'Makes registered tools available as functions inside this component.' };
@@ -129,10 +135,26 @@ const preparerTools = sources => tools({
 });
 const experimental = 'Uses an experimental AI SDK operation.';
 
+const zeroArgumentTools = 'Work in progress: omitted tool schemas will expose zero public arguments while preserving inherited schemas and required inputs.';
+const browserAudio = 'Work in progress: browser .loadsAudio decoding with Mediabunny/WebCodecs; explicit browser track selection is excluded and combined HTTP ranges require a strong ETag.';
+const audioInputs = 'Work in progress: selected generated files and binary Node/async-iterable audio inputs with bounded copying and single-use ownership.';
+const attachments = 'Work in progress: selected File/Blob/generated attachments through tagged inline data, normalized before hooks and retained history; native SDK MIME detection still applies.';
+const readonlyInputs = 'Work in progress: readonly lists and nested readonly reranking documents without caller copies.';
+const phase6Notices = {
+  Config: [zeroArgumentTools],
+  Template: [zeroArgumentTools], Script: [zeroArgumentTools], Function: [zeroArgumentTools],
+  LLMAgent: [attachments, zeroArgumentTools], Decision: [attachments, zeroArgumentTools],
+  Embedder: [readonlyInputs, zeroArgumentTools], Reranker: [readonlyInputs, zeroArgumentTools],
+  ImageGenerator: ['Work in progress: selected generated files, File/Blob and HTTP(S) URL objects in image/mask inputs, preserving usable MIME metadata.', zeroArgumentTools],
+  Transcriber: [browserAudio, audioInputs, zeroArgumentTools],
+  Translator: [browserAudio, audioInputs, zeroArgumentTools],
+  SpeechGenerator: [zeroArgumentTools],
+};
+
 const component = (name, shortDescription, details = {}) => ({
   name, kind: 'component', file: `${name}.js`, ...(typeof shortDescription === 'string' ? { shortDescription } : shortDescription),
   activeOptions: [], resources: [], groups: [], sourceDefault: 'default', descriptionSources: [], ...details,
-  workInProgress: details.kind === 'concept' ? [] : (details.workInProgress ?? []),
+  workInProgress: details.kind === 'concept' ? [] : [...(phase6Notices[name] ?? []), ...(details.workInProgress ?? [])],
 });
 
 export const components = [
@@ -214,7 +236,7 @@ export const components = [
     ],
   }),
   component('Transcriber', sdk('transcribe', 'Turn recorded or streaming audio into text.'), {
-    description: 'Turn a recorded conversation, voice note or other audio into text. Supply encoded audio bytes without inputAudioFormat for native file transcription, or raw bytes/a fresh stream with inputAudioFormat for native streaming transcription. Ordinary calls await the completed result in either case.\n\nSelect .asStream for live transcript events. Use .loadsAudio for a file path, URL, encoded bytes or byte stream: FFmpeg selects and prepares its audio, including audio inside video. Use .withAudio to reset inherited preparation. Set the target inputAudioFormat when the model does not expose its requirements. Supported operations and formats belong to the model.',
+    description: 'Transcribe a recording in a format your provider accepts without installing node-av. Pass encoded bytes or a URL object for AI SDK file transcription. For a raw-input model, set inputAudioFormat and pass a WAV file, AudioBuffer, headerless samples or a raw stream. Casai converts WAV and described PCM in the browser or Node.js. Ordinary calls return a completed transcript. Select .asStream for live transcript events.\n\nUse .loadsAudio in Node.js when FFmpeg should open a recording, extract a track from video or convert its format. This requires node-av. Configure fileAudioTarget for file transcription or supply inputAudioFormat for raw audio. Use .withAudio to reset inherited preparation.',
     descriptionSources: [sdkGuide('36-transcription'), sdkDocs.experimental_streamTranscribe.source],
     resources: ['Transcriber.cas'], sourceDefault: 'audio',
     groups: [
@@ -223,6 +245,7 @@ export const components = [
         description: 'Returns native transcript events and final promises from raw audio. Requires native streaming support.' }),
       source(audioSources), preparerTools(audioSources), invocation(),
       group('inputDelivery', 'Audio input', ['audioStream'], { requires: { source: [null, 'withScript', 'withFunction', 'loadScript'] } }),
+      recordingExamples(['audioStream']),
     ],
   }),
   component('SpeechGenerator', sdk('generateSpeech', 'Turn text into speech.'), {
@@ -239,10 +262,10 @@ export const components = [
     ],
   }),
   component('Translator', sdk('experimental_streamTranslate', 'Translate speech into audio and text in another language.'), {
-    description: 'Translate spoken content into audio and text in another language using a speech translation model. Ordinary calls and tools collect one native execution into audio bytes, final source text, translated text and metadata. Select .asStream for incremental events.\n\nSupply raw audio bytes or a fresh stream with its inputAudioFormat and targetLanguage. Use .loadsAudio for a media path/URL, encoded bytes or byte stream, including audio tracks inside video. Use .withAudio to reset inherited preparation. Input conversion uses the resolved model target; supply it explicitly when model requirements are unknown. For written-text translation, use LLMAgent with translation instructions.',
+    description: 'Translate spoken content into audio and text in another language using a speech translation model. Ordinary calls and tools collect one AI SDK operation into audio bytes, final source text, translated text and metadata. Select .asStream for incremental events.\n\nSupply a WAV, AudioBuffer, headerless PCM or raw stream with the model target inputAudioFormat and targetLanguage. Casai prepares WAV and described PCM without node-av. For other encoded recordings or video, use .loadsAudio in Node.js with node-av installed. FFmpeg prepares the track in the requested inputAudioFormat. Use .withAudio to reset inherited preparation. For written-text translation, use LLMAgent with translation instructions.',
     descriptionSources: [sdkDocs.experimental_streamTranslate.source],
     resources: ['Translator.cas'], experimental, sourceDefault: 'audio',
-    groups: [tool({ excludes: ['asStream'] }), stream({ excludes: ['asTool'] }), source(audioSources), preparerTools(audioSources), invocation()],
+    groups: [tool({ excludes: ['asStream'] }), stream({ excludes: ['asTool'] }), source(audioSources), preparerTools(audioSources), invocation(), recordingExamples()],
   }),
   component('VideoGenerator', sdk('experimental_generateVideo', 'Generate videos from text or images.'), {
     description: 'Generate video clips from text or an image prompt, with provider-supported reference media and generation settings. Configure a reusable component, prepare its prompt with a template, script or function, and call it from JavaScript or Cascada Script.\n\nOrdinary calls return the native completed video result. The AI SDK owns asynchronous provider jobs, polling, webhook completion, retries and downloads. Each call is independent; configuration contains no job state. This component has no .asStream modifier. Tool forms return file payloads; the calling model must support the video file type or the application must supply a suitable toModelOutput mapping.',
@@ -370,8 +393,8 @@ function sourceState(name, selected) {
       description: group.choices.find(choice => choice.id === kind.inline)?.description
         ?? (kind.id === 'audio' ? component.sourceDefault === 'audio' ? 'Supply audio data directly, or enable Load media for a file path or URL.' : choices.loadAudio.description : 'Use the supplied input.') })),
     loads: { id: 'loads', name: current?.id === 'audio' ? 'Load media' : 'Load from file', active: Boolean(current?.loaded && selected.includes(current.loaded)), available: Boolean(current?.loaded && group.choices.some(choice => choice.id === current.loaded)),
-      shortDescription: current?.id === 'audio' ? 'Read a file or URL using [mediaSettings](property:mediaSettings).' : 'Use the configured [loader](property:loader).',
-      description: current?.id === 'audio' ? 'FFmpeg opens the file or URL and prepares its selected audio. Install node-av; no loader configuration is needed.' : 'Read the source file using the configured loader.' },
+      shortDescription: current?.id === 'audio' ? 'Prepare a recording with [mediaSettings](property:mediaSettings).' : 'Use the configured [loader](property:loader).',
+      description: current?.id === 'audio' ? choices.loadAudio.description : 'Read the source file using the configured loader.' },
     modifier: sourceMode(selected)?.replace(/^load/, 'loads') ?? null,
     description: 'The source property keeps its name; this choice changes how its value is interpreted.',
   };

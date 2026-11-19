@@ -1,13 +1,22 @@
-// Extract every current TypeScript example verbatim into the existing consumer profiles.
+// Extract canonical documentation examples verbatim into the existing consumer profiles.
 // Setup supplies application dependencies; fragments receive a concrete component host.
-// Future APIs are explicitly marked in README2. No example executes or calls a model.
+// Keep this entry point/cache name for existing check tooling. Future APIs are
+// explicitly marked in documentation.md. No example executes or calls a model.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const destination = path.join(root, '.cache/readme2');
-const readme = fs.readFileSync(path.join(root, 'README2.md'), 'utf8');
+const documentationSources = require('./documentation-sources.cjs');
+const readme = documentationSources.map(source => source.text).join('\n\n');
+const exampleSources = new Map(documentationSources.flatMap(source =>
+  [...source.text.matchAll(/<!-- typecheck: ([\w-]+) -->/g)].map(([, name]) => [name, source.file])));
 const fixtures = {
+  'first-workflow': { prelude: false },
+  'revision-workflow': { prelude: false },
+  'switch-components': { prelude: false },
+  rag: { prelude: false },
+  'current-bound-tool': {},
   'quick-start': { prelude: false },
   'quick-extract': { includes: ['quick-start'], prelude: false },
   'quick-workflow': { includes: ['quick-extract'], prelude: false },
@@ -73,8 +82,6 @@ const localLoader = { load: (name: string) => name };` },
   'native-methods': {},
   ui: {},
   'dynamic-instructions': {},
-  'text-interchange': {},
-  'structured-interchange': {},
   'step-timeout': { before: 'create.LLMAgent({ model,', after: '});' },
   'pure-transform': {},
   'input-defaults': {},
@@ -82,6 +89,8 @@ const localLoader = { load: (name: string) => name };` },
   'open-input': {},
   'stream-errors': {},
   'type-checking': {},
+  'agent-config-annotations': {},
+  'agent-tool-config-inference': {},
   'mock-workflow': {},
   'protected-url-transcription': { setup: "declare const transcriptionModel: Parameters<typeof import('ai').transcribe>[0]['model'];" },
   'multimodal-media-schema': {},
@@ -92,13 +101,13 @@ const componentFixtures = {
   'multimodal-template': {}, decision: {}, embedder: {}, 'embedding-settings': { includes: ['embedder'] },
   reranker: {}, 'retrieval-tool': {}, 'image-generator': {}, 'image-style-tool': {}, 'image-preparer': {},
   'image-edit': { includes: ['image-generator'] }, 'image-template': { setup: "import { readFile } from 'node:fs/promises';" },
-  transcriber: {}, 'transcriber-url': {}, 'streaming-transcriber': {},
+  transcriber: {}, 'transcriber-url': {}, 'streaming-transcriber': {}, 'transcribe-video-track': {}, 'translate-wav-file': { setup: 'declare const wavFile: File;' },
+  'translate-channel-samples': { includes: ['translate-wav-file'], setup: 'declare const recording: AudioBuffer;' },
   'configured-live-input': {}, 'transcription-tool': {}, speech: {}, 'speech-response': { includes: ['speech'] },
-  'streaming-speech': {}, 'streaming-translation': {}, 'completed-streaming-speech': {}, 'completed-translation': {}, 'pcm-wav': {}, 'native-file-preparation': {}, 'voice-token': {}, 'voice-relay-errors': {},
+  'streaming-speech': {}, 'streaming-translation': {}, 'completed-streaming-speech': {}, 'completed-translation': {}, 'voice-token': {}, 'voice-relay-errors': {},
   'voice-live': {}, 'voice-relay': { includes: ['voice-live'] }, 'image-tool-preparer': {},
-  'image-storage-tool': { includes: ['image-generator'] }, rag: {},
+  'image-storage-tool': { includes: ['image-generator'] },
 };
-componentFixtures['pcm-resampling'] = {};
 Object.assign(fixtures, componentFixtures);
 const componentPrelude = `declare const visionModel: LanguageModel;
 declare const decisionModel: Parameters<typeof import('ai').experimental_decide>[0]['model'];
@@ -135,10 +144,14 @@ assert.ok(fences.every(([, kind]) => kind), 'Every TypeScript example needs a ty
 const current = fences.filter(([, kind]) => kind === 'typecheck');
 const blocks = new Map(current.map(([, , name, source]) => [name, source]));
 assert.equal(blocks.size, current.length, 'Typecheck markers must be unique');
-assert.deepEqual([...blocks.keys()].sort(), Object.keys(fixtures).sort(), 'README2 markers must match the fixture inventory');
-// Promoted examples use the same checked source in both guides. Current-only
-// examples also compile verbatim, and every current TypeScript fence is inventoried.
+assert.deepEqual([...blocks.keys()].sort(), Object.keys(fixtures).sort(), 'Documentation markers must match the fixture inventory');
+const skipped = fences.filter(([, kind]) => kind === 'typecheck-skip');
+assert.deepEqual(skipped.map(([, , name]) => name).sort(), ['native-streaming', 'native-streaming', 'native-streaming', 'video-generator', 'voice-agent-client'], 'Future API skips must remain explicit and inventoried');
+// Former current-only examples remain contract regressions, without retaining
+// a second user guide. The small README shares a checked canonical example.
 const currentFixtures = {
+  'text-interchange': {},
+  'structured-interchange': {},
   'current-quick-start': { prelude: false },
   'current-config-inheritance': {},
   'current-input-defaults': {},
@@ -149,9 +162,8 @@ declare const previousHistory: ModelMessage[];` },
   'current-hooks': { setup: 'declare const fastModel: LanguageModel;\ndeclare const capableModel: LanguageModel;' },
   'current-sdk-ui': { setup: "declare const uiMessages: import('ai').UIMessage[];" },
   'current-agent-tool': {},
-  'current-bound-tool': {},
 };
-const implemented = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+const implemented = fs.readFileSync(path.join(root, 'tests/fixtures/documentation-regressions.md'), 'utf8');
 const implementedBlocks = [...implemented.matchAll(/(?:<!-- (typecheck): ([\w-]+) -->\s*)?```typescript\r?\n([\s\S]*?)\r?\n```/g)];
 assert.ok(implementedBlocks.every(([, kind]) => kind), 'Every README TypeScript example needs a typecheck marker');
 assert.equal(new Set(implementedBlocks.map(([, , name]) => name)).size, implementedBlocks.length, 'README typecheck markers must be unique');
@@ -167,6 +179,9 @@ for (const [, , name, code] of implementedBlocks) {
 }
 assert.deepEqual(currentOnlyNames.sort(), Object.keys(currentFixtures).sort(), 'README-only markers must match the fixture inventory');
 Object.assign(fixtures, currentFixtures);
+const readmeBlocks = [...fs.readFileSync(path.join(root, 'README.md'), 'utf8').matchAll(/(?:<!-- (typecheck): ([\w-]+) -->\s*)?```typescript\r?\n([\s\S]*?)\r?\n```/g)];
+assert.ok(readmeBlocks.length && readmeBlocks.every(([, kind]) => kind), 'Every README example must be checked');
+for (const [, , name, code] of readmeBlocks) assert.equal(code.replaceAll('\r\n', '\n'), blocks.get(name)?.replaceAll('\r\n', '\n'), `Shared README example changed: ${name}`);
 const prelude = `import { create, z, streamSchema, textStreamSchema, collectTextStream } from 'casai';
 import { Output, tool, type LanguageModel } from 'ai';
 declare const model: LanguageModel;
@@ -184,8 +199,8 @@ for (const name of fs.readdirSync(destination)) {
 }
 for (const [name, fixture] of Object.entries(fixtures)) {
   const file = path.join(destination, name + '.ts');
-  const content = `// Generated from ${Object.hasOwn(currentFixtures, name) ? 'README.md' : 'README2.md'}; shared examples are checked for equality.\n`
+  const content = `// Generated from ${Object.hasOwn(currentFixtures, name) ? 'tests/fixtures/documentation-regressions.md' : exampleSources.get(name)}; shared README examples are checked for equality.\n`
     + (fixture.prelude === false ? '' : prelude) + (name in componentFixtures ? componentPrelude : '') + source(name) + '\n';
   if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== content) fs.writeFileSync(file, content);
 }
-console.log(`Prepared ${current.length} README2 examples and all ${implementedBlocks.length} README TypeScript examples (${currentOnlyNames.length} current-only); ${fences.length - current.length} future-API examples explicitly skipped.`);
+console.log(`Prepared ${current.length} chapter/article examples and ${currentOnlyNames.length} retained regressions; ${readmeBlocks.length} shared README example checked; ${skipped.length} future-API examples explicitly skipped.`);

@@ -162,6 +162,22 @@ export function renderExample({ component, options, variable, functionName, para
     files: [{ name: `${component}.ts`, language: 'typescript', code }, ...input.files] };
 }
 
+export function suppliedRecording(options) {
+  if (has(options, 'wavFile')) return {
+    parameter: 'recording: File', audio: 'recording', fields: [],
+    note: 'Pass the WAV file directly. Its header supplies the source rate, encoding and channels.',
+  };
+  if (has(options, 'webAudioBuffer')) return {
+    parameter: 'recording: AudioBuffer', audio: 'recording', fields: [],
+    note: 'Pass the AudioBuffer returned by audioContext.decodeAudioData(). Casai reads its rate and all its channels.',
+  };
+  if (has(options, 'channelSamples')) return {
+    parameter: 'recording: AudioBuffer', audio: 'recording.getChannelData(0)',
+    fields: ['// Channel 0 is mono. The Float32Array identifies its encoding.', 'sourceFormat: { sampleRate: recording.sampleRate, channels: 1 },'],
+    note: 'This workflow uses only the first channel of a decoded recording. Pass the whole AudioBuffer to use all channels without sourceFormat.',
+  };
+}
+
 export const audioStreamSetup = `// Open a fresh stream over 24 kHz mono PCM16 little-endian bytes.
 const openRecording = () => {
   let offset = 0;

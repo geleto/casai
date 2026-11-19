@@ -25,9 +25,10 @@ export function audioContracts(aliases, details) {
   aliases.SpeechGenerator_settings = 'SpeechGeneratorComplete_settings';
   aliases.SpeechGenerator_config = `Extract<${config('SpeechGenerator')}, { outputFormat?: string }>`;
   aliases.SpeechGeneratorFormat_properties = `Pick<${family('SpeechGenerator')}['selectedSettings'], 'outputFormat'>`;
-  aliases.AudioPreparation_config = "Pick<import('../src/audio/preparation.js').PrepareAudioSettings, 'mediaSettings' | 'fileAudioTarget' | 'inputAudioFormat'>";
-  aliases.RawAudioPreparation_config = "Pick<import('../src/audio/preparation.js').PrepareAudioSettings, 'mediaSettings' | 'inputAudioFormat'>";
+  aliases.AudioPreparation_config = "Pick<import('../src/types/component.js').ComponentConfig<'Transcriber', 'audio-resource'>, 'mediaSettings' | 'fileAudioTarget' | 'inputAudioFormat'>";
+  aliases.RawAudioPreparation_config = "Pick<AudioPreparation_config, 'mediaSettings' | 'inputAudioFormat'>";
   Object.assign(details, {
+    PcmSourceFormat: "import('../src/audio/pcm.js').PcmSourceFormat",
     MediaSettings: "import('../src/audio/preparation.js').MediaSettings",
     FileAudioTarget: "import('../src/audio/preparation.js').FileAudioTarget",
     FileAudioFormat: "import('../src/audio/preparation.js').FileAudioFormat",

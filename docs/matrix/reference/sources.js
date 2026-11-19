@@ -20,7 +20,7 @@ export const configSourceForms = [
     ['loadsText', 'text-name', 'The receiving component loads its primary input from a text file using loader.'],
     ['loadsTemplate', 'async-template-name', 'The receiving component loads a Cascada Template using loader and renders it using context.'],
     ['loadsScript', 'async-script-name', 'The receiving component loads a Cascada Script using loader and runs it using context.'],
-    ['loadsAudio', 'audio-resource', 'FFmpeg opens the audio path/URL or supplied encoded bytes/byte stream, selects a track and prepares audio for the receiving model. Requires node-av; no loader setting is used.'],
+    ['loadsAudio', 'audio-resource', 'FFmpeg opens a path, URL, File, Blob, supplied bytes or byte stream. It detects the recording format, selects an audio track and prepares it for the model. Requires node-av; no loader setting is used.'],
   ].map(([modifier, mode, description]) => ({ modifier, mode, ...sourceModes[mode], description,
     explanation: `${description} This explicit selection replaces an inherited source mode. ${mode === 'audio-resource' ? 'The media location and input settings may be supplied by the completed component.' : 'The source value and any required loader may be supplied by the completed component.'}` })),
 ].map(form => ({ ...form, toolSupported: true, applicable: true }));
