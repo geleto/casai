@@ -1,5 +1,7 @@
 # Reviewing implementation contracts
 
+For recording classification, compare the same bytes, generic Blob and split upload with and without a reusable PCM layout. Use a forward-only control for each streamed input. Include speech archives, packetized elementary streams and headerless samples with a matching short prefix. For conversions, cross large decoder blocks and packets that timestamp several frames together with smaller encoder blocks. Verify the final sound and the full lossless waveform. Drop an interior encoded packet while keeping the first and last timestamps to test the duration check. Pair continuous and deliberately paused 44.1 kHz recordings in a millisecond-clock container.
+
 Distinguish encoder priming from material deliberately omitted by the recording's edit list. Give successive sections distinct audible content, remove a leading section and then a middle section, and identify the sounds that reach the provider. Repeat with the original container as the target. Compare native packet count and playback duration on a fixed-frame codec and cover a variable-frame codec whose edits emerge during copying.
 
 Before recommending a lossless format for exact recording boundaries, convert a source that ends partway through an encoder block. Compare the decoded output sample for sample, including any samples after the original ends.

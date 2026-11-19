@@ -124,6 +124,26 @@ describe('Supplied audio through the component', () => {
 		assert.equal(raw.length, 2);
 	});
 
+	it('accepts complete WAV samples with an omitted final pad or stale average byte rate', async () => {
+		const { model, raw } = capture();
+		const transcribe = Transcriber({ model, inputAudioFormat: target });
+		for (const encoding of ['pcm_u8', 'pcm_s24le'] as const) {
+			const samples = encoding === 'pcm_u8' ? Uint8Array.of(64, 128, 192) : Uint8Array.of(0, 0, 192, 0, 0, 0, 0, 0, 64);
+			const padded = await writeWav(samples, { encoding, sampleRate: target.rate, channels: 1 });
+			await transcribe(padded);
+			const reference = raw.at(-1)!;
+			assert.equal(reference.length, 6);
+			for (const countPad of [false, true]) {
+				const file = Buffer.from(padded.subarray(0, -1));
+				file.writeUInt32LE(file.length - 8 + Number(countPad), 4);
+				file.writeUInt32LE(1, 28);
+				await transcribe(file); assert.deepEqual(raw.at(-1), reference);
+				await assert.rejects(transcribe(file.subarray(0, -1)), ValidationError);
+				file.writeUInt16LE(7, 32); await assert.rejects(transcribe(file), ValidationError);
+			}
+		}
+	});
+
 	it('bounds finite PCM preparation before resampling and WAV wrapping while direct live input stays open-ended', async () => {
 		const { model, raw, files } = capture();
 		const sourceFormat = { channels: 1, sampleRate: 12000, encoding: 'pcm_s16le' } as const;
@@ -219,6 +239,8 @@ describe('Supplied audio through the component', () => {
 			[[255, 251, 0x90, 0], [255, 251, 0xa2, 0], 417, 940],
 			[[255, 243, 0x80, 0], [255, 243, 0x82, 0], 208, 417],
 			[[255, 227, 0x80, 0], [255, 227, 0x82, 0], 417, 835],
+			[[255, 253, 0xe4, 0], [255, 253, 0x86, 0], 1152, 1537],
+			[[255, 245, 0x84, 0], [255, 245, 0x86, 0], 384, 769],
 			[[255, 241, 76, 128, 1, 159, 252], [255, 240, 76, 128, 2, 31, 252], 12, 28],
 		] as const) {
 			const bytes = new Uint8Array(thirdAt + 8); bytes.set(first); bytes.set(second, secondAt); bytes.set(first, thirdAt);
@@ -228,6 +250,54 @@ describe('Supplied audio through the component', () => {
 		for (const bytes of [Uint8Array.of(255, 241, 0x7c, 0, 1, 159, 252, 0), Uint8Array.of(255, 240, 76, 0, 1, 0, 0, 0),
 			Uint8Array.of(255, 251, 0xfc, 0), Uint8Array.of(255, 235, 0x90, 0)]) {
 			await transcribe(bytes); assert.deepEqual(raw.at(-1), bytes);
+		}
+	});
+	it('recognizes audio recording headers without reserving their short prefixes in raw PCM', async () => {
+		const { model, raw } = capture();
+		const transcribe = Transcriber({ model, inputAudioFormat: target });
+		const ascii = (s: string) => Buffer.from(s, 'latin1');
+		const hex = (s: string) => Buffer.from(s, 'hex');
+		const headers = [
+			...['#!AMR\n', '#!AMR-WB\n', '#!AMR_MC1.0\n', '#!AMR-WB_MC1.0\n', 'NIST_1A\n', 'nut/multimedia container\0',
+				'Creative Voice File\x1a', '\0\nSMJPEG', 'MMMD\0\0\0\x20CNTI'].map(ascii),
+			...['.RMF', '.RMP'].map(magic => Buffer.concat([ascii(magic), hex('0000001200000000000000000000')])),
+			Buffer.concat([ascii('wvpk'), hex('180000000704'), Buffer.alloc(22)]),
+			Buffer.concat([ascii('TTA1'), hex('01000100100080bb0000'), Buffer.alloc(8)]),
+			...['.SoX', 'XoS.'].map(magic => Buffer.concat([ascii(magic), hex('0000001c'), Buffer.alloc(16), hex('0000000100000000')])),
+			...['64a30300', '0001a364'].map(magic => Buffer.concat([hex(magic), hex('472c44000000000100000002')])),
+			hex('000001ba2100010001800813000001bb'), hex('000001ba440004000401000457f8000001bb'),
+		];
+		for (const header of headers) {
+			await assert.rejects(transcribe(header), /loadsAudio/, header.toString('hex'));
+			const prefix = header.subarray(0, 4);
+			await transcribe(prefix); assert.ok(Buffer.from(raw.at(-1)!).equals(prefix));
+		}
+		for (const magic of ['wvpk', 'TTA1', '.RMF', '.SoX', 'MMMD']) {
+			const lookalike = Buffer.concat([ascii(magic), Buffer.alloc(32)]);
+			await transcribe(lookalike); assert.ok(Buffer.from(raw.at(-1)!).equals(lookalike));
+		}
+	});
+	it('follows AC-3, E-AC-3, DTS and LOAS frame sizes before selecting encoded handling', async () => {
+		const { model, raw } = capture();
+		const transcribe = Transcriber({ model, inputAudioFormat: target });
+		for (const [hex, step, frames, wordSwapped] of [
+			['0b7700000040', 128, 2, true], ['0b7700004040', 138, 2, false], ['0b7700004140', 140, 2, false],
+			['0b7700008040', 192, 2, false], ['0b7700bf3287', 384, 2, true],
+			['7ffe8001fc3c75b0b6c0', 1884, 2, true], ['1fffe80007f0000a1c00', 192, 2, true],
+			['56e00d', 16, 3, false],
+		] as const) {
+			const header = Buffer.from(hex, 'hex');
+			for (const wordOrder of wordSwapped ? [header, Buffer.from(header).swap16()] : [header]) {
+				const bytes = Buffer.alloc(step * (frames - 1) + 10);
+				for (let i = 0; i < frames; i++) wordOrder.copy(bytes, i * step);
+				await assert.rejects(transcribe(bytes), /loadsAudio/, hex);
+				bytes[step * (frames - 1)] = 0;
+				await transcribe(bytes); assert.ok(Buffer.from(raw.at(-1)!).equals(bytes));
+			}
+		}
+		for (const hex of ['0b770000ff40', '0b770000c040', '0b77c0073287', '0b770007f287', '0b77000732f8', '56e00000']) {
+			const data = Buffer.from(hex, 'hex');
+			await transcribe(data); assert.ok(Buffer.from(raw.at(-1)!).equals(data));
 		}
 	});
 	it('distinguishes structured upload manifests and file headers from their raw lookalikes', async () => {

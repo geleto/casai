@@ -1,12 +1,38 @@
 # Phase 6 implementation and acceptance
 
-Phase 6A and 6B passed the [2026-11-19 waveform and public-call review](#ab-review-of-recording-classification-and-playback). It covers recording recognition, WAV precision, playback edits, packet-clock rounding and encoder padding. The [Claude Code reconciliation](#claude-code-review-of-native-audio-and-sdk-dispatch) covers seven earlier findings.
+The [Claude recording corpus review](#claude-recording-corpus-review) follows the [waveform and public-call review](#ab-review-of-recording-classification-and-playback) and the [earlier Claude Code reconciliation](#claude-code-review-of-native-audio-and-sdk-dispatch).
 
 **A/B follow-up, 2026-11-18.** The [Claude Code follow-up](#claude-code-ab-follow-up) covers upload expansion, streaming-writer WAVs, raw translation tools and diagnostics. The [earlier correction record](#ab-fixes-after-independent-evaluation) covers the preceding ten findings and four smaller issues. C/D, coordinated publication and platform distribution remain separate work.
 
 This is the consolidated acceptance record. The [detailed plan](streaming-modifiers-plan.md) owns the contract, the [guide and matrix](matrix/documentation.md) explain the API, and the [review process](review-process.md) retains reusable lessons. Superseded review narratives have been removed; current decisions, evidence and outstanding work remain here.
 
 The [public API usability review](api-usability-review.md#correctness-first) originally reopened supplied-audio acceptance after reproducing representation-dependent FLAC handling, WAV headers overridden by PCM defaults and lost upload MIME types. The earlier corrections addressed those fixtures. The independent evaluation below exercises additional representations and source formats.
+
+## Claude recording corpus review
+
+On 2026-11-19 all five reported issues reproduced on `a45487a`. The review originally used `d20e908`. Tests observe the bytes delivered through public transcription calls and decode those bytes independently. The corrections keep the existing source, target and pause contracts.
+
+| Reproduced behavior | Correction and evidence |
+| --- | --- |
+| A configured PCM layout sent encoded recordings as noise, or caused ordinary file transcription to wrap them in WAV. | The bounded classifier recognizes AMR, SPHERE, WavPack, TTA, RealMedia, NUT, SoX, IRCAM, VOC, MMF, SMJPEG and MPEG program streams. It follows declared frame lengths for AC-3, E-AC-3, DTS, MPEG Layer II and LOAS. Split AMR, SPHERE, AC-3, E-AC-3 and MP2 uploads deliver the same samples as independent decoding. Partial or invalid frame sequences remain usable as PCM. |
+| Converting a two-second WavPack recording to MP3 returned 1,199 samples at 48 kHz. TTA and MMF also lost their endings. RealMedia lost most of its recording during FLAC and Opus conversion. | Feed libmp3lame bounded blocks through the existing native filter and present decoded frames to the encoder in playback order, including frames sharing a packet timestamp. MP3 at 48 and 16 kHz retains the final 880 Hz tone. RealMedia to FLAC retains every original sample. The encoder's emitted sample count is checked before file dispatch. Deliberately dropping interior packets fails this check even when the first and last timestamps span the recording. |
+| ASF/WMA at 44.1 kHz gained 18 zero samples. | Account for the input clock's precision when comparing adjacent decoded frames. The recorded example yields exactly 88,064 samples, identical to independent decoding. |
+| Continuous 44.1 kHz FLAC-in-Matroska failed to copy because each packet's duration was rounded to milliseconds. | Account for a tick of uncertainty when the only available packet length is a rounded container duration. The flat FLAC copy preserves every packet payload and decoded sample. Adding a real one-second gap still rejects the flat copy and preserves the pause on raw output. |
+| Ordinary WAV parsing rejected an omitted final pad and a stale average byte rate. Headerless L16 and unspecified PCM uploads produced generic FFmpeg errors. | Accept complete samples in both WAV variants and still reject truncated samples and conflicting block alignment. L16 now identifies the big-endian demuxer and required native options. Unspecified PCM requests the source layout. Strong recording headers and explicit native overrides retain precedence. |
+
+The follow-up used a separate FFmpeg build to generate nonempty Vorbis recordings. The supplied Vorbis fixtures decoded to zero samples and could only test container recognition. Complete Ogg/Vorbis conversion also requires native encoder-sized blocks. At a long-to-short window transition, the native Ogg demuxer can assign the packet only the short window's duration. Restoring the overlap retains its ending granule and prevents an artificial 448-sample pause in the tested 44.1 kHz recording. Tests compare the final tone, the raw waveform, an Ogg copy and a WebM-to-Ogg copy. A timestamped pause in WebM still rejects a flat copy. [Vorbis overlap and granule positions](https://xiph.org/vorbis/doc/Vorbis_I_spec.html)
+
+The WavPack corpus file decodes from complete bytes and a generic Blob. Its forward-only upload fails consistently with native probing, a reusable PCM layout and an explicit WavPack demuxer, across chunk sizes from 37 to 65,536 bytes. Complete bytes or a seekable path preserve access to that recording.
+
+A real 16 kHz stereo PCM tone produced an `adp` guess from the installed native probe. The shared 4 KiB classifier leaves that tone available to the configured raw layout. Across 59 nonempty corpus recordings, raw delivery at the source rate matched an independent decode sample for sample. Each WAV and FLAC conversion retained the full input duration. Decoding the FLAC output to PCM16 differed by at most one quantization step on sources that required sample-format conversion. All samples after the reference ending were silent.
+
+One further control used 20 ms PCM packets on a millisecond clock. With exactly 1 ms between two packets, both adjacent boundaries are known. Raw and WAV output now retain the full 48 silent samples at 48 kHz. The rounded-duration check also handles the earlier Opus pre-skip case, allowing removal of its separate first-packet adjustment.
+
+The closing pass used the same source-tree fingerprint at both ends. It covered 200 modifier chains, required-input dispatch, SDK and tool calls, foreign-realm inputs, source cleanup and cancellation, the 59 recording waveforms and eight file-target configurations per recording. All 472 file preparations produced decodable output. Four additional Vorbis rates were checked with independently generated audio, including an Ogg file with one packet per page. The closing pass found no further important A/B issue.
+
+The settled checkout passed 1,964 local tests with 99.33% line and 95.94% branch coverage, 60 native integration tests with the Windows LGPL 7.1.0 peer, source and declaration type checks, full lint and workflow checks. The matrix executed 1,506 ordinary and 15 native selections. The packed consumer passed with the local Cascada candidate, including the Node bundles and Chromium. All 57 deliberate native faults were detected. The mutation runner exercises every unmodified control in groups and retains its 60-second process timeout.
+
+All four paid OpenAI audio cases and both ElevenLabs streaming cases passed. The Google receiving-model check remained unverified on this run. The default `gemini-3.1-flash-lite` and the `gemini-3.8-flash` and `gemini-3.5-flash` overrides returned high-demand errors. The earlier successful changed-audio controls retain their original date.
 
 ## A/B review of recording classification and playback
 

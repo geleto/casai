@@ -79,17 +79,19 @@ export function readWav(audio: AudioBytes): { audio: Uint8Array; format: PcmForm
 	const riffSize = view.getUint32(4, true);
 	const openRiff = riffSize === 0 || riffSize === 0xffffffff;
 	const end = openRiff ? bytes.length : riffSize + 8;
-	if (end < 12 || end > bytes.length) throw invalid();
+	const available = Math.min(end, bytes.length);
+	if (end < 12 || end > bytes.length + 1) throw invalid();
 	let format: PcmFormat | undefined;
 	const data: Uint8Array[] = [];
 	for (let offset = 12; offset < end;) {
-		if (offset + 8 > end) throw invalid();
+		if (offset + 8 > available) throw invalid();
 		const kind = tag(offset), declared = view.getUint32(offset + 4, true), start = offset + 8;
 		// Non-seekable WAV writers can leave the terminal data size unknown.
 		const openData = kind === 'data' && (declared === 0xffffffff || (openRiff && declared === 0));
 		const length = openData ? end - start : declared;
 		const next = start + length + (openData ? 0 : length & 1);
-		if (next > end) throw invalid();
+		// Some writers omit the pad after the last odd data chunk. Every declared sample must exist.
+		if (start + length > available || (next > available && kind !== 'data')) throw invalid();
 		if (kind === 'fmt ') {
 			if (length < 16 || format) throw invalid();
 			let code = view.getUint16(start, true);
@@ -107,7 +109,7 @@ export function readWav(audio: AudioBytes): { audio: Uint8Array; format: PcmForm
 			if (!encoding) throw invalid();
 			format = { sampleRate, channels, encoding };
 			const size = frameSize(format);
-			if (view.getUint16(start + 12, true) !== size || view.getUint32(start + 8, true) !== sampleRate * size) throw invalid();
+			if (view.getUint16(start + 12, true) !== size) throw invalid();
 		} else if (kind === 'data') data.push(bytes.subarray(start, start + length));
 		offset = next;
 	}

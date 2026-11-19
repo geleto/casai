@@ -1,6 +1,7 @@
 // Only the consumed native surface. The maintained native fixture checks it against real node-av exports.
 // No native package types enter Casai's declarations or browser import graph.
 export interface NativePacket extends Disposable {
+	pos: bigint;
 	pts: bigint;
 	dts: bigint;
 	duration: bigint;
@@ -43,7 +44,7 @@ export interface NativeInput {
 export interface NativeDecoder extends Disposable { frames(packet: NativePacket | AsyncIterable<NativePacket | null> | null): AsyncIterable<NativeFrame | null> }
 export interface NativeEncoder extends Disposable {
 	packets(frame: NativeFrame | AsyncIterable<NativeFrame | null> | null): AsyncIterable<NativePacket | null>;
-	getCodecContext(): { codecId: number; sampleRate: number; channels: number; sampleFormat: number; timeBase: { num: number; den: number } } | null;
+	getCodecContext(): { codecId: number; sampleRate: number; channels: number; sampleFormat: number; bitsPerCodedSample: number; timeBase: { num: number; den: number } } | null;
 }
 export interface NativeOutput {
 	addStream(source: NativeStream): number;

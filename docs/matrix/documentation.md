@@ -2366,7 +2366,7 @@ npm install node-av@npm:node-av-lgpl@7.1.0
 
 Pass the original recording to `Transcriber.loadsAudio` or `Translator.loadsAudio`. FFmpeg detects the input container, codec, rate and channels and selects the best audio track. Usually the only format setting is the **target** your model accepts. For a raw-input model use `inputAudioFormat`. For file transcription use `fileAudioTarget` with the accepted container and codec. Add a target rate or channel count only when the model requires it.
 
-Node preserves interior pauses when it decodes a raw track or converts a file. An interior pause is time between two groups of recorded samples. For example, if one group ends at 0.5 s and the next begins at 1.5 s, the recording contains a one-second pause. A WebM/Opus packet copy keeps that interval in the packet timestamps. Raw PCM and PCM WAV write silent samples at the output rate. A compressed packet copy into a flat file fails if it would shorten the pause. Choose a primary target such as PCM WAV to convert compressed input. Playback duration includes the pause in every case.
+Node preserves interior pauses when it decodes a raw track or converts a file. An interior pause is time between two groups of recorded samples. For example, if one group ends at 0.5 s and the next begins at 1.5 s, the recording contains a one-second pause. A WebM/Opus packet copy keeps that interval in the packet timestamps. Raw PCM and PCM WAV write silent samples at the output rate. A compressed packet copy into a flat file fails if it would shorten the pause. Choose a primary target such as PCM WAV to convert compressed input. Playback duration includes the pause in every case. A millisecond container clock can round the end of one frame and the start of the next differently. Casai accounts for that precision when deciding whether to insert silence. When 20 ms PCM packets have an actual 1 ms gap, raw and WAV output preserve all 48 silent samples at 48 kHz. Successive decoded frames that share a timestamp still contribute all their samples.
 
 `maxPreparedAudioBytes` defaults to 32 MiB. It bounds finite PCM conversion, WAV wrapping and the PCM prepared for a raw model or a native encoder. For example, a 16 kHz mono PCM16 encoder uses 32,000 bytes per second of audio including generated silence, even when an AAC decoder works in floating point. A timestamp-only copy spends bytes on the packets and container it stores. The buffered file has the same default limit. Set `fileAudioTarget.maxBytes` to give the completed file, including its headers, a separate limit. Use `fileAudioTarget.maxDurationSeconds` to limit playback time.
 
@@ -2393,7 +2393,17 @@ The request body is forward-only. For a container that needs seeking, pass a fil
 
 A reusable PCM layout also recognizes HLS and FFconcat manifest headers. Uploaded manifests retain the same child-resource access limits as other uploads. Pass a trusted playlist by its original path or URL when its segments use relative references.
 
-For a headerless G.711 upload labeled `audio/pcmu`, set `mediaSettings.format` to `'mulaw'`. For `audio/pcma`, use `'alaw'`. Supply the recording's native sample options, for example `mediaSettings: { format: 'mulaw', options: { sample_rate: 8000, ch_layout: 'mono' } }`. A recognized container such as WAV supplies its own format when the input demuxer is omitted.
+For headerless uploads, the MIME type determines which sample description to supply.
+
+| Uploaded Blob | Input settings for Node `.loadsAudio` |
+| --- | --- |
+| `audio/pcm` | Supply `sourceFormat` with the recording's encoding, sample rate and channel count, or select an explicit native demuxer. |
+| `audio/L16` | These are signed 16-bit big-endian samples. Use `mediaSettings.format: 's16be'` and the recorded sample rate and channel layout. [L16 media type](https://www.rfc-editor.org/rfc/rfc2586) |
+| `audio/pcmu` or `audio/pcma` | Use `'mulaw'` or `'alaw'`, respectively. An 8 kHz mono μ-law example uses `mediaSettings: { format: 'mulaw', options: { sample_rate: 8000, ch_layout: 'mono' } }`. |
+
+With the native demuxer omitted, a recognizable recording supplies its own format. This includes AMR phone recordings, NIST SPHERE speech files, WavPack, True Audio, MPEG program streams and containers such as NUT and RealMedia. For untagged AC-3, E-AC-3, DTS, MPEG Layer II/III or AAC, Casai follows frame lengths within the 4 KiB prefix. A lone sync word can occur in raw PCM.
+
+Ordinary raw-input calls also accept PCM WAV files whose writer omitted the final alignment byte after an odd data chunk or recorded a stale average byte rate. The channel layout, sample rate, sample width and complete sample frames still determine what is sent to the model.
 
 Currently, `.loadsAudio` loads the optional binding on invocation and requires Node.js with `node-av` installed. `.asStream` selects incremental results for either direct or native input. Ordinary `SpeechGenerator` and `Translator` calls return completed audio bytes. [Completed audio](#guide-completed-audio-and-tools)
 

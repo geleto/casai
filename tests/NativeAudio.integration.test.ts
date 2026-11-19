@@ -18,11 +18,12 @@ const target = { type: 'audio/pcm', rate: 24000 };
 const pcm = (await float32ToPcm16(Float32Array.from({ length: 4800 }, (_, i) => Math.sin(i * Math.PI / 24) / 3)));
 const wav = (await writeWav(pcm, { sampleRate: 48000, channels: 1, encoding: 'pcm_s16le' }));
 const native = await import(new URL('./fixtures/native-audio-media.mjs', import.meta.url).href) as {
-	createAudioFile(path: string, samples: Uint8Array, settings: { codec: string; rate?: number; channels?: number }): Promise<Uint8Array>;
+	createAudioFile(path: string, samples: Uint8Array, settings: { codec: string; rate?: number; channels?: number; frameSamples?: number }): Promise<Uint8Array>;
 	createVideoTracks(path: string, first?: Uint8Array, second?: Uint8Array): Promise<{ firstIndex: number; secondIndex: number }>;
-	createPausedPcm(path: string, encoded?: Uint8Array): Promise<{ bytes: Uint8Array; pauseAt: number }>;
+	createPausedPcm(path: string, encoded?: Uint8Array, milliseconds?: number): Promise<{ bytes: Uint8Array; pauseAt: number }>;
 	readAudioPackets(bytes: Uint8Array): Promise<{ seconds: number; data: Uint8Array }[]>;
 	decodeMonoPcm(bytes: Uint8Array): Promise<Uint8Array>;
+	assertMissingEncoderPacketsRejected(source: Uint8Array): Promise<void>;
 	editMovie(bytes: Uint8Array, ranges: [number, number][]): Uint8Array;
 	assertReleasedFramesOnDurationFailure(source: ReadableStream<Uint8Array>, settings: import('../src/audio/preparation.js').PrepareAudioSettings): Promise<void>;
 	observeIO(action: (disposals: () => number, prepare: (source: ReadableStream<Uint8Array>, settings: import('../src/audio/preparation.js').PrepareAudioSettings) => ReturnType<typeof import('../src/audio/native-pipeline.js').prepareNativeAudio>) => Promise<void>, onCreate?: () => void): Promise<void>;
@@ -65,6 +66,123 @@ describe('Native audio preparation (LGPL integration)', function () {
 		filename = resolve(directory, 'recording.wav'); await writeFile(filename, wav);
 	});
 	after(async () => { await rm(directory, { recursive: true, force: true }); });
+	it('decodes AMR, SPHERE and untagged frames before applying a reusable PCM layout', async () => {
+		const { model, raw } = captureTranscription();
+		const sourceFormat = { encoding: 'pcm_s16le', sampleRate: 16000, channels: 2 } as const;
+		const speech = Buffer.alloc(1024, 32);
+		speech.write('NIST_1A\n   1024\nsample_count -i 2400\nsample_n_bytes -i 2\nchannel_count -i 1\nsample_byte_format -s2 01\nsample_rate -i 16000\nsample_coding -s3 pcm\nend_head\n');
+		const amrFrame = Buffer.alloc(32, 0x55); amrFrame[0] = 0x3c;
+		const recordings: [Uint8Array, number][] = [
+			[Buffer.concat([speech, pcm.subarray(0, 4800)]), 16000],
+			[Buffer.concat([Buffer.from('#!AMR\n'), ...Array<Buffer>(20).fill(amrFrame)]), 8000],
+		];
+		for (const codec of ['ac3', 'eac3', 'mp2']) {
+			recordings.push([await native.createAudioFile(resolve(directory, 'frames.' + codec), pcm, { codec }), 48000]);
+		}
+		for (const [bytes, rate] of recordings) {
+			const reference = await native.decodeMonoPcm(bytes);
+			assert.ok(reference.length >= 320 && reference.some(Boolean));
+			const transcribe = Transcriber.loadsAudio({ model, sourceFormat, inputAudioFormat: { type: 'audio/pcm', rate } });
+			for (const source of [bytes, new Blob([Uint8Array.from(bytes)], { type: 'application/octet-stream' }), bytesStream(bytes, 37)]) {
+				await transcribe(source); assert.deepEqual(raw.at(-1), reference);
+			}
+		}
+	});
+	it('keeps the final tone when large WavPack and TTA frames are encoded to MP3', async () => {
+		const { model, files } = captureTranscription();
+		const samples = Int16Array.from({ length: 96000 }, (_, i) => Math.round(10000 * Math.sin(2 * Math.PI * (i < 48000 ? 220 : 880) * i / 48000)));
+		for (const [extension, codec] of [['wv', 'wavpack'], ['tta', 'tta']]) {
+			const source = await native.createAudioFile(resolve(directory, 'large-frames.' + extension), new Uint8Array(samples.buffer), { codec });
+			const originalSamples = (await native.decodeMonoPcm(source)).length / 2;
+			for (const rate of [48000, 16000]) {
+				await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'mp3', codec: 'libmp3lame', rate } })(source);
+				const played = await native.decodeMonoPcm(files.at(-1)!.audio);
+				const output = new Int16Array(played.buffer, played.byteOffset, played.length / 2);
+				const expected = Math.round(originalSamples * rate / 48000);
+				assert.ok(output.length >= expected && output.length <= expected + 1152, `${codec} at ${rate} Hz: ${output.length} for ${expected} samples`);
+				let crossings = 0;
+				for (let i = Math.floor(rate * 1.6); i < Math.floor(rate * 1.8); i++) if (output[i] < 0 && output[i + 1] >= 0) crossings++;
+				assert.ok(Math.abs(crossings - 176) < 3, 'The final section must still contain 880 Hz');
+			}
+		}
+	});
+	it('retains every decoded frame when a RealMedia packet timestamps several frames together', async () => {
+		const { model, files } = captureTranscription();
+		const samples = Int16Array.from({ length: 16000 }, (_, i) => Math.round(10000 * Math.sin(i / (i < 8000 ? 8 : 3))));
+		const source = await native.createAudioFile(resolve(directory, 'phone.rm'), new Uint8Array(samples.buffer), { codec: 'real_144', rate: 8000 });
+		const original = await native.decodeMonoPcm(source);
+		await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'flac', codec: 'flac' } })(source);
+		const lossless = await native.decodeMonoPcm(files[0].audio);
+		assert.deepEqual(lossless.subarray(0, original.length), original);
+		assert.ok(lossless.subarray(original.length).every(byte => byte === 0));
+		await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'ogg', codec: 'libopus' } })(source);
+		const opus = await native.decodeMonoPcm(files[1].audio); // Opus decodes at 48 kHz.
+		assert.ok(Math.abs(opus.length - original.length * 6) <= 1920);
+		assert.ok(opus.subarray(48000 * 3, 48000 * 3.5).some(byte => byte > 16));
+	});
+	it('preserves a complete Vorbis conversion and copies its variable frames from a millisecond clock', async () => {
+		const rate = 44100, { model, files, raw } = captureTranscription();
+		const samples = Int16Array.from({ length: rate * 2 }, (_, i) => Math.round(12000 * Math.sin(2 * Math.PI * (i < rate ? 330 : 660) * i / rate)));
+		const wav = await writeWav(new Uint8Array(samples.buffer), { sampleRate: rate, channels: 1, encoding: 'pcm_s16le' });
+		const vorbis = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'ogg', codec: 'libvorbis' } });
+		await vorbis(wav);
+		const result = await native.decodeMonoPcm(files[0].audio);
+		assert.ok(Math.abs(result.length / 2 - samples.length) <= 1024);
+		const played = new Int16Array(result.buffer, result.byteOffset, result.length / 2);
+		let crossings = 0;
+		for (let i = Math.round(rate * 1.65); i < Math.round(rate * 1.85); i++) if (played[i] < 0 && played[i + 1] >= 0) crossings++;
+		assert.ok(Math.abs(crossings - 132) < 3, 'The Vorbis file must retain the final 660 Hz section');
+		await Transcriber.loadsAudio({ model, inputAudioFormat: { type: 'audio/pcm', rate } })(files[0].audio);
+		assert.deepEqual(raw[0], result);
+		await vorbis(files[0].audio);
+		assert.deepEqual(await native.decodeMonoPcm(files[1].audio), result);
+		await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'webm', codec: 'libvorbis' } })(wav);
+		const continuous = files[2].audio;
+		await vorbis(continuous);
+		const before = await native.readAudioPackets(continuous), after = await native.readAudioPackets(files[3].audio);
+		assert.deepEqual(after.map(p => p.data), before.map(p => p.data));
+		const copied = await native.decodeMonoPcm(files[3].audio);
+		assert.ok(Math.abs(copied.length - result.length) <= 2048);
+		assert.deepEqual(copied.subarray(4000, -4000), result.subarray(4000, copied.length - 4000));
+		const paused = await native.createPausedPcm(resolve(directory, 'paused-vorbis.webm'), continuous);
+		await assert.rejects(vorbis(paused.bytes), /preserve.*pause/);
+		// Fast changes alternate the encoder's short and long windows within the same Ogg page.
+		const lowRate = 16000;
+		const pulses = Int16Array.from({ length: 2 * lowRate }, (_, i) => i % 3840 < 960 ? 0 : Math.round(12000 * Math.sin(i / 4)));
+		const shortWindows = await writeWav(new Uint8Array(pulses.buffer), { sampleRate: lowRate, channels: 1, encoding: 'pcm_s16le' });
+		await vorbis(shortWindows);
+		const pulseFile = files.at(-1)!.audio;
+		await Transcriber.loadsAudio({ model, inputAudioFormat: { type: 'audio/pcm', rate: lowRate } })(pulseFile);
+		assert.deepEqual(raw.at(-1), await native.decodeMonoPcm(pulseFile));
+	});
+	it('rejects an encoder that drops packets even when the remaining timestamps span the recording', async () => {
+		const source = await writeWav(new Uint8Array(48000 * 2), { encoding: 'pcm_s16le', sampleRate: 48000, channels: 1 });
+		await native.assertMissingEncoderPacketsRejected(source);
+	});
+	it('keeps continuous 44.1 kHz audio on coarse ASF and Matroska clocks and detects a real pause', async () => {
+		const { model, files, raw } = captureTranscription();
+		const samples = Int16Array.from({ length: 88200 }, (_, i) => 3000 + Math.round(2000 * Math.sin(i / 20)));
+		const bytes = new Uint8Array(samples.buffer), rate = 44100;
+		const wma = await native.createAudioFile(resolve(directory, 'coarse.wma'), bytes, { codec: 'wmav2', rate });
+		const reference = await native.decodeMonoPcm(wma);
+		await Transcriber.loadsAudio({ model, inputAudioFormat: { type: 'audio/pcm', rate } })(wma);
+		assert.deepEqual(raw[0], reference);
+		await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } })(wma);
+		assert.deepEqual((await readWav(files[0].audio)).audio, reference);
+		const matroska = await native.createAudioFile(resolve(directory, 'coarse.mka'), bytes, { codec: 'flac', rate });
+		const flac = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'flac', codec: 'flac' } });
+		await flac(matroska);
+		assert.deepEqual(await native.readAudioPackets(files[1].audio).then(p => p.map(packet => packet.data)),
+			await native.readAudioPackets(matroska).then(p => p.map(packet => packet.data)));
+		assert.deepEqual(await native.decodeMonoPcm(files[1].audio), await native.decodeMonoPcm(matroska));
+		const paused = await native.createPausedPcm(resolve(directory, 'coarse-pause.mka'), files[1].audio);
+		await assert.rejects(flac(paused.bytes), /preserve.*pause/);
+		await Transcriber.loadsAudio({ model, inputAudioFormat: { type: 'audio/pcm', rate } })(paused.bytes);
+		const original = await native.decodeMonoPcm(matroska), withPause = raw[1];
+		assert.ok(Math.abs((withPause.length - original.length) / 2 - rate) <= 45);
+		assert.ok(withPause.subarray((paused.pauseAt + 50) * 2, (paused.pauseAt + rate - 50) * 2).every(byte => byte === 0));
+		assert.deepEqual(withPause.subarray(-4000), original.subarray(-4000));
+	});
 	it('preserves the position and duration of an interior pause through raw decoding and file conversion', async () => {
 		const { bytes, pauseAt } = await native.createPausedPcm(resolve(directory, 'paused.mka'));
 		for (const rate of [48000, 24000]) {
@@ -80,6 +198,18 @@ describe('Native audio preparation (LGPL integration)', function () {
 			assert.equal(samples[start + rate - 32], 0); assert.equal(samples[start + rate + 32], 1200);
 		}
 		await assert.rejects(prepareAudio(bytes, { fileAudioTarget: { format: 'wav', codec: 'pcm_s16le', maxDurationSeconds: 1.5 } }), /maxDurationSeconds/);
+	});
+	it('preserves exactly one clock tick of silence between PCM frames of known duration', async () => {
+		const { model, files, raw } = captureTranscription(), rate = 48000;
+		const samples = new Uint8Array(new Int16Array(rate).fill(1200).buffer);
+		const aligned = await native.createAudioFile(resolve(directory, 'aligned.mka'), samples, { codec: 'pcm_s16le', rate, frameSamples: 960 });
+		const { bytes, pauseAt } = await native.createPausedPcm(resolve(directory, 'one-tick.mka'), aligned, 1);
+		const expected = new Uint8Array(samples.length + 96);
+		expected.set(samples.subarray(0, pauseAt * 2)); expected.set(samples.subarray(pauseAt * 2), pauseAt * 2 + 96);
+		await Transcriber.loadsAudio({ model, inputAudioFormat: { type: 'audio/pcm', rate } })(bytes);
+		await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } })(bytes);
+		assert.deepEqual(raw[0], expected);
+		assert.deepEqual((await readWav(files[0].audio)).audio, expected);
 	});
 	it('preserves both channels across a pause when copying stereo PCM into WAV', async () => {
 		const layout = { sampleRate: 48000, channels: 2, encoding: 'pcm_s16le' } as const;
@@ -443,7 +573,13 @@ describe('Native audio preparation (LGPL integration)', function () {
 			await transcribe.run({ audio, mediaSettings: { format, options } });
 			assert.equal(captured.raw.at(-1)!.length, 32000);
 		}
-		for (const type of ['audio/pcmu', 'audio/pcm;rate=1']) {
+		const networkOrder = new Blob([Uint8Array.of(0x20, 0, 0xe0, 0)], { type: 'audio/L16;rate=8000;channels=1' });
+		const noLayout = Transcriber.loadsAudio({ model: captured.model, inputAudioFormat: { type: 'audio/pcm', rate: 8000 } });
+		await assert.rejects(noLayout(new Blob([second], { type: 'audio/pcm' })), /sourceFormat.*encoding.*sampleRate.*channels/);
+		for (const component of [noLayout, transcribe]) await assert.rejects(component(networkOrder), /s16be.*sample_rate.*ch_layout/);
+		await noLayout.run({ audio: networkOrder, mediaSettings: { format: 's16be', options } });
+		assert.deepEqual(captured.raw.at(-1), Uint8Array.of(0, 0x20, 0, 0xe0));
+		for (const type of ['audio/pcmu', 'audio/L16', 'audio/pcm;rate=1']) {
 			await transcribe(new Blob([wav], { type }));
 			assert.equal(captured.raw.at(-1)!.length, pcm.length / 3);
 		}

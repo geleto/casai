@@ -5,41 +5,45 @@ import { Demuxer, Decoder, Encoder, Muxer, IOStream } from 'node-av';
 import * as av from 'node-av';
 import { prepareNativeAudio } from '../../src/audio/native-pipeline.js';
 
-export async function createAudioFile(path, samples, { codec, rate = 48000, channels = 1 }) {
+export async function createAudioFile(path, samples, { codec, rate = 48000, channels = 1, frameSamples }) {
   await using input = await Demuxer.open(Buffer.from(samples), { format: 's16le', options: { sample_rate: rate, ch_layout: `${channels}c` } });
   using decoder = await Decoder.create(input.audio());
+  using filter = frameSamples ? av.FilterAPI.create(`asetnsamples=n=${frameSamples}:p=0`) : undefined;
   using encoder = await Encoder.create(codec, { decoder, autoResample: true });
   await using output = await Muxer.open(path);
   const index = output.addStream(encoder);
-  for await (const packet of encoder.packets(decoder.frames(input.packets()))) {
+  const frames = decoder.frames(input.packets());
+  for await (const packet of encoder.packets(filter ? filter.frames(frames) : frames)) {
     if (packet) { try { await output.writePacket(packet, index); } finally { packet[Symbol.dispose](); } }
   }
   await output.close();
   return readFile(path);
 }
 
-// Split at a real packet boundary and shift the second section by one second.
-export async function createPausedPcm(path, encoded) {
+// Split at a real packet boundary and shift the second section on the container clock.
+export async function createPausedPcm(path, encoded, milliseconds = 1000) {
   const samples = new Int16Array(48000).fill(1200);
   await using input = encoded ? await Demuxer.open(Buffer.from(encoded))
     : await Demuxer.open(Buffer.from(samples.buffer), { format: 's16le', options: { sample_rate: 48000, ch_layout: 'mono' } });
   const track = input.audio();
+  const second = av.avRescaleQ(1n, { num: 1, den: 1 }, track.timeBase);
+  const gap = av.avRescaleQ(BigInt(milliseconds), { num: 1, den: 1000 }, track.timeBase);
   await using output = await Muxer.open(path);
   const index = output.addStream(track);
   let pauseAt;
   for await (const packet of input.packets(track.index)) {
     if (!packet) continue;
     try {
-      if (packet.pts >= 24000n) {
-        pauseAt ??= Number(packet.pts);
-        packet.pts += 48000n;
-        packet.dts += 48000n;
+      if (packet.pts >= second / 2n) {
+        pauseAt ??= Number(av.avRescaleQ(packet.pts, track.timeBase, { num: 1, den: track.codecpar.sampleRate }));
+        packet.pts += gap;
+        packet.dts += gap;
       }
       await output.writePacket(packet, index);
     } finally { packet[Symbol.dispose](); }
   }
   await output.close();
-  assert.ok(pauseAt > 0 && pauseAt < samples.length);
+  assert.ok(pauseAt > 0 && pauseAt < track.codecpar.sampleRate);
   return { bytes: await readFile(path), pauseAt };
 }
 
@@ -68,6 +72,27 @@ export async function decodeMonoPcm(bytes) {
     finally { frame[Symbol.dispose](); }
   }
   return Uint8Array.from(Buffer.concat(chunks));
+}
+
+// Exercise the integrity check with real packets, keeping their original timestamp span.
+export async function assertMissingEncoderPacketsRejected(source) {
+  const droppingEncoder = { async create(...args) {
+    const encoder = await Encoder.create(...args);
+    const packets = encoder.packets.bind(encoder);
+    encoder.packets = async function* (frames) {
+      let count = 0;
+      for await (const packet of packets(frames)) {
+        if (packet && ++count % 2 === 0) packet[Symbol.dispose]();
+        else yield packet;
+      }
+      assert.ok(count >= 4);
+    };
+    return encoder;
+  } };
+  for (const [format, codec] of [['flac', 'flac'], ['wav', 'pcm_s24le']]) {
+    const file = prepareNativeAudio({ ...av, Encoder: droppingEncoder }, source, { fileAudioTarget: { format, codec } });
+    await assert.rejects(file.next(), /before all decoded samples/);
+  }
 }
 
 // Author a version-zero edit list on the single-track fixture. Its moov box follows mdat.

@@ -1,6 +1,6 @@
 import { ValidationError } from '../errors.js';
 
-/** Bounded container evidence, deliberately excluding ambiguous MP3/ADTS frame syncs. */
+/** Bound the retained prefix for recording headers and length-linked frame sequences. */
 export const audioPrefixBytes = 4096;
 
 export function audioMediaType(value: string | undefined): string | undefined {
@@ -42,16 +42,18 @@ function transportStream(bytes: Uint8Array, stride: number, offset: number): boo
 	return varying; // A repeating PCM sample can match every sync byte and control field.
 }
 
-const mp3Rates = [44100, 48000, 32000];
+const mpegRates = [44100, 48000, 32000];
 const mp3Bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
-const mp3LowRateBitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+const mp2Bitrates = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384];
+const mpegLowRateBitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
 
 // A single frame sync is also an ordinary PCM sample. Follow two declared frame
-// lengths to a third consistent header before treating untagged AAC or MP3 as encoded.
+// lengths to a third consistent header before treating untagged AAC or MPEG audio as encoded.
 function framedAudio(bytes: Uint8Array): string | undefined {
 	if (bytes[0] !== 0xff) return undefined;
 	const adts = (bytes[1] & 0xf6) === 0xf0;
 	const version = (bytes[1] >> 3) & 3;
+	const layer = (bytes[1] >> 1) & 3;
 	const rateIndex = (bytes[2] >> 2) & 3;
 	let offset = 0;
 	for (let i = 0; i < 3; i++) {
@@ -62,22 +64,95 @@ function framedAudio(bytes: Uint8Array): string | undefined {
 			length = ((bytes[offset + 3] & 3) << 11) | (bytes[offset + 4] << 3) | (bytes[offset + 5] >> 5);
 			if (length <= (bytes[offset + 1] & 1 ? 7 : 9)) return undefined;
 		} else {
-			if (offset + 4 > bytes.length || (bytes[1] & 0xe6) !== 0xe2 || version === 1 || rateIndex === 3
+			if (offset + 4 > bytes.length || (bytes[1] & 0xe0) !== 0xe0 || (layer !== 1 && layer !== 2) || version === 1 || rateIndex === 3
 				|| ((bytes[offset + 2] >> 2) & 3) !== rateIndex) return undefined;
-			const bitrate = (version === 3 ? mp3Bitrates : mp3LowRateBitrates)[bytes[offset + 2] >> 4];
+			const bitrate = (version !== 3 ? mpegLowRateBitrates : layer === 2 ? mp2Bitrates : mp3Bitrates)[bytes[offset + 2] >> 4];
 			if (!bitrate) return undefined;
-			const rate = mp3Rates[rateIndex] / (version === 3 ? 1 : version === 2 ? 2 : 4);
-			length = Math.floor((version === 3 ? 144000 : 72000) * bitrate / rate) + ((bytes[offset + 2] >> 1) & 1);
+			const rate = mpegRates[rateIndex] / (version === 3 ? 1 : version === 2 ? 2 : 4);
+			length = Math.floor((version === 3 || layer === 2 ? 144000 : 72000) * bitrate / rate) + ((bytes[offset + 2] >> 1) & 1);
 		}
 		offset += length;
 	}
 	return adts ? 'audio/aac' : 'audio/mpeg';
 }
 
+const ac3Bitrates = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 576, 640];
+
+// AC-3 and E-AC-3 share a sync word. Require a second valid header at the length
+// declared by the first. A high-bitrate frame can occupy most of the retained prefix.
+function dolbyAudio(bytes: Uint8Array): string | undefined {
+	const swapped = bytes[0] === 0x77 ? 1 : 0;
+	const header = (offset: number) => {
+		const byte = (i: number) => bytes[offset + (i ^ swapped)];
+		if (offset + 6 > bytes.length || byte(0) !== 0x0b || byte(1) !== 0x77) return 0;
+		const id = byte(5) >> 3, rate = byte(4) >> 6;
+		if (id > 10) {
+			if (id > 16 || (byte(2) >> 6) === 3 || (rate === 3 && (byte(4) & 0x30) === 0x30)) return 0;
+			return 2 * (1 + ((byte(2) & 7) << 8) + byte(3));
+		}
+		const sizeCode = byte(4) & 63, bitrate = ac3Bitrates[sizeCode >> 1];
+		if (!bitrate || rate === 3) return 0;
+		return rate === 1 ? 2 * (Math.floor(bitrate * 320 / 147) + (sizeCode & 1)) : bitrate * (rate === 0 ? 4 : 6);
+	};
+	const length = header(0);
+	if (length < 7 || header(length) < 7 || bytes[5 ^ swapped] >> 3 !== bytes[length + (5 ^ swapped)] >> 3) return undefined;
+	return bytes[5 ^ swapped] >> 3 > 10 ? 'audio/eac3' : 'audio/ac3';
+}
+
+function dtsAudio(bytes: Uint8Array, view: DataView): boolean {
+	if (bytes.length < 10) return false;
+	const sync = view.getUint32(0);
+	const packed = sync === 0x1fffe800 || sync === 0xff1f00e8;
+	if (!packed && sync !== 0x7ffe8001 && sync !== 0xfe7f0180) return false;
+	const swapped = sync === 0xff1f00e8 || sync === 0xfe7f0180 ? 1 : 0;
+	const byte = (i: number) => bytes[i ^ swapped];
+	const size = 1 + (packed ? ((byte(6) & 3) << 12) | (byte(7) << 4) | ((byte(8) >> 2) & 15)
+		: ((byte(5) & 3) << 12) | (byte(6) << 4) | (byte(7) >> 4));
+	const next = packed ? Math.floor(size * 16 / 14) : size;
+	return next >= 96 && next + 10 <= bytes.length && view.getUint32(next) === sync;
+}
+
+function loasAudio(bytes: Uint8Array): boolean {
+	let offset = 0;
+	for (let frame = 0; frame < 3; frame++) {
+		if (offset + 3 > bytes.length || bytes[offset] !== 0x56 || (bytes[offset + 1] & 0xe0) !== 0xe0) return false;
+		const length = ((bytes[offset + 1] & 31) << 8) | bytes[offset + 2];
+		if (length < 4) return false;
+		offset += 3 + length;
+	}
+	return true;
+}
+
 /** A container or manifest selects encoded routing. Some signatures establish only the format family. */
 export function audioContainer(bytes: Uint8Array): string | undefined {
 	bytes = bytes.subarray(0, audioPrefixBytes);
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	if (textAt(bytes, 0, '#!AMR\n') || textAt(bytes, 0, '#!AMR_MC1.0\n')) return 'audio/amr';
+	if (textAt(bytes, 0, '#!AMR-WB\n') || textAt(bytes, 0, '#!AMR-WB_MC1.0\n')) return 'audio/amr-wb';
+	if (textAt(bytes, 0, 'NIST_1A\n')) return 'audio/x-nist';
+	if (textAt(bytes, 0, 'nut/multimedia container\0')) return 'video/x-nut';
+	if (textAt(bytes, 0, 'Creative Voice File\x1a')) return 'audio/x-voc';
+	if (textAt(bytes, 0, '\0\nSMJPEG')) return 'video/x-smjpeg';
+	if (textAt(bytes, 0, 'MMMD') && textAt(bytes, 8, 'CNTI')) return 'application/vnd.smaf';
+	if (bytes.length >= 18 && (textAt(bytes, 0, '.RMF') || textAt(bytes, 0, '.RMP')) && view.getUint32(4) >= 18 && view.getUint32(4) <= 0xffff) return 'application/vnd.rn-realmedia';
+	if (bytes.length >= 32 && textAt(bytes, 0, 'wvpk') && view.getUint32(4, true) >= 24
+		&& view.getUint16(8, true) >= 0x402 && view.getUint16(8, true) <= 0x410) return 'audio/wavpack';
+	if (bytes.length >= 22 && textAt(bytes, 0, 'TTA1') && [1, 2].includes(view.getUint16(4, true))
+		&& view.getUint16(6, true) && view.getUint16(8, true) && view.getUint32(10, true)) return 'audio/x-tta';
+	if (bytes.length >= 32 && (textAt(bytes, 0, '.SoX') || textAt(bytes, 0, 'XoS.')) && view.getUint32(4) && view.getUint32(24)) return 'audio/x-sox';
+	if (bytes.length >= 16 && ((textAt(bytes, 0, '\x64\xa3') && bytes[2] >= 1 && bytes[2] <= 4 && bytes[3] === 0)
+		|| (bytes[0] === 0 && bytes[1] >= 1 && bytes[1] <= 3 && textAt(bytes, 2, '\xa3\x64')))
+		&& view.getUint32(4) && view.getUint32(8)) return 'audio/x-ircam';
+	if (textAt(bytes, 0, '\0\0\x01\xba')) {
+		const next = (bytes[4] & 0xf1) === 0x21 ? 12 : (bytes[4] & 0xc4) === 0x44 ? 14 + (bytes[13] & 7) : 0;
+		if (next && textAt(bytes, next, '\0\0\x01') && bytes[next + 3] >= 0xbb) return 'video/mpeg';
+	}
+	if (bytes[0] === 0x0b || bytes[0] === 0x77) {
+		const dolby = dolbyAudio(bytes);
+		if (dolby) return dolby;
+	}
+	if (dtsAudio(bytes, view)) return 'audio/vnd.dts';
+	if (bytes[0] === 0x56 && loasAudio(bytes)) return 'audio/mp4a-latm';
 	if (textAt(bytes, 0, 'ffconcat version 1.0') && (bytes[20] === 10 || textAt(bytes, 20, '\r\n'))) return 'ffconcat';
 	if (textAt(bytes, 0, '#EXTM3U') && (bytes[7] === 10 || textAt(bytes, 7, '\r\n'))
 		&& new TextDecoder().decode(bytes).includes('\n#EXT-X-')) return 'application/vnd.apple.mpegurl';
