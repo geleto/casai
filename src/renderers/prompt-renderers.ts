@@ -1,4 +1,4 @@
-import { sourceMode } from '../config/source-mode.js';
+import { sourceMode } from '../config/modifiers.js';
 import type { PromptValue, PromptType } from '../types/prompt.js';
 import type { ModelMessage } from 'ai';
 import type { Context } from '../types/utils.js';
@@ -25,6 +25,7 @@ export function createSourceRenderer(config: CascadaConfig & { [sourceMode]?: Pr
 	const promptType = config[sourceMode];
 	switch (promptType) {
 		case 'text':
+		case 'audio-resource':
 			return (source: unknown = configured) => source;
 		case 'text-name': {
 			const loader = new AsyncEnvironment(config.loader as LoaderGroup);

@@ -1,4 +1,4 @@
-import type { sourceMode, ResolvedSourceMode, WithoutSourceMode } from '../config/source-mode.js';
+import type { toolMode, streamMode, sourceMode, EnabledToolMode, EnabledStreamMode, ResolvedSourceMode, WithoutSourceMode } from '../config/modifiers.js';
 import type { EmptyMap } from './utils.js';
 import type { PromptType as ComponentPromptType, PromptFunction, PromptValue } from './prompt.js';
 import type { MergedConfig, ProcessedConfig } from './merge.js';
@@ -19,9 +19,12 @@ export type ConfigPreparerContext<T, Mode> = [Mode] extends [never] ? EmptyMap :
 	? { [K in PreparerKeys]?: { prepare(context: ExecutionContext<T> | ToolExecutionContext<T>): unknown }['prepare'] | NonSourceValue<K> } : EmptyMap;
 
 export type ToolMode<T, Explicit extends boolean> = Explicit extends true ? true
-	: true extends ConfigValue<ResolvedConfig<T>, 'asTool'> ? undefined extends ConfigValue<ResolvedConfig<T>, 'asTool'> ? boolean : true : false;
+	: true extends ConfigValue<ResolvedConfig<T>, typeof toolMode> ? undefined extends ConfigValue<ResolvedConfig<T>, typeof toolMode> ? boolean : true : false;
 export type ToolModeConfig<T, Explicit extends boolean> = Explicit extends true
-	? T extends unknown ? Omit<T, 'asTool'> & { asTool: true } : never : T;
+	? T extends unknown ? Omit<T, typeof toolMode> & EnabledToolMode : never : T;
+
+export type StreamModeConfig<T, Explicit extends boolean> = Explicit extends true
+	? T extends unknown ? Omit<T, typeof streamMode> & EnabledStreamMode : never : T;
 export type SourceMode<T, Explicit, Default> = Explicit extends undefined
 	? Exclude<ConfigValue<T, typeof sourceMode>, undefined> | (undefined extends ConfigValue<T, typeof sourceMode> ? Default : never) : Explicit;
 export type SourceModeConfig<T, Explicit, Default> = T extends unknown

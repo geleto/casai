@@ -1,3 +1,4 @@
+import { toolMode, streamMode } from '../fixtures/source-modes.js';
 /* eslint-disable @typescript-eslint/no-unsafe-call -- Negative checks intentionally call unavailable modifier methods. */
 import { Config, create, z } from 'casai';
 import type { LanguageModel, EmbeddingModel } from 'ai';
@@ -36,7 +37,7 @@ Config({ ...prepared.config, prompt: context => {
 
 const toolDefaults = Config.withTemplate.asTool({ inputSchema, prompt: '{{ count }}' });
 const tool = create.LLMAgent({ model }, toolDefaults);
-expectEqual<typeof tool.config.asTool, true>();
+expectEqual<(typeof tool.config)[typeof toolMode], true>();
 void tool({ count: '2' });
 void tool.execute({ count: 2 }, { toolCallId: 'call', messages: [], context: undefined });
 // @ts-expect-error Tool fragments preserve the SDK Tool interface rather than Agent methods.
@@ -46,14 +47,14 @@ void create.LLMAgent({ model }, Config({}, toolDefaults))();
 
 const streaming = Config.withFunction.asStream({ inputSchema, prompt: ({ count }) => String(count) });
 const stream = create.LLMAgent({ model }, streaming);
-expectEqual<typeof stream.config.streaming, true>();
+expectEqual<(typeof stream.config)[typeof streamMode], true>();
 void stream({ count: '2' }).then(result => result.textStream);
-const _enabled = Config.asTool({ asTool: undefined });
-expectEqual<typeof _enabled.config.asTool, true>();
-const _enabledStream = Config.asStream({ streaming: undefined });
-expectEqual<typeof _enabledStream.config.streaming, true>();
-const _enabledParent = Config.asTool({}, Config({ asTool: undefined }));
-expectEqual<typeof _enabledParent.config.asTool, true>();
+const _enabled = Config.asTool({});
+expectEqual<(typeof _enabled.config)[typeof toolMode], true>();
+const _enabledStream = Config.asStream({});
+expectEqual<(typeof _enabledStream.config)[typeof streamMode], true>();
+const _enabledParent = Config.asTool({}, Config({}));
+expectEqual<(typeof _enabledParent.config)[typeof toolMode], true>();
 const delivery = choose ? toolDefaults : streaming;
 void create.LLMAgent({ model }, Config({}, delivery))({ count: '2' });
 
@@ -186,10 +187,18 @@ const selectedMode = (choose ? Config.withText({}) : Config.withFunction({})).co
 Config({ ...selectedMode, input: 'literal' });
 
 // Public annotations retain a fragment's selected mode and default authored settings locally.
-const annotatedLoaded: LLMAgentConfig<Empty, Empty, string> = Config.loadsText({ model, prompt: 'entry' }).config;
-// @ts-expect-error A selected loaded mode still requires its loader.
-create.LLMAgent(annotatedLoaded);
-const loadedAgent = create.LLMAgent({ loader: { load: () => 'loaded' } }, { config: annotatedLoaded });
+// @ts-expect-error A default-source annotation cannot erase a fragment's loaded source mode.
+const _wrongLoadedAnnotation: LLMAgentConfig<Empty, Empty, string> = Config.loadsText({ model, prompt: 'entry' }).config;
+const annotatedLoaded: import('casai').ComponentConfig<'LLMAgent', 'text-name'> = Config.loadsText({ model, prompt: 'entry', loader: { load: () => 'loaded' } }).config;
+// @ts-expect-error A finished loaded-source annotation requires its loader.
+const _missingLoadedSetting: typeof annotatedLoaded = Config.loadsText({ model, prompt: 'entry' }).config;
+const loadedAgent = create.LLMAgent(annotatedLoaded);
+const nativeAudioMode = Config.loadsAudio({});
+// @ts-expect-error LLMAgent does not implement the native audio source mode.
+create.LLMAgent({ model, prompt: 'hello' }, nativeAudioMode);
+// @ts-expect-error A spread retains the unsupported source selection too.
+create.LLMAgent({ model, prompt: 'hello', ...nativeAudioMode.config });
+create.LLMAgent.withText({ model, prompt: 'hello' }, nativeAudioMode);
 void loadedAgent('entry');
 // @ts-expect-error Loaded sources cannot accept literal native messages as a replacement.
 void loadedAgent.run({ prompt: [{ role: 'user', content: 'native' }] });
@@ -197,20 +206,28 @@ const annotatedTemplate: TemplateConfig<Empty> = { template: 'inline' };
 void create.Template(annotatedTemplate)();
 const annotatedScript: ScriptConfig<Empty, unknown> & { script: string } = { script: 'return 1' };
 void create.Script(annotatedScript)();
-const loadedTemplate: TemplateConfig<Empty> = Config.loadsTemplate({ template: 'entry' }).config;
+const loadedTemplate = Config.loadsTemplate({ template: 'entry' }).config;
+// @ts-expect-error Inline annotations cannot erase a configured loaded-template source.
+const _loadedTemplateAnnotation: TemplateConfig<Empty> = loadedTemplate;
 // @ts-expect-error Renderer annotations must retain their loaded mode too.
 create.Template(loadedTemplate);
 void create.Template({ loader: { load: () => 'loaded' } }, { config: loadedTemplate })();
-const loadedScript: ScriptConfig<Empty, unknown> & { script: string } = Config.loadsScript({ script: 'entry' }).config;
+const loadedScript = Config.loadsScript({ script: 'entry' }).config;
+// @ts-expect-error Inline annotations cannot erase a configured loaded-script source.
+const _loadedScriptAnnotation: ScriptConfig<Empty, unknown> = loadedScript;
 // @ts-expect-error Script annotations must retain their loaded mode too.
 create.Script(loadedScript);
 void create.Script({ loader: { load: () => 'return 1' } }, { config: loadedScript })();
 void create.Script.withScript({ script: 'return 1' }, { config: loadedScript })();
-const loadedTemplateTool: TemplateToolConfig<Empty> = Config.loadsTemplate.asTool({ template: 'entry', inputSchema: z.object({}) }).config;
+const loadedTemplateTool = Config.loadsTemplate.asTool({ template: 'entry', inputSchema: z.object({}) }).config;
+// @ts-expect-error Tool annotations have the same inline default.
+const _loadedTemplateToolAnnotation: TemplateToolConfig<Empty> = loadedTemplateTool;
 // @ts-expect-error Tool annotations retain the same loader requirement.
 create.Template.asTool(loadedTemplateTool);
 void create.Template.asTool({ loader: { load: () => 'loaded' } }, { config: loadedTemplateTool })();
-const loadedScriptTool: ScriptToolConfig<Empty, unknown> & { script: string } = Config.loadsScript.asTool({ script: 'entry', inputSchema: z.object({}) }).config;
+const loadedScriptTool = Config.loadsScript.asTool({ script: 'entry', inputSchema: z.object({}) }).config;
+// @ts-expect-error A loaded script tool needs its selected-source type or inference.
+const _loadedScriptToolAnnotation: ScriptToolConfig<Empty, unknown> = loadedScriptTool;
 // @ts-expect-error Script tool annotations retain the same loader requirement.
 create.Script.asTool(loadedScriptTool);
 void create.Script.asTool({ loader: { load: () => 'return 1' } }, { config: loadedScriptTool })();

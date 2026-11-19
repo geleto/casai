@@ -12,10 +12,72 @@ const inputAudioFormat = { type: 'audio/pcm', rate: 24000 };
 const finish = { type: 'finish' as const, text: 'finished', segments: [{ text: 'finished', startSecond: 0, endSecond: 1 }], language: 'en', providerMetadata: { fixture: { native: true } } };
 
 describe('shared component call rules', () => {
+	it('checks null prepared image text before SDK dispatch and keeps image-only requests valid', async () => {
+		let starts = 0;
+		const png = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
+		const model = new MockImageModelV4({ maxImagesPerCall: () => { starts++; return 1; }, doGenerate: async request => {
+			assert.equal(request.prompt, undefined);
+			return { images: [png], warnings: [], response: { timestamp: new Date(0), modelId: 'test', headers: {} } };
+		} });
+		const config = { model, inputSchema: z.object({}), prompt: 'return null' };
+		const options = { toolCallId: 'image', messages: [], context: undefined };
+		await assert.rejects(async () => create.ImageGenerator.withScript.asTool(config).execute({}, options), /requires prompt text/);
+		assert.equal(starts, 0);
+		await create.ImageGenerator.withScript.asTool({ ...config, images: [png] }).execute({}, options);
+		assert.equal(starts, 1);
+	});
+	it('rejects missing effective tool inputs on ordinary, named, SDK and injected paths before dispatch', async () => {
+		let dispatches = 0;
+		const unexpected = async () => { dispatches++; throw new Error('Unexpected model dispatch'); };
+		const embedding = new MockEmbeddingModelV4({ doEmbed: unexpected });
+		const reranking = new MockRerankingModelV4({ doRerank: unexpected });
+		const speech = new MockSpeechModelV4({ doGenerate: unexpected });
+		const transcription = new MockTranscriptionModelV4({ doGenerate: unexpected });
+		const decision = new Experimental_DecisionMockModelV4({ doDecide: unexpected });
+		const cases = [
+			[create.Embedder.asTool, { model: embedding }, /Embedder requires input/],
+			[create.Reranker.asTool, { model: reranking, query: 'query' }, /Reranker requires documents/],
+			[create.Reranker.asTool, { model: reranking, documents: ['doc'] }, /Reranker requires query/],
+			[create.SpeechGenerator.asTool, { model: speech }, /SpeechGenerator requires text/],
+			[create.Transcriber.asTool, { model: transcription }, /Audio input is required/],
+			[create.Decision.asTool, { model: decision, questions: { yes: { type: 'boolean' } } }, /Decision requires state/],
+		] as const;
+		for (const [factory, settings, error] of cases) {
+			// Deliberately exercise JavaScript consumers of configurations rejected by the type gate.
+			const component = Reflect.apply(factory, undefined, [{ ...settings, inputSchema: z.object({}) }]) as Tool & (() => Promise<unknown>) & { run(): Promise<unknown> };
+			await assert.rejects(component(), error);
+			await assert.rejects(component.run(), error);
+			await assert.rejects(async () => { await component.execute!({}, { toolCallId: 'missing', messages: [], context: undefined }); }, error);
+			const injected = create.Function({ tools: { component }, execute: ({ component }) => component!({}) });
+			await assert.rejects(injected(), error);
+		}
+		assert.equal(dispatches, 0);
+	});
+
+	it('resolves empty-schema tool inputs from inheritance and preparers, and checks dynamic results', async () => {
+		const model = new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) });
+		const parent = create.Config.asTool({ model, input: 'fixed', inputSchema: z.object({}) });
+		const fixed = create.Embedder({}, parent);
+		assert.deepEqual(await fixed.execute({}, { toolCallId: 'fixed', messages: [], context: undefined }), [5]);
+		const prepared = create.Embedder.withFunction.asTool({ model, input: () => 'prepared', inputSchema: z.object({}) });
+		assert.deepEqual(await prepared.execute({}, { toolCallId: 'prepared', messages: [], context: undefined }), [8]);
+		const invalid = create.Embedder.withScript.asTool({ model, input: 'return null', inputSchema: z.object({}) });
+		await assert.rejects(async () => invalid.execute({}, { toolCallId: 'invalid', messages: [], context: undefined }), /requires input/);
+		let rankings = 0;
+		const reranking = new MockRerankingModelV4({ doRerank: async () => { rankings++; return { ranking: [{ index: 0, relevanceScore: 1 }], warnings: [] }; } });
+		const rank = create.Reranker.withFunction.asTool({ model: reranking, query: () => ({ query: 'q', documents: ['doc'] }), inputSchema: z.object({}) });
+		assert.equal((await rank.execute({}, { toolCallId: 'rank', messages: [], context: undefined }))[0].document, 'doc');
+		const missing = create.Reranker.withScript.asTool({ model: reranking, query: 'return "q"', inputSchema: z.object({}) });
+		await assert.rejects(async () => missing.execute({}, { toolCallId: 'missing', messages: [], context: undefined }), /requires documents/);
+		assert.equal(model.doEmbedCalls.length, 2); assert.equal(rankings, 1);
+		// The schema default is D; it is deliberately not introduced by this correction.
+		assert.throws(() => Reflect.apply(create.Embedder.asTool, undefined, [{ model, input: 'fixed' }]), /inputSchema/);
+	});
+
 	it('rejects misnamed plain-tool schemas before calling the model', async () => {
 		const model = new MockLanguageModelV4();
 		const embedding = new MockEmbeddingModelV4();
-		const invalid = Reflect.apply(create.Embedder.asTool, undefined, [{ model: embedding, inputSchema: z.object({ custom: z.string() }) }]) as Tool;
+		const invalid = Reflect.apply(create.Embedder.asTool as unknown as (...args: unknown[]) => unknown, undefined, [{ model: embedding, inputSchema: z.object({ custom: z.string() }) }]) as Tool;
 		const agent = new ToolLoopAgent({ model, tools: { embedding: invalid } });
 		await assert.rejects(agent.generate({ prompt: 'Embed the input.' }), error => error instanceof ConfigError && error.message.includes("only 'input'"));
 		assert.equal(model.doGenerateCalls.length, 0);
@@ -76,8 +138,8 @@ describe('shared component call rules', () => {
 	it('uses ordinary and bound preparation context with configured or inherited tool mode', async () => {
 		const model = new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) });
 		const defaults = { model, inputSchema: z.object({}), toolContextSchema: z.object({ secret: z.string() }), context: { secret: 1 } };
-		const configured = create.Embedder.withFunction({ ...defaults, asTool: true, input: ({ secret }) => String(secret) });
-		const inherited = create.Embedder.withFunction({ input: ({ secret }) => String(secret) }, create.Config({ ...defaults, asTool: true }));
+		const configured = create.Embedder.withFunction.asTool({ ...defaults, input: ({ secret }) => String(secret) });
+		const inherited = create.Embedder.withFunction({ input: ({ secret }) => String(secret) }, create.Config.asTool({ ...defaults }));
 		for (const component of [configured, inherited]) {
 			assert.deepEqual((await component()).embedding, (await embed({ model, value: '1' })).embedding);
 			assert.deepEqual((await component(({ secret }) => secret.toFixed(2))).embedding, (await embed({ model, value: '1.00' })).embedding);
@@ -319,7 +381,7 @@ describe('shared component call rules', () => {
 			formats.push(format);
 			return { stream: convertArrayToReadableStream([finish]) };
 		} });
-		const transcribe = create.StreamingTranscriber.withFunction({ model: transcription, audio });
+		const transcribe = create.Transcriber.withFunction.asStream({ model: transcription, audio });
 		await (await transcribe({}, inputAudioFormat)).text;
 		await (await transcribe(undefined, undefined, inputAudioFormat)).text;
 		await (await transcribe(audio, undefined, inputAudioFormat)).text;
@@ -345,10 +407,10 @@ describe('shared component call rules', () => {
 			languages.push(targetLanguage);
 			return { stream: convertArrayToReadableStream([{ type: 'finish', sourceText: 'hello', outputText: 'bonjour' }]) };
 		} });
-		const translate = create.StreamingTranslator.withFunction({ model: translation, audio });
+		const translate = create.Translator.withFunction.asStream({ model: translation, audio });
 		await (await translate({}, inputAudioFormat, 'fr')).translationText;
 		await (await translate(undefined, undefined, inputAudioFormat, 'fr')).translationText;
-		const formatted = create.StreamingTranslator.withFunction({ inputAudioFormat }, translate);
+		const formatted = create.Translator.withFunction.asStream({ inputAudioFormat }, translate);
 		await (await formatted('fr')).translationText;
 		await (await formatted(undefined, 'fr')).translationText;
 		assert.deepEqual(languages, ['fr', 'fr', 'fr', 'fr']);
@@ -529,7 +591,7 @@ describe('component SDK calls', () => {
 		const spoken = await say.execute({ text: 'hello' }, { toolCallId: 'speech', messages: [], context: undefined });
 		assert.equal(spoken.base64, 'AQI=');
 		assert.equal(typeof spoken.mediaType, 'string');
-		assert.deepEqual(await say.toModelOutput?.({ toolCallId: 'speech', input: { text: 'hello' }, output: spoken }), { type: 'text', value: 'Speech generated.' });
+		assert.deepEqual(await say.toModelOutput?.({ toolCallId: 'speech', input: { text: 'hello' }, output: spoken }), { type: 'content', value: [{ type: 'file', mediaType: spoken.mediaType, data: { type: 'data', data: spoken.base64 } }] });
 	});
 
 	it('resolves ordinary speech text and voice consistently through shorthand and named calls', async () => {
@@ -555,12 +617,12 @@ describe('component SDK calls', () => {
 		const model = new MockTranscriptionModelV4({ doStream: async () => { entries++; return { stream: convertArrayToReadableStream([
 			{ type: 'transcript-delta', delta: 'partial' }, { type: 'error', error: 'recoverable' }, finish,
 		]) }; } });
-		const live = create.StreamingTranscriber({ model, inputAudioFormat, includeRawChunks: true });
+		const live = create.Transcriber.asStream({ model, inputAudioFormat, includeRawChunks: true });
 		const result = await live(audio());
 		assert.deepEqual((await collect(result.fullStream)).map(part => part.type), ['transcript-delta', 'error']);
 		assert.equal(await result.text, 'finished');
 		assert.throws(() => result.fullStream);
-		const collected = create.StreamingTranscriber.withFunction.asTool({ model, inputAudioFormat, inputSchema: z.object({}), audio });
+		const collected = create.Transcriber.withFunction.asTool({ model, inputAudioFormat, inputSchema: z.object({}), audio });
 		const snapshot = await collected.execute({}, { toolCallId: 'stream', messages: [], context: undefined });
 		assert.equal(snapshot.text, 'finished');
 		assert.deepEqual(snapshot.segments, finish.segments);
@@ -571,8 +633,8 @@ describe('component SDK calls', () => {
 		let entries = 0;
 		const model = new MockTranscriptionModelV4({ doStream: async () => { entries++; return { stream: convertArrayToReadableStream([finish]) }; } });
 		const source = audio();
-		const first = create.StreamingTranscriber({ model, inputAudioFormat, audio: source });
-		const child = create.StreamingTranscriber({}, first);
+		const first = create.Transcriber.asStream({ model, inputAudioFormat, audio: source });
+		const child = create.Transcriber.asStream({}, first);
 		assert.equal(await (await first()).text, 'finished');
 		await assert.rejects(child(), ValidationError);
 		assert.equal(entries, 1);
@@ -580,7 +642,7 @@ describe('component SDK calls', () => {
 		const controller = new AbortController(); controller.abort();
 		await assert.rejects(first.run({ audio: fresh, abortSignal: controller.signal }));
 		assert.equal(await (await first(fresh)).text, 'finished');
-		const unsupported = create.StreamingTranscriber({ model: new MockTranscriptionModelV4(), inputAudioFormat });
+		const unsupported = create.Transcriber.asStream({ model: new MockTranscriptionModelV4(), inputAudioFormat });
 		const failed = audio();
 		await assert.rejects(unsupported(failed), UnsupportedFunctionalityError);
 		await assert.rejects(first(failed), ValidationError);
@@ -591,7 +653,7 @@ describe('component SDK calls', () => {
 			{ type: 'audio', audio: 'AQI=', audioFormat: inputAudioFormat }, { type: 'error', error: 'recoverable' }, { type: 'finish', providerMetadata: { fixture: { native: true } } },
 		]) }) });
 		const errors: unknown[] = [];
-		const speak = create.StreamingSpeechGenerator({ model, onError: ({ error }) => { errors.push(error); } });
+		const speak = create.SpeechGenerator.asStream({ model, onError: ({ error }) => { errors.push(error); } });
 		const live = await speak(['one', { type: 'text' as const, text: 'two', voice: 'speaker' }]);
 		assert.deepEqual(await collect(live.audioStream), [new Uint8Array([1, 2])]);
 		assert.deepEqual(errors, ['recoverable']);
@@ -600,7 +662,7 @@ describe('component SDK calls', () => {
 		const translateModel = new Experimental_MockSpeechTranslationModelV4({ doStream: async () => ({ stream: convertArrayToReadableStream([
 			{ type: 'output-text-delta', delta: 'partial' }, { type: 'audio', audio: 'AQI=' }, { type: 'finish', sourceText: 'source', outputText: 'final' },
 		]) }) });
-		const translate = create.StreamingTranslator({ model: translateModel, inputAudioFormat });
+		const translate = create.Translator.asStream({ model: translateModel, inputAudioFormat });
 		const translated = await translate(audio(), 'fr');
 		assert.equal((await collect(translated.fullStream)).length, 2);
 		assert.equal(await translated.translationText, 'final');
@@ -615,7 +677,7 @@ describe('component SDK calls', () => {
 				{ type: 'audio', audio: 'AQI=', audioFormat: inputAudioFormat }, { type: 'finish' },
 			]) };
 		} });
-		const speak = create.StreamingSpeechGenerator({ model });
+		const speak = create.SpeechGenerator.asStream({ model });
 		const sources: (() => Parameters<typeof experimental_streamSpeech>[0]['text'])[] = [
 			() => 'hello', () => ['hello'], () => Object.freeze(['hello']), () => new Set(['hello']),
 			async function* () { yield 'hello'; }, () => convertArrayToReadableStream(['hello']),
@@ -637,10 +699,10 @@ describe('component SDK calls', () => {
 		let translations = 0;
 		const translationModel = new Experimental_MockSpeechTranslationModelV4({ doStream: async () => { translations++; return { stream: convertArrayToReadableStream([{ type: 'finish', sourceText: '', outputText: '' }]) }; } });
 		const transcribeModel = new MockTranscriptionModelV4({ doStream: async () => ({ stream: convertArrayToReadableStream([finish]) }) });
-		const transcribe = create.StreamingTranscriber.withFunction({ model: transcribeModel, inputAudioFormat, inputSchema: z.object({ recording: z.string() }), audio: () => source });
+		const transcribe = create.Transcriber.withFunction.asStream({ model: transcribeModel, inputAudioFormat, inputSchema: z.object({ recording: z.string() }), audio: () => source });
 		await assert.rejects(runtimeRun(transcribe, { context: {} }), ValidationError);
 		assert.equal(await (await transcribe({ recording: 'one' })).text, 'finished');
-		const translate = create.StreamingTranslator({ model: translationModel, inputAudioFormat, targetLanguage: 'fr' });
+		const translate = create.Translator.asStream({ model: translationModel, inputAudioFormat, targetLanguage: 'fr' });
 		await assert.rejects(translate(source), ValidationError);
 		assert.equal(translations, 0);
 	});
@@ -649,14 +711,13 @@ describe('component SDK calls', () => {
 		const rows = [
 			['Decision', true, 'all'], ['Embedder', true, 'all'], ['Reranker', true, 'all'],
 			['ImageGenerator', true, 'all'], ['Transcriber', false, 'all'],
-			['StreamingTranscriber', false, 'prepared'], ['SpeechGenerator', true, 'all'],
-			['StreamingSpeechGenerator', true, 'none'], ['StreamingTranslator', false, 'none'],
+			['SpeechGenerator', true, 'all'], ['Translator', false, 'all'],
 			['VoiceAgentBackend', true, 'none'],
 		] as const;
 		for (const [name, text, tool] of rows) {
 			const factory = create[name];
 			assert.equal('asTool' in factory, tool === 'all', `${name}.asTool`);
-			assert.equal('asStream' in factory, false, `${name}.asStream`);
+			assert.equal('asStream' in factory, ['Transcriber', 'SpeechGenerator', 'Translator'].includes(name), `${name}.asStream`);
 			for (const key of ['withScript', 'withFunction', 'loadsScript'] as const) {
 				assert.equal(typeof factory[key], 'function', `${name}.${key}`);
 				assert.equal('asTool' in factory[key], tool !== 'none', `${name}.${key}.asTool`);
@@ -668,7 +729,7 @@ describe('component SDK calls', () => {
 		}
 		const model = new MockSpeechModelV4();
 		const parent = create.SpeechGenerator.asTool({ model, inputSchema: z.object({ text: z.string() }) });
-		assert.throws(() => Reflect.apply(create.StreamingSpeechGenerator, undefined, [{}, parent]), ConfigError);
-		assert.throws(() => Reflect.apply(create.Transcriber, undefined, [{ model: new MockTranscriptionModelV4(), ...sourceModes["async-template"].config, audio: 'source' }]), ConfigError);
+		assert.throws(() => Reflect.apply(create.SpeechGenerator.asStream as unknown as (...args: unknown[]) => unknown, undefined, [{}, parent]), ConfigError);
+		assert.throws(() => Reflect.apply(create.Transcriber as unknown as (...args: unknown[]) => unknown, undefined, [{ model: new MockTranscriptionModelV4(), ...sourceModes["async-template"].config, audio: 'source' }]), ConfigError);
 	});
 });

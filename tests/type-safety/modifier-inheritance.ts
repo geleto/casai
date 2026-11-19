@@ -1,3 +1,4 @@
+import { toolMode, streamMode } from '../fixtures/source-modes.js';
 import { type SourceModeOf } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import type { Agent, LanguageModel, Tool } from 'ai';
@@ -17,13 +18,13 @@ const streaming = create.LLMAgent.withTemplate.asStream({ model, inputSchema, pr
 // @ts-expect-error An inherited streaming component cannot become a tool.
 create.LLMAgent.asTool({}, streaming);
 // @ts-expect-error Config fragments do not bypass generation-only tool admission.
-create.LLMAgent({}, create.Config({ streaming: true }, agent));
+create.LLMAgent({}, create.Config.asStream({}, agent));
 // @ts-expect-error Direct settings cannot enable both modes.
 create.LLMAgent({ model, inputSchema, prompt: 'hello', streaming: true, asTool: true });
 // @ts-expect-error Native result properties replace public value.
 expectType<unknown>((await streaming({ name: 'Ada' })).value);
 declare const separateModes: { model: LanguageModel; inputSchema: typeof inputSchema; prompt: string } & (
-	{ asTool: true; streaming?: never } | { streaming: true; asTool?: never });
+	{ [toolMode]: true; [streamMode]?: never } | { [streamMode]: true; [toolMode]?: never });
 // Each configuration alternative is valid; no branch combines both modes.
 create.LLMAgent(separateModes);
 
@@ -39,8 +40,8 @@ expectEqual<SourceModeOf<typeof childTemplate.config>, 'async-template-name'>();
 expectEqual<SourceModeOf<typeof childScript.config>, 'async-script-name'>();
 expectEqual<SourceModeOf<typeof childAgent.config>, 'async-template'>();
 // @ts-expect-error Generation tools have no inherited streaming mode.
-expectType<unknown>(childAgent.config.streaming);
-expectEqual<typeof childFunction.config.asTool, true>();
+expectType<unknown>(childAgent.config[streamMode]);
+expectEqual<(typeof childFunction.config)[typeof toolMode], true>();
 // @ts-expect-error An inherited tool keeps the separate tool interface.
 expectType<Agent>(childAgent);
 // @ts-expect-error A tool's fixed input schema cannot be cleared through the base factory.
@@ -62,8 +63,8 @@ expectEqual<SourceModeOf<typeof inlineTemplate.config>, 'async-template'>();
 expectEqual<SourceModeOf<typeof inlineScript.config>, 'async-script'>();
 expectEqual<SourceModeOf<typeof literalAgent.config>, 'text'>();
 // @ts-expect-error Source replacement does not add streaming.
-expectType<unknown>(literalAgent.config.streaming);
-expectEqual<typeof literalAgent.config.asTool, true>();
+expectType<unknown>(literalAgent.config[streamMode]);
+expectEqual<(typeof literalAgent.config)[typeof toolMode], true>();
 expectType<Tool<{ name: string }, string, undefined>>(inlineTemplate);
 expectType<Tool<{ name: string }, string, undefined>>(inlineScript);
 expectType<Tool<{ name: string }, string, undefined>>(literalAgent);

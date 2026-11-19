@@ -1,3 +1,4 @@
+import { toolMode, streamMode, sourceMode } from '../src/config/modifiers.js';
 import assert from 'node:assert/strict';
 import { create, z, ConfigError, ValidationError } from './cascada';
 import { modelFor } from './fixtures/phase2-security-sdk.js';
@@ -5,7 +6,7 @@ import { MockEmbeddingModelV4 } from 'ai/test';
 
 describe('Config modifiers', () => {
 	const removedSourceMessage = "'promptType' is not a setting. Select a source on Config or a component factory with .withText, .withTemplate, .withScript, .withFunction or a .loads… modifier.";
-	const invocationSourceMessage = 'Source modifiers belong in configuration. Pass the Config fragment to a component factory.';
+	const invocationSourceMessage = 'Modifiers belong in configuration. Pass the Config fragment to a component factory.';
 	const selectors = ['withText', 'withTemplate', 'withScript', 'withFunction', 'loadsText', 'loadsTemplate', 'loadsScript'] as const;
 	for (const selector of selectors) {
 		for (const delivery of ['ordinary', 'asTool', 'asStream'] as const) {
@@ -20,8 +21,8 @@ describe('Config modifiers', () => {
 				// The runtime inventory independently exercises every factory path with erased input types.
 				const factory = delivery === 'ordinary' ? create.Config[selector] : create.Config[selector][delivery];
 				const fragment = Reflect.apply(factory, undefined, [input]) as { config: object };
-				const inherited = Reflect.apply(create.Config, undefined, [{}, fragment]) as { config: object };
-				const agent = Reflect.apply(create.LLMAgent, undefined, [{ model }, inherited]) as (() => Promise<unknown>) & { config: object };
+				const inherited = Reflect.apply(create.Config as unknown as (...args: unknown[]) => unknown, undefined, [{}, fragment]) as { config: object };
+				const agent = Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [{ model }, inherited]) as (() => Promise<unknown>) & { config: object };
 				const result = await agent();
 				if (delivery === 'asStream') await (result as { text: Promise<string> }).text;
 				const calls = [...model.doGenerateCalls, ...model.doStreamCalls];
@@ -38,14 +39,14 @@ describe('Config modifiers', () => {
 
 	it('keeps incomplete fragments reusable and an unselected source absent', async () => {
 		const common = create.Config.asTool({ context: { prefix: 'hello' } });
-		assert.equal(Object.getOwnPropertySymbols(common.config).length, 0);
+		assert.equal(sourceMode in common.config, false);
 		const inputSchema = z.object({ name: z.string() });
 		const fn = create.Function({ inputSchema, execute: ({ prefix, name }) => `${prefix} ${name}` }, common);
 		const template = create.Template({ inputSchema, template: '{{ prefix }} {{ name }}' }, common);
 		assert.equal(await fn({ name: 'Ada' }), 'hello Ada');
 		assert.equal(await template.execute({ name: 'Ada' }, { toolCallId: 'test', messages: [], context: undefined }), 'hello Ada');
 		const loaded = create.Config.loadsTemplate.asTool({});
-		assert.throws(() => Reflect.apply(create.Template, undefined, [{}, loaded]), ConfigError);
+		assert.throws(() => Reflect.apply(create.Template as unknown as (...args: unknown[]) => unknown, undefined, [{}, loaded]), ConfigError);
 		assert.equal(await create.Template({ template: 'greeting', inputSchema, loader: { load: () => '{{ name }}' } }, loaded)({ name: 'Ada' }), 'Ada');
 	});
 
@@ -56,11 +57,20 @@ describe('Config modifiers', () => {
 		await create.LLMAgent({ model }, literal)();
 		assert.deepEqual(model.doGenerateCalls[0].prompt[0].content, [{ type: 'text', text: '{{ literal }}' }]);
 		assert.equal(original.config.prompt, 'return "script"');
-		assert.equal(literal.config.asTool, true);
+		assert.equal(literal.config[toolMode], true);
 		const streaming = create.Config.withTemplate({}, create.Config.asStream({ prompt: 'hello' }));
-		assert.equal(streaming.config.streaming, true);
-		assert.equal(create.Config.asTool({ asTool: undefined }).config.asTool, true);
-		assert.equal(create.Config.asStream({ streaming: undefined }).config.streaming, true);
+		assert.equal(streaming.config[streamMode], true);
+		assert.equal(create.Config.asTool({}).config[toolMode], true);
+		assert.equal(create.Config.asStream({}).config[streamMode], true);
+	});
+	it('rejects an inherited native audio source on LLMAgent and permits explicit replacement', async () => {
+		const parent = create.Config.loadsAudio({});
+		const model = modelFor(undefined);
+		assert.throws(() => create.LLMAgent({ model, prompt: 'hello' } as never, parent), /Unsupported LLMAgent source modifier/);
+		assert.throws(() => create.LLMAgent({ model, prompt: 'hello', ...parent.config } as never), /Unsupported LLMAgent source modifier/);
+		await create.LLMAgent.withText({ model, prompt: 'hello' }, parent)();
+		assert.equal(model.doGenerateCalls.length, 1);
+		assert.equal(parent.config[sourceMode], 'audio-resource');
 	});
 
 	it('lets an explicit modifier replace a copied fragment source', async () => {
@@ -160,7 +170,7 @@ describe('Config modifiers', () => {
 		for (const [factory, parent] of [[create.Config.asTool, create.Config.asStream({})], [create.Config.asStream, create.Config.asTool({})]] as const) {
 			assert.throws(() => Reflect.apply(factory, undefined, [{}, parent]), /asStream.*asTool/);
 		}
-		assert.throws(() => Reflect.apply(create.Template, undefined, [{ template: 'hello' }, create.Config.asStream({})]), /asStream/);
-		assert.throws(() => Reflect.apply(create.Config, undefined, [{ streaming: false }]), ConfigError);
+		assert.throws(() => Reflect.apply(create.Template as unknown as (...args: unknown[]) => unknown, undefined, [{ template: 'hello' }, create.Config.asStream({})]), /asStream/);
+		assert.throws(() => Reflect.apply(create.Config as unknown as (...args: unknown[]) => unknown, undefined, [{ streaming: false }]), ConfigError);
 	});
 });

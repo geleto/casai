@@ -10,7 +10,7 @@ export type FunctionPromptType = 'function';
 
 export type TextPromptType = 'text' | 'text-name';
 
-export type PromptType = TemplatePromptType | ScriptPromptType | FunctionPromptType | TextPromptType;
+export type PromptType = TemplatePromptType | ScriptPromptType | FunctionPromptType | TextPromptType | 'audio-resource';
 
 export type PromptValue = string | ModelMessage | ModelMessage[];
 

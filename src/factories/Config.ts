@@ -1,5 +1,5 @@
-import { sourceMode, type ResolvedSourceMode, type WithoutSourceMode } from '../config/source-mode.js';
-import { textModifiers } from './component-factory.js';
+import { sourceMode, type ResolvedSourceMode, type WithoutSourceMode } from '../config/modifiers.js';
+import { configModifiers, createFactory } from './component-factory.js';
 import type { MergedConfig, ProcessedConfig } from '../types/merge.js';
 import type { EmptyMap, UnionKeys } from '../types/utils.js';
 import type { ConfigDataInferShape, ConfigData, ConfigPreparerContext, ToolModeConfig } from '../types/factory-config.js';
@@ -9,9 +9,6 @@ import type { ValidateConfigFragment } from '../types/config-validation.js';
 import type { AnyConfigExecuteContext, ConfigInferDefinition } from '../types/function-config.js';
 import type { PromptType } from '../types/prompt.js';
 import type { ResolvedConfig } from '../types/provisional.js';
-import { mergeConfigs } from '../config/config-utils.js';
-import { validateConstructionConfig } from '../config/validate.js';
-import { ConfigError } from '../errors.js';
 import type * as configs from '../types/config.js';
 
 // One authoring contract for Config's standalone and inherited calls.
@@ -19,7 +16,7 @@ import type * as configs from '../types/config.js';
 // let invalid arguments fall back to its provisional type and skip validation.
 type SelectedSource<T, P> = T extends unknown ? P extends undefined ? T : WithoutSourceMode<T> & ResolvedSourceMode<P> : never;
 type Modified<T, P, A extends boolean, S extends boolean, Selected = ToolModeConfig<SelectedSource<T, P>, A>> =
-	S extends true ? Selected extends unknown ? Omit<Selected, 'streaming'> & { streaming: true } : never : Selected;
+	import('../types/factory-config.js').StreamModeConfig<Selected, S>;
 
 type ConfigSignature<P extends PromptType | undefined = undefined, A extends boolean = false, S extends boolean = false> = <
 	TConfig extends object & configs.AnyConfigInferShape<ToolSet, Record<string, any>, unknown>,
@@ -62,23 +59,8 @@ type ConfigModes<P extends PromptType | undefined> = ConfigSignature<P> & {
 	asStream: ConfigSignature<P, false, true>;
 };
 type ConfigFactory = ConfigModes<undefined> & {
-	[M in keyof typeof textModifiers]: ConfigModes<typeof textModifiers[M]>;
+	[M in keyof typeof configModifiers]: ConfigModes<typeof configModifiers[M]>;
 };
 
-function factory(mode?: PromptType, asTool = false, streaming = false) {
-	return (config: Record<string, unknown>, parent?: configs.ConfigProvider<Record<string, unknown>>) => {
-		const merged = mergeConfigs(parent?.config ?? {}, config);
-		if (mode !== undefined) Object.assign(merged, { [sourceMode]: mode });
-		if (asTool) merged.asTool = true;
-		if (streaming) merged.streaming = true;
-		validateConstructionConfig(merged);
-		if (merged.asTool === true && merged.streaming === true) throw new ConfigError('No current component supports combining .asStream and .asTool.');
-		return { config: merged };
-	};
-}
-function modes(mode?: PromptType) {
-	return Object.assign(factory(mode), { asTool: factory(mode, true), asStream: factory(mode, false, true) });
-}
-
 /** Reusable settings with the same source, tool and streaming selectors as their completed components. */
-export const Config = Object.assign(modes(), Object.fromEntries(Object.entries(textModifiers).map(([key, mode]) => [key, modes(mode)]))) as unknown as ConfigFactory;
+export const Config = createFactory({ modifiers: configModifiers, asStream: true }, config => ({ config })) as ConfigFactory;

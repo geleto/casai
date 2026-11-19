@@ -54,7 +54,12 @@
 		"tests/messages-unit.test.ts",
 		"tests/LLMAgent.unit.test.ts",
 		"tests/ModifierInheritance.unit.test.ts",
-		"tests/ConfigModifiers.unit.test.ts"
+		"tests/ConfigModifiers.unit.test.ts",
+		"tests/Phase6Audio.unit.test.ts",
+		"tests/SuppliedAudio.unit.test.ts",
+		"tests/AudioPreparation.unit.test.ts",
+		"tests/PcmWorkers.unit.test.ts",
+		"tests/MediaToolAdapters.unit.test.ts"
 	],
 	"ignore": "tests/type-safety/**/*.ts",
 	"node-option": [

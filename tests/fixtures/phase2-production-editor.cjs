@@ -278,19 +278,19 @@ const helperOwner = create.LLMAgent.withFunction({ model, tools: { operation: st
 helperOwner.run({ tools: { operation: numberHelper } }); // expected: operation
 create.LLMAgent.withFunction({ tools: { operation: numberHelper } }, helperOwner); // expected: operation
 create.Embedder./*embeddingModes*/withFunction;
-create.StreamingTranscriber./*transcriptionModes*/withFunction;
-create.StreamingTranscriber.withFunction./*transcriptionToolMode*/asTool;
-create.StreamingSpeechGenerator.withFunction./*liveSpeechModes*/name;
+create.Transcriber./*transcriptionModes*/withFunction;
+create.Transcriber.withFunction./*transcriptionToolMode*/asTool;
+create.SpeechGenerator.withFunction.asStream./*liveSpeechModes*/name;
 declare const decisionModel: import('ai').Experimental_DecisionModel;
 declare const readonlyDecisionState: readonly import('ai').Experimental_DecisionStatePart[];
 create.Decision.withTemplate({ model: decisionModel, questions: {}, state: readonlyDecisionState })({});
 declare const speechModel: Parameters<typeof import('ai').experimental_streamSpeech>[0]['model'];
 declare const speechInput: ReadableStream<string> | AsyncIterable<string> | readonly string[];
-create.StreamingSpeechGenerator({ model: speechModel })(speechInput);
-const preparedSpeech = create.StreamingSpeechGenerator.withFunction({ model: speechModel, inputSchema: z.object({ subject: z.string() }), text: ({ subject }) => subject });
+create.SpeechGenerator.asStream({ model: speechModel })(speechInput);
+const preparedSpeech = create.SpeechGenerator.withFunction.asStream({ model: speechModel, inputSchema: z.object({ subject: z.string() }), text: ({ subject }) => subject });
 preparedSpeech(({ subject }) => subject./*speechSourceMembers*/toUpperCase(), { subject: 'hello' });
 declare const embeddingModel: import('ai').EmbeddingModel;
-const callbackTool = create.Embedder.withFunction({ model: embeddingModel, asTool: true,
+const callbackTool = create.Embedder.withFunction.asTool({ model: embeddingModel,
   inputSchema: z.object({}), context: { secret: 1 }, toolContextSchema: z.object({ secret: z.string() }),
   input: ({ secret }) => { secret/*configuredToolSecret*/; return String(secret); } });
 callbackTool.run({ input: ({ secret }) => secret./*ordinaryToolSecret*/toFixed() });
@@ -479,7 +479,7 @@ async function check(sourceMode, exactOptionalPropertyTypes) {
     const embeddingModes = await completions(at('embeddingModes'));
     assert.ok(embeddingModes.has('withTemplate') && embeddingModes.has('withFunction') && embeddingModes.has('asTool'));
     const transcriptionModes = await completions(at('transcriptionModes'));
-    assert.ok(transcriptionModes.has('withFunction') && !transcriptionModes.has('withTemplate') && !transcriptionModes.has('asTool'));
+    assert.ok(transcriptionModes.has('withFunction') && transcriptionModes.has('loadsAudio') && transcriptionModes.has('withAudio') && transcriptionModes.has('asStream') && transcriptionModes.has('asTool') && !transcriptionModes.has('withTemplate'));
     assert.ok((await completions(at('transcriptionToolMode'))).has('asTool'));
     assert.ok(!(await completions(at('liveSpeechModes'))).has('asTool'));
     const speechSourceMembers = await completions(at('speechSourceMembers'));

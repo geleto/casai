@@ -25,7 +25,7 @@ This reconciles the supplied 38 findings and eight simplification proposals agai
 | 17 | **Deferred by the user:** video and batch components are outside the selected inventory. Future lifecycle methods should return and accept native operation/job references rather than keep mutable job state in a component. |
 | 18 | **Fixed:** generated image tool content uses the native tagged `file` representation instead of deprecated `file-data`. |
 | 19 | **Native invalid-input behavior:** streaming transcription/translation require a ReadableStream, not an arbitrary async iterable. The SDK has the same cleanup failure for this invalid input; Casai adds no separate stream validator or failure machinery. |
-| 20 | **Documented:** debug logging is unredacted and can include headers and private context. |
+| 20 | Phase 5 debug logs could include headers and private context. The [Phase 6 correction](phase6-implementation.md#ab-fixes-after-independent-evaluation) switched Casai diagnostics to operation labels. |
 | 21 | **Already documented and tested:** context is an own-enumerable-field snapshot, not a retained top-level class instance/prototype. Put services, Maps and Dates under context fields. |
 | 22 | **Fixed:** package contents include `src`, so JavaScript/declaration maps and the existing `casai-source` export condition resolve to shipped files. The package check verifies every map source is present. |
 | 23 | **Intentional difference:** LLMAgent's selected protected-observer composition differs from native callback replacement on the other wrappers. Keep that documented policy rather than replicate an agent lifecycle across components. |

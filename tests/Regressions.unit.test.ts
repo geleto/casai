@@ -45,13 +45,13 @@ if (false) {
 describe('Regressions across component boundaries', () => {
 	describe('raw configuration validation', () => {
 		const factories = [
-			{ name: 'Function', build: (config: never, parent?: never): unknown => Reflect.apply(create.Function, undefined, [config, parent]) },
-			{ name: 'Template', build: (config: never, parent?: never): unknown => Reflect.apply(create.Template, undefined, [config, parent]) },
-			{ name: 'Script', build: (config: never, parent?: never): unknown => Reflect.apply(create.Script, undefined, [config, parent]) },
-			{ name: 'generate', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent, undefined, [config, parent]) },
-			{ name: 'stream', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [config, parent]) },
-			{ name: 'generate-structured', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent, undefined, [config, parent]) },
-			{ name: 'stream-structured', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [config, parent]) },
+			{ name: 'Function', build: (config: never, parent?: never): unknown => Reflect.apply(create.Function as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'Template', build: (config: never, parent?: never): unknown => Reflect.apply(create.Template as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'Script', build: (config: never, parent?: never): unknown => Reflect.apply(create.Script as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'generate', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'stream', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent.asStream as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'generate-structured', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'stream-structured', build: (config: never, parent?: never): unknown => Reflect.apply(create.LLMAgent.asStream as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
 		];
 		for (const { name, build } of factories) {
 			it(`rejects non-object ${name} configs before normalization or inheritance`, () => {

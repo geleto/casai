@@ -1,3 +1,4 @@
+import { toolMode } from '../src/config/modifiers.js';
 import assert from 'node:assert/strict';
 import { create, z, ConfigError } from './cascada';
 import { MockLanguageModelV3 } from 'ai/test';
@@ -12,8 +13,8 @@ describe('modifier inheritance', () => {
 		// Erased inputs exercise runtime enforcement independently of types.
 		assert.throws(() => create.LLMAgent.asTool({} as never, streaming), /generation-only/);
 		assert.throws(() => create.LLMAgent.asStream({} as never, tool), /generation-only/);
-		assert.throws(() => create.LLMAgent({} as never, create.Config({ streaming: true } as never, tool)), /asStream.*asTool/);
-		assert.throws(() => create.LLMAgent({ ...config, asTool: true, streaming: true } as never), /generation-only/);
+		assert.throws(() => create.LLMAgent({} as never, create.Config.asStream({} as never, tool)), /asStream.*asTool/);
+		assert.throws(() => create.LLMAgent({ ...config, ...streaming.config, ...tool.config } as never), /generation-only/);
 	});
 	it('inherits loaded Template and Script sources through Config and supports explicit inline sources', async () => {
 		const template = create.Template.loadsTemplate({ template: 'entry', loader: { load: () => 'hello {{ name }}' }, context: { name: 'Ada' } });
@@ -31,7 +32,7 @@ describe('modifier inheritance', () => {
 		const fn = create.Function.asTool({ inputSchema, execute: ({ name }) => name });
 		const children = [create.Template({}, create.Config({}, template)), create.Script({}, create.Config({}, script)), create.Function({}, create.Config({}, fn))];
 		for (const child of children) {
-			assert.equal(child.config.asTool, true);
+			assert.equal(child.config[toolMode], true);
 			assert.equal(await child.execute({ name: 'Ada' }, { toolCallId: 'test', messages: [], context: undefined }), 'Ada');
 		}
 		assert.throws(() => create.Template({ inputSchema: undefined } as never, template), ConfigError);
@@ -42,14 +43,14 @@ describe('modifier inheritance', () => {
 	it('inherits an LLMAgent source and generation tool mode', async () => {
 		const model = modelFor(undefined);
 		const parent = create.LLMAgent.withTemplate.asTool({ model, inputSchema: z.object({}), prompt: 'hello {{ name }}', context: { name: 'Ada' } });
-		const child = create.LLMAgent({}, create.Config({ asTool: undefined }, parent));
+		const child = create.LLMAgent({}, create.Config({}, parent));
 		assert.equal('streaming' in child.config, false);
-		assert.equal(child.config.asTool, true);
+		assert.equal(child.config[toolMode], true);
 		assert.equal(typeof child.execute, 'function');
 		assert.equal('generate' in child, false);
 		assert.equal('id' in child, false);
 		const literal = create.LLMAgent.withText({}, child);
-		assert.equal(literal.config.asTool, true);
+		assert.equal(literal.config[toolMode], true);
 		assert.equal('streaming' in literal.config, false);
 		await child();
 		await literal();

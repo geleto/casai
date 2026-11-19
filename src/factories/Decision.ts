@@ -3,10 +3,11 @@ import type { ConfigValue, RuntimeContextFromConfig } from '../types/config.js';
 import type { StandardComponent } from '../types/component.js';
 import { experimental_decide } from 'ai';
 import { createComponentFactory, textModifiers, textModes } from './component-factory.js';
-import { createComponentRuntime } from '../runtime/component-call.js';
+import { createComponentRuntime, sdkRequest } from '../runtime/component-call.js';
 import type { RuntimeComponentConfig } from '../runtime/component-call.js';
 import type { ToolInvocation } from '../types/execution.js';
 import type { Fields } from '../types/utils.js';
+import { ValidationError } from '../errors.js';
 
 type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof experimental_decide<Parameters<typeof experimental_decide>[0]['questions'], Runtime>>[0], '_internal'>;
 export const definition = {
@@ -27,7 +28,9 @@ export interface Types<P extends PromptType, T, A extends boolean> {
 function createDecision(config: RuntimeComponentConfig) {
 	const runtime = createComponentRuntime(config, definition);
 	async function invoke(raw: Fields, tool?: ToolInvocation) {
-		const result = await experimental_decide(runtime.request(await runtime.prepare(raw, tool)) as Settings);
+		const settings = sdkRequest(await runtime.prepare(raw, tool));
+		if (settings.state == null) throw new ValidationError('Decision requires state.');
+		const result = await experimental_decide(settings as Settings);
 		return tool ? result.answers : result;
 	}
 	return runtime.callable(invoke, args => runtime.arguments(args, {

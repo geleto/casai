@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
-import { NoObjectGeneratedError, Output } from 'ai';
+import { isStepCount, NoObjectGeneratedError, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { z } from 'zod';
 import { create } from './cascada';
@@ -239,9 +239,9 @@ describe('Provider HTTP result contracts', () => {
 			assert.equal(replay.requests.length, 1);
 		});
 		for (const pending of [false, true]) {
-			it(`${mode}: an Anthropic pause with ${pending ? 'pending' : 'resolved'} search results retains native output`, async () => {
+			it(`${mode}: a one-step Anthropic pause with ${pending ? 'pending' : 'resolved'} search results retains native output`, async () => {
 				const replay = anthropicReplay('pause_turn', pending);
-				const config = { model: replay.model, tools: replay.tools };
+				const config = { model: replay.model, tools: replay.tools, stopWhen: isStepCount(1) };
 				const component = streaming ? create.LLMAgent.asStream(config) : create.LLMAgent(config);
 				const call: (prompt: string) => ReturnType<typeof component> = component;
 				const result = await call('question');

@@ -1,4 +1,4 @@
-import { sourceMode, sourceSettingsError } from '../config/source-mode.js';
+import { toolMode, streamMode, sourceMode, modifierSettingsError } from '../config/modifiers.js';
 import type { LanguageModel, ModelMessage, OutputInterface, StopCondition, ToolSet } from 'ai';
 import { isStepCount } from 'ai';
 import type { CascadaConfig } from '../types/config.js';
@@ -24,7 +24,7 @@ export type RuntimeAgentConfig = ExecutionConfig & CascadaConfig & Fields & {
 	model: LanguageModel;
 	prompt?: AnyPromptSource;
 	[sourceMode]: PromptType;
-	streaming?: true;
+	[streamMode]?: true;
 	output?: OutputInterface;
 	prepareCall?: CallHook;
 	prepareStep?: StepHook;
@@ -32,7 +32,7 @@ export type RuntimeAgentConfig = ExecutionConfig & CascadaConfig & Fields & {
 };
 
 export const componentSettings = ['prompt', 'messageHistory', 'context', 'inputSchema', 'toolContextSchema', sourceMode, 'filters',
-	'renderOptions', 'loader', 'id', 'streaming', 'asTool', 'debug', 'prepareCall', ...descriptorKeys.filter(key => key !== 'providerOptions')] as const;
+	'renderOptions', 'loader', 'id', streamMode, toolMode, 'debug', 'prepareCall', ...descriptorKeys.filter(key => key !== 'providerOptions')] as const;
 
 /** Positional calls select source, context, then history. Only marked Cascada keywords may follow history. */
 function callSettings(args: readonly unknown[]): Fields {
@@ -65,16 +65,18 @@ function messages(prompt: unknown): readonly ModelMessage[] {
 
 /** One invocation path; only source preparation differs between Casai and native SDK calls. */
 export function createLLMAgent(config: RuntimeAgentConfig): object {
-	const asTool = config.asTool === true;
-	if (config.debug) console.log('[DEBUG] LLMAgent created with config:', config);
+	const asTool = config[toolMode] === true;
+	if (config.debug) console.log('[DEBUG] LLMAgent created');
 	const renderer = createPromptRenderer(config);
 
 	async function invoke(raw: Fields, streaming: boolean, { native = false, literal, approve, tool }: {
 		native?: boolean; literal?: readonly ModelMessage[]; approve?: unknown;
 		tool?: ToolInvocation;
 	} = {}) {
-		if (config.debug) console.log('[DEBUG] LLMAgent call:', raw);
+		if (config.debug) console.log('[DEBUG] LLMAgent call');
 		(raw.abortSignal as AbortSignal | undefined)?.throwIfAborted();
+		const modifierError = modifierSettingsError(raw, true);
+		if (modifierError) throw new ValidationError(modifierError);
 		const supplied = definedSettings(raw);
 		if (native) {
 			if (supplied.prompt !== undefined && supplied.messages !== undefined) throw new ValidationError('Supply prompt or messages, not both.');
@@ -89,19 +91,19 @@ export function createLLMAgent(config: RuntimeAgentConfig): object {
 			validateAgentSettings(raw, ValidationError);
 		}
 		const invalid = [...fixedSettings, ...agentSourceConflicts, ...(native ? [] : retiredSettings)].filter(key => Object.hasOwn(raw, key));
-		if (invalid.length) throw new ValidationError(sourceSettingsError(raw, true) ?? `Unsupported LLMAgent settings: ${invalid.map(String).join(', ')}.`);
+		if (invalid.length) throw new ValidationError(`Unsupported LLMAgent settings: ${invalid.map(String).join(', ')}.`);
 		if (native) literal = messages(supplied.messages !== undefined ? supplied.messages : supplied.prompt);
 		delete supplied.messages;
 		if (native) delete supplied.prompt;
-		if (Array.isArray(supplied.prompt)) supplied.prompt = [...supplied.prompt as ModelMessage[]];
-		else if (isRecord(supplied.prompt)) supplied.prompt = [supplied.prompt];
+		if (isRecord(supplied.prompt)) supplied.prompt = [supplied.prompt];
 		// The SDK validates the hook's request, but retained history uses the original conversation.
 		for (const original of [supplied.messageHistory, literal, Array.isArray(supplied.prompt) ? supplied.prompt : undefined]) {
 			validateMessagesArray(original, ValidationError);
 		}
 		const continued = literal === undefined ? undefined : applyApprovalSelection(literal, approve);
 		const history = supplied.messageHistory === undefined ? [] : [...supplied.messageHistory as readonly ModelMessage[]];
-		const settings = mergeConfigs(config, supplied, ValidationError) as RuntimeAgentConfig;
+		if (native) validateConfigBasics(supplied, ValidationError);
+		const settings = mergeConfigs(config, supplied) as RuntimeAgentConfig;
 		validateRegistryConfig(settings, supplied, ValidationError);
 		const execution = tool ?? await prepareExecution({ ...settings, context: config.context }, supplied.context,
 			settings.abortSignal === undefined ? {} : { abortSignal: settings.abortSignal });
@@ -117,7 +119,7 @@ export function createLLMAgent(config: RuntimeAgentConfig): object {
 				await Promise.allSettled([first, second].map(async callback => await callback?.(event)));
 			};
 		}
-		let request: Fields = { ...settings, messages: [...conversation] };
+		let request: Fields = { ...settings, stopWhen: settings.stopWhen ?? isStepCount(20), messages: [...conversation] };
 		for (const key of [...componentSettings, ...protectedSettings]) Reflect.deleteProperty(request, key);
 		if (settings.tools !== undefined) request.tools = Object.fromEntries(Object.entries(settings.tools).filter(([, tool]) => tool != null));
 		const initialTools = request.tools;
@@ -165,8 +167,8 @@ export function createLLMAgent(config: RuntimeAgentConfig): object {
 		return tool ? generateToolOutput<ToolSet, Fields, OutputInterface>(result, request.tools as GenerateRequest['tools'], stepApprovals, stoppedByCondition) as unknown : result;
 	}
 
-	const call = async (...args: unknown[]) => invoke(callSettings(args), config.streaming === true);
-	const run = async (...args: unknown[]) => invoke(runSettings(args), config.streaming === true);
+	const call = async (...args: unknown[]) => invoke(callSettings(args), config[streamMode] === true);
+	const run = async (...args: unknown[]) => invoke(runSettings(args), config[streamMode] === true);
 	const component = Object.assign(call, { config, run });
 	if (asTool) {
 		const { providerOptions: _modelOptions, ...descriptorConfig } = config;
@@ -177,15 +179,14 @@ export function createLLMAgent(config: RuntimeAgentConfig): object {
 	return Object.assign(component, {
 		version: 'agent-v1' as const, id: config.id as string | undefined, tools: prepareRegistry(config).tools,
 		resume: async (...args: unknown[]) => {
-			const { values } = namedArguments(args);
-			const [history, options = {}] = values;
-			if (values.length > 2 || !Array.isArray(history) || !isRecord(options)) {
+			const [history, options = {}] = args;
+			if (args.length > 2 || !Array.isArray(history) || !isRecord(options)) {
 				throw new ValidationError('Use resume(messageHistory, options?) with positional history and an options object.');
 			}
 			const excluded = ['prompt', 'messageHistory', 'messages', 'options'].filter(key => Object.hasOwn(options, key));
 			if (excluded.length) throw new ValidationError(`Unsupported resume settings: ${excluded.join(', ')}. Use positional history and application context; for a new turn, append a user message to history or use an ordinary call.`);
-			const { approve, ...settings } = options;
-			return invoke(settings, config.streaming === true, { literal: history, approve });
+			const { approve, ...settings } = runSettings([options]);
+			return invoke(settings, config[streamMode] === true, { literal: history, approve });
 		},
 		generate: async (args: Fields) => invoke(requireContextObject(args), false, { native: true }),
 		stream: async (args: Fields) => invoke(requireContextObject(args), true, { native: true }),

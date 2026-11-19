@@ -854,7 +854,7 @@ describe('LLM call contracts without providers', () => {
 				content: [{ type: 'tool-call', toolCallId: 'invalid-call', toolName: 'action', input: '{"value":"two"}' }],
 				finishReason: { unified: 'tool-calls', raw: 'tool-calls' }, usage, warnings: [],
 			} });
-			const result = await create.LLMAgent({ model, tools: { action }, prompt: 'Use the tool.' })();
+			const result = await create.LLMAgent({ model, tools: { action }, prompt: 'Use the tool.', stopWhen: isStepCount(1) })();
 			expect(executions).to.equal(0);
 			expect(result.toolResults).to.have.length(0);
 			expect(result.content.map(part => part.type)).to.deep.equal(['tool-call', 'tool-error']);

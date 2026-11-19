@@ -32,7 +32,7 @@ create.Embedder({ debug: false }, incompatible);
 void create.Embedder({}, create.Config({ model: embedding, input: 'text' }))();
 
 // Object-shaped format arguments require a distinct context slot on prepared calls.
-const transcribe = create.StreamingTranscriber.withFunction({ model: transcription, audio });
+const transcribe = create.Transcriber.withFunction.asStream({ model: transcription, audio });
 // @ts-expect-error One object is context, so this call lacks a format.
 void transcribe(format);
 // @ts-expect-error Undefined omits source; the next object is still context.
@@ -41,12 +41,12 @@ void transcribe({}, format);
 void transcribe(undefined, undefined, format);
 void transcribe(audio, undefined, format);
 void transcribe.run({ inputAudioFormat: format });
-const translate = create.StreamingTranslator.withFunction({ model: translation, audio });
+const translate = create.Translator.withFunction.asStream({ model: translation, audio });
 // @ts-expect-error A format cannot occupy the context slot.
 void translate(format, 'fr');
 void translate({}, format, 'fr');
 void translate(undefined, undefined, format, 'fr');
-const formatted = create.StreamingTranslator.withFunction({ model: translation, audio, inputAudioFormat: format });
+const formatted = create.Translator.withFunction.asStream({ model: translation, audio, inputAudioFormat: format });
 void formatted('fr');
 void formatted(undefined, 'fr');
 const speak = create.SpeechGenerator.withFunction({ model: speech, text: () => 'hello' });

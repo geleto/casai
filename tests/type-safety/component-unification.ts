@@ -111,4 +111,4 @@ void completeRanker(undefined, ['competing']);
 
 // Native literal inputs retain their SDK iterable contract, including arrays.
 declare const streamingSpeechModel: SpeechModel;
-void create.StreamingSpeechGenerator({ model: streamingSpeechModel })(['one', 'two']);
+void create.SpeechGenerator.asStream({ model: streamingSpeechModel })(['one', 'two']);

@@ -12,3 +12,7 @@ export const sourceModes = {
 };
 export type SourceMode<P extends keyof typeof sourceModes> = (typeof sourceModes)[P]['config'];
 export type SourceModeOf<T> = T extends Record<keyof SourceMode<'text'>, infer P> ? P : never;
+
+// Internal structural keys let these contract fixtures represent conditional fragments.
+export const toolMode: CasaiModifierSymbols['toolMode'] = Symbol.for('casai.toolMode') as CasaiModifierSymbols['toolMode'];
+export const streamMode: CasaiModifierSymbols['streamMode'] = Symbol.for('casai.streamMode') as CasaiModifierSymbols['streamMode'];

@@ -197,7 +197,7 @@ void speak.run({ text: 'alloy' });
 interface AudioFormat { type: string; rate: number }
 declare const audioModes: (SourceMode<'text'> & { model: TranscriptionModel; audio: ReadableStream<Uint8Array>; inputAudioFormat: AudioFormat })
 	| (SourceMode<'function'> & { model: TranscriptionModel; audio: () => ReadableStream<Uint8Array>; inputAudioFormat: AudioFormat });
-const transcribe = create.StreamingTranscriber(audioModes);
+const transcribe = create.Transcriber.asStream(audioModes);
 void transcribe();
 void transcribe.run({ inputAudioFormat: { type: 'audio/pcm', rate: 24000 } });
 // @ts-expect-error Audio streams cannot replace a function preparer.
@@ -212,14 +212,14 @@ void recorded(new URL('https://example.test/audio'));
 void create.Transcriber({ model: transcription })(new URL('https://example.test/audio'));
 declare const speechModes: (SourceMode<'text'> & { model: SpeechModel; text: string })
 	| (SourceMode<'function'> & { model: SpeechModel; text: () => string });
-const liveSpeech = create.StreamingSpeechGenerator(speechModes);
+const liveSpeech = create.SpeechGenerator.asStream(speechModes);
 void liveSpeech();
 // @ts-expect-error Native text generators cannot become preparation context.
 void liveSpeech((function* () { yield 'hello'; })());
 // @ts-expect-error Native async text generators cannot become preparation context.
 void liveSpeech((async function* () { yield 'hello'; })());
-void create.StreamingSpeechGenerator({ model: speech })((function* () { yield 'hello'; })());
-void create.StreamingSpeechGenerator({ model: speech })((async function* () { yield 'hello'; })());
+void create.SpeechGenerator.asStream({ model: speech })((function* () { yield 'hello'; })());
+void create.SpeechGenerator.asStream({ model: speech })((async function* () { yield 'hello'; })());
 
 declare const sessions: (SourceMode<'text'> & { model: Experimental_RealtimeModel; })
 	| (SourceMode<'function'> & { model: Experimental_RealtimeModel; instructions: () => string });

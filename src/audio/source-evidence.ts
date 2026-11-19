@@ -1,0 +1,143 @@
+import { ValidationError } from '../errors.js';
+
+/** Bounded container evidence, deliberately excluding ambiguous MP3/ADTS frame syncs. */
+export const audioPrefixBytes = 4096;
+
+export function audioMediaType(value: string | undefined): string | undefined {
+	const type = value?.split(';', 1)[0].trim().toLowerCase();
+	if (!type || type === 'application/octet-stream') return undefined;
+	return ({ 'audio/x-wav': 'audio/wav', 'audio/wave': 'audio/wav', 'audio/vnd.wave': 'audio/wav',
+		'audio/x-flac': 'audio/flac', 'audio/x-aiff': 'audio/aiff', 'audio/mp3': 'audio/mpeg', 'audio/x-m4a': 'audio/mp4',
+		'application/ogg': 'audio/ogg', 'video/ogg': 'audio/ogg', 'video/webm': 'audio/webm',
+		'video/mp4': 'audio/mp4', 'video/x-matroska': 'audio/x-matroska' } as Record<string, string>)[type] ?? type;
+}
+
+export function encodedAudioType(type: string | undefined): boolean {
+	return type !== undefined && type !== 'audio/pcm';
+}
+
+export function checkMimeLayout(type: string, rate: number | undefined, channels: number | undefined): void {
+	for (const [, key, value] of type.matchAll(/;\s*(rate|channels)\s*=\s*"?([^";\s]+)"?/gi)) {
+		const expected = key.toLowerCase() === 'rate' ? rate : channels;
+		if (expected !== undefined && Number(value) !== expected) throw new ValidationError('The supplied audio MIME layout conflicts with sourceFormat or inputAudioFormat.');
+	}
+}
+
+function textAt(bytes: Uint8Array, offset: number, text: string): boolean {
+	if (offset + text.length > bytes.length) return false;
+	for (let i = 0; i < text.length; i++) if (bytes[offset + i] !== text.charCodeAt(i)) return false;
+	return true;
+}
+
+function transportStream(bytes: Uint8Array, stride: number, offset: number): boolean {
+	// TS, M2TS and error-corrected TS have the same four-byte packet header.
+	if (bytes.length < offset + 2 * stride + 5) return false;
+	let varying = false;
+	for (let packet = 0; packet < 3; packet++) {
+		const start = offset + packet * stride, control = (bytes[start + 3] >> 4) & 3;
+		if (bytes[start] !== 0x47 || control === 0) return false;
+		if (control === 2 && bytes[start + 4] !== 183 || control === 3 && bytes[start + 4] > 182) return false;
+		varying ||= bytes[start + 1] !== bytes[offset + 1] || bytes[start + 2] !== bytes[offset + 2] || bytes[start + 3] !== bytes[offset + 3];
+	}
+	return varying; // A repeating PCM sample can match every sync byte and control field.
+}
+
+const mp3Rates = [44100, 48000, 32000];
+const mp3Bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+const mp3LowRateBitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+
+// A single frame sync is also an ordinary PCM sample. Follow two declared frame
+// lengths to a third consistent header before treating untagged AAC or MP3 as encoded.
+function framedAudio(bytes: Uint8Array): string | undefined {
+	if (bytes[0] !== 0xff) return undefined;
+	const adts = (bytes[1] & 0xf6) === 0xf0;
+	const version = (bytes[1] >> 3) & 3;
+	const rateIndex = (bytes[2] >> 2) & 3;
+	let offset = 0;
+	for (let i = 0; i < 3; i++) {
+		if (bytes[offset] !== 0xff || (bytes[offset + 1] & 0xfe) !== (bytes[1] & 0xfe)) return undefined;
+		let length: number;
+		if (adts) {
+			if (offset + 7 > bytes.length || ((bytes[offset + 2] ^ bytes[2]) & 0xfd) || ((bytes[2] >> 2) & 15) > 12) return undefined;
+			length = ((bytes[offset + 3] & 3) << 11) | (bytes[offset + 4] << 3) | (bytes[offset + 5] >> 5);
+			if (length <= (bytes[offset + 1] & 1 ? 7 : 9)) return undefined;
+		} else {
+			if (offset + 4 > bytes.length || (bytes[1] & 0xe6) !== 0xe2 || version === 1 || rateIndex === 3
+				|| ((bytes[offset + 2] >> 2) & 3) !== rateIndex) return undefined;
+			const bitrate = (version === 3 ? mp3Bitrates : mp3LowRateBitrates)[bytes[offset + 2] >> 4];
+			if (!bitrate) return undefined;
+			const rate = mp3Rates[rateIndex] / (version === 3 ? 1 : version === 2 ? 2 : 4);
+			length = Math.floor((version === 3 ? 144000 : 72000) * bitrate / rate) + ((bytes[offset + 2] >> 1) & 1);
+		}
+		offset += length;
+	}
+	return adts ? 'audio/aac' : 'audio/mpeg';
+}
+
+/** A container or manifest selects encoded routing. Some signatures establish only the format family. */
+export function audioContainer(bytes: Uint8Array): string | undefined {
+	bytes = bytes.subarray(0, audioPrefixBytes);
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	if (textAt(bytes, 0, 'ffconcat version 1.0') && (bytes[20] === 10 || textAt(bytes, 20, '\r\n'))) return 'ffconcat';
+	if (textAt(bytes, 0, '#EXTM3U') && (bytes[7] === 10 || textAt(bytes, 7, '\r\n'))
+		&& new TextDecoder().decode(bytes).includes('\n#EXT-X-')) return 'application/vnd.apple.mpegurl';
+	if (textAt(bytes, 8, 'WAVE') && ['RIFF', 'RIFX', 'RF64', 'BW64'].some(id => textAt(bytes, 0, id))) return 'audio/wav';
+	if (textAt(bytes, 0, 'RIFF') && textAt(bytes, 8, 'AVI ')) return 'video/vnd.avi';
+	if (textAt(bytes, 0, '\x30\x26\xb2\x75\x8e\x66\xcf\x11\xa6\xd9\x00\xaa\x00\x62\xce\x6c')) return 'video/x-ms-asf';
+	if (bytes.length >= 13 && textAt(bytes, 0, 'FLV\x01') && (bytes[4] & ~5) === 0) {
+		const headerSize = view.getUint32(5);
+		if (headerSize >= 9 && headerSize <= bytes.length - 4 && view.getUint32(headerSize) === 0) return 'video/x-flv';
+	}
+	if (transportStream(bytes, 188, 0) || transportStream(bytes, 192, 4) || transportStream(bytes, 204, 0)) return 'video/mp2t';
+	if (textAt(bytes, 0, 'caff') && textAt(bytes, 4, '\x00\x01\x00\x00desc')) return 'audio/x-caf';
+	if (textAt(bytes, 0, 'riff\x2e\x91\xcf\x11\xa5\xd6\x28\xdb\x04\xc1\x00\x00') && textAt(bytes, 24, 'wave')) return 'audio/x-w64';
+	if (bytes.length >= 12 && textAt(bytes, 0, 'FORM') && view.getUint32(4) >= 4
+		&& (textAt(bytes, 8, 'AIFF') || textAt(bytes, 8, 'AIFC'))) return 'audio/aiff';
+	if (bytes.length >= 24 && textAt(bytes, 0, '.snd') && view.getUint32(4) >= 24
+		&& view.getUint32(12) && view.getUint32(16) && view.getUint32(20)) return 'audio/basic';
+	// A FLAC stream starts with a 34-byte STREAMINFO metadata block.
+	if (bytes.length >= 42 && textAt(bytes, 0, 'fLaC') && (bytes[4] & 0x7f) === 0
+		&& bytes[5] === 0 && bytes[6] === 0 && bytes[7] === 34) return 'audio/flac';
+	if (bytes.length >= 27 && textAt(bytes, 0, 'OggS') && bytes[4] === 0 && bytes[5] <= 7
+		&& bytes.length >= 27 + bytes[26]) return 'audio/ogg';
+	if (bytes.length >= 10 && textAt(bytes, 0, 'ID3') && bytes[3] >= 2 && bytes[3] <= 4 && bytes[4] !== 255
+		&& (bytes[5] & (0xff >> (bytes[3] === 2 ? 2 : bytes[3] === 3 ? 3 : 4))) === 0
+		&& bytes.subarray(6, 10).every(value => value < 128)) return 'ID3';
+	if (bytes.length >= 16 && textAt(bytes, 4, 'ftyp') && view.getUint32(0) >= 16 && view.getUint32(0) % 4 === 0) {
+		if (textAt(bytes, 8, 'qt  ')) return 'video/quicktime';
+		if (['isom', 'iso2', 'mp41', 'mp42', 'M4A ', 'M4B '].some(brand => textAt(bytes, 8, brand))) return 'audio/mp4';
+		return 'ftyp';
+	}
+	if (bytes.length >= 5 && view.getUint32(0) === 0x1a45dfa3) {
+		// Walk the bounded EBML header to read DocType, rather than calling all EBML WebM.
+		const vint = (offset: number, id = false): { value: number; end: number } | undefined => {
+			const first = bytes[offset];
+			if (!first) return undefined;
+			const width = Math.clz32(first) - 23;
+			if (width > (id ? 4 : 8) || offset + width > bytes.length) return undefined;
+			let value = id ? first : first & (0xff >> width);
+			for (let i = 1; i < width; i++) value = value * 256 + bytes[offset + i];
+			return Number.isSafeInteger(value) ? { value, end: offset + width } : undefined;
+		};
+		const header = vint(4);
+		if (!header || header.end + header.value > bytes.length) return undefined;
+		const end = header.end + header.value;
+		for (let offset = header.end; offset < end;) {
+			const id = vint(offset, true), size = id && vint(id.end);
+			if (!size || size.end + size.value > end) break;
+			if (id.value === 0x4282) {
+				if (size.value === 4 && textAt(bytes, size.end, 'webm')) return 'audio/webm';
+				if (size.value === 8 && textAt(bytes, size.end, 'matroska')) return 'audio/x-matroska';
+			}
+			offset = size.end + size.value;
+		}
+	}
+	return framedAudio(bytes);
+}
+
+/** The muxer, not the input label, owns the format of prepared files. */
+export const preparedAudioTypes: Readonly<Record<string, string | undefined>> = {
+	wav: 'audio/wav', flac: 'audio/flac', ogg: 'audio/ogg', opus: 'audio/ogg',
+	mp3: 'audio/mpeg', mp4: 'audio/mp4', ipod: 'audio/mp4', adts: 'audio/aac',
+	webm: 'audio/webm',
+};

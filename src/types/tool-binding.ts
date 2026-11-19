@@ -2,13 +2,14 @@ import type { InferSchema, InferInputSchema } from './schema.js';
 import type { ToolContextFromConfig, ConfigValue, ConfiguredToolNames, ContextFromConfig, ExecutableToolNames, InputConfigAlternatives, InputSchemaFromConfig, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig, ToolsContextFromConfig } from './config.js';
 import type { FunctionTool, InferToolContext, InferToolInput, InferToolOutput } from '@ai-sdk/provider-utils';
 import type { ToolExecuteFunction, FlexibleSchema, Tool } from 'ai';
-import type { EmptyMap, DistributiveOmit, NamedKeys, NonArrayObject } from './utils.js';
+import type { EmptyMap, NamedKeys, NonArrayObject } from './utils.js';
 import type { ParsedSchemaOutput, SchemaInputNames, SchemaOutputObject } from './schema-shape.js';
 import type { MergedConfig, MergedProperties } from './merge.js';
 import type { ComponentInput, GuaranteedInputDefaults, PrivateInputNames, ValidOptionalDefaults } from './component-input.js';
 import type { ComponentCaller } from './input.js';
 import type { ToolInputAdmission, ValidateInputDeclarations } from './config-validation.js';
 import type { BoundExecutionContext, ToolExecutionContext } from './execution.js';
+import type { ModifierKey, RetainedModifiers } from '../config/modifiers.js';
 
 // Bound tool contexts and injected helper contracts, including safe registry replacement.
 
@@ -27,30 +28,32 @@ type RestrictedInputNames<TInput> = string extends keyof TInput ? {
 }[NamedKeys<TInput> & keyof TInput] : never;
 
 // Keep raw discriminants at the root so TypeScript can compare union branches.
-type RawHelperInput<TInput> = TInput extends unknown ? TInput & {
+export interface RawHelperContract<TInput> {
 	readonly [helperContract]?: {
 		keys: keyof TInput;
 		// Open inputs also retain named restrictions beyond their index signature.
 		declared: string extends keyof TInput ? (key: RestrictedInputNames<TInput>) => void : any;
 	};
-} : never;
+}
+type RawHelperInput<TInput> = TInput extends unknown ? TInput & RawHelperContract<TInput> : never;
 
 // Resolve the raw contract before comparing functions: comparing the generic
 // alias directly can skip its branch-specific key restrictions.
-type HelperCallContract<TInput, TDefaults, TPrivateNames extends PropertyKey, TResult> = RawHelperInput<TInput> extends infer TRawInput ? {
+export interface HelperContract<TInput, TRawInput, TDefaults, TPrivateNames extends PropertyKey, TResult> {
 	readonly [helperContract]?: {
 		input: (value: TRawInput) => TResult;
 		defaults: (key: GuaranteedInputDefaults<TInput, TDefaults> | ValidOptionalDefaults<TInput, TDefaults>) => void;
 		private: TPrivateNames;
 	};
-} : never;
+}
+type HelperCallContract<TInput, TDefaults, TPrivateNames extends PropertyKey, TResult> = RawHelperInput<TInput> extends infer TRawInput ? HelperContract<TInput, TRawInput, TDefaults, TPrivateNames, TResult> : never;
 
 type ComponentHelperContract<TConfig, TResult, TAlternatives = InputConfigAlternatives<TConfig>> = TAlternatives extends { config: infer TAlternative; schema: infer TInputSchema }
 	? HelperCallContract<ComponentInput<TAlternative, TInputSchema>, ContextFromConfig<TAlternative>, PrivateInputNames<TAlternative, ContextFromConfig<TAlternative>, TInputSchema>, TResult> : never;
 
 // Keep each selected parser paired with its bound defaults, then derive one
 // callable that checks every selection rather than a union of generic helpers.
-type BoundHelperConfig<TConfig, TBoundContext> = TConfig extends unknown ? DistributiveOmit<TConfig, 'context'>
+type BoundHelperConfig<TConfig, TBoundContext> = TConfig extends unknown ? Omit<TConfig, 'context' | ModifierKey> & RetainedModifiers<TConfig>
 	& { context: BoundContextDefaults<ContextFromConfig<TConfig>, ConfigValue<TConfig, 'toolContextSchema'>, TBoundContext> } : never;
 
 type ComponentHelper<TConfig, TResult> = ComponentCaller<TConfig, TResult> & ComponentHelperContract<TConfig, TResult>;

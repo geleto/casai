@@ -1,5 +1,5 @@
-import type { sourceMode, AnnotatedSourceMode } from '../config/source-mode.js';
-import type { Agent, AgentCallParameters, AgentStreamParameters, LanguageModel, ModelMessage, OutputInterface, PrepareStepFunction, Tool, ToolSet } from 'ai';
+import type { streamMode, sourceMode, SourceModeSetting } from '../config/modifiers.js';
+import type { Agent, AgentCallParameters, AgentStreamParameters, LanguageModel, ModelMessage, OutputInterface, PrepareStepFunction, PrepareStepResult, Tool, ToolSet } from 'ai';
 import type { protectedSettings, incompatibleAgentSettings, fixedSettings } from '../runtime/agent-settings-policy.js';
 import type { AIOutput, StreamRequest } from './sdk.js';
 import type { CascadaConfig, ConfigValue, ContextFromConfig, RuntimeContextFromConfig, ToolProperties, ToolRegistryFromConfig, ToolsFromConfig } from './config.js';
@@ -21,12 +21,12 @@ type ProtectedSettings = typeof protectedSettings[number];
 type AgentContext<T, AsTool extends boolean> = AsTool extends true ? ToolExecutionContext<T> : ExecutionContext<T>;
 export type AgentOutput<T> = Extract<ConfigValue<T, 'output'>, OutputInterface | undefined>;
 // Configuration describes the selected specification; result types also include an absent-output text fallback.
-type SDKOutput<T> = import('./sdk.js').ResolvedOutput<Exclude<AgentOutput<T>, undefined>>;
+type SDKOutput<T> = import('./sdk.js').ResolvedOutput<Extract<ConfigValue<T, 'output'>, OutputInterface>>;
 type Step<T> = PrepareStepFunction<ToolsFromConfig<T>, RuntimeContextFromConfig<T>>;
 // Native model IDs already admit every string. Collapse completion literals only
 // at generic call intersections, where TypeScript otherwise expands them quadratically.
 type ModelOverride = string | Exclude<LanguageModel, string>;
-type StepResult<T> = Omit<NonNullable<Awaited<ReturnType<Step<T>>>>, 'model'> & { model?: ModelOverride };
+type StepResult<T> = Omit<NonNullable<PrepareStepResult<ToolsFromConfig<T>, RuntimeContextFromConfig<T>>>, 'model'> & { model?: ModelOverride };
 
 export type PrepareStep<T, AsTool extends boolean = false> = (step: Parameters<Step<T>>[0],
 	config: HookConfig<T>, context: AgentContext<T, AsTool>) => StepResult<T> | undefined | PromiseLike<StepResult<T> | undefined>;
@@ -48,7 +48,7 @@ export type AgentSettings<TOOLS extends ToolSet = ToolSet, INPUT extends Record<
 	Omit<StreamRequest<TOOLS, RUNTIME_CONTEXT, OUTPUT>, DeprecatedSettings | 'prompt' | 'messages' | 'abortSignal' | 'tools' | 'toolsContext' | 'prepareStep' | 'output'>
 	& CascadaConfig & {
 		id?: string | undefined;
-		streaming?: true | undefined;
+		[streamMode]?: true | undefined;
 		output?: OUTPUT | undefined;
 		prompt?: PROMPT | undefined;
 		[sourceMode]?: PromptType | undefined;
@@ -64,17 +64,21 @@ type HookConfig<T> = Omit<AgentSettings<ToolsFromConfig<T>, any, import('./promp
 	& { context?: HookContext<T>; inputSchema?: ConfigValue<T, 'inputSchema'> }
 	& import('./config.js').ModifierConfig & { abortSignal?: AbortSignal | undefined; prepareCall?: PrepareCall<T> | undefined; prepareStep?: PrepareStep<T> | undefined };
 
-export type WithAgentCallbacks<T> = Omit<T, ConfigCallbackKeys> & AgentCallbacks<Pick<T, Extract<keyof T, 'tools' | 'inputSchema' | 'context' | 'output' | 'runtimeContext' | 'toolsContext'>>>;
-/** Annotate authored settings; select their interpretation with a factory or Config source modifier. */
+export type WithAgentCallbacks<T> = Omit<T, ConfigCallbackKeys> & AgentCallbacks<Pick<T, keyof T & ('tools' | 'inputSchema' | 'context' | 'output' | 'runtimeContext' | 'toolsContext')>>;
+/** Authored settings default to text. Use ComponentConfig for an already selected source mode. */
 export type LLMAgentConfig<TOOLS extends ToolSet = ToolSet, INPUT extends Record<string, any> = Record<string, any>,
 	PROMPT = PromptValue, OUTPUT extends AIOutput = AIOutput, RUNTIME_CONTEXT extends Record<string, unknown> = Record<string, unknown>> =
 	WithAgentCallbacks<Omit<AgentSettings<TOOLS, INPUT, PROMPT, OUTPUT, RUNTIME_CONTEXT>, typeof sourceMode>>
-	& AnnotatedSourceMode<PromptType, 'text'>;
+	& SourceModeSetting<'text' | undefined>;
 
+export interface AgentHooks<T, AsTool extends boolean = false> {
+	prepareCall?: PrepareCall<T, AsTool> | undefined;
+	prepareStep?: PrepareStep<T, AsTool> | undefined;
+}
 export type AgentCallbacks<T, AsTool extends boolean = false,
 	SDK = StreamRequest<ToolsFromConfig<T>, RuntimeContextFromConfig<T>, SDKOutput<T>>> = {
 	[K in Exclude<ConfigCallbackKeys & keyof SDK, DeprecatedSettings | 'prepareStep'>]?: SDK[K]
-} & { prepareCall?: PrepareCall<T, AsTool> | undefined; prepareStep?: PrepareStep<T, AsTool> | undefined };
+} & AgentHooks<T, AsTool>;
 
 export type PromptCallback<T, AsTool extends boolean = false> = ConfigValue<T, 'inputSchema'> extends SchemaType<any>
 	? { prompt?: ((context: AgentContext<T, AsTool>) => PromptValue | PromiseLike<PromptValue>) | undefined }
@@ -98,7 +102,7 @@ type AgentRunSource<T, P extends PromptType> = { prompt?: AgentSource<T, P>; mes
 	& ([T] extends [{ prompt: ConfiguredSource<P> }] ? EmptyMap : { prompt: AgentSource<T, P> } | { messageHistory: readonly ModelMessage[] });
 type CompatibleTool<T> = T | (T extends Tool ? Tool<import('ai').InferToolInput<T>, import('ai').InferToolOutput<T>, import('@ai-sdk/provider-utils').InferToolContext<T>> : never);
 type RunTools<T> = { [K in keyof ToolsFromConfig<T>]?: CompatibleTool<ToolsFromConfig<T>[K]> | null | undefined };
-type ModeRunSettings<T, P extends PromptType> = OptionalUndefined<Omit<Partial<WithAgentCallbacks<AgentSettings<ToolsFromConfig<T>, any, PromptSource<P>, SDKOutput<T>, RuntimeContextFromConfig<T>>>>,
+type ModeRunSettings<T, P extends PromptType> = OptionalUndefined<Omit<Partial<AgentSettings<ToolsFromConfig<T>, any, PromptSource<P>, SDKOutput<T>, RuntimeContextFromConfig<T>>>,
 	typeof fixedSettings[number] | 'context' | 'prompt' | 'tools' | 'toolsContext' | 'model' | ConfigCallbackKeys | 'prepareCall'>
 	& AgentRunSource<T, P> & AgentCallbacks<T> & { tools?: RunTools<T>; model?: ModelOverride }>;
 export type AgentRunSettings<T, P extends PromptType> = CommonInputs<{ [M in P]: ModeRunSettings<ConfigForMode<T, M, P>, M> }>;
@@ -111,7 +115,7 @@ type NativeValidation<Args, T, Allowed, Unknown = Exclude<UnionKeys<Args>, keyof
 	& ValidateComponentInput<T, Args extends { options?: infer Input } ? NonNullable<Input> : EmptyMap>>;
 type Generated<T> = GenerateTextResultAugmented<ToolsFromConfig<T>, AgentOutput<T>, RuntimeContextFromConfig<T>>;
 type Streamed<T> = StreamTextResultAugmented<ToolsFromConfig<T>, AgentOutput<T>, RuntimeContextFromConfig<T>>;
-export type AgentResult<T> = [T] extends [{ streaming: true }] ? Streamed<T> : true extends ConfigValue<T, 'streaming'> ? Generated<T> | Streamed<T> : Generated<T>;
+export type AgentResult<T> = [T] extends [{ [streamMode]: true }] ? Streamed<T> : true extends ConfigValue<T, typeof streamMode> ? Generated<T> | Streamed<T> : Generated<T>;
 
 type ResumeSettings<T> = ComponentRunSettings<T, Omit<AgentRunSettings<T, 'text'>, 'prompt' | 'messageHistory'>
 	& { approve?: boolean | readonly string[] | null | undefined }>;

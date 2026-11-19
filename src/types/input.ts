@@ -28,23 +28,25 @@ export type ValidArgumentRoles<Allowed extends unknown[], First, Rest extends un
 // have distinct runtime roles and can still omit that slot.
 type WithoutContext<Tail extends unknown[]> = { [I in keyof Tail]: I extends '0'
 	? Exclude<Tail[I], object> | Extract<Tail[I], readonly unknown[] | ArrayBuffer | ArrayBufferView> : Tail[I] };
-type ContextObject<T> = NonArrayObject<Exclude<T, URL | ArrayBuffer | ArrayBufferView>>;
+type ContextObject<T> = NonArrayObject<Exclude<T, URL | Blob | AudioBuffer | ArrayBuffer | ArrayBufferView | ReadableStream<unknown>>>;
 type ContextTail<T, Tail extends unknown[], SourceOmitted extends boolean = false> =
 	[ContextObject<Tail[0]>] extends [never]
 	? [...ContextArguments<T>, ...Tail] | (CanOmitComponentInput<T> extends true ? Tail : never)
 	: [...(SourceOmitted extends true ? [context: ComponentInputShape<T>] : ContextArguments<T>), ...Tail]
 	| (CanOmitComponentInput<T> extends true ? WithoutContext<Tail> : never);
+// Omitting a configured source must not reinterpret a value the runtime treats as that source.
+export type WithoutSource<Tail extends unknown[], Source> = Tail extends unknown ? { [I in keyof Tail]: I extends '0' ? Exclude<Tail[I], Exclude<Source, undefined>> : Tail[I] } : never;
 export type PreparedSourceArguments<T, Source, HasSource extends boolean, Tail extends unknown[] = [], ConfiguredTail extends unknown[] = Tail> =
 	// A configured preparer can supply secondary inputs that a replacement source must supply separately.
 	[source: Source | (HasSource extends true ? undefined : never), ...ContextTail<T, Tail>]
-	| (HasSource extends true ? ContextTail<T, ConfiguredTail, true> | [source: undefined, ...ContextTail<T, ConfiguredTail>] : never);
+	| (HasSource extends true ? WithoutSource<ContextTail<T, ConfiguredTail, true>, Extract<Source, NonContextArgument>> | [source: undefined, ...ContextTail<T, ConfiguredTail>] : never);
 
 type ValidateRendererArguments<TArgs extends unknown[]> = TArgs extends [infer FIRST, ...infer REST]
 	? [FIRST] extends [string | undefined] ? ValidateContextValue<REST[0]> : ValidateContextValue<FIRST> : unknown;
 
 type ValidateMessageArgument<T> = [Extract<T, readonly unknown[]>] extends [readonly ModelMessage[]] ? unknown : never;
 type ContextValue<T> = [ContextObject<T>] extends [never] ? EmptyMap : ContextObject<T>;
-type NonContextArgument = string | readonly unknown[] | ((...args: never[]) => unknown) | URL | ArrayBuffer | ArrayBufferView | undefined;
+type NonContextArgument = string | readonly unknown[] | ((...args: never[]) => unknown) | URL | Blob | AudioBuffer | ArrayBuffer | ArrayBufferView | ReadableStream<unknown> | undefined;
 export type CallContext<Args extends unknown[], ObjectSource extends boolean = false, First = Args[0]> =
 	First extends NonContextArgument ? ContextValue<Args[1]>
 	: ObjectSource extends true ? [ContextObject<Args[1]>] extends [never] ? ContextValue<First> : ContextValue<Args[1]>

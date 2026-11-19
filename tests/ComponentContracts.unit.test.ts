@@ -98,10 +98,10 @@ describe('Component boundary contracts', () => {
 			name: string;
 			build: (config: Record<string, unknown>, parent?: ConfigProvider<{ model: MockLanguageModelV3 }>) => unknown;
 		}[] = [
-			{ name: 'generate', build: (config, parent): unknown => Reflect.apply(create.LLMAgent, undefined, [config, parent]) },
-			{ name: 'stream', build: (config, parent): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [config, parent]) },
-			{ name: 'generate-structured', build: (config, parent): unknown => Reflect.apply(create.LLMAgent, undefined, [{ output: Output.json(), ...config }, parent]) },
-			{ name: 'stream-structured', build: (config, parent): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [{ output: Output.json(), ...config }, parent]) },
+			{ name: 'generate', build: (config, parent): unknown => Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'stream', build: (config, parent): unknown => Reflect.apply(create.LLMAgent.asStream as unknown as (...args: unknown[]) => unknown, undefined, [config, parent]) },
+			{ name: 'generate-structured', build: (config, parent): unknown => Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [{ output: Output.json(), ...config }, parent]) },
+			{ name: 'stream-structured', build: (config, parent): unknown => Reflect.apply(create.LLMAgent.asStream as unknown as (...args: unknown[]) => unknown, undefined, [{ output: Output.json(), ...config }, parent]) },
 		];
 		for (const { name, build } of factories) {
 			for (const model of [undefined, null]) {
@@ -589,6 +589,11 @@ describe('Component boundary contracts', () => {
 			try {
 				const parent = create.Config({ debug: true, context: { circular } });
 				expect(logs).to.have.length(1);
+				const recording = create.Transcriber.loadsAudio.asTool({ model: 'test/model', audio: 'private-recording',
+					fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' }, inputSchema: z.object({}),
+					mediaSettings: { options: { headers: 'private-media-header' } } });
+				create.LLMAgent({ model: textModel('Agent'), tools: { recording } }, parent);
+				create.Function({ execute: () => 'Function', tools: { recording } }, parent);
 				expect(await create.Template({ template: 'Template' }, parent)()).to.equal('Template');
 				expect(await create.Script({ script: 'return "Script"' }, parent)()).to.equal('Script');
 				expect(await create.Function({ execute: () => 'Function' }, parent)({})).to.equal('Function');
@@ -610,7 +615,8 @@ describe('Component boundary contracts', () => {
 			for (const message of ['mergeConfigs called', 'Template created', 'Script created', 'Function created', 'LLMAgent created', 'LLMAgent call']) {
 				expect(messages.some(logged => logged.includes(message)), message).to.equal(true);
 			}
-			expect(logs.some(args => args.some(arg => (arg as { context?: { circular?: unknown } } | undefined)?.context?.circular === circular))).to.equal(true);
+			expect(logs.every(args => args.length === 1 && typeof args[0] === 'string')).to.equal(true);
+			expect(messages.join('\n')).not.to.include('private-media-header');
 		});
 	});
 });

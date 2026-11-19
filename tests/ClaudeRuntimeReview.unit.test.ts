@@ -29,13 +29,13 @@ describe('component runtime review corrections', () => {
 			return { response, stream: convertArrayToReadableStream([{ type: 'finish', ...transcript, providerMetadata }]) };
 		} });
 		const audio = () => convertArrayToReadableStream([new Uint8Array([1, 2])]);
-		const component = create.StreamingTranscriber.withFunction.asTool({ model, audio,
+		const component = create.Transcriber.withFunction.asTool({ model, audio,
 			inputAudioFormat: { type: 'audio/pcm', rate: 24000 }, inputSchema: z.object({}) });
 		const result = await component.execute({}, { toolCallId: 'stream-transcript', messages: [], context: undefined });
 		assert.deepEqual(result, transcript);
 		const ordinary = await component();
-		assert.deepEqual((await ordinary.responses)[0].headers, response.headers);
-		assert.deepEqual(await ordinary.providerMetadata, providerMetadata);
+		assert.deepEqual(ordinary.responses[0].headers, response.headers);
+		assert.deepEqual(ordinary.providerMetadata, providerMetadata);
 		assert.equal(calls, 2);
 	});
 
@@ -98,7 +98,7 @@ describe('component runtime review corrections', () => {
 		const embed = create.Embedder.asTool({ model, inputSchema });
 		assert.deepEqual(await embed.execute({ input: 'value' }, { toolCallId: 'embed', messages: [], context: undefined }), [1]);
 		assert.equal(declarations, 1);
-		const invalid = Reflect.apply(create.Embedder.asTool, undefined, [{ model, inputSchema: z.object({ custom: z.string() }) }]) as typeof embed;
+		const invalid = Reflect.apply(create.Embedder.asTool as unknown as (...args: unknown[]) => unknown, undefined, [{ model, inputSchema: z.object({ custom: z.string() }) }]) as typeof embed;
 		await assert.rejects(async () => { await invalid.execute({ input: 'value' }, { toolCallId: 'invalid', messages: [], context: undefined }); }, ConfigError);
 	});
 });

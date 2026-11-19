@@ -30,7 +30,7 @@ export function createCascadaRenderer(config: CascadaConfig, promptType: SourceT
 	let compiled: ReturnType<typeof compile> | undefined;
 	return async (sourceOverride, context) => {
 		const selected = (sourceOverride ?? source)!;
-		if (config.debug) console.log(`[DEBUG] ${kind} render:`, { source: selected, context });
+		if (config.debug) console.log(`[DEBUG] ${kind} render`);
 		try {
 			let result: unknown;
 			if (loaded) {
@@ -43,7 +43,7 @@ export function createCascadaRenderer(config: CascadaConfig, promptType: SourceT
 				compiled ??= compile(selected, env);
 				result = await compiled.render(context);
 			}
-			if (config.debug) console.log(`[DEBUG] ${kind} result:`, result);
+			if (config.debug) console.log(`[DEBUG] ${kind} result`);
 			return result;
 		} catch (error) {
 			const cause = error instanceof Error ? error : new Error(String(error));

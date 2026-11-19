@@ -1,3 +1,4 @@
+import { toolMode } from '../fixtures/source-modes.js';
 import { create, z } from 'casai';
 import type { ComponentConfig } from 'casai';
 import type { EmbeddingModel, ImageModel, LanguageModel, ModelMessage } from 'ai';
@@ -17,7 +18,7 @@ create.Embedder({});
 create.Embedder({ model: embedding, modle: embedding });
 create.Embedder({ model: uncheckedModel });
 
-declare const models: { [K in 'ImageGenerator' | 'Reranker' | 'Transcriber' | 'StreamingTranscriber' | 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceAgentBackend' | 'Decision']: ComponentConfig<K>['model'] };
+declare const models: { [K in 'ImageGenerator' | 'Reranker' | 'Transcriber' | 'SpeechGenerator' | 'Translator' | 'VoiceAgentBackend' | 'Decision']: ComponentConfig<K>['model'] };
 // @ts-expect-error Misspelled model.
 create.ImageGenerator({ modle: models.ImageGenerator });
 // @ts-expect-error Misspelled model.
@@ -25,13 +26,13 @@ create.Reranker({ modle: models.Reranker });
 // @ts-expect-error Misspelled model.
 create.Transcriber({ modle: models.Transcriber });
 // @ts-expect-error Misspelled model.
-create.StreamingTranscriber({ modle: models.StreamingTranscriber });
+create.Transcriber.asStream({ modle: models.Transcriber });
 // @ts-expect-error Misspelled model.
 create.SpeechGenerator({ modle: models.SpeechGenerator });
 // @ts-expect-error Misspelled model.
-create.StreamingSpeechGenerator({ modle: models.StreamingSpeechGenerator });
+create.SpeechGenerator.asStream({ modle: models.SpeechGenerator });
 // @ts-expect-error Misspelled model.
-create.StreamingTranslator({ modle: models.StreamingTranslator });
+create.Translator.asStream({ modle: models.Translator });
 // @ts-expect-error Misspelled model.
 create.VoiceAgentBackend({ modle: models.VoiceAgentBackend });
 // @ts-expect-error Misspelled model; supplying another required setting must not hide it.
@@ -67,7 +68,7 @@ expectEqual<Awaited<ReturnType<typeof defaultPayload>>, import('ai').EmbedResult
 const _defaultResult = defaultPayload();
 expectEqual<Awaited<typeof _defaultResult>, import('ai').EmbedManyResult>();
 declare const maybeTool: true | undefined;
-const optionalTool = create.Embedder({ model: embedding, asTool: maybeTool, input: 'configured', context: { input: 'payload' }, inputSchema: z.object({ input: z.string().transform(value => [value]) }) });
+const optionalTool = create.Embedder({ model: embedding, [toolMode]: maybeTool, input: 'configured', context: { input: 'payload' }, inputSchema: z.object({ input: z.string().transform(value => [value]) }) });
 const _optionalToolResult = optionalTool();
 expectEqual<Awaited<typeof _optionalToolResult>, import('ai').EmbedResult | import('ai').EmbedManyResult>();
 const payloadImage = create.ImageGenerator.asTool({ model: imageModel, inputSchema: z.object({ prompt: z.string() }) });

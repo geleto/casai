@@ -706,8 +706,97 @@ describe('Result augmentation in tools and templates', () => {
 	});
 
 });
+describe('LLMAgent default step limit', () => {
+	for (const entry of ['ordinary', 'run', 'resume', 'generate', 'stream', 'stream ordinary', 'stream run', 'stream resume', 'native generate', 'native stream'] as const) {
+		for (const finishAt of [2, 20, 21]) it(`allows tool loops up to twenty steps: ${entry}, finishAt=${finishAt}`, async () => {
+			const model = mock(...Array.from({ length: finishAt - 1 }, (): Step => ({ content: [call(), text('draft')], reason: 'tool-calls' })),
+				{ content: [text('answer')] });
+			const config = { model, tools: { lookup }, prompt: 'question' };
+			const agent = create.LLMAgent(config);
+			const streaming = create.LLMAgent.asStream(config);
+			const invoke = () => {
+				switch (entry) {
+					case 'ordinary': return agent();
+					case 'run': return agent.run({});
+					case 'resume': return agent.resume(conversation('question'));
+					case 'generate': return agent.generate({ prompt: 'question' });
+					case 'stream': return agent.stream({ prompt: 'question' });
+					case 'stream ordinary': return streaming();
+					case 'stream run': return streaming.run({});
+					case 'stream resume': return streaming.resume(conversation('question'));
+					case 'native generate': return new ToolLoopAgent(config).generate({ prompt: 'question' });
+					case 'native stream': return new ToolLoopAgent(config).stream({ prompt: 'question' });
+				}
+			};
+			const result = await invoke();
+			assert.equal(await result.text, finishAt > 20 ? 'draft' : 'answer');
+			if (finishAt <= 20) assert.equal(await result.output, 'answer');
+			assert.equal((await result.steps).length, Math.min(finishAt, 20));
+			assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, Math.min(finishAt, 20));
+			const second = model.doGenerateCalls[1] ?? model.doStreamCalls[1];
+			assert.ok(second.prompt.some(message => message.role === 'tool'));
+			assert.equal('stopWhen' in agent.config, false);
+		});
+	}
+	for (const streaming of [false, true]) {
+		it(`supplies the default before the hook and finishes without tools in one step, streaming=${streaming}`, async () => {
+			const model = mock({ content: [text('answer')] }, { content: [text('answer')] });
+			let checks = 0, hooks = 0;
+			const factory = streaming ? create.LLMAgent.asStream : create.LLMAgent;
+			const agent = factory({ model, prompt: 'question', prepareCall: request => {
+				hooks++;
+				const condition = request.stopWhen;
+				assert.equal(typeof condition, 'function');
+				assert.ok(condition && !Array.isArray(condition));
+				return { ...request, stopWhen: options => { checks++; return condition(options); } };
+			} });
+			assert.equal(await (await agent()).output, 'answer');
+			assert.equal(await (await agent.run({})).output, 'answer');
+			assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 2);
+			assert.equal(checks, 0);
+			assert.equal(hooks, 2);
+			assert.equal('stopWhen' in agent.config, false);
+		});
+		it(`preserves inherited conditions and call overrides, streaming=${streaming}`, async () => {
+			const inherited = [isStepCount(1)];
+			const override = isStepCount(2);
+			const selected: unknown[] = [];
+			const parent = create.Config({ stopWhen: inherited });
+			const factory = streaming ? create.LLMAgent.asStream : create.LLMAgent;
+			const agent = factory({ prompt: 'question', model: mock({ content: [call(), text('draft')] }), tools: { lookup },
+				prepareCall: request => { selected.push(request.stopWhen); return request; },
+			}, parent);
+			assert.equal(await (await agent()).output, 'draft');
+			const model = mock({ content: [call(), text('draft')] }, { content: [text('answer')] });
+			assert.equal(await (await agent.run({ model, stopWhen: override })).output, 'answer');
+			assert.deepEqual(selected, [inherited, override]);
+			assert.equal(agent.config.stopWhen, inherited);
+			assert.equal(parent.config.stopWhen, inherited);
+		});
+		for (const omitted of [false, true]) it(`retains a hook's removal of the default, streaming=${streaming}, omitted=${omitted}`, async () => {
+			const model = mock({ content: [call(), text('draft')] }, { content: [text('answer')] });
+			const factory = streaming ? create.LLMAgent.asStream : create.LLMAgent;
+			const agent = factory({ model, tools: { lookup }, prompt: 'question',
+				prepareCall: ({ stopWhen: _stopWhen, ...request }) => omitted ? request : { ...request, stopWhen: undefined },
+			});
+			const result = await agent();
+			assert.equal(await result.output, 'draft');
+			assert.equal((await result.steps).length, 1);
+			assert.equal(model.doGenerateCalls.length + model.doStreamCalls.length, 1);
+		});
+	}
+});
+
 describe('LLMAgent tool completion boundary', () => {
 	const options = { toolCallId: 'outer', messages: [], context: undefined };
+	for (const injected of [false, true]) it(`completes a tool loop with the default limit, injected=${injected}`, async () => {
+		const model = mock({ content: [call()], reason: 'tool-calls' }, { content: [text('answer')] });
+		const nested = create.LLMAgent.asTool({ model, tools: { lookup }, prompt: 'question', inputSchema: z.object({}) });
+		const result = injected ? await create.Function({ tools: { nested }, execute: ({ nested }) => nested({}) })()
+			: await nested.execute({}, options);
+		assert.equal(result, 'answer');
+		assert.equal(model.doGenerateCalls.length, 2);
+	});
 	it('native generation consults stop conditions only when another step is eligible', async () => {
 		// SDK-only canary for the tool adapter's cutoff observation; a final step
 		// count alone cannot distinguish a cutoff from natural completion.
@@ -733,14 +822,15 @@ describe('LLMAgent tool completion boundary', () => {
 			const condition: StopCondition<ToolSet> = async () => { checks++; return true; };
 			const stopWhen = kind === 'default' ? undefined : kind === 'limit' ? isStepCount(2)
 				: kind === 'terminal' ? hasToolCall('lookup') : kind === 'array' ? [condition, () => false] : condition;
-			const model = mock({ content: [text('{"answer":"draft"}'), call()] }, { content: [text('{"answer":"draft"}'), call()] });
+			const expectedSteps = kind === 'default' ? 20 : kind === 'limit' ? 2 : 1;
+			const model = mock(...Array.from({ length: expectedSteps }, () => ({ content: [text('{"answer":"draft"}'), call()] })));
 			const nested = create.LLMAgent.asTool({ model, prompt: 'question', inputSchema: z.object({}), stopWhen,
 				output: Output.object({ schema: z.object({ answer: z.string() }).transform(value => { parses++; return value; }) }),
 				tools: { lookup: tool({ inputSchema: z.object({ query: z.string() }), execute: () => { executions++; return 'done'; } }) },
 			});
 			await assert.rejects(async () => nested.execute({}, options), error => NoOutputGeneratedError.isInstance(error) && error.message.includes('stop condition'));
-			assert.equal(model.doGenerateCalls.length, kind === 'limit' ? 2 : 1);
-			assert.equal(executions, kind === 'limit' ? 2 : 1);
+			assert.equal(model.doGenerateCalls.length, expectedSteps);
+			assert.equal(executions, expectedSteps);
 			assert.equal(parses, 1);
 			assert.equal(checks, kind === 'predicate' || kind === 'array' ? 1 : 0);
 		});
@@ -815,7 +905,7 @@ describe('LLMAgent tool completion boundary', () => {
 	});
 	for (const injected of [false, true]) it(`delivers a cutoff as a tool failure to its caller, injected=${injected}`, async () => {
 		const innerModel = mock({ content: [call(), text('draft')] });
-		const nested = create.LLMAgent.asTool({ model: innerModel, tools: { lookup }, prompt: 'question', inputSchema: z.object({}) });
+		const nested = create.LLMAgent.asTool({ model: innerModel, tools: { lookup }, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(1) });
 		if (injected) {
 			const owner = create.Function({ tools: { nested }, execute: ({ nested }) => nested({}) });
 			await assert.rejects(owner(), /stop condition/);
@@ -830,7 +920,7 @@ describe('LLMAgent tool completion boundary', () => {
 	});
 	for (const entry of ['ordinary', 'run', 'generate', 'stream'] as const) it(`keeps native cutoff results on the ${entry} entry path`, async () => {
 		const model = mock({ content: [call(), text('draft')] });
-		const config = { model, tools: { lookup }, prompt: 'question', inputSchema: z.object({}) };
+		const config = { model, tools: { lookup }, prompt: 'question', inputSchema: z.object({}), stopWhen: isStepCount(1) };
 		const result = entry === 'ordinary' ? await create.LLMAgent.asTool(config)()
 			: entry === 'run' ? await create.LLMAgent.asTool(config).run({})
 				: entry === 'generate' ? await create.LLMAgent(config).generate({ messages: conversation('question') })
@@ -1073,7 +1163,7 @@ describe('LLMAgent tool completion boundary', () => {
 		it(`tool provider automatic approval: deferred=${deferred}, ${policy}, result=${resolved}`, async () => {
 			const provider = tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
 				supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() });
-			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question', tools: { lookup: provider },
+			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question', tools: { lookup: provider }, stopWhen: isStepCount(1),
 				toolApproval: policy === 'generic' ? () => 'approved' : { lookup: 'approved' },
 				model: mock({ content: [call(true), ...resolved ? [{ type: 'tool-result' as const, toolCallId: 'call', toolName: 'lookup', result: 'done' }] : [], text('answer')] }) });
 			if (deferred && !resolved) await assert.rejects(async () => nested.execute({}, options), /pending/);
@@ -1082,7 +1172,7 @@ describe('LLMAgent tool completion boundary', () => {
 	}
 	for (const deferred of [false, true]) for (const resolved of [false, true]) {
 		it(`a later user-approval request preserves provider result settlement: deferred=${deferred}, result=${resolved}`, async () => {
-			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question',
+			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question', stopWhen: isStepCount(1),
 				tools: { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
 					supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) },
 				toolApproval: () => 'user-approval', model: mock({ content: [call(true),
@@ -1093,7 +1183,7 @@ describe('LLMAgent tool completion boundary', () => {
 	}
 	for (const deferred of [false, true]) for (const decision of ['approved', 'denied', 'user-approval'] as const) {
 		it(`a provider request followed by SDK ${decision} retains its completion rule, deferred=${deferred}`, async () => {
-			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question',
+			const nested = create.LLMAgent.asTool({ inputSchema: z.object({}), prompt: 'question', stopWhen: isStepCount(1),
 				tools: { lookup: tool({ type: 'provider', id: 'fixture.lookup', args: {}, isProviderExecuted: true,
 					supportsDeferredResults: deferred, inputSchema: z.object({ query: z.string() }), outputSchema: z.unknown() }) },
 				toolApproval: () => decision, model: mock({ content: [call(true),

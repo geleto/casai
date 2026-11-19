@@ -65,7 +65,7 @@ describe('component dispatch boundaries', () => {
 			return { stream: convertArrayToReadableStream([{ type: 'audio', audio: 'AQI=', audioFormat: format }, { type: 'finish' }]) };
 		} });
 		const source = convertArrayToReadableStream(['hello']);
-		const speak = create.StreamingSpeechGenerator({ model });
+		const speak = create.SpeechGenerator.asStream({ model });
 		const first = await speak(source, 'alloy');
 		for await (const _chunk of first.audioStream) { /* Complete the native output. */ }
 		await assert.rejects(speak(source, 'nova'), ValidationError);
@@ -76,7 +76,7 @@ describe('component dispatch boundaries', () => {
 		const model = new MockTranscriptionModelV4({ doStream: async () => ({ stream: convertArrayToReadableStream([
 			{ type: 'finish', text: 'done', segments: [], language: 'en' },
 		]) }) });
-		const transcribe = create.StreamingTranscriber.withFunction.asTool({ model, inputAudioFormat: format, inputSchema: z.object({}),
+		const transcribe = create.Transcriber.withFunction.asTool({ model, inputAudioFormat: format, inputSchema: z.object({}),
 			audio: () => convertArrayToReadableStream([new Uint8Array([1])]) });
 		const output = await transcribe.execute({}, metadata);
 		assert.deepEqual(await transcribe.toModelOutput?.({ toolCallId: 'review', input: {}, output }), { type: 'text', value: 'done' });
@@ -143,16 +143,16 @@ describe('component dispatch boundaries', () => {
 		const model = new MockEmbeddingModelV4({ doEmbed: async () => ({ embeddings: [[1]], warnings: [] }) });
 		const unknownSettings = { futureSetting: true, mode: 'native', options: {}, messages: [], approve: true };
 		const native = await nativeEmbed({ model, value: 'hello', ...unknownSettings });
-		const fragment: unknown = Reflect.apply(create.Config, undefined, [unknownSettings]);
-		const component = Reflect.apply(create.Embedder, undefined, [{ model, input: 'hello' }, fragment]) as ReturnType<typeof create.Embedder>;
+		const fragment: unknown = Reflect.apply(create.Config as unknown as (...args: unknown[]) => unknown, undefined, [unknownSettings]);
+		const component = Reflect.apply(create.Embedder as unknown as (...args: unknown[]) => unknown, undefined, [{ model, input: 'hello' }, fragment]) as { run: (settings?: unknown) => Promise<{ embedding: number[] }> };
 		assert.deepEqual((await Reflect.apply(component.run, undefined, [unknownSettings])).embedding, native.embedding);
 		await assert.rejects(async () => { await Reflect.apply(component.run, undefined, [{ inputSchema: z.object({}) }]); }, /Configuration-only/);
 		let sent: unknown;
 		const realtime = { specificationVersion: 'v4', provider: 'test', modelId: 'voice', doCreateClientSecret: async ({ sessionConfig }: { sessionConfig: unknown }) => {
 			sent = sessionConfig; return { clientSecret: 'token' };
 		} };
-		const voice = Reflect.apply(create.VoiceAgentBackend.withTemplate, undefined, [{ model: realtime, instructions: '{{ name }}',
-			context: { name: 'Ada' }, inputSchema: z.object({ name: z.string() }), filters: {}, renderOptions: {}, description: 'author only', futureSetting: 'configured' }]) as ReturnType<typeof create.VoiceAgentBackend>;
+		const voice = Reflect.apply(create.VoiceAgentBackend.withTemplate as unknown as (...args: unknown[]) => unknown, undefined, [{ model: realtime, instructions: '{{ name }}',
+			context: { name: 'Ada' }, inputSchema: z.object({ name: z.string() }), filters: {}, renderOptions: {}, description: 'author only', futureSetting: 'configured' }]) as { run: (settings?: unknown) => Promise<unknown> };
 		await Reflect.apply(voice.run, undefined, [{ futureSetting: 'call' }]);
 		assert.deepEqual(sent, { instructions: 'Ada', futureSetting: 'call' });
 	});

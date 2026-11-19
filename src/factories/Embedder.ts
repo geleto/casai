@@ -2,11 +2,12 @@ import type { PromptType } from '../types/prompt.js';
 import type { StandardComponent } from '../types/component.js';
 import { embed, embedMany } from 'ai';
 import { createComponentFactory, textModifiers, textModes } from './component-factory.js';
-import { createComponentRuntime } from '../runtime/component-call.js';
+import { createComponentRuntime, sdkRequest } from '../runtime/component-call.js';
 import type { RuntimeComponentConfig } from '../runtime/component-call.js';
 import type { ToolInvocation } from '../types/execution.js';
 import type { Fields } from '../types/utils.js';
 import type { RuntimeContextFromConfig } from '../types/config.js';
+import { ValidationError } from '../errors.js';
 
 type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof embedMany<Runtime>>[0], '_internal' | 'values'> & { input: string | string[] };
 export const definition = {
@@ -24,8 +25,9 @@ export interface Types<P extends PromptType, T, A extends boolean, Input> {
 function createEmbedder(config: RuntimeComponentConfig) {
 	const runtime = createComponentRuntime(config, definition);
 	async function invoke(raw: Fields, tool?: ToolInvocation) {
-		const request = runtime.request(await runtime.prepare(raw, tool)) as Settings;
-		const { input, ...settings } = request;
+		const request = sdkRequest(await runtime.prepare(raw, tool));
+		if (request.input == null) throw new ValidationError('Embedder requires input.');
+		const { input, ...settings } = request as Settings;
 		if (Array.isArray(input)) {
 			const result = await embedMany({ ...settings, values: input });
 			return tool ? result.embeddings : result;

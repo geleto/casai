@@ -6,11 +6,12 @@ import type { CallableComponent, Source, SourceArguments, SourceSettings, BaseRu
 import type { PreparedSourceArguments } from '../types/input.js';
 import { rerank } from 'ai';
 import { createComponentFactory, textModifiers, textModes } from './component-factory.js';
-import { createComponentRuntime } from '../runtime/component-call.js';
+import { createComponentRuntime, sdkRequest } from '../runtime/component-call.js';
 import type { RuntimeComponentConfig } from '../runtime/component-call.js';
 import type { ToolInvocation } from '../types/execution.js';
 import type { Fields } from '../types/utils.js';
 import { isPlainObject } from '../schema.js';
+import { ValidationError } from '../errors.js';
 
 type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof rerank<Parameters<typeof rerank>[0]['documents'][number], Runtime>>[0], '_internal'>;
 export const definition = {
@@ -63,7 +64,9 @@ function createReranker(config: RuntimeComponentConfig) {
 			prepared.settings.documents = prepared.supplied.documents ?? query.documents ?? prepared.settings.documents;
 			prepared.settings.query = query.query;
 		}
-		const result = await rerank(runtime.request(prepared) as Settings);
+		if (prepared.settings.query == null) throw new ValidationError('Reranker requires query.');
+		if (prepared.settings.documents == null) throw new ValidationError('Reranker requires documents.');
+		const result = await rerank(sdkRequest(prepared) as Settings);
 		return tool ? result.ranking : result;
 	}
 	return runtime.callable(invoke, args => {

@@ -1,3 +1,4 @@
+import { toolMode, streamMode } from '../src/config/modifiers.js';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { mergeConfigs } from '../src/config/config-utils.js';
@@ -7,13 +8,13 @@ import type { FunctionToolConfig } from './cascada';
 import { MockLanguageModelV3 } from 'ai/test';
 
 describe('Config merging', () => {
-	it('retains possibly enabled modes when a child supplies undefined', () => {
-		for (const enabled of [undefined, true] as const) {
-			const tool = create.Config({ asTool: undefined }, create.Config({ asTool: enabled }));
-			const stream = create.Config({ streaming: undefined }, create.Config({ streaming: enabled }));
-			expect(tool.config.asTool).to.equal(enabled);
-			expect(stream.config.streaming).to.equal(enabled);
-		}
+	it('retains enabled modes through neutral fragments and ordinary spreads', () => {
+		const tool = create.Config({}, create.Config.asTool({}));
+		const stream = create.Config({}, create.Config.asStream({}));
+		expect(tool.config[toolMode]).to.equal(true);
+		expect(stream.config[streamMode]).to.equal(true);
+		expect(create.Config({ ...tool.config, ...create.Config({}).config }).config[toolMode]).to.equal(true);
+		expect(create.Config({ ...stream.config, ...create.Config({}).config }).config[streamMode]).to.equal(true);
 	});
 
 	it('preserves correlated alternatives when a union overrides different fields', () => {
@@ -231,7 +232,7 @@ describe('Config merging', () => {
 				create.Template.asTool({ inputSchema, template: 'x', type: 'function' });
 			}
 			// The runtime agrees: a Function fragment cannot configure a text generator.
-			expect(() => { Reflect.apply(create.LLMAgent, undefined, [{ model, prompt: 'x' }, create.Config({ execute: () => 'x' })]); }).to.throw(/execute/);
+			expect(() => { Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [{ model, prompt: 'x' }, create.Config({ execute: () => 'x' })]); }).to.throw(/execute/);
 		});
 	});
 });

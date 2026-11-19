@@ -1,3 +1,4 @@
+import { streamMode } from '../src/config/modifiers.js';
 import assert from 'node:assert/strict';
 import { Output, createAgentUIStream, isStepCount, tool, registerTelemetry, InvalidToolApprovalSignatureError, InvalidPromptError, NoOutputGeneratedError } from 'ai';
 import type { Agent, InferAgentUIMessage, LanguageModel, ModelMessage } from 'ai';
@@ -286,7 +287,7 @@ describe('LLMAgent', () => {
 	it('preserves streaming through configuration inheritance, with completed values for explicit Output', async () => {
 		const stream = create.LLMAgent.asStream({ model: model(), prompt: 'question' });
 		const inherited = create.LLMAgent({}, create.Config({}, stream));
-		assert.equal(inherited.config.streaming, true);
+		assert.equal(inherited.config[streamMode], true);
 		const pending = inherited();
 		assert.ok(pending instanceof Promise);
 		const result = await pending;

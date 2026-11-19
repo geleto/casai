@@ -1,6 +1,6 @@
 import type { EmptyMap, UnionKeys } from './utils.js';
 import type { LoaderGroup } from 'cascada-engine';
-import type { sourceMode, RetainedSourceMode, ResolvedSourceMode, SourceModeSetting } from '../config/source-mode.js';
+import type { toolMode, streamMode, ModifierKey, RetainedModifiers } from '../config/modifiers.js';
 
 // These maps merge by key. Values within each map are replaced, not deep-merged.
 export const configMapKeys = ['context', 'filters', 'tools', 'toolsContext'] as const;
@@ -33,29 +33,30 @@ type MergedMap<A, B, Result = MergedProperties<MapValue<A>, MapValue<B>>> = unde
 
 type ProcessedValue<K, T> = K extends 'loader' ? LoaderGroup | (undefined extends T ? undefined : never) : T;
 export type ProcessedConfig<T> = T extends unknown
-	? typeof sourceMode extends keyof T
-		? { [K in keyof T as K extends typeof sourceMode ? never : K]: ProcessedValue<K, T[K]> } & RetainedSourceMode<T>
-		: 'loader' extends keyof T ? { [K in keyof T]: ProcessedValue<K, T[K]> } : T : never;
+	? Extract<keyof T, ModifierKey> extends never
+		? 'loader' extends keyof T ? { [K in keyof T]: ProcessedValue<K, T[K]> } : T
+		: { [K in keyof T as K extends ModifierKey ? never : K]: ProcessedValue<K, T[K]> } & RetainedModifiers<T>
+	: never;
 
 type LoaderValue<T> = 'loader' extends keyof T ? T['loader'] : undefined;
 
 type MergedValue<A, B, K extends PropertyKey> = K extends 'loader'
 	// Loaders combine or inherit; the result may be undefined if neither side supplies one.
 	? LoaderGroup | (undefined extends LoaderValue<A> ? undefined extends LoaderValue<B> ? undefined : never : never)
-	: K extends 'streaming' | 'asTool' ? A extends Record<K, true> ? true : B extends Record<K, true> ? true : SpreadValue<A, B, K> | Extract<Value<A, K> | Value<B, K>, true>
-	: K extends keyof A & keyof B
-	? K extends ConfigMapKey ? MergedMap<A[K], B[K]>
-	: SpreadValue<A, B, K>
+	// Factories only emit enabled delivery keys. An optional child cannot clear a definite parent.
+	: K extends typeof streamMode | typeof toolMode ? A extends Record<K, true> ? true : SpreadValue<A, B, K>
+	: K extends ConfigMapKey & keyof A & keyof B ? MergedMap<A[K], B[K]>
 	: SpreadValue<A, B, K>;
 
 /** The shared config merge policy per union branch, matching mergeConfigs at runtime. */
-type MergedSourceMode<A, B> = typeof sourceMode extends keyof A | keyof B
-	? A extends Record<typeof sourceMode, unknown> ? ResolvedSourceMode<MergedValue<A, B, typeof sourceMode>>
-	: B extends Record<typeof sourceMode, unknown> ? ResolvedSourceMode<MergedValue<A, B, typeof sourceMode>>
-	: SourceModeSetting<MergedValue<A, B, typeof sourceMode>> : unknown;
+type MergedModifiers<A, B> = RetainedModifiers<{
+	[K in keyof A as K extends ModifierKey ? K : never]: MergedValue<A, B, K>;
+} & {
+	[K in keyof B as K extends ModifierKey ? K : never]: MergedValue<A, B, K>;
+}>;
 
 export type MergedConfig<A, B> = A extends unknown ? B extends unknown ? {
-	[K in keyof A as K extends typeof sourceMode ? never : K]: MergedValue<A, B, K>;
+	[K in keyof A as K extends ModifierKey ? never : K]: MergedValue<A, B, K>;
 } & {
-	[K in keyof B as K extends typeof sourceMode ? never : K]: MergedValue<A, B, K>;
-} & MergedSourceMode<A, B> : never : never;
+	[K in keyof B as K extends ModifierKey ? never : K]: MergedValue<A, B, K>;
+} & MergedModifiers<A, B> : never : never;

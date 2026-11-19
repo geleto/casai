@@ -1,5 +1,5 @@
-import type { sourceMode, ResolvedSourceMode, WithoutSourceMode } from '../config/source-mode.js';
-import type { AgentCallbacks, AgentFactoryShape, AgentOutput, AgentRequiredSettings, LLMAgentComponent, PromptCallback } from '../types/agent.js';
+import type { toolMode, streamMode, sourceMode, SourceModeSetting, ResolvedSourceMode, WithoutSourceMode } from '../config/modifiers.js';
+import type { AgentCallbacks, AgentFactoryShape, AgentHooks, AgentOutput, AgentRequiredSettings, LLMAgentComponent, PromptCallback } from '../types/agent.js';
 import type { AIOutput } from '../types/sdk.js';
 import type { CallbackConfigShape, ConfigCallbackKeys, DescriptorInput, ParentToolSelectionInput, ToolSettingsInput, ToolSelectionKeys, ValidateDescriptor, ValidateToolCallbackNames, ValidateToolSelectionNames } from '../types/callbacks.js';
 import type { ConfigSchemas, ConfigData, ConfigDataInferShape, ToolMode, ToolModeConfig, CallbackParent, CapturedConfig, FinalConfig, SourceMode } from '../types/factory-config.js';
@@ -19,17 +19,20 @@ export const definition = {
 	required: ['model'], toolRequired: ['prompt'], asStream: true,
 } as const satisfies import('./component-factory.js').ComponentDefinition<Settings>;
 type Settings = import('../types/agent.js').AgentSettings;
-type Config<P extends PromptType> = AgentFactoryShape<P, false>;
+// An annotation receives an execution context; the factory shape keeps its inference sentinel.
+type Config<P extends PromptType> = Omit<AgentFactoryShape<P, false>, 'prompt' | typeof toolMode | typeof sourceMode> & SourceModeSetting<P> & {
+	prompt?: import('../types/component.js').Source<'LLMAgent', P, unknown, false, import('../types/prompt.js').PromptValue> | undefined;
+};
 type ConfigShape<Tools extends import('ai').ToolSet, Input extends Record<string, any>, Output> =
 	import('../types/agent.js').WithAgentCallbacks<import('../types/agent.js').AgentSettings<Tools, Input, import('../types/prompt.js').AnyPromptSource>>
 	& Partial<Omit<import('../types/config.js').ToolConfig<Input, Output>, 'inputSchema'>>;
 
 type Mode = PromptType | undefined;
 type Resolved<P extends Mode, S extends boolean, T> = T extends unknown
-	? (Extract<keyof T, typeof sourceMode | (S extends true ? 'streaming' : never)> extends never ? T : WithoutSourceMode<S extends true ? Omit<T, 'streaming'> : T>)
-		& ResolvedSourceMode<SourceMode<T, P, typeof definition.defaultMode>> & (S extends true ? { streaming: true } : unknown) : never;
+	? import('../types/factory-config.js').StreamModeConfig<WithoutSourceMode<T> & ResolvedSourceMode<SourceMode<T, P, typeof definition.defaultMode>>, S> : never;
 type Shape<P extends Mode, A extends boolean> = AgentFactoryShape<P extends PromptType ? P : PromptType, A>;
-type InferShape<P extends Mode, A extends boolean> = CallbackConfigShape<Omit<Partial<Shape<P, A>>, 'prompt'>>
+type InferSettings<P extends Mode, A extends boolean> = CallbackConfigShape<Omit<Partial<Shape<P, A>>, 'prompt'>>;
+type InferShape<P extends Mode, A extends boolean> = InferSettings<P, A>
 	& (P extends 'function' ? { prompt?: unknown } : Pick<Partial<Shape<P, A>>, 'prompt'>);
 type CallbackSettings = 'context' | 'tools' | 'toolsContext' | 'runtimeContext' | 'output';
 type CapturedSettings<P, Context, Runtime, Output> = Pick<{
@@ -37,10 +40,12 @@ type CapturedSettings<P, Context, Runtime, Output> = Pick<{
 }, keyof P & Exclude<CallbackSettings, 'tools' | 'toolsContext'>>;
 type CallbackConfig<C, P, Schemas, Values> = CapturedConfig<P,
 	Omit<ResolvedConfig<C>, 'prepareCall' | 'prepareStep' | 'prompt' | CallbackSettings> & Schemas & Values>;
+// Callback settings are optional; supplied values must match their resolved signatures.
 type IncompatibleCallbacks<T, Expected> = {
-	[K in keyof Expected & keyof T]-?: Pick<T, K> extends Pick<Expected, K> ? never : K
+	[K in keyof Expected & keyof T]-?: T[K] extends Expected[K] ? never : K
 }[keyof Expected & keyof T];
-type CallbackErrors<T, A extends boolean> = [keyof T & ConfigCallbackKeys] extends [never] ? never : IncompatibleCallbacks<T, AgentCallbacks<T, A>>;
+type CallbackErrors<T, A extends boolean, Keys = keyof T & ConfigCallbackKeys> = [Keys] extends [never] ? never
+	: IncompatibleCallbacks<T, [Keys] extends [keyof AgentHooks<T, A>] ? AgentHooks<T, A> : AgentCallbacks<T, A>>;
 
 type PromptError<T, P extends PromptType, A extends boolean> = [P] extends ['function']
 	? Pick<T, 'prompt' & keyof T> extends { prompt?: ((...args: Parameters<NonNullable<PromptCallback<T, A>['prompt']>>) => ReturnType<NonNullable<PromptCallback<T, A>['prompt']>>) | undefined } ? never : 'prompt'
@@ -48,21 +53,21 @@ type PromptError<T, P extends PromptType, A extends boolean> = [P] extends ['fun
 type Missing<T, Required> = T extends unknown ? { [K in keyof Required]-?: K extends keyof T
 	? [T[K]] extends [Required[K]] ? never : K : K }[keyof Required] : never;
 type StreamingToolConfig<T> = T extends unknown
-	? true extends ConfigValue<T, 'asTool'> & ConfigValue<T, 'streaming'> ? T : never : never;
+	? true extends ConfigValue<T, typeof toolMode> & ConfigValue<T, typeof streamMode> ? T : never : never;
 type ValidateBranch<C, T, P extends PromptType, A extends boolean,
 	Unknown = Exclude<UnionKeys<T>, keyof AgentFactoryShape<P, A>>,
 	Required = Missing<T, AgentRequiredSettings<P, A>>,
-	Callbacks = T extends unknown ? CallbackErrors<T, A> | PromptError<T, P, A> : never> = ValidateResolved<C,
-	([Unknown] extends [never] ? unknown : `Config Error: Unknown LLMAgent properties: '${Unknown & string}'.`)
+	Callbacks = T extends unknown ? CallbackErrors<T, A> | PromptError<T, P, A> : never> = ValidateResolved<C, P extends typeof textModes[number]
+	? ([Unknown] extends [never] ? unknown : `Config Error: Unknown LLMAgent properties: '${Unknown & string}'.`)
 	& ([Required] extends [never] ? unknown : `Config Error: Missing required LLMAgent property '${Required & string}'.`)
-	& ([T] extends [Omit<InferShape<P, A>, 'prompt'>] ? unknown : 'Config Error: Settings must match the final LLMAgent.')
+	& ([T] extends [InferSettings<P, A>] ? unknown : 'Config Error: Settings must match the final LLMAgent.')
 	& ([Callbacks] extends [never] ? unknown : `Config Error: Hook or callback '${Callbacks & string}' is incompatible with the final configuration.`)
 	& ([StreamingToolConfig<T>] extends [never] ? unknown : 'Config Error: LLMAgent tools are generation-only; streaming is not supported.')
 	& ComponentAdmission<T>
 	& ([Extract<UnionKeys<T>, 'experimental_refineToolInput' | 'toolApproval'>] extends [never] ? unknown : ValidateToolCallbackNames<T>)
 	& ([UnionKeys<T> & ToolSelectionKeys] extends [never] ? unknown : ValidateToolSelectionNames<T>)
 	& (true extends A ? ToolInputAdmission<T> & ToolOutputAdmission<EmptyMap, CompletedOutput<AgentOutput<T>>>
-		& ValidateDescriptor<C, T, CompletedOutput<AgentOutput<T>>> : unknown)>;
+		& ValidateDescriptor<C, T, CompletedOutput<AgentOutput<T>>> : unknown) : 'Config Error: Unsupported LLMAgent source modifier.'>;
 
 type ConfigChecks<C, T, P extends PromptType, A extends boolean> = T extends unknown
 	? (checks: CommonInputs<{ [M in Extract<ConfigValue<T, typeof sourceMode>, P>]: ValidateBranch<C, T, M, ToolMode<T, A>> }>) => void : never;

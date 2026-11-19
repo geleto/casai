@@ -1,12 +1,13 @@
 import { asSchema, generateId, jsonSchema } from 'ai';
 import type { FlexibleSchema, Tool, ToolSet } from 'ai';
-import { executeTool, isExecutableTool, isRecord } from '@ai-sdk/provider-utils';
+import { executeTool, isArrayBuffer, isExecutableTool, isRecord } from '@ai-sdk/provider-utils';
 import type { ExecutableTool } from '@ai-sdk/provider-utils';
 import { ConfigError, ValidationError } from '../errors.js';
-import { sourceSettingsError } from '../config/source-mode.js';
+import { toolMode, modifierSettingsError } from '../config/modifiers.js';
 import { contextNames, inputNames, requireContextObject, ownKeys, parseSchema, projectInput, sameContext, selectFields, snapshot } from '../schema.js';
 import type { Fields } from '../types/utils.js';
 import { toolOutput } from '../streams.js';
+import { isWebAudioBuffer, isWebBlob, isWebStream, isWebURL } from './web-input.js';
 
 import type { ComponentExecutionOptions } from '../types/sdk.js';
 import type { ExecutionConfig, PreparedExecutionContext, PreparedToolRegistry, ToolInvocation } from '../types/execution.js';
@@ -35,7 +36,8 @@ function isComponent(tool: Tool): tool is BindableComponentTool {
 
 /** Context consumes object records; native URL and binary inputs keep their separate positional roles. */
 export function isContextArgument(value: unknown): value is Fields {
-	return isRecord(value) && !(value instanceof URL) && !(value instanceof ArrayBuffer) && !ArrayBuffer.isView(value);
+	return isRecord(value) && !ArrayBuffer.isView(value) && !isArrayBuffer(value) && !isWebURL(value) && !isWebStream(value)
+		&& !isWebBlob(value) && !isWebAudioBuffer(value);
 }
 
 /** Cascada names arguments explicitly. Schema field order never supplies positional meaning. */
@@ -48,11 +50,14 @@ export function namedArguments(args: readonly unknown[], objectSource = false): 
 }
 
 export function runSettings(args: readonly unknown[], allowed?: readonly string[]): Fields {
+	// Inspect the original object before keyword normalization or spread drops inherited declarations.
+	if (args[0] !== null && typeof args[0] === 'object') {
+		const error = modifierSettingsError(args[0], true);
+		if (error) throw new ValidationError(error);
+	}
 	const { values: normalized } = namedArguments(args);
 	if (normalized.length > 1) throw new ValidationError('A component run accepts one settings object.');
 	const settings = { ...requireContextObject(normalized[0] === undefined ? {} : normalized[0]) };
-	const sourceError = sourceSettingsError(settings, true);
-	if (sourceError) throw new ValidationError(sourceError);
 	const unknown = allowed ? Object.keys(settings).filter(key => !allowed.includes(key)) : [];
 	if (unknown.length) throw new ValidationError(`Unknown run settings: ${unknown.join(', ')}. Put application data in context.`);
 	return settings;
@@ -134,12 +139,13 @@ export function prepareRegistry(config: ExecutionConfig, overrides?: Fields): Pr
  * enter after parsing; ordinary and injected calls enter before it.
  */
 function preparation(config: ExecutionConfig, binding?: { context: unknown; name?: string | undefined }, toolInputField?: string) {
-	const tool = config.asTool === true;
+	const tool = config[toolMode] === true;
 	const context = snapshot(binding?.context);
 	const toolName = binding?.name;
 	const configured = { ...config.context };
 	const declared = contextNames(config.toolContextSchema);
-	const registered = Object.entries(config.tools ?? {}).filter(([, tool]) => isExecutableTool(tool ?? undefined)).map(([key]) => key);
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Erase heterogeneous ToolSet variants for the native predicate in exact optional mode.
+	const registered = Object.entries(config.tools ?? {}).filter(([, tool]) => isExecutableTool((tool ?? undefined) as Tool | undefined)).map(([key]) => key);
 	let declarations: Promise<Set<string>> | undefined;
 	const namesFor = () => declarations ??= config.inputSchema === undefined ? Promise.resolve(new Set<string>())
 		: inputNames(config.inputSchema, tool).then(names => {

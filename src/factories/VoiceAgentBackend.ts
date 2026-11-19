@@ -2,6 +2,8 @@ import type { PromptType } from '../types/prompt.js';
 import type { ToolRegistryFromConfig } from '../types/config.js';
 import type { ToolContexts } from '../types/tool-binding.js';
 import type { ValidateToolsContext } from '../types/config-validation.js';
+import { modifierSettingsError, type ModifierKey } from '../config/modifiers.js';
+import { ValidationError } from '../errors.js';
 import type { MergedConfig } from '../types/merge.js';
 import type { CommonInputs, ComponentRun } from '../types/input.js';
 import type { ConfigForMode } from '../types/factory-config.js';
@@ -9,9 +11,9 @@ import type { CallableComponent, SourceArguments, SourceSettings, BaseRunSetting
 import { experimental_getRealtimeToolDefinitions, UnsupportedFunctionalityError } from 'ai';
 import type { Experimental_RealtimeSessionConfig, Experimental_RealtimeModel } from 'ai';
 import { createComponentFactory, textModifiers } from './component-factory.js';
-import { createComponentRuntime } from '../runtime/component-call.js';
+import { createComponentRuntime, sdkRequest } from '../runtime/component-call.js';
 import type { RuntimeComponentConfig } from '../runtime/component-call.js';
-import type { Fields } from '../types/utils.js';
+import type { Fields, UnionKeys } from '../types/utils.js';
 import type { PreparedToolRegistry } from '../types/execution.js';
 import { definedSettings, prepareRegistry } from '../runtime/execution.js';
 
@@ -35,6 +37,7 @@ export interface VoiceMethods<P extends PromptType, T> {
 	executeTool<Options extends object>(
 		call: { toolCallId: string; toolName: keyof ToolRegistryFromConfig<T> & string; args: unknown },
 		settings?: Options & { toolsContext?: Partial<ToolContexts<ToolRegistryFromConfig<T>>>; abortSignal?: AbortSignal }
+			& (Extract<UnionKeys<Options>, 'asTool' | 'streaming' | 'promptType' | ModifierKey> extends never ? unknown : never)
 			& NoInfer<ValidateToolsContext<Options, MergedConfig<T, Options>>>,
 	): Promise<unknown>;
 }
@@ -61,7 +64,7 @@ function createVoiceAgentBackend(config: RuntimeComponentConfig) {
 	const model = config.model as Experimental_RealtimeModel;
 	async function session(raw: Fields) {
 		const prepared = await runtime.prepare(raw);
-		const request = runtime.request(prepared, ['abortSignal', 'sdp']);
+		const request = sdkRequest(prepared, ['abortSignal', 'sdp']);
 		const sessionConfig = await voiceConfig(request, prepared.registry);
 		prepared.context._toolOptions.abortSignal?.throwIfAborted();
 		return { sessionConfig, request, context: prepared.context };
@@ -80,18 +83,23 @@ function createVoiceAgentBackend(config: RuntimeComponentConfig) {
 			const raw = runtime.runSettings(args);
 			const { sessionConfig, context } = await session(raw);
 			if (!model.doCreateWebRTCSession) throw new UnsupportedFunctionalityError({ functionality: 'realtime WebRTC session setup' });
-			return model.doCreateWebRTCSession({ sdp: raw.sdp as string, sessionConfig, abortSignal: context._toolOptions.abortSignal });
+			return model.doCreateWebRTCSession({ sdp: raw.sdp as string, sessionConfig, ...definedSettings({ abortSignal: context._toolOptions.abortSignal }) });
 		},
 		async executeTool(call: { toolCallId: string; toolName: string; args: unknown }, options: { toolsContext?: Fields; abortSignal?: AbortSignal } = {}) {
-			return prepareRegistry(config, options.toolsContext).invoke(call.toolName, call.args, { toolCallId: call.toolCallId, messages: [], abortSignal: options.abortSignal });
+			const error = modifierSettingsError(options, true);
+			if (error) throw new ValidationError(error);
+			return prepareRegistry(config, options.toolsContext).invoke(call.toolName, call.args, { toolCallId: call.toolCallId, messages: [], ...definedSettings({ abortSignal: options.abortSignal }) });
 		},
 	});
 }
 
 type Factory = import('./component-factory.js').SourceFactory<'VoiceAgentBackend'>;
 /**
- * Prepares voice sessions and executes server-side tools without exposing the provider API key to the browser.
- * The application server owns user authentication and authorization of session setup and tool calls.
+ * Sets up realtime voice sessions and executes their tool calls on the server.
+ * Prepares provider-supported credentials or configuration and runs tools with trusted server context.
+ * The browser handles audio capture and playback; provider API keys and tool executors stay on the server.
+ * The application owns connections and conversation lifecycle. It authenticates users
+ * and authorizes session setup and tool calls.
  * @experimental Uses the AI SDK's experimental realtime session API.
  */
 export const VoiceAgentBackend = createComponentFactory(definition, createVoiceAgentBackend) as Factory;

@@ -1,3 +1,4 @@
+import type { ToolModeSetting } from '../config/modifiers.js';
 import type { EmptyMap, DistributiveOmit, Fields, NamedKeys } from './utils.js';
 import type { CallbackContextFromConfig, ConfigValue, ContextFromConfig, InputConfigAlternatives, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig, ToolsContextFromConfig } from './config.js';
 import type { MergedProperties } from './merge.js';
@@ -6,13 +7,12 @@ import type { BoundContextDefaults, InjectedToolHelpers } from './tool-binding.j
 import type { ComponentExecutionOptions } from './sdk.js';
 import type { FlexibleSchema, ToolSet } from 'ai';
 /** The configuration fields consumed by the shared execution pipeline. */
-export interface ExecutionConfig {
-	asTool?: true;
-	context?: Fields;
-	inputSchema?: FlexibleSchema<unknown>;
-	toolContextSchema?: FlexibleSchema<unknown>;
-	tools?: ToolRegistry;
-	toolsContext?: Fields;
+export interface ExecutionConfig extends ToolModeSetting {
+	context?: Fields | undefined;
+	inputSchema?: FlexibleSchema<unknown> | undefined;
+	toolContextSchema?: FlexibleSchema<unknown> | undefined;
+	tools?: ToolRegistry | undefined;
+	toolsContext?: Fields | undefined;
 }
 
 /** Parsed application values, trusted bindings and invocation metadata. */

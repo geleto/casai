@@ -48,25 +48,50 @@
 			"types": "./dist/*"
 		}
 	},
+	"imports": {
+		"#pcm-worker": {
+			"casai-source": {
+				"node": "./src/audio/pcm-worker.node.ts",
+				"default": "./src/audio/pcm-worker.web.ts"
+			},
+			"node": "./dist/audio/pcm-worker.node.js",
+			"default": "./dist/audio/pcm-worker.web.js"
+		},
+		"#native-audio": {
+			"casai-source": {
+				"node": "./src/audio/native.ts",
+				"default": "./src/audio/native-unavailable.ts"
+			},
+			"node": "./dist/audio/native.js",
+			"default": "./dist/audio/native-unavailable.js"
+		}
+	},
 	"scripts": {
-		"build": "tsc -b tsconfig.build.json",
-		"build:tsc": "tsc -b tsconfig.build.json",
+		"build": "node scripts/build-audio-workers.mjs && tsc -b tsconfig.build.json",
+		"build:tsc": "node scripts/build-audio-workers.mjs && tsc -b tsconfig.build.json",
 		"clean": "rimraf dist",
-		"lint": "node --max-old-space-size=8192 node_modules/eslint/bin/eslint.js src tests docs/matrix scripts",
+		"lint": "node --max-old-space-size=8192 --max-semi-space-size=64 scripts/lint.mjs",
+		"lint:full": "npm run lint -- --fresh",
+		"lint:files": "node --max-old-space-size=8192 --max-semi-space-size=64 node_modules/eslint/bin/eslint.js",
 		"typecheck": "tsc -p tsconfig.consumers.json --incremental --tsBuildInfoFile node_modules/.cache/casai/consumers.tsbuildinfo",
 		"typecheck:src": "tsc -p tsconfig.source.json --incremental --tsBuildInfoFile node_modules/.cache/casai/source.tsbuildinfo",
 		"typecheck:safety:src": "tsc -p tests/type-safety/tsconfig.source.json --incremental --tsBuildInfoFile node_modules/.cache/casai/safety-source.tsbuildinfo",
 		"typecheck:exact": "tsc -p tests/type-safety --incremental --tsBuildInfoFile node_modules/.cache/casai/safety-exact.tsbuildinfo",
 		"test": "npm run test:local",
 		"test:live": "npm run test:file -- tests/Loaders.test.ts tests/Messages.test.ts tests/LLMAgentOutput.live.test.ts tests/LLMAgentOutputStream.live.test.ts tests/Script.test.ts tests/LLMAgent.live.test.ts tests/LLMAgentStream.live.test.ts tests/Tools.test.ts",
-		"test:types": "node tests/fixtures/readme2-examples.cjs && npm run typecheck:src && npm run build && node tests/fixtures/component-declarations.cjs && npm run typecheck && npm run typecheck:exact",
-		"test:local": "mocha",
+		"test:types": "node scripts/build-audio-workers.mjs && node tests/fixtures/readme2-examples.cjs && npm run typecheck:src && npm run build && node tests/fixtures/component-declarations.cjs && npm run typecheck && npm run typecheck:exact",
+		"test:local": "node scripts/build-audio-workers.mjs && mocha",
+		"test:native": "node tests/fixtures/native-audio-interface.cjs && npm run test:file -- tests/NativeAudio.integration.test.ts && node tests/fixtures/phase6-node-bundles.mjs --present",
+		"test:native:release": "npm run build && node tests/fixtures/native-audio-release.mjs && npm run test:native",
+		"test:audio:live": "npm run test:file -- tests/Phase6Audio.live.test.ts",
+		"test:media-tools:live": "npm run test:file -- tests/Phase6MediaTools.live.test.ts",
 		"test:matrix": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs",
 		"test:matrix:native": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs --native",
+		"test:native:mutations": "node tests/fixtures/phase6-native-mutations.cjs",
 		"docs:matrix": "node scripts/update-matrix-reference.mjs",
 		"docs:matrix:export": "node scripts/export-matrix.mjs",
 		"test:component-mutations": "node tests/fixtures/component-review-mutations.cjs",
-		"test:file": "mocha --no-config --node-option import=tsx/esm --node-option conditions=casai-source --require dotenv/config",
+		"test:file": "node scripts/build-audio-workers.mjs && mocha --no-config --node-option import=tsx/esm --node-option conditions=casai-source --require dotenv/config",
 		"test:coverage": "c8 npm run test:local -- --timeout 10000 --reporter dot && c8 check-coverage --include src/runtime/augment-result.ts --per-file --lines 100 --statements 100 --functions 100 --branches 98",
 		"test:phase2-production": "node tests/fixtures/phase2-factory-cost.cjs && node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
 		"test:package": "npm run build && node tests/fixtures/phase2-package-consumer.cjs",
@@ -78,6 +103,16 @@
 		"all": true,
 		"include": [
 			"src/*.ts",
+			"src/audio/pcm.ts",
+			"src/audio/pcm-format.ts",
+			"src/audio/pcm-stream.ts",
+			"src/audio/pcm-resample.ts",
+			"src/audio/pcm-pool.ts",
+			"src/audio/preparation.ts",
+			"src/audio/input.ts",
+			"src/audio/supplied.ts",
+			"src/audio/source-evidence.ts",
+			"src/audio/native-unavailable.ts",
 			"src/factories/*.ts",
 			"src/config/*.ts",
 			"src/renderers/*.ts",
@@ -97,7 +132,9 @@
 		"branches": 95
 	},
 	"devDependencies": {
-		"@ai-sdk/anthropic": "^4.0.74",
+		"@ai-sdk/anthropic": "^4.0.96",
+		"@ai-sdk/elevenlabs": "3.0.79",
+		"@ai-sdk/google": "4.0.111",
 		"@ai-sdk/openai": "^4.0.108",
 		"@babel/core": "^8.0.7",
 		"@babel/preset-env": "^8.0.7",
@@ -134,7 +171,13 @@
 	},
 	"peerDependencies": {
 		"ai": "^7.0.162",
+		"node-av": "^7.1.0",
 		"zod": "^4.6.5"
+	},
+	"peerDependenciesMeta": {
+		"node-av": {
+			"optional": true
+		}
 	},
 	"overrides": {
 		"mocha": {

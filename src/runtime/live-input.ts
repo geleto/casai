@@ -1,9 +1,10 @@
 import { ValidationError } from '../errors.js';
+import { isWebStream } from './web-input.js';
 
-/** One identity claim at handoff, shared across live components. The SDK owns consumption. */
+/** One identity claim at handoff, shared by SDK execution and native preparation. */
 const handedOff = new WeakSet<ReadableStream>();
 export function claimLiveInput(input: unknown): void {
-	if (!(input instanceof ReadableStream)) return;
-	if (handedOff.has(input)) throw new ValidationError('This ReadableStream has already been handed to the AI SDK. Supply a fresh stream.');
+	if (!isWebStream(input)) return;
+	if (handedOff.has(input)) throw new ValidationError('This ReadableStream has already been handed off for consumption. Supply a fresh stream.');
 	handedOff.add(input);
 }

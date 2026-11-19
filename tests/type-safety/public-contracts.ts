@@ -25,8 +25,8 @@ if (caught instanceof ValidationError) {
 // Both public entry points expose the same overloads rather than widened wrappers.
 // New factories or modifiers require a corresponding coverage review.
 expectEqual<keyof typeof create, 'Config' | 'Function' | 'Template' | 'Script' | 'LLMAgent'
-	| 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber' | 'StreamingTranscriber'
-	| 'SpeechGenerator' | 'StreamingSpeechGenerator' | 'StreamingTranslator' | 'VoiceAgentBackend'>();
+	| 'Decision' | 'Embedder' | 'Reranker' | 'ImageGenerator' | 'Transcriber'
+	| 'SpeechGenerator' | 'Translator' | 'VoiceAgentBackend'>();
 expectEqual<keyof typeof import('casai'),
 	| keyof typeof create | 'create' | 'FileSystemLoader' | 'PrecompiledLoader' | 'WebLoader' | 'NotFoundError'
 	| 'textStreamSchema' | 'streamSchema' | 'collectStream' | 'collectTextStream' | 'toReadableStream' | 'makeSharedIterable'
@@ -39,7 +39,7 @@ expectEqual<keyof typeof LLMAgent.asTool, never>();
 expectEqual<keyof typeof Template, 'withTemplate' | 'loadsTemplate' | 'asTool'>();
 expectEqual<keyof typeof Script, 'withScript' | 'loadsScript' | 'asTool'>();
 expectEqual<keyof typeof FunctionFactory, 'asTool'>();
-expectEqual<keyof typeof Config, 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript' | 'asTool' | 'asStream'>();
+expectEqual<keyof typeof Config, 'withAudio' | 'loadsAudio' | 'withText' | 'withTemplate' | 'withScript' | 'withFunction' | 'loadsText' | 'loadsTemplate' | 'loadsScript' | 'asTool' | 'asStream'>();
 type GeneratorToolModifiers<T> = { [K in keyof T & PromptModifiers]: keyof T[K] }[keyof T & PromptModifiers];
 expectEqual<GeneratorToolModifiers<typeof LLMAgent>, 'asTool' | 'asStream'>();
 expectEqual<typeof create.Config, typeof Config>();

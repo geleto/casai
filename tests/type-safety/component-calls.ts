@@ -189,7 +189,7 @@ expectType<Uint8Array>(inherited.config.mask);
 const _cleared = create.ImageGenerator({ mask: undefined }, inherited);
 expectEqual<typeof _cleared.config.mask, undefined>();
 
-const liveTranscriber = create.StreamingTranscriber({ model: transcription });
+const liveTranscriber = create.Transcriber.asStream({ model: transcription });
 void liveTranscriber(live, format);
 void liveTranscriber.run({ audio: live, inputAudioFormat: format });
 // @ts-expect-error Format is required.
@@ -197,20 +197,20 @@ void liveTranscriber(live);
 // @ts-expect-error Audio is required.
 void liveTranscriber.run({ inputAudioFormat: format });
 // @ts-expect-error Plain live transcription has no tool modifier.
-expectType<unknown>(create.StreamingTranscriber.asTool);
+expectType<unknown>(create.Transcriber.asStream.asTool);
 // @ts-expect-error Collected tools need configured format.
-create.StreamingTranscriber.withFunction.asTool({ model: transcription, audio: () => live, inputSchema: z.object({}) });
-const configuredLive = create.StreamingTranscriber({ model: transcription, audio: live });
+create.Transcriber.withFunction.asTool({ model: transcription, audio: () => live, inputSchema: z.object({}) });
+const configuredLive = create.Transcriber.asStream({ model: transcription, audio: live });
 void configuredLive(format);
 void configuredLive(undefined, format);
-const preparedLive = create.StreamingTranscriber.withFunction({ model: transcription, audio: () => live, inputAudioFormat: format });
+const preparedLive = create.Transcriber.withFunction.asStream({ model: transcription, audio: () => live, inputAudioFormat: format });
 void preparedLive();
-const formatted = create.StreamingTranscriber.withFunction({ model: transcription, inputSchema: z.object({ name: z.string() }), audio: ({ name }) => { expectType<string>(name); return live; } });
+const formatted = create.Transcriber.withFunction.asStream({ model: transcription, inputSchema: z.object({ name: z.string() }), audio: ({ name }) => { expectType<string>(name); return live; } });
 void formatted({ name: 'recording' }, format);
 // @ts-expect-error The format does not satisfy application context.
 void formatted(format);
 // @ts-expect-error Live speech has no collected-audio tool.
-expectType<unknown>(create.StreamingSpeechGenerator.withFunction.asTool);
+expectType<unknown>(create.SpeechGenerator.withFunction.asStream.asTool);
 // @ts-expect-error Speech output format is named, not positional.
 void create.SpeechGenerator({ model: speech })('hi', 'voice', 'mp3');
 // @ts-expect-error Signals belong to invocations.

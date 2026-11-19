@@ -3,8 +3,9 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
+	{ ignores: ['src/audio/worker-sources.ts'] },
 	{
-		files: ['docs/matrix/**/*.js', 'scripts/*matrix*.mjs', 'tests/fixtures/matrix-*.mjs'],
+		files: ['docs/matrix/**/*.js', 'scripts/*matrix*.mjs', 'tests/fixtures/matrix-*.mjs', 'scripts/lint.mjs', 'tests/fixtures/check-workflow.test.mjs'],
 		ignores: ['docs/matrix/reference/api.js', 'docs/matrix/reference/sdk-docs.js', 'docs/matrix/reference/metadata.js', 'docs/matrix/resources.js'],
 		extends: [js.configs.recommended],
 		languageOptions: { globals: Object.fromEntries(['console', 'process', 'performance', 'structuredClone', 'URL', 'fetch', 'Request', 'ReadableStream', 'Buffer'].map(name => [name, 'readonly'])) },

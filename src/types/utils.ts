@@ -1,6 +1,9 @@
 export type Fields = Record<string, unknown>;
 
 export type UnionKeys<T> = T extends unknown ? keyof T : never;
+export type UndefinedKeys<T> = { [K in keyof T]-?: [T[K]] extends [undefined] ? K : never }[keyof T];
+/** Keep annotated unions from mixing fields belonging to different alternatives. */
+export type ExclusiveUnion<T, Keys extends PropertyKey = UnionKeys<T>> = T extends unknown ? T & Partial<Record<Exclude<Keys, keyof T>, undefined>> : never;
 export type IsUnion<T, All = T> = T extends unknown ? [All] extends [T] ? false : true : never;
 
 // A successful alternative must not erase another alternative's failure.
@@ -9,9 +12,11 @@ export type InvalidUnionMembers<T, Shape> = T extends unknown
 
 // Ensures T is an exact match of one of the union members in U
 // Prevents extra properties and mixing properties from different union types
-export type StrictUnionSubtype<T, U> = U extends any
+// Known settings cleared to undefined do not select a different alternative.
+export type StrictUnionSubtype<T, U, All = U> = U extends any
 	? T extends U
-	? Exclude<keyof T, keyof U> extends never ? T : never
+	? Exclude<keyof T, keyof U> extends never ? T
+	: Exclude<keyof T, keyof U | Extract<UndefinedKeys<T>, UnionKeys<All>>> extends never ? T : never
 	: never
 	: never;
 

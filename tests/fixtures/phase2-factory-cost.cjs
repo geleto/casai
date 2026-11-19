@@ -4,20 +4,22 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const workspace = path.resolve(__dirname, '../..');
-const filter = new RegExp(process.argv[2] ?? '');
+const filter = new RegExp(process.argv.slice(2).find(arg => arg !== '--measure') ?? '');
+const measure = process.argv.includes('--measure');
 const temporary = fs.mkdtempSync(path.join(workspace, '.phase2-factory-cost-'));
 const compiler = path.join(workspace, 'node_modules/@typescript/native/bin/tsc');
 const common = ['--ignoreConfig', '--strict', '--skipLibCheck', '--noImplicitReturns', '--target', 'ES2022',
-  '--module', 'ESNext', '--moduleResolution', 'bundler', '--types', 'node,mocha', '--noEmit', '--extendedDiagnostics'];
+  '--module', 'ESNext', '--moduleResolution', 'bundler', '--customConditions', 'casai-source', '--types', 'node,mocha', '--noEmit', '--extendedDiagnostics'];
 // Instantiations, not elapsed time, enforce the budget. Time and memory are diagnostic.
 // First-use specialization is distinct from growth after the initial 12 components.
 // Every Casai factory now reaches the complete component inventory. Budget that shared import once.
-const componentImportLimit = 450000;
+// Phase 6 native alternatives and structural delivery add shared type setup; see tests/README.md.
+const componentImportLimit = 610000;
 const workloads = {
   Function: [componentImportLimit, 7000, 6000, i => `const c${i} = F({ inputSchema: z.object({ v${i}: z.number(), factor: z.number() }), context: { factor: 3, db: 'private' }, execute: input => input.v${i} * input.factor }); void c${i}({ v${i}: 2 });`],
   FunctionTool: [componentImportLimit, 11000, 9200, i => `const c${i} = F.asTool({ inputSchema: z.object({ v${i}: z.number() }), context: { db: 'private' }, execute: ({ v${i} }) => v${i} * 2 }); void c${i}({ v${i}: 2 });`],
-  Template: [componentImportLimit, 4200, 3600, i => `const c${i} = F({ template: 'Hi {{ n${i} }}', inputSchema: z.object({ n${i}: z.string() }), context: { db: 'private' } }); void c${i}({ n${i}: 'x' });`],
-  Script: [componentImportLimit, 4200, 3600, i => `const c${i} = F({ script: 'return n${i}', inputSchema: z.object({ n${i}: z.number() }), schema: z.number() }); void c${i}({ n${i}: 1 });`],
+  Template: [componentImportLimit, 4400, 3600, i => `const c${i} = F({ template: 'Hi {{ n${i} }}', inputSchema: z.object({ n${i}: z.string() }), context: { db: 'private' } }); void c${i}({ n${i}: 'x' });`],
+  Script: [componentImportLimit, 4400, 3600, i => `const c${i} = F({ script: 'return n${i}', inputSchema: z.object({ n${i}: z.number() }), schema: z.number() }); void c${i}({ n${i}: 1 });`],
   LLMAgent: [componentImportLimit, 9500, 4100, i => `const c${i} = F.withTemplate({ model, prompt: 'Hi {{ n${i} }}', inputSchema: z.object({ n${i}: z.string() }) }); void c${i}({ n${i}: 'x' });`],
   LLMAgentStream: [componentImportLimit, 8000, 4100, i => `const c${i} = F.withTemplate.asStream({ model, prompt: 'Hi {{ n${i} }}', inputSchema: z.object({ n${i}: z.string() }) }); void c${i}({ n${i}: 'x' });`],
   LLMAgentFunction: [componentImportLimit, 22000, 13000, i => `const c${i} = F.withFunction({ model, inputSchema: z.object({ n${i}: z.string() }), context: { prefix: 'private' }, prompt: ({ n${i}, prefix }) => prefix + n${i} }); void c${i}({ n${i}: 'x' });`],
@@ -30,20 +32,28 @@ const workloads = {
   NativeAgentMethods: [500000, 3500, 1000, i => `const c${i} = new F({ model, callOptionsSchema: z.object({ n${i}: z.number() }), output: Output.object({ schema: z.object({ a${i}: z.string() }) }) }); void c${i}.generate({ prompt: 'Hi', options: { n${i}: 1 } }); void c${i}.stream({ messages: [], options: { n${i}: 1 } });`],
   Config: [1000000, 39000, 16000, i => `const c${i} = F({ inputSchema: z.object({ n${i}: z.number() }), context: { n${i}: 1 } }); void c${i}.config;`],
   // Config source-owner checks add shared setup; before/after measurements are in tests/README.md.
-  Embedder: [455000, 22000, 13000, i => `const c${i} = F.withFunction({ model, inputSchema: z.object({ n${i}: z.string() }), context: { prefix: 'private' }, input: ({ n${i}, prefix }) => prefix + n${i} }); void c${i}({ n${i}: 'x' });`],
+  Embedder: [componentImportLimit, 28000, 14500, i => `const c${i} = F.withFunction({ model, inputSchema: z.object({ n${i}: z.string() }), context: { prefix: 'private' }, input: ({ n${i}, prefix }) => prefix + n${i} }); void c${i}({ n${i}: 'x' });`],
   // Supporting images/count without a mask adds a measured tail branch (marginal 6020 -> 6454).
   // Config's modifier contracts add shared import work; same-workload comparison is in tests/README.md.
-  ImageGenerator: [460000, 12000, 6500, i => `const c${i} = F.withTemplate.asTool({ model, inputSchema: z.object({ n${i}: z.string() }), prompt: 'Draw {{ n${i} }}', images: [] }); void c${i}({ n${i}: 'x' });`],
+  ImageGenerator: [componentImportLimit, 15000, 8000, i => `const c${i} = F.withTemplate.asTool({ model, inputSchema: z.object({ n${i}: z.string() }), prompt: 'Draw {{ n${i} }}', images: [] }); void c${i}({ n${i}: 'x' });`],
+  Transcriber: [componentImportLimit, 29000, 16000, i => `const c${i} = F.withFunction({ model, inputSchema: z.object({ n${i}: z.number() }), audio: ({ n${i} }) => new Uint8Array(n${i}) }); void c${i}({ n${i}: 2 });`],
+  TranscriberStream: [componentImportLimit, 29000, 16000, i => `const c${i} = F.withFunction.asStream({ model, inputAudioFormat: { type: 'audio/pcm', rate: 24000 }, inputSchema: z.object({ n${i}: z.number() }), audio: ({ n${i} }) => new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array(n${i})); c.close(); } }) }); void c${i}({ n${i}: 2 });`],
+  SpeechGenerator: [componentImportLimit, 16000, 9000, i => `const c${i} = F.withTemplate.asTool({ model, inputSchema: z.object({ n${i}: z.string() }), text: '{{ n${i} }}' }); void c${i}({ n${i}: 'hello' });`],
+  SpeechGeneratorStream: [componentImportLimit, 16000, 9000, i => `const c${i} = F.withTemplate.asStream({ model, inputSchema: z.object({ n${i}: z.string() }), text: '{{ n${i} }}' }); void c${i}({ n${i}: 'hello' });`],
+  Translator: [componentImportLimit, 29000, 15000, i => `const c${i} = F.withFunction({ model, inputAudioFormat: { type: 'audio/pcm', rate: 24000 }, targetLanguage: 'fr', inputSchema: z.object({ n${i}: z.number() }), audio: ({ n${i} }) => new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array(n${i})); c.close(); } }) }); void c${i}({ n${i}: 2 });`],
+  TranslatorStream: [componentImportLimit, 29000, 15000, i => `const c${i} = F.withFunction.asStream({ model, inputAudioFormat: { type: 'audio/pcm', rate: 24000 }, targetLanguage: 'fr', inputSchema: z.object({ n${i}: z.number() }), audio: ({ n${i} }) => new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array(n${i})); c.close(); } }) }); void c${i}({ n${i}: 2 });`],
 };
 try {
   assert.ok(Object.keys(workloads).some(name => filter.test(name)), `No factory workloads match ${filter}.`);
   fs.cpSync(path.join(workspace, 'src'), path.join(temporary, 'src'), { recursive: true });
+  // Resolve private source imports inside this copy, rather than mixing it with root declarations.
+  fs.copyFileSync(path.join(workspace, 'package.json'), path.join(temporary, 'package.json'));
   for (const [name, [importLimit, componentLimit, additionalLimit, component]] of Object.entries(workloads)) {
     if (!filter.test(name)) continue;
-    const factory = name === 'FunctionTool' ? 'Function' : name.startsWith('LLMAgent') ? 'LLMAgent' : name;
-    const usesNativeModel = ['Embedder', 'ImageGenerator'].includes(name);
+    const factory = name === 'FunctionTool' ? 'Function' : name.startsWith('LLMAgent') ? 'LLMAgent' : /^(Transcriber|SpeechGenerator|Translator)Stream$/.test(name) ? name.slice(0, -6) : name;
+    const usesNativeModel = ['Embedder', 'ImageGenerator', 'Transcriber', 'SpeechGenerator', 'Translator'].includes(factory);
     const factoryImport = name.startsWith('Native') ? "import { ToolLoopAgent as F } from 'ai';" : `import { ${factory} as F } from './src/factories/${factory}.js';`;
-    const modelType = usesNativeModel ? `import('./src/types/component.js').ComponentSettings['${name}']['model']` : 'LanguageModel';
+    const modelType = usesNativeModel ? `import('./src/types/component.js').ComponentSettings['${factory}']['model']` : 'LanguageModel';
     const prefix = `import { z } from 'zod/v4';\nimport { Output, type LanguageModel } from 'ai';\n${factoryImport}\ndeclare const model: ${modelType};\nvoid z; void F; void model;\n`;
     const samples = [];
     for (const count of [0, 12, 24]) {
@@ -60,8 +70,8 @@ try {
     const firstBatch = (samples[1].instantiations - samples[0].instantiations) / 12;
     const nextBatch = (samples[2].instantiations - samples[1].instantiations) / 12;
     console.log(JSON.stringify({ factory: name, samples, perComponent: firstBatch, additionalComponent: nextBatch, importLimit, componentLimit, additionalLimit }));
-    assert.ok((name.startsWith('Native') ? samples[0].instantiations >= 0 : samples[0].instantiations > 0) && samples[0].instantiations <= importLimit, `${name}: import cost exceeds ${importLimit}`);
-    assert.ok(firstBatch >= 0 && nextBatch >= 0 && firstBatch <= componentLimit && nextBatch <= additionalLimit, `${name}: component cost exceeds ${componentLimit} initially or ${additionalLimit} thereafter`);
+    if (!measure) assert.ok((name.startsWith('Native') ? samples[0].instantiations >= 0 : samples[0].instantiations > 0) && samples[0].instantiations <= importLimit, `${name}: import cost exceeds ${importLimit}`);
+    if (!measure) assert.ok(firstBatch >= 0 && nextBatch >= 0 && firstBatch <= componentLimit && nextBatch <= additionalLimit, `${name}: component cost exceeds ${componentLimit} initially or ${additionalLimit} thereafter`);
   }
 } finally {
   assert.equal(path.dirname(temporary), workspace);

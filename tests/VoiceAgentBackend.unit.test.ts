@@ -18,6 +18,16 @@ function provider() {
 }
 
 describe('experimental voice agent backend', () => {
+	it('rejects removed controls on executeTool options while preserving same-named tool data', async () => {
+		const { openai } = provider();
+		const action = create.Function.asTool({ inputSchema: z.object({ streaming: z.string() }), execute: ({ streaming }) => streaming });
+		const backend = create.VoiceAgentBackend({ model: openai.experimental_realtime('gpt-realtime'), tools: { action } });
+		const call = { toolCallId: 'controls', toolName: 'action', args: { streaming: 'data' } } as const;
+		assert.equal(await backend.executeTool(call), 'data');
+		for (const key of ['asTool', 'streaming', 'promptType']) {
+			await assert.rejects(backend.executeTool(call, Object.create({ [key]: undefined }) as object), ValidationError);
+		}
+	});
 	it('omits cleared and conditional settings before native Live setup', async () => {
 		const { openai, requests } = provider();
 		const model = openai.experimental_realtime('live-model', { api: 'live' });
@@ -174,7 +184,7 @@ describe('experimental voice agent backend', () => {
 		const setup = create.VoiceAgentBackend({ model: openai.experimental_realtime('gpt-realtime'),
 			tools: { native, empty, fail, unavailable }, toolsContext: { native: { user: 'alice' } } });
 		assert.equal(await setup.executeTool({ toolName: 'native', toolCallId: 'native-id', args: { count: '2' } }), 'final');
-		assert.deepEqual(observed, [{ count: 2, toolCallId: 'native-id', messages: [], abortSignal: undefined, context: { user: 'alice' } }]);
+		assert.deepEqual(observed, [{ count: 2, toolCallId: 'native-id', messages: [], context: { user: 'alice' } }]);
 		assert.equal(await setup.executeTool({ toolName: 'empty', toolCallId: 'empty-id', args: {} }), undefined);
 		await assert.rejects(setup.executeTool({ toolName: 'fail', toolCallId: 'fail-id', args: {} }), error => error === failure);
 		await assert.rejects(setup.executeTool({ toolName: 'unavailable', toolCallId: 'id', args: {} }), ValidationError);

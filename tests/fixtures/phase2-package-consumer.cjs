@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { spawnSync } = require('node:child_process');
 const workspace = path.resolve(__dirname, '../..');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'casai-package-'));
@@ -42,17 +43,24 @@ try {
         `Source map ${file} points at an unpackaged source: ${source}`);
     }
   }
-  assert.ok(!packed.files.some(({ path: file }) => /(?:TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt|types\/cascada|(?:factories|runtime|types)\/specialized|types\/operations)\./.test(file)),
+  assert.ok(!packed.files.some(({ path: file }) => /(?:StreamingTranscriber|StreamingSpeechGenerator|StreamingTranslator|source-mode|TextGenerator|TextStreamer|ObjectGenerator|ObjectStreamer|llm-component|call-arguments|function-prompt|types\/cascada|(?:factories|runtime|types)\/specialized|types\/operations)\./.test(file)),
     'Removed factories and adapters must not survive in the published package.');
   assert.ok(!packed.files.some(({ path: file }) => /factories\/(?:Experimental_|VoiceSession(?:Setup|Backend)\.)/.test(file)),
     'Renamed component factories must not survive in the published package.');
-  fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
-  npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', path.join(temporary, packed.filename), ...engine ? [engine] : []]);
+  fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({
+    private: true,
+    type: 'module',
+    dependencies: { casai: 'file:./' + packed.filename, ...(engine && { 'cascada-engine': pathToFileURL(engine).href }) },
+    ...(engine && { overrides: { 'cascada-engine': '$cascada-engine' } }),
+  }));
+  npm(['install', '--ignore-scripts', '--no-audit', '--no-fund']);
   const engineRoot = path.join(temporary, 'node_modules/cascada-engine');
   assert.equal(fs.realpathSync(engineRoot), engineRoot, 'The engine must be installed, not linked to a workspace.');
   if (engine) {
     const lock = JSON.parse(fs.readFileSync(path.join(temporary, 'package-lock.json'), 'utf8'));
     const entry = lock.packages['node_modules/cascada-engine'];
+    assert.deepEqual(Object.keys(lock.packages).filter(key => key.endsWith('node_modules/cascada-engine')), ['node_modules/cascada-engine'],
+      'Casai and its consumer must share the supplied engine candidate.');
     assert.ok(!entry.link && entry.resolved.startsWith('file:') && entry.resolved.endsWith('.tgz'),
       'The engine must resolve to the supplied tarball.');
   }
@@ -80,16 +88,20 @@ import { Output } from 'ai';
 import { MockLanguageModelV3, MockEmbeddingModelV4, convertArrayToReadableStream } from 'ai/test';
 import { makeSharedIterable as nativeSharedIterable, raceLoaders as nativeRaceLoaders } from 'cascada-engine';
 import { create as foreignCreate, streamSchema as foreignStreamSchema, textStreamSchema as foreignTextStreamSchema } from './casai-copy/dist/index.js';
+for (const name of ['concatAudio', 'readWav', 'writeWav', 'pcm16ToFloat32', 'float32ToPcm16', 'resamplePcm16', 'resamplePcm16Stream', 'preparePcmStream', 'prepareAudio']) assert.equal(name in casai, false);
+await assert.rejects(import('casai/node-av'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
+await assert.rejects(create.Transcriber.loadsAudio({ model: {}, inputAudioFormat: { type: 'audio/pcm', rate: 24000 } })(new Uint8Array(4)), casai.ConfigError);
 assert.notEqual(create.Function, foreignCreate.Function);
 assert.equal('VoiceSessionSetup' in casai, false);
 assert.equal('VoiceSessionSetup' in create, false);
 assert.equal('VoiceSessionBackend' in casai, false);
 assert.equal('VoiceSessionBackend' in create, false);
+for (const name of ['StreamingTranscriber', 'StreamingSpeechGenerator', 'StreamingTranslator']) { assert.equal(name in casai, false); assert.equal(name in create, false); }
 const foreignSource = foreignCreate.Config.withFunction({ input: () => 'packed' });
 const foreignEmbedding = create.Embedder({ model: new MockEmbeddingModelV4({ doEmbed: async ({ values }) => ({ embeddings: values.map(value => [value.length]), warnings: [] }) }) }, create.Config({}, foreignSource));
 assert.deepEqual((await foreignEmbedding()).embedding, [6]);
 assert.equal(await create.Template({ template: 'entry', loader: { load: () => '{{ value }}' }, context: { value: 'rendered' } }, foreignCreate.Config.loadsTemplate({}))(), 'rendered');
-for (const name of ['Decision', 'StreamingTranscriber', 'StreamingSpeechGenerator', 'StreamingTranslator', 'VoiceAgentBackend']) {
+for (const name of ['Decision', 'Transcriber', 'SpeechGenerator', 'Translator', 'VoiceAgentBackend']) {
   assert.equal(typeof casai[name], 'function');
   assert.equal(casai[name], create[name]);
   assert.equal('Experimental_' + name in casai, false);
@@ -137,7 +149,7 @@ const model = new MockLanguageModelV3({ doStream: async () => ({ stream: convert
 const writer = create.LLMAgent.withTemplate.asStream({ model, prompt: '{{ topic }}', inputSchema: z.object({ topic: z.string() }), output: Output.text() });
 const inheritedWriter = create.LLMAgent({}, create.Config({}, writer));
 assert.equal(inheritedWriter.version, 'agent-v1');
-assert.equal(inheritedWriter.config.streaming, true);
+assert.equal(inheritedWriter.config[Symbol.for('casai.streamMode')], true);
 const answer = await inheritedWriter({ topic: 'recycling' });
 assert.equal(await answer.output, 'answer');
 assert.deepEqual(await collectStream(answer.textStream), ['answer']);
@@ -229,14 +241,48 @@ create.LLMAgent({ model: 'test', prompt: 'ready' }, { config: validSelection });
 `);
   // The consumer's compiler is a test dependency, not part of Casai's runtime.
   const manifest = JSON.parse(fs.readFileSync(path.join(workspace, 'package.json'), 'utf8'));
-  npm(['install', '--save-dev', '--ignore-scripts', '--no-audit', '--no-fund', `@typescript/native@${manifest.devDependencies['@typescript/native']}`]);
-  for (const exact of [false, true]) {
+  npm(['install', '--save-dev', '--ignore-scripts', '--no-audit', '--no-fund', `@typescript/native@${manifest.devDependencies['@typescript/native']}`, `@types/node@${manifest.devDependencies['@types/node']}`]);
+  for (const source of [false, true]) for (const exact of [false, true]) {
     run(process.execPath, ['node_modules/@typescript/native/bin/tsc', '--ignoreConfig', '--noEmit', '--strict',
       '--exactOptionalPropertyTypes', String(exact), '--skipLibCheck', '--target', 'ES2022',
-      '--module', 'nodenext', '--moduleResolution', 'nodenext', 'consumer.ts']);
-    console.log(`Packed declarations passed with an explicit consumer compiler (exact optional properties: ${exact}).`);
+      ...source ? ['--customConditions', 'casai-source'] : [],
+      '--module', 'nodenext', '--moduleResolution', 'nodenext', '--types', 'node', 'consumer.ts']);
+    console.log(`Packed ${source ? 'source program' : 'declarations'} passed with an explicit consumer compiler (exact optional properties: ${exact}).`);
   }
   run(process.execPath, ['consumer.mjs']);
+  // A newer provider beside pinned ai legitimately installs two different detector copies.
+  npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', 'ai@7.0.162', '@ai-sdk/openai@4.0.121', '@ai-sdk/provider-utils@5.0.82']);
+  fs.copyFileSync(path.join(workspace, 'tests/fixtures/audio-mime-consumer.mjs'), path.join(temporary, 'audio-mime-consumer.mjs'));
+  console.log(run(process.execPath, ['audio-mime-consumer.mjs']));
+  const missingNative = path.join(temporary, 'node_modules/node-av');
+  assert.ok(!fs.existsSync(missingNative), 'The optional native peer must not be installed by default.');
+  console.log(run(process.execPath, [path.join(workspace, 'tests/fixtures/phase6-node-bundles.mjs'), '--dist']));
+  fs.mkdirSync(missingNative);
+  fs.writeFileSync(path.join(missingNative, 'package.json'), JSON.stringify({ name: 'node-av', type: 'module', main: 'index.js' }));
+  fs.writeFileSync(path.join(missingNative, 'index.js'), "throw new Error('installed native backend failed');\n");
+  fs.writeFileSync(path.join(temporary, 'broken-native.mjs'), `import assert from 'node:assert/strict';
+import { Transcriber } from 'casai';
+await assert.rejects(Transcriber.loadsAudio({ model: {}, inputAudioFormat: { type: 'audio/pcm', rate: 24000 } })(new Uint8Array(4)), /installed native backend failed/);`);
+  run(process.execPath, ['broken-native.mjs']);
+  console.log(run(process.execPath, [path.join(workspace, 'tests/fixtures/phase6-node-bundles.mjs'), '--dist', '--broken']));
+  fs.writeFileSync(path.join(temporary, 'native-load-failure.mjs'), `import assert from 'node:assert/strict';
+import { ConfigError, Transcriber } from 'casai';
+const bytes = new Uint8Array(4), inputAudioFormat = { type: 'audio/pcm', rate: 24000 };
+for (const settings of [{ inputAudioFormat }, { fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } }]) {
+  const action = () => Transcriber.loadsAudio({ model: {}, ...settings })(bytes);
+  await assert.rejects(action, error => !(error instanceof ConfigError) && new RegExp(process.argv[2]).test(error.message));
+}`);
+  for (const [name, entry, code, expected] of [
+    ['missing entry', 'missing.js', '', 'missing.js'],
+    ['missing transitive dependency', 'index.js', "import './missing-dependency.js';", 'missing-dependency.js'],
+    ['asynchronous initialization', 'index.js', "await new Promise(resolve => setTimeout(resolve, 1)); throw new Error('async native initialization failed');", 'async native initialization failed'],
+  ]) {
+    fs.writeFileSync(path.join(missingNative, 'package.json'), JSON.stringify({ name: 'node-av', type: 'module', exports: './' + entry }));
+    fs.writeFileSync(path.join(missingNative, 'index.js'), code);
+    run(process.execPath, ['native-load-failure.mjs', expected]);
+    console.log(`Installed native ${name} retains its original error for both targets.`);
+  }
+  if (engine) console.log(run(process.execPath, [path.join(workspace, 'tests/fixtures/phase6-browser.mjs'), '--dist']));
   console.log('Packed consumer passed without workspace resolution.');
 } finally {
   assert.equal(path.dirname(path.resolve(temporary)), path.resolve(os.tmpdir()));

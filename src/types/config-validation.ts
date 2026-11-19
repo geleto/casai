@@ -1,5 +1,5 @@
-import type { sourceMode } from '../config/source-mode.js';
-import type { EmptyMap, NamedKeys, UnionKeys, InvalidUnionMembers, StrictUnionSubtype } from './utils.js';
+import type { sourceMode, toolMode } from '../config/modifiers.js';
+import type { EmptyMap, NamedKeys, UnionKeys, InvalidUnionMembers, StrictUnionSubtype, OptionalUndefined } from './utils.js';
 import type { ConfigValue, ContextFromConfig, InputConfigAlternatives, InputSchemaFromConfig, PossibleExecutableToolNames, ToolRegistry, ToolRegistryFromConfig, ToolsFromConfig } from './config.js';
 import type { MergedConfig } from './merge.js';
 import type { HasOpenRootInput, HasRootSchemaAlternatives, InputDeclarationKind, SchemaInputNames, SchemaOutputNames, ValidateContextSchema, ValidateToolContextSchema } from './schema-shape.js';
@@ -22,7 +22,8 @@ type ContextMapFromConfig<TConfig> = TConfig extends unknown ? 'toolsContext' ex
 	: EmptyMap : never;
 type ContextMapKeys<T> = T extends unknown ? keyof T : never;
 
-type UnknownContextNames<Actual, Tools> = Tools extends unknown ? Exclude<ContextMapKeys<Actual>, keyof Tools> : never;
+// A string-indexed tool map also accepts numeric property names; mapped dictionaries differ in keyof.
+type UnknownContextNames<Actual, Tools> = Tools extends unknown ? Exclude<ContextMapKeys<Actual>, keyof Tools | (string extends keyof Tools ? number : never)> : never;
 type InvalidContextNames<Final, PartialConfig extends boolean> = Final extends unknown
 	? 'tools' extends keyof Final ? UnknownContextNames<ContextMapFromConfig<Final>, NonNullable<Final['tools']>>
 	: PartialConfig extends true ? never : ContextMapKeys<ContextMapFromConfig<Final>> : never;
@@ -49,6 +50,11 @@ type RunChanges<T> = T extends unknown ? {
 	[K in keyof T as undefined extends T[K] ? [Exclude<T[K], undefined>] extends [never] ? never : K : never]?: Exclude<T[K], undefined>
 } : never;
 
+export type ResolvedRunConfig<Config, Run> = MergedConfig<Config, RunChanges<Run>>;
+/** Validate only native request fields after the component resolves its source and dispatch shape. */
+export type InvalidNativeRequest<Actual, Expected, Keys extends PropertyKey> =
+	InvalidUnionMembers<{ [K in keyof Actual as K extends Keys ? [Actual[K]] extends [undefined] ? never : K : never]: Actual[K] }, OptionalUndefined<Expected>>;
+
 export type ValidateRunConfig<TRunConfig, TConfig, TShape, Keys extends PropertyKey = UnionKeys<TRunConfig>, ContextKeys extends PropertyKey = UnionKeys<configs.ConfigValue<TRunConfig, 'context'>>,
 	Changes = RunChanges<TRunConfig>, Final = MergedConfig<TConfig, Changes>> = NoInfer<
 	Exclude<Keys, keyof TShape> extends never
@@ -67,7 +73,7 @@ type SourceKind = Exclude<import('./component.js').ComponentKind, 'Function' | '
 type FragmentSourceOwners<T, P extends import('./prompt.js').PromptType, K extends SourceKind = SourceKind> = K extends unknown
 	? Pick<T, keyof T & import('./component.js').Main<K>> extends Partial<Record<import('./component.js').Main<K>, import('./component.js').Source<K, P> | undefined>>
 		? StrictUnionSubtype<T, CallbackConfigShape<Partial<import('./component-map.js').ConfigShapes<import('ai').ToolSet, Record<string, any>, unknown>[K]>>
-			& import('../config/source-mode.js').SourceModeSetting<import('./prompt.js').PromptType | undefined>> : never : never;
+			& import('../config/modifiers.js').SourceModeSetting<import('./prompt.js').PromptType | undefined>> : never : never;
 type InvalidSourceModes<T, P = Extract<ConfigValue<T, typeof sourceMode>, import('./prompt.js').PromptType>> = P extends import('./prompt.js').PromptType
 	? [FragmentSourceOwners<T, P>] extends [never] ? T : never : never;
 // Keep source choices paired with their own configuration. Successful branches must not erase failures.
@@ -100,7 +106,7 @@ type IncompatibleKeys<TFinal, TExpected> = {
 	[K in keyof TExpected & keyof TFinal]-?: Pick<TFinal, K> extends Pick<TExpected, K> ? never : K
 }[keyof TExpected & keyof TFinal];
 
-type FinalConfigCheck<Final, Expected, Unknown = Exclude<UnionKeys<Final>, keyof Expected | 'asTool'>,
+type FinalConfigCheck<Final, Expected, Unknown = Exclude<UnionKeys<Final>, keyof Expected | typeof toolMode>,
 	Missing = MissingKeys<Final, Expected>, Incompatible = IncompatibleKeys<Final, Expected>> =
 	[Unknown] extends [never] ? [Missing] extends [never] ? [Incompatible] extends [never] ? unknown
 	: `Config Error: Property '${Incompatible & string}' is incompatible with the final configuration.`
@@ -119,10 +125,10 @@ export type ValidateFinalConfig<TConfig, TFinal, Explicit extends boolean = fals
 export type ValidateRendererConfig<K extends 'Template' | 'Script', Config, Final, Shape,
 	Result = import('./component-map.js').ToolResults<Final, never>[K],
 	Missing = MissingRequiredKeys<Final, Record<import('./component.js').RequiredComponentKeys<K, ConfigValue<Final, typeof sourceMode>, true extends ToolMode<Final, false> ? true : false>, unknown>>> =
-	ValidateResolved<Config, Exclude<UnionKeys<Final>, keyof Shape | 'asTool'> extends never
+	ValidateResolved<Config, Exclude<UnionKeys<Final>, keyof Shape | typeof toolMode> extends never
 		? [Missing] extends [never] ? Config
 			: `Config Error: Missing required property '${Missing & string}' in the final configuration.`
-		: `Config Error: Unknown properties for this generator type: '${Exclude<UnionKeys<Final>, keyof Shape | 'asTool'> & string}'`>
+		: `Config Error: Unknown properties for this generator type: '${Exclude<UnionKeys<Final>, keyof Shape | typeof toolMode> & string}'`>
 	& ValidateResolved<Config, ComponentAdmission<Final>>
 	& import('./callbacks.js').ValidateDescriptor<Config, Final, Result>
 	& ValidateResolved<Config, true extends ToolMode<Final, false> ? ToolInputAdmission<Final> & ToolOutputAdmission<Final, Result> : unknown>;

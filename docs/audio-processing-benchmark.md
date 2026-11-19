@@ -1,4 +1,37 @@
-# Audio WebAssembly and worker experiment (2026-11-16)
+# Audio processing measurements
+
+## Bounded finite scheduling (2026-11-17)
+
+The final audio follow-up replaces whole-call serialization with one ordered queue per finite worker, keeping the existing cap of four workers and available logical processors. Resampling submits jobs of at most 262144 output samples, with only its useful consumer count in flight. One shared iterator serializes preparation under the existing copy budget. Consumers requeue after each job, allowing short operations to progress even on one core. No reserved worker, extra pool, priority setting or new dependency was added. Other finite calls keep their preparation and computation together, so queued calls do not eagerly copy all their inputs. Streaming retains its independent ordered worker.
+
+The maintained comparison is `node --import tsx/esm --conditions=casai-source tests/benchmarks/audio/followups.mjs --pcm-only`. Five alternating trials request a 64 KiB join after the first job of a 57.6 MB resample is dispatched. The serialized control waits for that same resample before joining; both use the current kernels and resource cap. On this Windows x64 / Node 24.14.1 machine:
+
+| Measurement | Serialized control median | Scheduled median |
+| --- | ---: | ---: |
+| Short-result wait | 59.4 ms | 0.7 ms |
+| Combined completion | 60.5 ms | 47.6 ms |
+
+An exploratory comparison against the saved previous implementation gave 70.6 / 0.6 ms short-result waits and 85.1 / 43.1 ms combined completion. That comparison ran versions sequentially; the alternating maintained control above is the repeatable scheduling comparison. Raw reports are retained under `.cache/pcm-scheduling-2026-11-17/`. These are local measurements, not portable latency guarantees. Bounded jobs can overlap copying and computation, but a running worker operation is not preempted; several large joins or WAV operations can still occupy the pool.
+
+Maintained tests deliberately occupy every worker, enqueue a short result, release only one resampling job and require the short result to finish while the large resample remains unfinished. The same test uses a one-core budget. Numerical, borrowed-input, shared/unshared output, failure recovery, idle/process lifetime and browser/CSP checks remain required. Scheduling mutations remove the job bound and exceed the worker cap. The resampling path now needs a final worker join for a large nonshared single-core result; single-job and streaming results still transfer directly. Shared output retains its exact-size allocation and completion-before-publication rule.
+
+## Queue and native startup measurements (2026-11-17)
+
+Before the bounded scheduler, five alternating trials on Windows x64 / Node 24.14.1 compared worker-only paths and checked every native output byte. Those raw samples are retained in `.cache/pcm-scheduling-2026-11-17/previous-results.json`. The current `tests/benchmarks/audio/followups.mjs` retains the native comparisons and uses the scheduling control above. These are single-machine measurements, not portable latency guarantees.
+
+| Workload | Existing/fresh worker median | Reused/independent worker median |
+| --- | ---: | ---: |
+| 64 KiB result behind a 57.6 MB resample | 86.1 ms | 0.3 ms with an extra result worker |
+| 0.1-second native conversion | 173.6 ms | 5.8 ms through the production cache |
+| 30-second native conversion | 298.2 ms | 119.2 ms through the production cache |
+
+A standalone 64 KiB join took 0.3 ms. The extra-lane resample+join total was 89.4 ms versus 86.2 ms with the existing queue. That lane added a worker beyond the finite budget, so it was not adopted. The later bounded scheduler above resolves the queue delay within the existing cap; the extra-lane control has been removed from the maintained benchmark.
+
+The user selected native reuse after the initial measurements. Production now retains at most one fully cleaned native worker for five idle seconds. Each call gets an independent MessagePort and native owner; overlapping calls start fresh workers, with no waiting queue. Only successful completed/EOF workers enter the cache. Failed/cancelled calls and excess/expired idle workers shut down gracefully, never through abrupt termination. Old handles/signals cannot affect a later invocation. Both cached worker and timer are unreferenced in Node.
+
+The direct warmed-pipeline controls took 4.8 / 120.2 ms for the two native workloads; the production values above also include its invocation ports and source ownership. No PCM queue change, public worker control or dependency was added. Prepared-file spare-capacity trimming remains deferred: an extra exact-size copy reduces retained memory but increases peak memory and copying.
+
+Maintained native cases cover actual reuse across changed formats, overlapping work, cancellation/error isolation, stale handles/signals, the one-idle bound, five-second expiry and automatic process exit. Six new mutations independently break reuse, the idle bound/expiry, worker/timer references and cancellation disposal. The [acceptance record](phase6-implementation.md) tracks the final gates.
 
 ## Bounded input preparation and shared reuse (2026-11-17)
 
@@ -12,15 +45,7 @@ This consolidates preparation and transfer-list ownership for finite PCM/WAV/bas
 
 The budgets constrain Casai's byte-copy work, not every source of event-loop latency. A copy step cannot be preempted; operating-system scheduling, GC and runtime serialization of native string messages can still cause pauses. Main-thread final joining remains excluded. The maintained regression checks both byte and time bounds, allocation ownership, shared views, actual timer/workflow progress, browser task fallbacks, and native cancellation before media opening.
 
-Verification of this revision:
-
-- All 1,921 local tests passed under coverage: 99.58% lines/statements, 96.31% branches and 100% functions, including the separate augmentation gate. All 20 LGPL native integration tests passed.
-- Source, build, emitted-consumer, exported-declaration and exact-optional type checks passed. The matrix checked 1,571 selections and executed 1,458 examples with SDK mocks.
-- Source and emitted Chromium bundles passed with isolated/unisolated memory, scheduler/MessageChannel task yields, CSP denial, missing workers and resource cleanup. Source and emitted Node ESM/CommonJS main/helper bundles passed against the native backend.
-- Thirteen affected PCM mutations were caught, with passing controls: aggregate/time budgets, task yielding, input/shared-output allocation, shared-input reuse, borrowed-buffer ownership, partition phase, worker count, shared-output selection, failure propagation and active/idle process lifetime.
-- Focused lint, full repository lint (183.1 seconds), worker-bundle freshness and whitespace checks passed. Existing assertions, coverage thresholds and compiler budgets were retained.
-
-A subsequent review of the PCM, completed-result and native input paths found no further substantial issue in this change. The finite queue and native invocation lifetime remain deliberate; release publication/platform requirements remain separate. Provider requests and payloads did not change, so this revision made no paid calls.
+Verification and maintained regressions are consolidated in the [acceptance record](phase6-implementation.md#verification).
 
 ## Shared output for parallel PCM (2026-11-17)
 
@@ -30,25 +55,17 @@ Parallel finite resampling now allocates one exact-size `SharedArrayBuffer` in a
 
 Sharing is automatic in Node and isolated browser contexts. Browsers without shared-memory support retain the existing worker join; there is no main-thread join or inline failure fallback. Shared buffers are passed in messages without a transfer-list entry. The returned byte view can have shared backing memory: the installed SDK's audio converter and Casai's asynchronous PCM/WAV helpers accept it. `writeWav` creates ordinary encoded bytes suitable for `Blob`. [Node shared-buffer messaging](https://nodejs.org/docs/latest-v24.x/api/worker_threads.html#portpostmessagevalue-transferlist), [browser isolation requirements](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements).
 
-This change applies to worker-generated PCM. SDK-produced audio chunks still require copying and worker assembly, and may wait on the finite queue. Native preparation still owns one worker per invocation. Neither remaining behavior was silently replaced by a new pool or result contract.
+This change applies to worker-generated PCM. SDK-produced audio chunks still require copying and worker assembly, and may wait on the finite queue. The subsequent native idle cache above changes worker lifetime, while preserving exclusive invocation ownership and the finite PCM queue.
 
 Run the paired production-path probe with `node --expose-gc --import tsx/esm --conditions=casai-source tests/benchmarks/audio/shared-output.mjs`. It warms both paths, alternates order, and retains the same kernel, inputs and workers; disabling the main realm's shared-buffer constructor selects the existing worker join. On this Windows/Node 24.14.1 machine, five timed conversions of 57.6 MB PCM into 28.8 MB produced a median of **369.6 ms with shared output**, versus **359.0 ms with worker joining**. Timer callbacks continued on both paths, with maximum observed gaps of 24.4 and 25.6 ms respectively. This run does not establish a latency improvement; desktop timings varied substantially. Avoiding the extra 28.8 MB result allocation/copy is structural, and output allocation itself remains off the calling thread. The change does not claim a universal throughput gain.
 
 Node and Chromium tests forbid calling-thread shared allocation and verify numerical output, actual shared-buffer publication, no join job, ordinary single-worker output, the unshared fallback, SDK conversion, WAV/Blob interoperability, responsiveness and cleanup. Mutation checks reject disabled sharing, wrong destination offsets, calling-thread allocation, broken partitioning/ownership, and missing active/idle worker references.
 
-Verification on the completed implementation:
-
-- All 1,919 local tests passed under coverage: 99.58% lines/statements, 96.31% branches and 100% functions; the separate augmentation gate passed. No thresholds were reduced.
-- Source, build, emitted-consumer, declaration-export and exact-optional type checks passed. The matrix passed its 1,571 selections and 1,458 current SDK-mock examples.
-- All 18 LGPL native integration tests and the installed structural-interface check passed. Source and emitted ESM/CommonJS main/helper bundles passed, as did source and emitted Chromium checks for isolated/unisolated pages, unavailable workers, CSP, SDK/WAV interoperability and cleanup.
-- Ten affected PCM mutations were caught, including shared allocation on the calling thread, missing shared output, destination offsets, partitioning, ownership, worker failure and active/idle lifetime. Unchanged controls passed.
-- Worker-bundle freshness, whitespace, focused lint and full lint passed; the final whole-repository lint took 292.5 seconds.
-
-A subsequent source/contract review of allocation, ownership, transfer lists, worker lifetime, failure paths and consumers found no additional substantial issue. Native-worker pooling remains deferred, and coordinated Cascada publication/dependency updates remain a separate release prerequisite.
+Verification and maintained regressions are consolidated in the [acceptance record](phase6-implementation.md#verification).
 
 ## Completed-result scheduling follow-up
 
-The later [Claude review follow-up](phase6-claude-review-2026-11-16.md) identified significant Node timer delay during bounded borrowed-buffer copying. Forty `setTimeout(0)` yields took about 620 ms on this Windows machine; forty `setImmediate` yields took about 1 ms. That correction used immediate yields in Node; the later aggregate-budget revision above also replaces the browser timer fallback. Heavy processing, joining and base64 encoding remain in workers.
+The completed-result measurements identified significant Node timer delay during bounded borrowed-buffer copying. Forty `setTimeout(0)` yields took about 620 ms on this Windows machine; forty `setImmediate` yields took about 1 ms. That correction used immediate yields in Node; the later aggregate-budget revision above also replaces the browser timer fallback. Heavy processing, joining and base64 encoding remain in workers.
 
 With immediate-yield scheduling, three warm 24 MB joins took 39.3/28.1/34.2 ms through the worker; earlier worker joins took 514–587 ms. These local measurements isolate a concrete scheduling improvement; they do not establish a portable latency target or eliminate transfer-copy and queue costs. A small join behind a ten-minute resampling job still waited roughly 250–275 ms, including any additional worker startup.
 
@@ -135,53 +152,16 @@ The selected policy is at most `min(available logical processors, 4)` workers, f
 
 `resamplePcm16` now uses the tested direct-buffer algorithm; `resamplePcm16Stream` reuses it while preserving its existing carry and lazy-read behavior. Both keep the installed SDK's Float32 rounding and PCM semantics, with native comparisons instead of a runtime resampler call. The historical tables' "current JS" means the former SDK pipeline; the benchmark keeps that independent baseline and imports the production kernel for its "fused" control.
 
-The initial implementation exposed an opt-in owned pool. The subsequent user decision removes that API: `await resamplePcm16(audio, inputRate, outputRate)` manages finite processing automatically. Its lazy pool uses Node worker threads/browser Web Workers without a new dependency. At least 262144 output samples are required per worker; small calls stay inline. Partitioning preserves global phase and the neighboring interpolation sample, and copies caller buffers before transfer, including Node Buffer subviews. The pool releases workers and browser blob URLs after five idle seconds. Active Node workers are referenced until their replies; idle workers and the cleanup timer are unreferenced so they do not keep the process running. [Node worker lifetime](https://nodejs.org/docs/latest-v24.x/api/worker_threads.html#workerunref), [Node timer lifetime](https://nodejs.org/api/timers.html#timeoutunref)
-
-Workers are an optimization: missing workers use the inline path. Startup or execution failure releases the pool and uses the same pure inline kernel for current, queued and subsequent calls in that loaded module. This also keeps conversion available when browser CSP blocks blob workers. `resamplePcm16Stream` bypasses the worker queue entirely and processes ready sample groups inline, preserving low-latency sequential delivery, bounded carry, backpressure and cancellation. Live microphone sample-rate conversion remains a concrete use case. No shared memory, codec splitting, WASM backend or resampling-quality improvement is implied.
-
-### Initial implementation verification
-
-- The full local suite passed 1,864 tests and the existing coverage gate. The direct-buffer kernel has complete line/branch coverage; the pool has complete line coverage and 94.44% branch coverage in that run.
-- Source, emitted consumer, exact-optional and declaration-export checks passed, together with focused typed lint. Guide snippets include the new helper.
-- Real Node workers exercise reuse, default/explicit budgets, fractional partition boundaries, borrowed Buffer views, queued/running closure and Cascada composition. Chromium verifies actual Web Workers, minification, numerical results and CSP rejection.
-- Packed consumers with the linked Cascada candidate pass with source/declaration conditions and absent/broken native peers. ESM/CommonJS and browser bundles compare against their installed SDK resampler too, including the packed installation's AI SDK 7.0.173 in addition to development 7.0.162.
-- All four isolated mutations were caught: removed Float32 rounding, lost global sample phase, a changed default worker budget and transfer of borrowed input. The budget assertion was strengthened to supply enough work to exceed four workers; a four-part workload would not prove that cap.
-- Matrix verification passed 1,571 selections and executed 1,458 with SDK mocks. No paid calls were needed for this local numerical/worker change.
-
-At that stage, a subsequent complete review of the affected public helpers, streaming consumer, worker ownership/failure paths, export conditions, types, documentation and verification found no important unresolved issue. Timings remain the exploratory measurements above; the implementation checks are correctness and integration evidence, not new multi-device performance evidence.
-
-### Automatic API revision
-
-The follow-up removes the public pool factory/options/handle types and makes the ordinary finite helper asynchronous. Streaming uses the synchronous kernel directly; the final partial group copies bytes even when its source is a Node Buffer, avoiding retained backing storage and changes when a producer reuses that storage. New checks exercise automatic worker budgets and reuse, real worker failure with queued calls, idle termination/restart, Node process lifetime and inline streaming with a large chunk. Minified browser checks exercise normal workers, a real CSP denial, unavailable workers and blob-URL release; bundled Node consumers verify workers actually execute both calls rather than silently falling back. The completion marker in Node bundle probes also prevents a premature process exit from looking like successful execution.
-
-Validation after the automatic-API revision:
-
-- Full local suite: 1,866 passing; existing coverage gates passed (99.57% lines/statements, 95.83% branches, 100% functions). The shared PCM kernel retains complete line/branch coverage.
-- Source, emitted declaration/consumer, exact-optional and guide-example checks passed. Focused typed lint, fixture JavaScript lint, documentation links and whitespace checks passed.
-- All seven isolated mutations were caught: Float32 rounding, global partition phase, worker budget, borrowed-buffer transfer, copied stream carry, stream worker exclusion and idle cleanup.
-- Packed consumers passed with the npm-linked Cascada candidate, including source/declaration conditions, absent/broken native peers and minified Node/browser bundles. Explicit completion-marker checks also passed for all ESM/CommonJS main/helper bundles against the built package with the installed native peer.
-- Chromium exercised actual automatic worker reuse, sequential streaming, real CSP denial, unavailable workers and idle blob-URL cleanup. Native worker fixtures cover active/idle Node process lifetime, restart after cleanup and queued-call fallback after a real worker termination.
-- Matrix verification passed 1,571 selections and executed 1,458 with SDK mocks; planned/native execution distinctions remain explicit. No paid calls were needed for this local processing change.
-
-A subsequent complete pass over the affected public API, synchronous streaming kernel, shared finite queue, worker lifetime/fallback, borrowed data, conditional exports, downstream types, guides and integration evidence found no important unresolved issue. The four-worker budget and workload threshold remain conservative heuristics; these checks do not establish an optimal worker count or a memory-bandwidth bottleneck.
+Current worker ownership and verification are consolidated below and in the [acceptance record](phase6-implementation.md); the obsolete inline fallback and public pool API are removed.
 
 ### Worker-only responsiveness revision
 
 The latest user decision requires heavy audio processing off the calling thread, including streaming and single-core execution. It supersedes the earlier inline paths and failure fallback above. PCM sample conversion, WAV reading/writing, finite resampling and internal completed-audio concatenation are asynchronous worker operations. Finite resampling retains the conservative shared pool; smaller operations use one worker. Streams own an ordered worker and process roughly 32 KiB input blocks independently of the finite queue. Borrowed buffers are copied in bounded blocks with event-loop yields; results transfer back without another full-buffer copy. Worker absence or failure rejects instead of computing inline.
 
-Native preparation now owns a Node worker for the entire existing node-av pipeline. Inspection found that async decoding/encoding and I/O already use native workers, but resampling through `SoftwareResampleContext.convertFrame`, library initialization and output assembly include synchronous work. Moving the owning pipeline covers those operations without another codec implementation. Native async operations still share the process-wide libuv pool. Shutdown closes native resources and waits for the worker to exit; abrupt termination during synchronous native code can abort the process, as the [upstream worker guidance](https://github.com/seydx/node-av#worker-threads-and-the-libuv-thread-pool) explains.
+Native preparation now owns a Node worker for the entire existing node-av pipeline. Inspection found that async decoding/encoding and I/O already use native workers, but resampling through `SoftwareResampleContext.convertFrame`, library initialization and output assembly include synchronous work. Moving the owning pipeline covers those operations without another codec implementation. Native async operations still share the process-wide libuv pool. Invocation cleanup closes native resources before cache release; discarded or expired workers exit gracefully. Abrupt termination during synchronous native code can abort the process, as the [upstream worker guidance](https://github.com/seydx/node-av#worker-threads-and-the-libuv-thread-pool) explains.
 
 Typed worker entrypoints are bundled ahead of time with the existing development bundler. The generated module is embedded in source and built consumers, avoiding runtime function serialization, external worker assets or new runtime dependencies. `node scripts/build-audio-workers.mjs --check` checks freshness. Worker-isolate operations are exercised by real worker/native integration and mutation tests; the small numerical kernel is also compared directly against the installed SDK.
 
-The maintained responsiveness fixture processes 32 MiB of PCM after warming the finite worker, checks timer progress during each operation and executes a separate Cascada script. One diagnostic run on this desktop recorded maximum timer gaps of 53 ms for finite resampling and 16–17 ms for sample conversion, WAV operations and streamed resampling, with 33–494 timer callbacks per operation. These include desktop scheduling and allocation/copy costs, not just computation; they are not latency guarantees or portable performance thresholds. Native integration separately verifies two simultaneous worker-owned pipelines, independent Cascada/timer progress and graceful exit of both workers.
+The maintained responsiveness fixture processes 32 MiB of PCM after warming the finite worker, checks timer progress during each operation and executes a separate Cascada script. One diagnostic run on this desktop recorded maximum timer gaps of 53 ms for finite resampling and 16–17 ms for sample conversion, WAV operations and streamed resampling, with 33–494 timer callbacks per operation. These include desktop scheduling and allocation/copy costs, not just computation; they are not latency guarantees or portable performance thresholds. Native integration separately verifies two simultaneous worker-owned pipelines, independent Cascada/timer progress and graceful cleanup, at most one retained idle worker, and automatic expiry.
 
-Verification of this revision:
-
-- 1,869 local tests passed; coverage gates passed with 99.57% lines/statements, 96.15% branches and 100% functions. The suite now checks responsiveness during concatenation and SDK base64 conversion in workers too.
-- All 17 native integration tests passed against node-av-lgpl 7.1.0 on Windows. They retain seeking, streaming before input EOF, track selection, format checks, uploaded-resource isolation, HTTP credentials and graceful cancellation, and add concurrent worker ownership, error-code transport and source-error identity checks.
-- Eight PCM and nine native mutations were detected, rebuilding worker bundles for each isolated mutation. This proves that tests exercise edited worker code rather than stale generated strings.
-- Source, emitted declarations, consumer/exact-optional types, guide examples and build checks passed. Full lint found three new test-instrumentation lint errors; those were corrected and the affected files passed focused typed lint. Worker bundle freshness and whitespace checks passed.
-- Packed consumers passed with the npm-linked Cascada checkout packed as a candidate, including missing/broken native installations, source/declaration conditions, real Chromium workers, CSP rejection, unavailable workers and blob cleanup. Minified ESM/CommonJS source and built entries also passed with the installed native peer.
-- Matrix checks passed 1,571 selections and executed 1,458 with SDK mocks. No paid calls were needed: request selection and provider payload contracts did not change.
-
-The subsequent complete review covered every changed helper, completed-result consumer, stream ownership path, worker protocol, native lifecycle, package boundary, type and documentation consumer. It found no further substantial issue after correcting repeated streaming-worker close, source-reader reacquisition during shutdown and FFmpeg error-code transport. Native SDK execution and synchronous lazy file getters retain their native contracts; worker isolation covers Casai's preparation, conversion and collection. No new public worker controls or unresolved design decisions remain.
+Verification and maintained regressions are consolidated in the [acceptance record](phase6-implementation.md#verification).

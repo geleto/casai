@@ -1,9 +1,10 @@
+import { streamMode } from '../fixtures/source-modes.js';
 import type { EmptyMap } from './assert.js';
 // Compile-only public annotations: inference must survive values declared through exported types.
 import { create, z } from 'casai';
 import type {
 	TemplateConfig, TemplateToolConfig, ScriptConfig, ScriptToolConfig,
-	LLMAgentConfig,
+	LLMAgentConfig, ComponentConfig,
 } from 'casai';
 import type { LanguageModel, ToolExecutionOptions, JSONValue, OutputInterface, ModelMessage } from 'ai';
 import { Output } from 'ai';
@@ -15,7 +16,11 @@ const schema = z.object({ length: z.number() });
 const contextSchema = z.object({ tenant: z.string() });
 
 const templateConfig: TemplateConfig<{ name: string }> = { template: '{{ name }}', inputSchema };
-const template = create.Template.withTemplate(templateConfig);
+const template = create.Template(templateConfig);
+create.Template.withTemplate(templateConfig);
+export const annotatedTemplate = (config: ComponentConfig<'Template'>) => create.Template(config);
+export const annotatedTypedTemplate = (config: TemplateConfig<{ name: string }>) => create.Template(config);
+expectType<Promise<string>>(annotatedTypedTemplate(templateConfig)({ name: 'Ada' }));
 expectType<Promise<string>>(template({ name: 'Ada' }));
 // @ts-expect-error Annotated template inputs keep the declared field type.
 void template({ name: 123 });
@@ -27,7 +32,8 @@ const _wrongTemplate: TemplateConfig<{ name: string }> = { template: '{{ name }}
 const templateToolConfig: TemplateToolConfig<{ name: string }, { tenant: string }> & { toolContextSchema: typeof contextSchema } = {
 	template: '{{ name }}', inputSchema, toolContextSchema: contextSchema,
 };
-const templateTool = create.Template.withTemplate.asTool(templateToolConfig);
+const templateTool = create.Template.asTool(templateToolConfig);
+create.Template.withTemplate.asTool(templateToolConfig);
 declare const executionOptions: ToolExecutionOptions<{ tenant: string }>;
 expectType<PromiseLike<string>>(templateTool.execute({ name: 'Ada' }, executionOptions));
 // @ts-expect-error Annotated template tool input fields do not widen.
@@ -39,7 +45,15 @@ void templateTool.execute({ name: 'Ada' }, { toolCallId: 'call', messages: [], c
 const scriptConfig: ScriptConfig<{ name: string }, { length: number }> & { script: string, schema: typeof schema } = {
 	script: 'return { length: name.length }', inputSchema, schema,
 };
-const script = create.Script.withScript(scriptConfig);
+const script = create.Script(scriptConfig);
+create.Script.withScript(scriptConfig);
+export const annotatedScript = (config: ComponentConfig<'Script'>) => create.Script(config);
+export const annotatedTypedScript = (config: typeof scriptConfig) => create.Script(config);
+expectType<Promise<{ length: number }>>(annotatedTypedScript(scriptConfig)({ name: 'Ada' }));
+// @ts-expect-error Inline renderer annotations require source at construction.
+annotatedScript({});
+// @ts-expect-error Inline template annotations require source at construction too.
+annotatedTemplate({});
 expectEqual<Awaited<ReturnType<typeof script>>, z.infer<typeof scriptConfig.schema>>();
 expectType<Promise<{ length: number }>>(script('return { length: name.length }', { name: 'Ada' }));
 // @ts-expect-error Annotated scripts retain their input field contract.
@@ -52,7 +66,8 @@ const _wrongScript: ScriptConfig<{ name: string }, { length: number }> = { schem
 const scriptToolConfig: ScriptToolConfig<{ name: string }, { length: number }, { tenant: string }> & { script: string, schema: typeof schema, toolContextSchema: typeof contextSchema } = {
 	script: 'return { length: name.length }', inputSchema, schema, toolContextSchema: contextSchema,
 };
-const scriptTool = create.Script.withScript.asTool(scriptToolConfig);
+const scriptTool = create.Script.asTool(scriptToolConfig);
+create.Script.withScript.asTool(scriptToolConfig);
 expectType<PromiseLike<{ length: number }>>(scriptTool.execute({ name: 'Ada' }, executionOptions));
 // @ts-expect-error Annotated script tools retain required input fields.
 void scriptTool.execute({}, executionOptions);
@@ -99,6 +114,58 @@ create.LLMAgent(textSettings);
 create.LLMAgent.asStream(streamSettings);
 create.Config(textSettings);
 create.Config(streamSettings);
+
+// Bare annotations retain broad tools. A string index also admits numeric property keys.
+const broadAgentConfig: LLMAgentConfig = { model, prompt: 'Answer.', toolsContext: {} };
+const broadAgent = create.LLMAgent(broadAgentConfig);
+void broadAgent('Answer.');
+export const annotatedTextAgent = (config: LLMAgentConfig) => create.LLMAgent.withText(config);
+export const annotatedDefaultAgent = (config: LLMAgentConfig) => create.LLMAgent(config);
+void annotatedDefaultAgent({ model })('hello');
+void annotatedDefaultAgent({ model }).run({ prompt: 'hello' });
+// @ts-expect-error A broad annotation does not guarantee a configured prompt.
+void annotatedDefaultAgent({ model })();
+export const annotatedAgent = (config: ComponentConfig<'LLMAgent'>) => create.LLMAgent(config);
+export const annotatedStreamAgent = (config: ComponentConfig<'LLMAgent', 'text', 'stream'>) => create.LLMAgent.asStream(config);
+export const annotatedFunctionAgent = (config: ComponentConfig<'LLMAgent', 'function'>) => create.LLMAgent.withFunction(config);
+export const annotatedFunctionStreamAgent = (config: ComponentConfig<'LLMAgent', 'function', 'stream'>) => create.LLMAgent.withFunction.asStream(config);
+const functionSettings: ComponentConfig<'LLMAgent', 'function'> = {
+	model, prompt: context => {
+		expectType<AbortSignal | undefined>(context._toolOptions.abortSignal);
+		return 'Answer.';
+	},
+};
+void annotatedFunctionAgent(functionSettings)(() => 'Answer.');
+void annotatedFunctionStreamAgent(functionSettings).run({ prompt: () => 'Answer.' }).then(result => result.textStream);
+// @ts-expect-error Annotation keeps prompt callbacks returning native prompt values.
+const _invalidFunctionSettings: ComponentConfig<'LLMAgent', 'function'> = { model, prompt: () => 42 };
+// @ts-expect-error The optional configured callback does not eliminate the call-time source requirement.
+void annotatedFunctionAgent(functionSettings)();
+export const annotatedTemplateAgent = (config: ComponentConfig<'LLMAgent', 'async-template'>) => create.LLMAgent.withTemplate(config);
+export const annotatedScriptAgent = (config: ComponentConfig<'LLMAgent', 'async-script'>) => create.LLMAgent.withScript(config);
+export const annotatedLoadedAgent = (config: ComponentConfig<'LLMAgent', 'text-name'>) => create.LLMAgent.loadsText(config);
+export const annotatedLoadedTemplateAgent = (config: ComponentConfig<'LLMAgent', 'async-template-name'>) => create.LLMAgent.loadsTemplate(config);
+export const annotatedLoadedScriptAgent = (config: ComponentConfig<'LLMAgent', 'async-script-name'>) => create.LLMAgent.loadsScript(config);
+export const annotatedLoadedTemplate = (config: ComponentConfig<'Template', 'async-template-name'>) => create.Template.loadsTemplate(config);
+export const annotatedLoadedScript = (config: ComponentConfig<'Script', 'async-script-name'>) => create.Script.loadsScript(config);
+void annotatedLoadedTemplate({ loader: { load: () => 'loaded' } })('entry');
+void annotatedLoadedScript({ loader: { load: () => 'return 1' } }).run({ script: 'entry' });
+// @ts-expect-error Finished loaded annotations require a loader even if source is configured.
+annotatedLoadedTemplate({ template: 'entry' });
+// @ts-expect-error A loaded script requires its loader too.
+annotatedLoadedScript({ script: 'entry' });
+// @ts-expect-error Optional loaded source must be supplied at invocation.
+void annotatedLoadedTemplate({ loader: { load: () => 'loaded' } })();
+declare const embeddingModel: ComponentConfig<'Embedder'>['model'];
+type EmbeddingSourceChoice = ComponentConfig<'Embedder', 'text' | 'text-name'>;
+const inlineEmbedding: EmbeddingSourceChoice = create.Config.withText({ model: embeddingModel }).config;
+const loadedEmbedding: EmbeddingSourceChoice = create.Config.loadsText({ model: embeddingModel, loader: { load: () => 'loaded' } }).config;
+create.Embedder(inlineEmbedding);
+create.Embedder(loadedEmbedding);
+// @ts-expect-error Loaded annotation alternatives retain their loader requirement.
+const _incompleteLoadedEmbedding: EmbeddingSourceChoice = create.Config.loadsText({ model: embeddingModel }).config;
+void annotatedAgent({ model })('Answer.');
+void annotatedStreamAgent({ model })('Answer.').then(result => result.textStream);
 const tools = { lookup: create.Function.asTool({ inputSchema, execute: ({ name }) => name }) };
 const namedText: LLMAgentConfig<typeof tools> = { model, tools, activeTools: ['lookup'] };
 const namedStream: LLMAgentConfig<typeof tools> = { model, tools, activeTools: ['lookup'] };
@@ -107,8 +174,18 @@ create.LLMAgent.asStream(namedStream);
 create.Config(namedText);
 create.Config(namedStream);
 
+// Tool settings retain their concrete schema and absence of streaming through satisfies.
+const agentToolSettings = { model, prompt: 'Answer.', inputSchema } satisfies LLMAgentConfig;
+const annotatedAgentTool = create.LLMAgent.asTool(agentToolSettings);
+void annotatedAgentTool.execute({ name: 'Ada' }, { toolCallId: 'test', messages: [], context: undefined });
+// @ts-expect-error The concrete tool schema retains its required fields.
+void annotatedAgentTool.execute({}, { toolCallId: 'test', messages: [], context: undefined });
+declare const broadToolSettings: LLMAgentConfig & { prompt: string; inputSchema: typeof inputSchema };
+// @ts-expect-error Broad ordinary settings can include streaming and erase the concrete tool contract.
+create.LLMAgent.asTool(broadToolSettings);
+
 // Preserve presence in annotations when output is fixed, rather than optional.
-type OutputConfig<O extends OutputInterface> = LLMAgentConfig<EmptyMap, EmptyMap, string, O> & { output: O; streaming?: never };
+type OutputConfig<O extends OutputInterface> = LLMAgentConfig<EmptyMap, EmptyMap, string, O> & { output: O; [streamMode]?: never };
 const arrayOutput = Output.array({ element: schema });
 const arrayConfig: OutputConfig<typeof arrayOutput> = { model, output: arrayOutput };
 const arrayAgent = create.LLMAgent(arrayConfig);

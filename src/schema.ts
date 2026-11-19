@@ -18,8 +18,10 @@ export function snapshot(value: unknown): unknown {
 }
 
 export function isPlainObject(value: unknown): value is Fields {
-	return value !== null && typeof value === 'object'
-		&& (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+	if (value === null || typeof value !== 'object') return false;
+	const prototype = Object.getPrototypeOf(value) as object | null;
+	return prototype === null || prototype === Object.prototype
+		|| Object.getPrototypeOf(prototype) === null && Object.hasOwn(prototype, 'isPrototypeOf');
 }
 
 export function sameContext(left: unknown, right: unknown): boolean {
@@ -156,7 +158,7 @@ export async function inputNames(schema: FlexibleSchema<unknown>, tool = false):
 	}
 	const alternatives = metadata.anyOf ?? metadata.oneOf;
 	return alternatives && metadata.$ref === undefined && metadata.allOf === undefined
-		? [...new Set([...Object.keys(metadata.properties ?? {}), ...metadata.required ?? [], ...alternatives.flatMap(branch => metadataNames(branch, tool))])]
+		? [...new Set([...Object.keys(metadata.properties ?? {}), ...metadata.required ?? [], ...alternatives.flatMap((branch: JSONSchema | boolean) => metadataNames(branch, tool))])]
 		: metadataNames(metadata, tool);
 }
 
@@ -211,7 +213,7 @@ export function projectInput(metadata: JSONSchema, defaults: Fields, configured:
 	if (unsupported.length || (metadata.type !== 'object' && metadata.properties === undefined)) {
 		throw new ConfigError(`Configured tool defaults require an independent object schema. Unsupported root keys: ${unsupported.join(', ')}.`);
 	}
-	const required = metadata.required?.filter(key => !Object.hasOwn(defaults, key) || defaults[key] === undefined);
+	const required = metadata.required?.filter((key: string) => !Object.hasOwn(defaults, key) || defaults[key] === undefined);
 	if (required?.length !== metadata.required?.length && hasReference(metadata)) {
 		throw new ConfigError('Tool default projection cannot relax required fields in a schema containing references.');
 	}

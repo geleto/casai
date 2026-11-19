@@ -1,4 +1,4 @@
-import { sourceMode } from '../src/config/source-mode.js';
+import { sourceMode } from '../src/config/modifiers.js';
 /* eslint-disable no-constant-condition -- Unreachable branches verify compile-time errors. */
 import { expect } from 'chai';
 import { rejects } from 'node:assert/strict';

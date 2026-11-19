@@ -1,7 +1,7 @@
 import { createCodedComponent } from '../runtime/coded-component.js';
 import { createComponentFactory } from './component-factory.js';
-import type { TemplateConfig } from '../types/config.js';
-import type { RendererComponent } from '../types/component.js';
+import type { PromptType } from '../types/prompt.js';
+import type { RendererComponent, RendererConfig } from '../types/component.js';
 import type * as configs from '../types/config.js';
 
 export const definition = {
@@ -14,11 +14,11 @@ type Settings = configs.TemplateSettings<Record<string, any>>;
 type Factory = import('./component-factory.js').RendererFactory<'Template'>;
 export const Template = createComponentFactory(definition, createCodedComponent) as Factory;
 
-export interface Types<T, A extends boolean, Input> {
+export interface Types<P extends PromptType, T, A extends boolean, Input> {
 	definition: typeof definition;
 	settings: Settings;
 	component: RendererComponent<'Template', T, A>;
-	config: TemplateConfig<Record<string, any>>;
+	config: RendererConfig<'Template', P>;
 	configShape: configs.TemplateSettings<Extract<Input, Record<string, any>>> | configs.TemplateToolSettings<Extract<Input, Record<string, any>>>;
 	result: string;
 	toolResult: string;

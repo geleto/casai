@@ -1,5 +1,6 @@
 import { sourceModes } from './fixtures/source-modes.js';
 import assert from 'node:assert/strict';
+import { runInNewContext } from 'node:vm';
 import { asSchema, generateImage, generateText } from 'ai';
 import { validateTypes } from '@ai-sdk/provider-utils';
 import { MockImageModelV4, MockLanguageModelV4 } from 'ai/test';
@@ -41,7 +42,8 @@ describe('ImageGenerator: native dispatch and public tool boundary', () => {
 			inputSchema: z.object({ subject: z.string().default('configured') }), prompt: ({ subject }) => subject });
 		const template = create.ImageGenerator.withTemplate({ model, images: [png],
 			inputSchema: z.object({ subject: z.string() }), prompt: '{{ subject }}' });
-		for (const mask of [png, png.buffer]) {
+		const foreignMask = runInNewContext('Uint8Array.from(png)', { png }) as Uint8Array<ArrayBuffer>;
+		for (const mask of [png, png.buffer, foreignMask, foreignMask.buffer]) {
 			await image(mask);
 			await image(undefined, mask);
 			await image.run({ mask });
@@ -190,6 +192,16 @@ describe('ImageGenerator: native dispatch and public tool boundary', () => {
 		await create.Function({ tools: { imageTool }, execute: ({ imageTool }) => imageTool({}) })();
 		assert.equal(requests[4].prompt, undefined);
 		assert.equal(requests[4].files?.length, 1);
+	});
+
+	it('uses configured images when a function preparer resolves to absent text', async () => {
+		const { model, requests } = fixture();
+		const image = create.ImageGenerator.withFunction.asTool({ model, images: [png], inputSchema: z.object({ title: z.string().optional() }),
+			prompt: ({ title }) => title ?? null });
+		await image.execute({}, { toolCallId: 'image-only', messages: [], context: undefined });
+		await image({ title: 'edit' });
+		assert.deepEqual(requests.map(request => request.prompt), [undefined, 'edit']);
+		assert.ok(requests.every(request => request.files?.length === 1));
 	});
 
 	it('keeps authored input outside payload validation and never promotes configuration into public defaults', async () => {

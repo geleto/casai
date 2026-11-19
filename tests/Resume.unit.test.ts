@@ -7,6 +7,20 @@ import { pendingHistory, decision, parts, callDefinition } from './fixtures/appr
 import { mcpApprovalReplay } from './fixtures/openai-mcp.js';
 
 describe('LLMAgent resume', () => {
+	it('rejects inherited controls before copying ordinary or Cascada keyword options', async () => {
+		const provider = modelFor(undefined);
+		const history: ModelMessage[] = [{ role: 'user', content: 'Continue.' }];
+		const agent = create.LLMAgent({ model: provider });
+		const invalid: object[] = ['streaming', 'asTool', 'promptType'].flatMap(key => [true, false, undefined].map(value => ({ [key]: value })));
+		invalid.push(create.Config.asStream({}).config, create.Config.asTool({}).config, create.Config.withText({}).config);
+		for (const controls of invalid) for (const keywords of [false, true]) {
+			const options: object = Object.assign(Object.create(controls) as object, keywords ? { __hasKeywordArgs: true } : {});
+			await assert.rejects(agent.resume(history, options), ValidationError);
+		}
+		assert.equal(provider.doGenerateCalls.length, 0);
+		const result = await agent.resume(history, { context: { streaming: true, asTool: false, promptType: undefined } });
+		assert.equal(result.output, 'done'); assert.equal(provider.doGenerateCalls.length, 1);
+	});
 	for (const streaming of [false, true]) {
 		const factory = streaming ? create.LLMAgent.asStream : create.LLMAgent;
 		it(`matches native mixed-approval execution and retains complete history, streaming=${streaming}`, async () => {

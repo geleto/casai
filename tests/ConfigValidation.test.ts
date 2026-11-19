@@ -58,11 +58,11 @@ describe('Config validation', () => {
 			const settings = { model, output: Output.object({ schema }), prompt: 'Answer.', mode };
 			const fragment = create.Config(settings as never);
 			for (const construct of [
-				(): unknown => Reflect.apply(create.LLMAgent, undefined, [{}, fragment]),
+				(): unknown => Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [{}, fragment]),
 				() => create.LLMAgent(settings as never),
 				() => create.LLMAgent.asStream(settings as never),
-				(): unknown => Reflect.apply(create.LLMAgent, undefined, [{}, { config: settings }]),
-				(): unknown => Reflect.apply(create.LLMAgent.asStream, undefined, [{}, { config: settings }]),
+				(): unknown => Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [{}, { config: settings }]),
+				(): unknown => Reflect.apply(create.LLMAgent.asStream as unknown as (...args: unknown[]) => unknown, undefined, [{}, { config: settings }]),
 			]) expect(construct).to.throw(ConfigError, "'mode' is not supported");
 		}
 	});
@@ -102,7 +102,7 @@ describe('Config validation', () => {
 			it(`leaves model selection to a child of an output-only fragment: ${output.name}`, () => {
 				const fragment = create.Config({ output });
 				expect(fragment.config.output).to.equal(output);
-				expect(() => { Reflect.apply(create.LLMAgent, undefined, [{}, fragment]); }).to.throw(ConfigError, /requires a 'model'/);
+				expect(() => { Reflect.apply(create.LLMAgent as unknown as (...args: unknown[]) => unknown, undefined, [{}, fragment]); }).to.throw(ConfigError, /requires a 'model'/);
 				expect(create.LLMAgent({ model }, fragment)).to.be.a('function');
 			});
 		}

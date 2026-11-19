@@ -1,8 +1,7 @@
-import type { SourceModeSetting, AnnotatedSourceMode } from '../config/source-mode.js';
+import type { toolMode, streamMode, SourceModeSetting, ToolModeSetting } from '../config/modifiers.js';
 import type { ContextFromSchema, InferSchema, SchemaType } from './schema.js';
 import type { EmptyMap, Fields } from './utils.js';
 import type { LoaderInput } from '../loaders.js';
-import type { TemplatePromptType, ScriptPromptType } from './prompt.js';
 import type { FunctionImplementation, FunctionToolImplementation } from './function-config.js';
 import type { Tool, ToolSet } from 'ai';
 import type { ConfigureOptions } from 'cascada-engine';
@@ -14,7 +13,7 @@ export interface BaseConfig {
 	description?: Tool['description'];
 }
 
-export interface ModifierConfig { asTool?: true | undefined }
+export type ModifierConfig = ToolModeSetting;
 
 export interface ConfigProvider<T> {
 	readonly config: T;
@@ -76,14 +75,13 @@ interface RegistryConfig {
 }
 
 export interface CascadaConfig<CONTEXT extends Record<string, any> | undefined = Record<string, any> | undefined> extends ContextConfig<CONTEXT> {
-	filters?: Record<string, (input: any, ...args: any[]) => any>;
-	renderOptions?: ConfigureOptions;
+	filters?: Record<string, (input: any, ...args: any[]) => any> | undefined;
+	renderOptions?: ConfigureOptions | undefined;
 	loader?: LoaderInput | undefined;
 }
 
-export interface LoaderConfig {
-	loader: LoaderInput;
-}
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- A closed object type preserves factory key inference for annotated configs.
+export type LoaderConfig = { loader: LoaderInput };
 
 // Only for use in Template
 export interface TemplateSettings<
@@ -92,7 +90,7 @@ export interface TemplateSettings<
 	template: string;
 	inputSchema?: SchemaType<INPUT> | undefined;
 }
-export type TemplateConfig<INPUT extends Record<string, any>> = TemplateSettings<INPUT> & AnnotatedSourceMode<TemplatePromptType, 'async-template'>;
+export type TemplateConfig<INPUT extends Record<string, any>> = TemplateSettings<INPUT> & SourceModeSetting<'async-template' | undefined>;
 
 // Config for a Tool that uses the Template engine
 export interface TemplateToolSettings<
@@ -101,7 +99,7 @@ export interface TemplateToolSettings<
 > extends ModifierConfig, Omit<TemplateSettings<INPUT>, 'description'>, ToolContextSchemaConfig<TOOL_CONTEXT>, ToolProperties<INPUT, string, TOOL_CONTEXT> {
 	inputSchema: SchemaType<INPUT>;//required
 }
-export type TemplateToolConfig<INPUT extends Record<string, any>, TOOL_CONTEXT = unknown> = TemplateToolSettings<INPUT, TOOL_CONTEXT> & AnnotatedSourceMode<TemplatePromptType, 'async-template'>;
+export type TemplateToolConfig<INPUT extends Record<string, any>, TOOL_CONTEXT = unknown> = TemplateToolSettings<INPUT, TOOL_CONTEXT> & SourceModeSetting<'async-template' | undefined>;
 
 // Only for use in Script
 export interface ScriptSettings<
@@ -112,7 +110,7 @@ export interface ScriptSettings<
 	schema?: SchemaType<OUTPUT> | undefined;
 	inputSchema?: SchemaType<INPUT> | undefined;
 };
-export type ScriptConfig<INPUT extends Record<string, any>, OUTPUT> = ScriptSettings<INPUT, OUTPUT> & AnnotatedSourceMode<ScriptPromptType, 'async-script'>;
+export type ScriptConfig<INPUT extends Record<string, any>, OUTPUT> = ScriptSettings<INPUT, OUTPUT> & SourceModeSetting<'async-script' | undefined>;
 
 // Config for a Tool that uses the Script engine
 export interface ScriptToolSettings<
@@ -122,13 +120,14 @@ export interface ScriptToolSettings<
 > extends ModifierConfig, Omit<ScriptSettings<INPUT, OUTPUT>, 'description'>, ToolContextSchemaConfig<TOOL_CONTEXT>, ToolProperties<INPUT, OUTPUT, TOOL_CONTEXT> {
 	inputSchema: SchemaType<INPUT>;//required
 }
-export type ScriptToolConfig<INPUT extends Record<string, any>, OUTPUT, TOOL_CONTEXT = unknown> = ScriptToolSettings<INPUT, OUTPUT, TOOL_CONTEXT> & AnnotatedSourceMode<ScriptPromptType, 'async-script'>;
+export type ScriptToolConfig<INPUT extends Record<string, any>, OUTPUT, TOOL_CONTEXT = unknown> = ScriptToolSettings<INPUT, OUTPUT, TOOL_CONTEXT> & SourceModeSetting<'async-script' | undefined>;
 
 // The default accepts schemas before inference; concrete tools default to undefined context.
 export interface ToolContextSchemaConfig<TOOL_CONTEXT = unknown> { toolContextSchema?: SchemaType<TOOL_CONTEXT> | undefined }
 
 // Description depends only on native context, independently of input/output tool variants.
-export type ToolProperties<I = any, O = any, C = any> = Partial<Pick<Tool<I, O, C>,
+type OptionalToolFields<T> = { [K in keyof T]?: T[K] | undefined };
+export type ToolProperties<I = any, O = any, C = any> = OptionalToolFields<Pick<Tool<I, O, C>,
 	'title' | 'deferLoading' | 'providerOptions' | 'metadata' | 'strict' | 'inputExamples' | 'toModelOutput' | 'onInputStart' | 'onInputDelta' | 'onInputAvailable' | 'needsApproval'>> & { description?: Tool<unknown, unknown, C>['description'] };
 export type ToolConfigShape<T> = T extends unknown ? Omit<T, keyof ToolProperties> & { [K in keyof ToolProperties]?: unknown } & ModifierConfig : never;
 
@@ -174,10 +173,10 @@ type FragmentModifiers<K extends import('./component.js').ComponentKind,
 	Modes = Definition<K>['defaultMode'] | Definition<K>['modifiers'][keyof Definition<K>['modifiers']],
 	ToolModes = Definition<K>['toolModes'][number]> = [Exclude<Modes, ToolModes>] extends [never]
 	? SourceModeSetting<Modes | undefined> & (Definition<K> extends { asStream: true }
-		? { asTool?: undefined; streaming?: true | undefined } | { asTool?: true | undefined; streaming?: undefined }
-		: { asTool?: true | undefined })
-	: (SourceModeSetting<Modes | undefined> & { asTool?: undefined })
-		| ([ToolModes] extends [never] ? never : SourceModeSetting<ToolModes | undefined> & { asTool?: true | undefined });
+		? { [toolMode]?: undefined; [streamMode]?: true | undefined } | { [toolMode]?: true | undefined; [streamMode]?: undefined }
+		: ToolModeSetting)
+	: (SourceModeSetting<Modes | undefined> & { [toolMode]?: undefined })
+		| ([ToolModes] extends [never] ? never : SourceModeSetting<ToolModes | undefined> & ToolModeSetting);
 type FragmentConfig<K extends import('./component.js').ComponentKind, T> = T & FragmentModifiers<K>;
 
 export type AnyConfig<TOOLS extends ToolSet, INPUT extends Record<string, any>, OUTPUT> =
