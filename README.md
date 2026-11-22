@@ -80,4 +80,4 @@ Pass a WAV file or a Web Audio `AudioBuffer` directly to `Transcriber` or `Trans
 
 `npm test` runs mock-only runtime tests. `npm run check` checks source/emitted types, documentation examples, lint and runtime coverage without paid calls. `npm run test:live` explicitly opts into provider-backed tests. See [test instructions](tests/README.md), [the review process](docs/review-process.md) and [documentation maintenance](docs/matrix/MAINTENANCE.md).
 
-MIT licensed. See [LICENSE](LICENSE).
+Casai is licensed under [Apache-2.0](LICENSE).
