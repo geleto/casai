@@ -74,11 +74,12 @@ export function createComponentRuntime(config: RuntimeComponentConfig, definitio
 		return settings;
 	}
 	return {
-		async prepare(raw: Fields, tool?: ToolInvocation): Promise<PreparedComponentCall> {
+		async prepare(raw: Fields, tool?: ToolInvocation, validateSettings?: (settings: RuntimeComponentConfig) => void): Promise<PreparedComponentCall> {
 			(raw.abortSignal as AbortSignal | undefined)?.throwIfAborted();
 			const supplied = definedSettings(raw);
 			validateConfigBasics(supplied, ValidationError);
 			const settings = mergeConfigs(config, supplied) as RuntimeComponentConfig;
+			validateSettings?.(settings);
 			const options = raw.abortSignal === undefined ? {} : { abortSignal: raw.abortSignal as AbortSignal };
 			const prepared = tool ?? await prepareExecution(config, supplied.context, options, supplied.toolsContext as Fields | undefined, toolInputField);
 			const publicInput = toolInputField !== undefined && prepared.inputNames.has(toolInputField);

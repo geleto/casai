@@ -1,33 +1,35 @@
-# Casai: concurrent AI workflows
+# Casai
 
-**AI orchestration for JavaScript and TypeScript.** Write the workflow. Let Cascada handle the concurrency.
+**AI orchestration for JavaScript and TypeScript**
 
-AI agents spend much of their time waiting for models, tools, web pages, APIs and databases. Casai orchestrates them with [CascadaScript](https://cascada.dev/cascada-script/), a simple scripting language familiar to JavaScript and Python developers. Your normal sequential code describes the logic; the runtime follows logical dependencies and runs independent work concurrently, preserving source-order results.
+**Casai is in active development.** APIs and syntax may change. [Feedback](https://github.com/geleto/casai/issues) and contributions are welcome.
 
-- [Build your first workflow](#build-your-first-workflow)
-- [Components and tools](#components-and-tools)
-- [Documentation and examples](#documentation-and-examples)
-- [Development](#development)
+## Simple code. Concurrent workflows.
+
+AI agents spend most of their time waiting. They wait for models, tools, web pages, APIs and databases - sometimes for seconds, even minutes.
+
+Casai makes AI workflows easier to write and faster to run with [CascadaScript](https://cascada.dev/cascada-script/) - a simple scripting language, instantly familiar to JavaScript and Python developers. You express your workflow in normal, sequential code, without wiring up a graph. Under the hood, the runtime follows logical dependencies to run all independent operations concurrently, starting each as soon as its inputs are ready. The results are identical to sequential execution, but your workflow can finish much faster.
+
+Agents, templates, scripts and your own functions share a [consistent interface](#components-and-tools). Configure them once and reuse them across workflows. Model components use the [Vercel AI SDK](https://ai-sdk.dev/docs/introduction), so you can choose from its [supported providers](https://ai-sdk.dev/providers/ai-sdk-providers).
 
 ## Build your first workflow
 
-Use Node.js 24 or later, ESM imports, and TypeScript 7.0.2 or later with strict checking. Install Casai with the latest AI SDK 7.x and Zod 4.x releases:
+Use Node.js 24 or later, ESM imports (`"type": "module"` in `package.json`), and TypeScript 7.0.2 or later with strict checking.
+
+Install Casai and a model provider. This example uses [OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/openai).
 
 ```sh
 npm install casai ai@7 zod@4
+npm install @ai-sdk/openai@4
 ```
 
-Then install the provider you want to use. Choose one, or add more as needed:
+For a local example, create `.env` with your provider key.
 
-| Provider | Install | API key environment variable |
-| --- | --- | --- |
-| [OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/openai) | `npm install @ai-sdk/openai@4` | `OPENAI_API_KEY` |
-| [Anthropic](https://ai-sdk.dev/providers/ai-sdk-providers/anthropic) | `npm install @ai-sdk/anthropic@4` | `ANTHROPIC_API_KEY` |
-| [Google](https://ai-sdk.dev/providers/ai-sdk-providers/google) | `npm install @ai-sdk/google@4` | `GOOGLE_GENERATIVE_AI_API_KEY` |
+```dotenv
+OPENAI_API_KEY=your-api-key
+```
 
-Each command selects the latest 4.x release of that provider package. See the [AI SDK provider directory](https://ai-sdk.dev/providers/ai-sdk-providers) for more options.
-
-The workflow below uses OpenAI. Set `OPENAI_API_KEY` in your server environment, or a local `.env` file. Save this as `workflow.ts`:
+Save this as `workflow.ts`.
 
 <!-- typecheck: first-workflow -->
 ```typescript
@@ -58,15 +60,45 @@ const workflow = create.Script({
 console.log(await workflow({ topic: 'solar energy' }));
 ```
 
-Run `node --env-file=.env workflow.ts`. Both agents start independently; the returned object contains their explanation and exercise. Casai does not load environment files itself.
+Run the workflow with Node's environment-file support.
 
-## Components and tools
+```sh
+node --env-file=.env workflow.ts
+```
 
-Share models, tools and defaults with Config. Compose agents, templates, scripts and JavaScript functions through a consistent calling interface. Add embedding, reranking, image, transcription, speech and voice capabilities as needed. Components keep reusable configuration; callers own conversations and session state.
+The two agents run concurrently because neither needs the other's result. The return waits for both and gives you an object with `explanation` and `exercise` strings. The wording varies with the model.
 
-Supported components become tools with `.asTool`, a task description and an `inputSchema`. Use them alongside [Vercel AI SDK](https://ai-sdk.dev/) and MCP tools. Stream model text and media as they arrive, or return completed values for the next workflow step. The reference identifies experimental SDK APIs and capabilities still in development.
+[Continue in the documentation](https://casai.run/documentation/reference/#guide-first-workflow)
 
-Pass a WAV file or a Web Audio `AudioBuffer` directly to `Transcriber` or `Translator`. Casai reads its format and prepares it for the model. For other codecs or audio tracks in video, `.loadsAudio` uses FFmpeg in Node.js with `node-av` installed. [Audio with and without node-av](docs/matrix/documentation.md#guide-recorded-audio-and-optional-codecs)
+<a id="components-and-tools"></a>
+
+## Many components. Different capabilities. One consistent interface.
+
+Configure once. Call with new inputs. Reuse across workflows.
+
+Use AI agents, templates, scripts and your own functions through one familiar interface. A template, script or function can turn your data into the prompts and inputs each component needs.
+
+Share models, tools and defaults with [`Config`](https://casai.run/documentation/reference/config/#component-factories), then customize each component. Keep inputs and returned values compatible, and you can swap an implementation without rewriting the workflow.
+
+[Explore components and examples](https://casai.run/#components)
+
+### Turn a component into a tool
+
+Let an agent delegate work to almost any component. Add [`.asTool`](https://casai.run/documentation/reference/llmagent_withtemplate_astool/#component-factories), describe its task and declare its arguments with [`inputSchema`](https://casai.run/documentation/reference/llmagent_withtemplate_astool/?options=withTemplate%2CasTool&view=config#property-inputSchema). A [template](https://cascada.dev/cascada-template/), script or function turns those arguments into the prompt or other input the component needs. It remains callable directly from your code.
+
+Use these tools alongside [AI SDK tools](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling) and [MCP tools](https://ai-sdk.dev/docs/ai-sdk-core/mcp-tools) in [`LLMAgent`](https://casai.run/documentation/reference/llmagent/#component-factories), [`Template`](https://casai.run/documentation/reference/template/#component-factories), [`Script`](https://casai.run/documentation/reference/script/#component-factories), [`Function`](https://casai.run/documentation/reference/function/#component-factories) and [`VoiceAgentBackend`](https://casai.run/documentation/reference/voiceagentbackend/#component-factories), or while preparing another component's inputs.
+
+In the homepage example, a research agent calls a page summarizer and receives a short summary, keeping the full page text out of its conversation. [See the agent and its summary tool](https://casai.run/#page-summary-code)
+
+## Start sooner. Use results as they arrive.
+
+Process the first result while the rest are still arriving, using normal, sequential code.
+
+A regular `for` loop processes each streamed item as it arrives. Independent iterations run concurrently, while collected results keep their original order.
+
+Your app can also display generated text or play supported audio as it arrives. Steps that need the whole result wait for the stream to finish.
+
+[See a workflow in action](https://casai.run/#concurrency) and explore its code.
 
 ## Documentation and examples
 

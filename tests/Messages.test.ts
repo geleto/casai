@@ -120,7 +120,7 @@ describe('Messages, Conversation & Integration', function () {
 					instructions: [{ role: 'system', content: 'Always answer in Spanish.' }],
 				});
 				// This system message should override the configured one.
-				const result = await generator.run({ prompt: 'Say "hello".', instructions: 'Always answer in French.' });
+				const result = await generator.run({ prompt: 'Translate “good morning” into the language in your instructions. Reply with just the greeting.', instructions: 'Always answer in French.' });
 				expect(result.text.toLowerCase()).to.contain('bonjour');
 			});
 
@@ -274,7 +274,7 @@ describe('Messages, Conversation & Integration', function () {
 				});
 				await expect(generator(
 					`return [{ content: "This is invalid" }]`
-				)).to.be.rejectedWith('Output validation failed');
+				)).to.be.rejectedWith(/prompt output validation failed/i);
 			});
 		});
 	});
@@ -393,7 +393,7 @@ describe('Messages, Conversation & Integration', function () {
 					model,
 					...commonConfig,
 					tools: { getWeather: getWeatherTool } as const,
-					// NO stopWhen - we are doing this manually
+					stopWhen: stepCountIs(1),
 				} as const);
 
 				const initialPrompt = 'What is the weather in San Francisco?';
@@ -547,6 +547,7 @@ describe('Messages, Conversation & Integration', function () {
 					model,
 					...commonConfig,
 					tools: { getWeather: llmWeatherTool } as const,
+					stopWhen: stepCountIs(1),
 				} as const);
 
 				const result = await agent([{ role: 'user', content: 'Use getWeather for San Francisco.' }]);

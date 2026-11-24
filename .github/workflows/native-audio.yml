@@ -1,0 +1,92 @@
+name: Native audio release
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci/native-audio/**']
+permissions:
+  contents: read
+jobs:
+  engine:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: geleto/cascada
+          ref: 585b2d680cd75fc74c4beec250d39d56cca64f36
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+      - run: |
+          npm ci --ignore-scripts
+          npm run build
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cascada-candidate
+          path: ${{ runner.temp }}/cascada-engine-*.tgz
+          if-no-files-found: error
+  native:
+    needs: engine
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: win32-x64-msvc, runner: windows-2025 }
+          - { target: win32-arm64-msvc, runner: windows-11-arm }
+          - { target: darwin-x64, runner: macos-15-intel }
+          - { target: darwin-arm64, runner: macos-26 }
+          - { target: linux-x64, runner: ubuntu-24.04 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm }
+          - { target: linux-x64-musl, runner: ubuntu-24.04 }
+          - { target: linux-arm64-musl, runner: ubuntu-24.04-arm }
+    env:
+      CASAI_REVIEW_NATIVE_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: cascada-candidate
+          path: .cache/native-input
+      - uses: actions/setup-node@v4
+        if: ${{ !endsWith(matrix.target, '-musl') }}
+        with:
+          node-version: 24.14.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install independent FFmpeg
+        shell: bash
+        run: |
+          python -m pip install imageio-ffmpeg==0.8.1
+          python -c "import imageio_ffmpeg as f; print('CASAI_REVIEW_FFMPEG=' + f.get_ffmpeg_exe())" >> "$GITHUB_ENV"
+      - name: Run native gates
+        if: ${{ !endsWith(matrix.target, '-musl') }}
+        shell: bash
+        run: bash .github/ci/native-audio.sh
+      - name: Run native gates on Alpine
+        if: endsWith(matrix.target, '-musl')
+        run: |
+          # Use the same independent decoder on Alpine. Only that executable uses the host's loader.
+          printf '#!/bin/sh\nexec /oracle/lib/ld-linux*.so.* --library-path /oracle/lib /oracle/ffmpeg "$@"\n' > .cache/native-input/ffmpeg
+          chmod +x .cache/native-input/ffmpeg
+          docker run --rm -v "$PWD:/repo" -w /repo -e CASAI_REVIEW_NATIVE_TARGET \
+            -v "$CASAI_REVIEW_FFMPEG:/oracle/ffmpeg:ro" -v "/usr/lib/$(gcc -dumpmachine):/oracle/lib:ro" \
+            -e CASAI_REVIEW_FFMPEG=/repo/.cache/native-input/ffmpeg -e CASAI_REVIEW_CHROMIUM=/usr/bin/chromium \
+            node:24.14.1-alpine sh -ec 'apk add --no-cache bash chromium git && git config --global --add safe.directory /repo && bash .github/ci/native-audio.sh'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-${{ matrix.target }}
+          path: |
+            .cache/native-audio-release/*.json
+            .cache/native-install/package-lock.json
+            .cache/native-install/signatures.json
+            .cache/native-gpl/package-lock.json
+            .cache/native-gpl/signatures.json
+          if-no-files-found: warn

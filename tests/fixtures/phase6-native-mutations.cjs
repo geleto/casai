@@ -7,7 +7,9 @@ const workspace = path.resolve(__dirname, '../..');
 const temporary = fs.mkdtempSync(path.join(workspace, '.phase6-native-mutations-'));
 const mutations = [
   ['edited movie conversion', 'const copy = editedMovie ? undefined :', 'const copy = false ? undefined :', 'applies movie playback edits'],
-  ['discarded movie packets', 'discarded && playedPacket || skip &&', 'false || skip &&', 'applies movie playback edits'],
+  ['discarded movie packets', 'if (packet && !(previous.flags & av.AV_PKT_FLAG_DISCARD)', 'if (false && !(previous.flags & av.AV_PKT_FLAG_DISCARD)', 'applies movie playback edits'],
+  ['movie playback endpoint', 'if (available < frame.nbSamples)', 'if (false)', 'applies movie playback edits'],
+  ['movie decoder skip timing', 'context: movie ? { threadCount: 1 } : undefined, resample: {\n', 'resample: {\n', 'applies movie playback edits'],
   ['playlist upload evidence', "return 'ffconcat';", 'return undefined;', 'applies native playlist opening', 'source-evidence.ts'],
   ['transport-stream upload evidence', "return 'video/mp2t';", 'return undefined;', 'dispatches decoded transport streams', 'source-evidence.ts'],
   ['untagged audio frame evidence', 'return framedAudio(bytes);', 'return undefined;', 'distinguishes untagged MP3', 'source-evidence.ts'],
@@ -65,35 +67,68 @@ const mutations = [
   ['native idle timer reference', 'timer.unref(); worker.unref();', 'worker.unref();', 'does not keep Node alive', 'native.ts'],
   ['native cancellation reuse', 'closed || settings.abortSignal?.aborted || workerFailure || exited || !keepWorker', 'exited || !keepWorker', 'discards cancelled and failed workers', 'native.ts'],
 ];
-const selected = mutations.filter(([name]) => new RegExp(process.argv[2] ?? '').test(name));
+const reviewMutations = [
+  ['indexed PCM edit conversion and copy guard', 'const moviePcm = movie &&', 'const moviePcm = false &&', 'indexed PCM movie edit'],
+  ['fragmented selected-track edit admission', "type === 'mvex'", "type === 'skip'", 'unverifiable fragmented movie edits', 'movie-header.ts'],
+  ['unselected movie track seeks', 'other.discard = av.AVDISCARD_ALL', 'other.discard = 0', 'unverifiable fragmented movie edits'],
+  ['MXF header partition', "return 'application/mxf';", 'return undefined;', 'MXF header partition', 'source-evidence.ts'],
+  ['movie path edit verification', "const movie = input.formatName.split(',').includes('mov');", "const movie = typeof source !== 'string' && input.formatName.split(',').includes('mov');", 'movie paths and URLs'],
+  ['automatic movie path selection', 'if (isMovieResource(av, source, format))', 'if (format && isMovieResource(av, source, format))', 'movie paths and URLs'],
+  ['movie cursor after EOF', 'if (requested !== nextPacket)', 'if (offset !== start + block.length)', 'resumes at the next block after probing EOF', 'movie-resource.ts'],
+  ['unknown-length movie index scan', "options.fflags = String(options.fflags ?? '') + '+ignidx';", '', 'fragmented HTTP response body'],
+  ['padded movie evidence', 'offset += size;', 'break;', 'file type box following a free box', 'source-evidence.ts'],
+  ['generated silence byte bound', 'checkPreparedAudioBytes(bytes, pcmBytesLeft);', '', 'larger file limit'],
+  ['cumulative silence budget', 'pcmBytesLeft -= await writePcmPause', 'await writePcmPause', 'larger file limit'],
+  ['incremental input release', 'if (!observed &&', 'if (false &&', 'drained incremental result', 'input.ts'],
+  ['early warning settlement', 'target.durationInSeconds', '(target as unknown as { warnings: Promise<unknown> }).warnings', 'reading early warnings', 'input.ts'],
+  ['validation before source execution', 'validateSettings?.(settings);', '', 'settings error precedes', '../runtime/component-call.ts'],
+  ['empty movie edit', 'if (movie && selected.nbFrames > 0n && selected.duration === 0n)', 'if (false)', 'empty edit and a nonempty edit'],
+  ['HTTP forward seek without ranges', 'packet.pos > requested', 'packet.pos !== requested', 'server ignores ranges', 'movie-resource.ts'],
+  ['PCM layout before script execution', 'if (settings.sourceFormat !== undefined) validatePcmLayout', 'if (false) validatePcmLayout', 'settings error precedes', 'input.ts'],
+  ...(process.env.CASAI_REVIEW_FFMPEG ? [
+    ['empty leading edit endpoint', 'if (edit.empty)', 'if (false)', 'leading empty edit ends'],
+    ['AAC copy initial trim', 'const copiedSkip = skip &&', 'const copiedSkip = false &&', 'AAC skip spanning'],
+    ['fragmented AAC declared end', 'bounds.verifyEnd = end + (bounds.fragmentPriming ?? 0n);', 'bounds.verifyEnd = stream.duration;', 'fragmented AAC priming'],
+    ['Safari AAC copy origin', 'if (copy && fragmentOrigin)', 'if (false && copy && fragmentOrigin)', 'Safari recorder'],
+    ['Safari WAV duration origin', '- (bounds.fragmentPriming ?? 0n) - fragmentOrigin;', '- (bounds.fragmentPriming ?? 0n);', 'Safari recorder'],
+    ['recorder clock catch-up', 'if (bounds.unedited &&', 'if (false &&', 'Chrome recorder fragment joins'],
+    ['streamed movie index size', 'const next = offset + size;', "if (type === 'moov' && size > movieHeaderBudget) return unverifiableMovie(); const next = offset + size;", 'four-minute fast-start', 'movie-header.ts'],
+  ] : []),
+];
+const selected = [...mutations, ...reviewMutations].filter(([name]) => new RegExp(process.argv[2] ?? '').test(name));
 assert(selected.length > 0, 'No matching native mutations.');
-function run(pattern, mutated = false, invert = false) {
+function run(pattern, mutated = false, invert = false, review = false) {
   const generated = spawnSync(process.execPath, ['scripts/build-audio-workers.mjs'], { cwd: temporary, encoding: 'utf8' });
   assert.equal(generated.status, 0, generated.stdout + generated.stderr);
-  const result = spawnSync(process.execPath, [path.join(workspace, 'node_modules/mocha/bin/mocha.js'), '--no-config',
+  const args = review ? ['--import', 'tsx/esm', '--conditions=casai-source', '--test', '--test-reporter=tap',
+    '--test-name-pattern', pattern, 'tests/fixtures/phase6-ab-evaluation.mjs'] : [path.join(workspace, 'node_modules/mocha/bin/mocha.js'), '--no-config',
     '--node-option', 'import=tsx/esm', '--node-option', 'conditions=casai-source', '--reporter', 'dot',
-    'tests/NativeAudio.integration.test.ts', '--grep', pattern, invert ? '--invert' : '--fail-zero'], { cwd: temporary, encoding: 'utf8', timeout: 60000 });
+    'tests/NativeAudio.integration.test.ts', '--grep', pattern, invert ? '--invert' : '--fail-zero'];
+  const result = spawnSync(process.execPath, args, { cwd: temporary, encoding: 'utf8', timeout: 60000 });
   const output = result.stdout + result.stderr;
   assert.equal(result.error, undefined, output);
-  if (mutated) { assert.notEqual(result.status, 0, output); assert.match(output, /\d+ failing/, output); }
+  if (mutated) { assert.notEqual(result.status, 0, output); assert.match(output, review ? /^not ok /m : /\d+ failing/, output); }
   else assert.equal(result.status, 0, output);
 }
 try {
   fs.cpSync(path.join(workspace, 'src'), path.join(temporary, 'src'), { recursive: true });
   fs.copyFileSync(path.join(workspace, 'package.json'), path.join(temporary, 'package.json'));
-  for (const file of ['scripts/build-audio-workers.mjs', 'tests/NativeAudio.integration.test.ts', 'tests/fixtures/native-audio-media.mjs']) {
+  for (const file of ['scripts/build-audio-workers.mjs', 'tests/NativeAudio.integration.test.ts', 'tests/fixtures/native-audio-media.mjs', 'tests/fixtures/phase6-ab-evaluation.mjs', 'tests/fixtures/review-indexed.mov', 'tests/fixtures/review-fragmented.mov', 'tests/fixtures/review-hybrid.mov', 'tests/fixtures/review-chrome-aac.mp4', 'tests/fixtures/review-safari-aac.mp4']) {
     fs.mkdirSync(path.dirname(path.join(temporary, file)), { recursive: true });
     fs.copyFileSync(path.join(workspace, file), path.join(temporary, file));
   }
   // Check related controls in small groups under the same 60-second process watchdog as each fault.
-  const controls = [...new Set(selected.map(([, , , pattern]) => pattern))];
+  const controls = [...new Set(selected.filter(m => mutations.includes(m)).map(m => m[3]))];
+  const reviewControls = selected.filter(m => reviewMutations.includes(m)).map(m => m[3]);
+  for (let start = 0; start < reviewControls.length; start += 4) run(reviewControls.slice(start, start + 4).join('|'), false, false, true);
   for (let start = 0; start < controls.length; start += 8) run(controls.slice(start, start + 8).join('|'));
   if (!process.argv[2]) run(controls.join('|'), false, true); // Also cover every test without a mutation.
-  for (const [name, before, after, pattern, file = 'native-pipeline.ts'] of selected) {
+  for (const mutation of selected) {
+    const [name, before, after, pattern, file = 'native-pipeline.ts'] = mutation;
     const filename = path.join(temporary, 'src/audio', file);
     const original = fs.readFileSync(filename, 'utf8').replace(/\r\n/g, '\n');
     assert.equal(original.split(before).length, 2, name);
-    try { fs.writeFileSync(filename, original.replace(before, after)); run(pattern, true); }
+    try { fs.writeFileSync(filename, original.replace(before, after)); run(pattern, true, false, reviewMutations.includes(mutation)); }
     finally { fs.writeFileSync(filename, original); }
     console.log('Caught native audio mutation: ' + name);
   }

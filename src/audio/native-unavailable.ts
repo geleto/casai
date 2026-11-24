@@ -8,3 +8,4 @@ export function prepareAudio<T extends PrepareAudioSettings>(_audio: AudioSource
 		'For other codecs, pass the recording to .loadsAudio on your Node.js server.',
 	));
 }
+export { prepareAudio as openAudio };

@@ -46,11 +46,16 @@ function keepWorker(worker: Worker, filename: string): boolean {
 	return true;
 }
 
-/** Exclusive native worker ownership until cleanup; one cleaned worker may be reused briefly. */
+/** Standalone private entry for callers outside the component's validated call path. */
 export async function prepareAudio<T extends PrepareAudioSettings>(source: AudioSource, settings: T): Promise<PreparedAudioFor<T>> {
 	validatePreparationSettings(settings, ValidationError);
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Validate JavaScript input before native I/O.
 	if (!settings.inputAudioFormat && !settings.fileAudioTarget) throw new ValidationError('Audio preparation requires inputAudioFormat or fileAudioTarget.');
+	return openAudio(source, settings);
+}
+
+/** Open validated settings on an exclusive native worker. */
+export async function openAudio<T extends PrepareAudioSettings>(source: AudioSource, settings: T): Promise<PreparedAudioFor<T>> {
 	settings.abortSignal?.throwIfAborted();
 	const filename = nativeFilename();
 	const worker = takeWorker(filename);

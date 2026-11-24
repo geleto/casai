@@ -5,12 +5,12 @@ import { Demuxer, Decoder, Encoder, Muxer, IOStream } from 'node-av';
 import * as av from 'node-av';
 import { prepareNativeAudio } from '../../src/audio/native-pipeline.js';
 
-export async function createAudioFile(path, samples, { codec, rate = 48000, channels = 1, frameSamples }) {
+export async function createAudioFile(path, samples, { codec, rate = 48000, channels = 1, frameSamples, format, muxerOptions }) {
   await using input = await Demuxer.open(Buffer.from(samples), { format: 's16le', options: { sample_rate: rate, ch_layout: `${channels}c` } });
   using decoder = await Decoder.create(input.audio());
   using filter = frameSamples ? av.FilterAPI.create(`asetnsamples=n=${frameSamples}:p=0`) : undefined;
   using encoder = await Encoder.create(codec, { decoder, autoResample: true });
-  await using output = await Muxer.open(path);
+  await using output = await Muxer.open(path, { format, options: muxerOptions });
   const index = output.addStream(encoder);
   const frames = decoder.frames(input.packets());
   for await (const packet of encoder.packets(filter ? filter.frames(frames) : frames)) {
@@ -21,12 +21,12 @@ export async function createAudioFile(path, samples, { codec, rate = 48000, chan
 }
 
 // Split at a real packet boundary and shift the second section on the container clock.
-export async function createPausedPcm(path, encoded, milliseconds = 1000) {
+export async function createPausedPcm(path, encoded, milliseconds = 1000, afterMilliseconds = 500) {
   const samples = new Int16Array(48000).fill(1200);
   await using input = encoded ? await Demuxer.open(Buffer.from(encoded))
     : await Demuxer.open(Buffer.from(samples.buffer), { format: 's16le', options: { sample_rate: 48000, ch_layout: 'mono' } });
   const track = input.audio();
-  const second = av.avRescaleQ(1n, { num: 1, den: 1 }, track.timeBase);
+  const threshold = av.avRescaleQ(BigInt(afterMilliseconds), { num: 1, den: 1000 }, track.timeBase);
   const gap = av.avRescaleQ(BigInt(milliseconds), { num: 1, den: 1000 }, track.timeBase);
   await using output = await Muxer.open(path);
   const index = output.addStream(track);
@@ -34,7 +34,7 @@ export async function createPausedPcm(path, encoded, milliseconds = 1000) {
   for await (const packet of input.packets(track.index)) {
     if (!packet) continue;
     try {
-      if (packet.pts >= second / 2n) {
+      if (packet.pts >= threshold) {
         pauseAt ??= Number(av.avRescaleQ(packet.pts, track.timeBase, { num: 1, den: track.codecpar.sampleRate }));
         packet.pts += gap;
         packet.dts += gap;
@@ -115,8 +115,8 @@ export function editMovie(bytes, ranges) {
   const extra = 12 * (ranges.length - 1), entries = Buffer.alloc(12 * ranges.length);
   let duration = 0;
   for (const [i, [start, end]] of ranges.entries()) {
-    const span = (end - start) * movieRate / 1000;
-    entries.writeUInt32BE(span, i * 12); entries.writeInt32BE(priming + start * rate / 1000, i * 12 + 4);
+    const span = (end - (start ?? 0)) * movieRate / 1000;
+    entries.writeUInt32BE(span, i * 12); entries.writeInt32BE(start === null ? -1 : priming + start * rate / 1000, i * 12 + 4);
     entries.writeUInt32BE(0x10000, i * 12 + 8); duration += span;
   }
   for (const pos of [moov, trak, edts, elst]) source.writeUInt32BE(source.readUInt32BE(pos) + extra, pos);

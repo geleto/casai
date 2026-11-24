@@ -93,19 +93,18 @@ async function collect(result: StreamSpeechResult, signal?: AbortSignal): Promis
 	});
 	return { audio, audioFormat: audioFormat!, usage, warnings, responses, providerMetadata };
 }
-function validate(config: Record<PropertyKey, unknown>) {
-	if (!config[streamMode] && config.includeRawChunks !== undefined) throw new ConfigError('includeRawChunks requires .asStream.');
-	if (config[streamMode] && typeof config.outputFormat === 'string') throw new ConfigError('SpeechGenerator.asStream outputFormat must be an object when supplied.');
+function validate(config: { [streamMode]?: unknown; includeRawChunks?: unknown; outputFormat?: unknown }, ErrorClass: typeof ConfigError | typeof ValidationError) {
+	if (!config[streamMode] && config.includeRawChunks !== undefined) throw new ErrorClass('includeRawChunks requires .asStream.');
+	if (config[streamMode] && typeof config.outputFormat === 'string') throw new ErrorClass('SpeechGenerator.asStream outputFormat must be an object when supplied.');
 }
 function create(config: RuntimeComponentConfig) {
 	const runtime = createComponentRuntime(config, definition);
 	async function invoke(raw: Fields, tool?: ToolInvocation) {
-		const prepared = await runtime.prepare(raw, tool);
+		const prepared = await runtime.prepare(raw, tool, settings => { validate(settings, ValidationError); });
 		const settings = sdkRequest(prepared);
 		const signal = prepared.context._toolOptions.abortSignal;
 		if (settings.text == null) throw new ValidationError('SpeechGenerator requires text.');
-		if (!config[streamMode] && settings.includeRawChunks !== undefined) throw new ValidationError('includeRawChunks requires .asStream.');
-		if (typeof settings.outputFormat === 'string' && (config[streamMode] || typeof settings.text !== 'string')) {
+		if (typeof settings.outputFormat === 'string' && typeof settings.text !== 'string') {
 			throw new ValidationError('A string outputFormat requires string text and completed delivery.');
 		}
 		let result: SpeechResult, collected = false;
@@ -130,4 +129,4 @@ function create(config: RuntimeComponentConfig) {
 }
 
 /** Completed speech, or native incremental delivery with .asStream (experimental SDK API). */
-export const SpeechGenerator = createComponentFactory(definition, create, validate) as SourceFactory<'SpeechGenerator'>;
+export const SpeechGenerator = createComponentFactory(definition, create, config => { validate(config, ConfigError); }) as SourceFactory<'SpeechGenerator'>;

@@ -1229,17 +1229,17 @@ export default {
       "_internal-2797c17b47fe"
     ],
     "RenderOptions": [
-      "replayAsyncIterables-08bd2e383475",
-      "autoescape-19ef6c31974b",
-      "throwOnUndefined-c31e1e20c542",
-      "trimBlocks-1cbedc8066bc",
-      "lstripBlocks-d9932524bb24",
-      "watch-9dc748ac9d7d",
-      "noCache-4c9b4c901eb7",
-      "dev-14d5494fcdff",
-      "web-284a273e5641",
-      "express-fa9408561b49",
-      "tags-3d4ec07f1a22"
+      "replayAsyncIterables-1922b83c46d7",
+      "autoescape-0fd82da2d919",
+      "throwOnUndefined-fa7eeddad50a",
+      "trimBlocks-a103e1e5c1c7",
+      "lstripBlocks-360a57b29864",
+      "watch-6c8d7c97cb8b",
+      "noCache-c16665203f1a",
+      "dev-c66bed597c2b",
+      "web-026db73498ee",
+      "express-6645ad524cc8",
+      "tags-b567e55e7b4a"
     ],
     "ExecutionOptions": [
       "abortSignal-2bf31b7f87fc",
@@ -2236,16 +2236,16 @@ export default {
       "description-43c7639c81e5"
     ],
     "RenderTags:0": [
-      "blockStart-f5e2528ea25e",
-      "blockEnd-0f749e13b000",
-      "variableStart-05fdbed68441",
-      "variableEnd-f77e2116f6e3",
-      "commentStart-b8315042f228",
-      "commentEnd-d74f77fd5dec"
+      "blockStart-2d9e8e293c8e",
+      "blockEnd-92457faa33e6",
+      "variableStart-2604c83110e3",
+      "variableEnd-c69d53ced37c",
+      "commentStart-d075610c694f",
+      "commentEnd-15c1f3fdf84e"
     ],
     "RenderWeb:0": [
-      "useCache-fea750cb2b63",
-      "async-83ca33f9d83e"
+      "useCache-dfe9d6549f5e",
+      "async-4c6c34746bff"
     ],
     "PcmSourceFormat:0": [
       "sampleRate-e218b27f2dde",
@@ -7283,114 +7283,158 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4224"
       }
     },
-    "replayAsyncIterables-08bd2e383475": {
+    "replayAsyncIterables-1922b83c46d7": {
       "name": "replayAsyncIterables",
       "type": "boolean | undefined",
       "optional": true,
       "description": "Set false to disable automatic async loop replay. Sequential loops close on early exit. Default: true.",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 111,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L111"
       }
     },
-    "autoescape-19ef6c31974b": {
+    "autoescape-0fd82da2d919": {
       "name": "autoescape",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 112,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L112"
       }
     },
-    "throwOnUndefined-c31e1e20c542": {
+    "throwOnUndefined-fa7eeddad50a": {
       "name": "throwOnUndefined",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 113,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L113"
       }
     },
-    "trimBlocks-1cbedc8066bc": {
+    "trimBlocks-a103e1e5c1c7": {
       "name": "trimBlocks",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 114,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L114"
       }
     },
-    "lstripBlocks-d9932524bb24": {
+    "lstripBlocks-360a57b29864": {
       "name": "lstripBlocks",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 115,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L115"
       }
     },
-    "watch-9dc748ac9d7d": {
+    "watch-6c8d7c97cb8b": {
       "name": "watch",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 116,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L116"
       }
     },
-    "noCache-4c9b4c901eb7": {
+    "noCache-c16665203f1a": {
       "name": "noCache",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 117,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L117"
       }
     },
-    "dev-14d5494fcdff": {
+    "dev-c66bed597c2b": {
       "name": "dev",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 118,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L118"
       }
     },
-    "web-284a273e5641": {
+    "web-026db73498ee": {
       "name": "web",
       "type": "{ useCache?: boolean | undefined; async?: boolean | undefined; } | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 119,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L119"
       }
     },
-    "express-fa9408561b49": {
+    "express-6645ad524cc8": {
       "name": "express",
       "type": "object | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 125,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L125"
       }
     },
-    "tags-3d4ec07f1a22": {
+    "tags-b567e55e7b4a": {
       "name": "tags",
       "type": "{ blockStart?: string | undefined; blockEnd?: string | undefined; variableStart?: string | undefined; variableEnd?: string | undefined; commentStart?: string | undefined; commentEnd?: string | undefined; } | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 126,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L126"
       }
     },
     "abortSignal-2bf31b7f87fc": {
@@ -12579,84 +12623,116 @@ export default {
         "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4376"
       }
     },
-    "blockStart-f5e2528ea25e": {
+    "blockStart-2d9e8e293c8e": {
       "name": "blockStart",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 128,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L128"
       }
     },
-    "blockEnd-0f749e13b000": {
+    "blockEnd-92457faa33e6": {
       "name": "blockEnd",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 129,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L129"
       }
     },
-    "variableStart-05fdbed68441": {
+    "variableStart-2604c83110e3": {
       "name": "variableStart",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 130,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L130"
       }
     },
-    "variableEnd-f77e2116f6e3": {
+    "variableEnd-c69d53ced37c": {
       "name": "variableEnd",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 131,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L131"
       }
     },
-    "commentStart-b8315042f228": {
+    "commentStart-d075610c694f": {
       "name": "commentStart",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 132,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L132"
       }
     },
-    "commentEnd-d74f77fd5dec": {
+    "commentEnd-15c1f3fdf84e": {
       "name": "commentEnd",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 133,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L133"
       }
     },
-    "useCache-fea750cb2b63": {
+    "useCache-dfe9d6549f5e": {
       "name": "useCache",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 121,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L121"
       }
     },
-    "async-83ca33f9d83e": {
+    "async-4c6c34746bff": {
       "name": "async",
       "type": "boolean | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "../cascada/dist/types/index.d.ts"
+        "path": "node_modules/cascada-engine/dist/types/index.d.ts",
+        "line": 122,
+        "package": "cascada-engine",
+        "version": "0.7.0",
+        "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L122"
       }
     },
     "sampleRate-e218b27f2dde": {

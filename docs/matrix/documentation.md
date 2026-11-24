@@ -2370,6 +2370,8 @@ Node preserves interior pauses when it decodes a raw track or converts a file. A
 
 `maxPreparedAudioBytes` defaults to 32 MiB. It bounds finite PCM conversion, WAV wrapping and the PCM prepared for a raw model or a native encoder. For example, a 16 kHz mono PCM16 encoder uses 32,000 bytes per second of audio including generated silence, even when an AAC decoder works in floating point. A timestamp-only copy spends bytes on the packets and container it stores. The buffered file has the same default limit. Set `fileAudioTarget.maxBytes` to give the completed file, including its headers, a separate limit. Use `fileAudioTarget.maxDurationSeconds` to limit playback time.
 
+A WAV packet copy charges every silent sample it generates to `maxPreparedAudioBytes`. For example, two one-second pauses in 48 kHz mono PCM16 need 192,000 bytes of generated silence. The completed WAV, including its recorded samples and headers, must also fit the file limit.
+
 For raw model input, a PCM WAV or standalone FLAC with a known sample count can be rejected before the provider call at its original rate or when upsampling. Other inputs, including downsampled recordings and codecs that trim padding, enforce the byte budget as audio is produced. Their provider call may already have started. Ordinary live raw streams remain open-ended.
 
 For example, POST a browser's original `MediaRecorder` recording or a video file to your server. This application accepts up to five minutes and a 10 MiB output file. Its transcription model takes a 16 kHz mono PCM16 WAV.
@@ -2389,7 +2391,7 @@ if (!request.body) throw new Error('The request needs a recording.');
 const { text } = await transcribeUpload(request.body);
 ```
 
-The request body is forward-only. For a container that needs seeking, pass a file path such as `'./interview.mp4'` or complete encoded bytes. Casai copies compatible encoded audio when possible, converts when needed and owns cleanup. To select a different audio track, set `mediaSettings.track` to its zero-based stream index. Headerless PCM needs an input description even at the model rate. Supply `sourceFormat` for numeric samples or raw bytes/streams. Casai keeps paths/URLs on native opening: headerless resources use `mediaSettings.format` and native sample options, not a reusable `sourceFormat`. An ordinary component can forward already-compatible raw bytes with only `inputAudioFormat`. An explicit native demuxer override takes precedence for non-array inputs.
+The request body is forward-only. For a container that needs seeking, pass complete encoded bytes. A path such as `'./interview.caf'` also keeps native seeking. Casai copies compatible encoded audio when possible, converts when needed and owns cleanup. To select a different audio track, set `mediaSettings.track` to its zero-based stream index. Headerless PCM needs an input description even at the model rate. Supply `sourceFormat` for numeric samples or raw bytes/streams. For headerless paths and URLs, select `mediaSettings.format` and native sample options. An ordinary component can forward already-compatible raw bytes with only `inputAudioFormat`. An explicit native demuxer override takes precedence for non-array inputs.
 
 A reusable PCM layout also recognizes HLS and FFconcat manifest headers. Uploaded manifests retain the same child-resource access limits as other uploads. Pass a trusted playlist by its original path or URL when its segments use relative references.
 
@@ -2431,7 +2433,19 @@ If the endpoint accepts the source M4A recording, ordinary file transcription ca
 
 Opening and stream inspection may read packets, seek or wait for network data before prepared audio is available. A supplied byte stream uses FFmpeg's default probe size. An explicit `mediaSettings.format` bypasses format detection and still allows stream-info inspection. Use invocation cancellation and applicable native probe or network options. Failed detection or an unsuitable override reports an error.
 
-MOV and M4A recordings can contain playback edits that skip part of a take. When the native track information shows a longer edit, Casai decodes the edited audio and encodes the requested primary format. If a copy reveals omitted material only after processing has started, the call fails before upload. An explicit PCM WAV target applies the edits during decoding.
+MOV and M4A recordings can contain playback edits that skip part of a take. Decoding applies the selected track's playback boundaries before resampling or encoding, even when an edit ends partway through a frame. For example, an M4A copy can preserve a cut inside the final AAC block. If the endpoint accepts only ADTS, Casai can convert to that target when it identifies the partial block during inspection. A boundary first discovered during a copy causes that copy to reject before upload if it would restore removed audio.
+
+For a movie with several edits, the native library can expose a splice without identifying its exact restart sample. Casai stops before delivering the packet at that splice. Export a flattened recording to use that material. A recording with a recognizable QuickTime movie header or a file-type box after padding takes the encoded route even with a reusable PCM layout.
+
+Pass a MOV, MP4 or M4A path directly to Node `.loadsAudio`, for example `await transcribe('interview.mov')`. File URLs and HTTP(S) URLs with movie filenames work the same way, including signed URLs with a query string. For a movie served from an endpoint such as `/download/123`, set `mediaSettings: { format: 'mov' }`. Casai checks the selected track's edits and plays the recording through the same native resource handle.
+
+You can also pass complete bytes, a File/Blob or a streamable upload. Casai reads track IDs, clocks and playback edits as the header arrives, skipping large video and audio sample tables. A fast-start movie can have a large index. If an upload needs seeking, pass the original Blob, bytes or a seekable resource. A streamable HTTP movie can play when its server ignores range requests.
+
+A leading empty edit can position a track on the movie timeline. Prepared audio starts at the track's first playable sample and stops at its authored end. For fragmented AAC, Casai can verify a single normal-speed edit that skips one AAC frame of priming against the first packet. A zero-duration edit spans the subsequent media. A finite edit also limits the permitted extent of the fragments. Export the edited audio as WAV when the selected track's edits cannot be verified. Another track's edits do not prevent a verified track from playing.
+
+On an unedited movie track, recorder timestamps can catch up at fragment boundaries. Decoded audio stays continuous while its samples cover the next timestamp. A timestamp beyond those samples preserves the pause.
+
+An MXF header partition within the classification prefix selects encoded handling even with a reusable PCM layout. A short SMPTE label alone can occur in genuine raw samples.
 
 `.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber separately accepts supplied encoded/raw audio or a native URL through the SDK `download` hook. Use an explicit preparer for application-owned downloads or fresh streams. FFmpeg can feed the raw-audio SDK stream while reading the resource, after required probing; the encoded-file SDK operation needs complete prepared bytes. Provider limits and first-result timing still apply. Completed audio results retain their output audio in memory.
 
@@ -2439,7 +2453,7 @@ The native media path does not inherit the SDK downloader's URL protections or b
 
 A `.loadsAudio.asTool` component requires configured `audio`, possibly inherited. SDK tool execution and injected tool calls use that source; model arguments cannot replace it. Declared context fields may still serve callbacks, but even a field named `audio` is application data rather than a resource override. Use a closed empty schema when no public data is needed. Ordinary application calls and `.run({ audio, ... })` retain explicit trusted source overrides. Dynamic model-selected native resources belong in an explicit Function/Script workflow that resolves and authorizes the recording before invoking `.loadsAudio.run()`. Ordinary Transcriber tools still accept native SDK URL input with downloader protections. FFmpeg protocol options do not provide a general destination/redirect/playlist authorization mechanism.
 
-`.loadsAudio` owns resources it opens until the SDK accepts them. Preparation, cancellation or an early dispatch failure closes those resources. After handoff, consume or cancel the native stream result under its existing ownership rules.
+`.loadsAudio` closes its resources on preparation failure, cancellation and early dispatch failure. On `.asStream`, choose `fullStream` to read events or await a native result promise to collect them. Once you choose, Casai observes native completion and releases any unfinished converter or upload, including when a provider finishes after reading one chunk. Pass a per-invocation abort signal if you may abandon the result before it finishes.
 
 A Function or Script workflow can resolve a recording ID and call a configured `.loadsAudio` component through `.run({ audio, mediaSettings })` with fresh private credentials or a track choice. The component owns preparation and cleanup.
 

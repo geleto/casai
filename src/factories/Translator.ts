@@ -5,7 +5,7 @@ import { audioBase64, concatAudio, type AudioCallFormat, type CheckPcmLayout, ty
 import { ConfigError, ValidationError } from '../errors.js';
 import { createComponentFactory, audioInputModifiers, audioInputModes, type SourceFactory } from './component-factory.js';
 import { createComponentRuntime, type RuntimeComponentConfig } from '../runtime/component-call.js';
-import { validateAudioSettings, withAudioInput } from '../audio/input.js';
+import { releaseOnAudioFinish, validateAudioSettings, withAudioInput } from '../audio/input.js';
 import { isPlainObject } from '../schema.js';
 import type { ToolInvocation } from '../types/execution.js';
 import type { Fields, OptionalUndefined } from '../types/utils.js';
@@ -65,15 +65,17 @@ async function collect(result: StreamTranslationResult, signal?: AbortSignal): P
 function validate(config: Record<PropertyKey, unknown>) {
 	validateAudioSettings(config, false, ConfigError);
 }
+function validateCall(settings: RuntimeComponentConfig) {
+	validateAudioSettings(settings, false, ValidationError);
+	if (settings.inputAudioFormat === undefined || settings.targetLanguage === undefined) throw new ValidationError('Translator requires inputAudioFormat and targetLanguage.');
+}
 function create(config: RuntimeComponentConfig) {
 	const runtime = createComponentRuntime(config, definition);
 	async function invoke(raw: Fields, tool?: ToolInvocation) {
-		const prepared = await runtime.prepare(raw, tool);
-		validateAudioSettings(prepared.settings, false, ValidationError);
-		if (prepared.settings.inputAudioFormat === undefined || prepared.settings.targetLanguage === undefined) throw new ValidationError('Translator requires inputAudioFormat and targetLanguage.');
-		return withAudioInput(prepared, async settings => {
+		const prepared = await runtime.prepare(raw, tool, validateCall);
+		return withAudioInput(prepared, async (settings, close) => {
 			const stream = streamTranslate(settings as Parameters<typeof streamTranslate>[0]);
-			if (config[streamMode]) return stream;
+			if (config[streamMode]) return releaseOnAudioFinish(stream, close);
 			const signal = prepared.context._toolOptions.abortSignal;
 			const result = await collect(stream, signal);
 			return tool ? { sourceText: result.sourceText, translationText: result.translationText, audio: await audioBase64(result.audio, signal), durationInSeconds: result.durationInSeconds } : result;

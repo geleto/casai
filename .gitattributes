@@ -13,6 +13,8 @@
 
 # Files that will always have LF line endings on checkout
 *.sh text eol=lf
+# The matrix embeds its canonical text resources and compares generated references byte for byte.
+docs/matrix/** text=auto eol=lf
 
 # Files that will always have CRLF line endings on checkout
 *.bat text eol=crlf

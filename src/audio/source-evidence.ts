@@ -29,6 +29,32 @@ function textAt(bytes: Uint8Array, offset: number, text: string): boolean {
 	return true;
 }
 
+function movieContainer(bytes: Uint8Array, view: DataView): string | undefined {
+	// Follow box sizes inside the retained prefix. A padding box or media payload alone is weak evidence.
+	for (let offset = 0; offset + 8 <= bytes.length;) {
+		let size = view.getUint32(offset), body = offset + 8;
+		if (size === 1) {
+			if (body + 8 > bytes.length) return undefined;
+			size = Number(view.getBigUint64(body));
+			body += 8;
+		}
+		if (textAt(bytes, offset + 4, 'ftyp') && body + 8 <= bytes.length && size >= body - offset + 8 && size % 4 === 0) {
+			if (textAt(bytes, body, 'qt  ')) return 'video/quicktime';
+			if (['isom', 'iso2', 'mp41', 'mp42', 'M4A ', 'M4B '].some(brand => textAt(bytes, body, brand))) return 'audio/mp4';
+			return 'ftyp';
+		}
+		if (textAt(bytes, offset + 4, 'moov') && textAt(bytes, body + 4, 'mvhd')) {
+			const version = bytes[body + 8], headerSize = view.getUint32(body);
+			const timescale = body + (version === 1 ? 28 : 20);
+			if ((version === 0 || version === 1) && timescale + 4 <= bytes.length && headerSize >= (version === 1 ? 120 : 108)
+				&& (size === 0 || body + headerSize <= offset + size) && view.getUint32(timescale)) return 'video/quicktime';
+		}
+		if (size < body - offset || !['free', 'skip', 'wide', 'mdat'].some(type => textAt(bytes, offset + 4, type))) break;
+		offset += size;
+	}
+	return undefined;
+}
+
 function transportStream(bytes: Uint8Array, stride: number, offset: number): boolean {
 	// TS, M2TS and error-corrected TS have the same four-byte packet header.
 	if (bytes.length < offset + 2 * stride + 5) return false;
@@ -178,11 +204,8 @@ export function audioContainer(bytes: Uint8Array): string | undefined {
 	if (bytes.length >= 10 && textAt(bytes, 0, 'ID3') && bytes[3] >= 2 && bytes[3] <= 4 && bytes[4] !== 255
 		&& (bytes[5] & (0xff >> (bytes[3] === 2 ? 2 : bytes[3] === 3 ? 3 : 4))) === 0
 		&& bytes.subarray(6, 10).every(value => value < 128)) return 'ID3';
-	if (bytes.length >= 16 && textAt(bytes, 4, 'ftyp') && view.getUint32(0) >= 16 && view.getUint32(0) % 4 === 0) {
-		if (textAt(bytes, 8, 'qt  ')) return 'video/quicktime';
-		if (['isom', 'iso2', 'mp41', 'mp42', 'M4A ', 'M4B '].some(brand => textAt(bytes, 8, brand))) return 'audio/mp4';
-		return 'ftyp';
-	}
+	const movie = movieContainer(bytes, view);
+	if (movie) return movie;
 	if (bytes.length >= 5 && view.getUint32(0) === 0x1a45dfa3) {
 		// Walk the bounded EBML header to read DocType, rather than calling all EBML WebM.
 		const vint = (offset: number, id = false): { value: number; end: number } | undefined => {
@@ -206,6 +229,11 @@ export function audioContainer(bytes: Uint8Array): string | undefined {
 			}
 			offset = size.end + size.value;
 		}
+	}
+	// MXF permits a run-in before its header partition. A generic four-byte SMPTE label is insufficient.
+	for (let i = bytes.indexOf(0x06); i >= 0 && i + 16 <= bytes.length; i = bytes.indexOf(0x06, i + 1)) {
+		if (textAt(bytes, i, '\x06\x0e\x2b\x34\x02\x05\x01\x01\x0d\x01\x02\x01\x01\x02')
+			&& bytes[i + 14] >= 1 && bytes[i + 14] <= 4 && bytes[i + 15] === 0) return 'application/mxf';
 	}
 	return framedAudio(bytes);
 }

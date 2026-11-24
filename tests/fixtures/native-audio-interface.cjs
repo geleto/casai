@@ -13,7 +13,7 @@ import type { NativeAv, NativePacket, NativeFrame, NativeStream } from '../src/a
 const packet: NativePacket = null! as av.Packet;
 const frame: NativeFrame = null! as av.Frame;
 const stream: NativeStream = null! as av.Stream;
-const actual: NativeAv<av.AVSampleFormat, av.ChannelLayout, av.IOContext, av.FFEncoderCodec, av.Decoder, av.Frame, av.CodecParameters> = av;
+const actual: NativeAv<av.AVSampleFormat, av.ChannelLayout, av.IOContext, av.FFEncoderCodec, av.Decoder, av.Frame, av.CodecParameters, av.AVSeekFlag> = av;
 void [packet, frame, stream, actual];
 `);
 const compiler = path.join(path.dirname(require.resolve(`@typescript/typescript-${process.platform}-${process.arch}/package.json`)), 'lib', process.platform === 'win32' ? 'tsc.exe' : 'tsc');

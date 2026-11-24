@@ -232,6 +232,17 @@ describe('Phase 6 audio delivery', () => {
 		});
 		assert.equal(completeCalls, 1); assert.equal(streamCalls, 3);
 	});
+	it('rejects incompatible speech delivery settings before preparing text or loading a script', async () => {
+		let prepared = 0, loaded = 0, requests = 0;
+		const model = new Experimental_MockStreamingSpeechModelV4({ doStream: async () => {
+			requests++; return { stream: convertArrayToReadableStream([{ type: 'finish' }]) };
+		} });
+		const speak = SpeechGenerator.withFunction({ model, text: () => { prepared++; return 'hello'; } });
+		const stream = SpeechGenerator.loadsScript.asStream({ model, text: 'text.cas', loader: () => { loaded++; return "return 'hello'"; } });
+		await assert.rejects(speak.run({ includeRawChunks: true } as never), ValidationError);
+		await assert.rejects(stream.run({ outputFormat: 'wav' } as never), ValidationError);
+		assert.deepEqual([prepared, loaded, requests], [0, 0, 0]);
+	});
 	it('rejects invalid speech shape before dispatch, mixed formats and empty completion without retries', async () => {
 		let requests = 0;
 		const model = new Experimental_MockStreamingSpeechModelV4({ doStream: async () => {

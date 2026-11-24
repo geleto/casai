@@ -7,7 +7,8 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { spawnSync } = require('node:child_process');
 const workspace = path.resolve(__dirname, '../..');
-const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'casai-package-'));
+const tempRoot = fs.realpathSync(os.tmpdir());
+const temporary = fs.mkdtempSync(path.join(tempRoot, 'casai-package-'));
 function run(executable, args, cwd = temporary) {
   const result = spawnSync(executable, args, { cwd, encoding: 'utf8', timeout: 180000 });
   assert.equal(result.error, undefined);
@@ -285,7 +286,7 @@ for (const settings of [{ inputAudioFormat }, { fileAudioTarget: { format: 'wav'
   if (engine) console.log(run(process.execPath, [path.join(workspace, 'tests/fixtures/phase6-browser.mjs'), '--dist']));
   console.log('Packed consumer passed without workspace resolution.');
 } finally {
-  assert.equal(path.dirname(path.resolve(temporary)), path.resolve(os.tmpdir()));
+  assert.equal(path.dirname(temporary), tempRoot);
   assert.ok(path.basename(temporary).startsWith('casai-package-'));
   fs.rmSync(temporary, { recursive: true, force: true });
 }

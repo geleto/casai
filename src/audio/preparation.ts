@@ -3,6 +3,7 @@ import type { PcmSourceFormat, PcmSamples } from './pcm.js';
 import { type ConfigError, ValidationError } from '../errors.js';
 import type { ConfigValue } from '../types/config.js';
 import { preparedAudioTypes } from './source-evidence.js';
+import { validatePcmLayout } from './pcm-format.js';
 
 export type AudioSource = string | URL | Blob | AudioBytes | PcmSamples | ReadableStream<Uint8Array>;
 export const defaultPreparedAudioBytes = 32 * 1024 * 1024;
@@ -68,6 +69,7 @@ export type PreparedAudioFor<T extends PrepareAudioSettings> = PreparedAudio<T e
 
 export function validatePreparationSettings(settings: Partial<Pick<PrepareAudioSettings, 'mediaSettings' | 'inputAudioFormat' | 'fileAudioTarget' | 'sourceFormat' | 'maxPreparedAudioBytes'>>, ErrorClass: typeof ConfigError | typeof ValidationError): void {
 	validatePreparedAudioLimit(settings.maxPreparedAudioBytes, ErrorClass);
+	if (settings.sourceFormat !== undefined) validatePcmLayout(settings.sourceFormat, ErrorClass);
 	const track = settings.mediaSettings?.track;
 	if (track !== undefined && (!Number.isSafeInteger(track) || track < 0)) throw new ErrorClass('mediaSettings.track must be a non-negative container stream index.');
 	if (settings.inputAudioFormat !== undefined && settings.fileAudioTarget !== undefined) throw new ErrorClass('Choose inputAudioFormat or fileAudioTarget, not both.');

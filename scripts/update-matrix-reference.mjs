@@ -70,7 +70,7 @@ Object.assign(aliases, detailAliases);
 const probe = new URL('.cache/matrix-reference-types.ts', root);
 await mkdir(new URL('.cache/', root), { recursive: true });
 await writeFile(probe, Object.entries(aliases).map(([name, type]) => `export type ${name} = ${type};`).join('\n'));
-const program = ts.createProgram([fileURLToPath(probe)], { strict: true, skipLibCheck: true, noEmit: true, types: ['node'], target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext });
+const program = ts.createProgram([fileURLToPath(probe)], { strict: true, skipLibCheck: true, noEmit: true, preserveSymlinks: true, types: ['node'], target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext });
 const checker = program.getTypeChecker();
 const source = program.getSourceFile(fileURLToPath(probe));
 const errors = [...program.getSyntacticDiagnostics(source), ...program.getSemanticDiagnostics(source)];

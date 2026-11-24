@@ -258,8 +258,12 @@ describe('Native audio preparation (LGPL integration)', function () {
 		assert.equal(files[0].mediaType, 'audio/webm');
 		assert(files[0].audio.length < 120000);
 		assert.deepEqual(await native.readAudioPackets(files[0].audio), source);
+		const exact = files[0].audio.length;
+		await component.run({ audio: bytes, maxPreparedAudioBytes: 1, fileAudioTarget: { ...profile, maxBytes: exact } });
+		assert.deepEqual(await native.readAudioPackets(files[1].audio), source);
+		await assert.rejects(component.run({ audio: bytes, fileAudioTarget: { ...profile, maxBytes: exact - 1 } }), /file byte limit/);
 		await assert.rejects(component.run({ audio: bytes, fileAudioTarget: { ...profile, maxDurationSeconds: 1.5 } }), /maxDurationSeconds/);
-		assert.equal(files.length, 1);
+		assert.equal(files.length, 2);
 	});
 	it('copies continuous Opus across a rounded pre-skip and still rejects a real interior pause', async () => {
 		const { model, files } = captureTranscription();
@@ -284,7 +288,8 @@ describe('Native audio preparation (LGPL integration)', function () {
 			['m4a', 'aac', 'adts', 'audio/aac', 1024],
 			['mp3', 'libmp3lame', 'wav', 'audio/wav', 1105],
 		] as const) {
-			const source = await native.createAudioFile(resolve(directory, `primed.${extension}`), samples, { codec });
+			// Twelve AAC frames end on an exact movie-clock tick. The only discarded samples are encoder priming.
+			const source = await native.createAudioFile(resolve(directory, `primed.${extension}`), codec === 'aac' ? samples.subarray(0, 12288 * 2) : samples, { codec });
 			const original = await native.decodeMonoPcm(source);
 			await Transcriber.loadsAudio({ model, fileAudioTarget: { format, codec } })(source);
 			assert.equal(files.at(-1)!.mediaType, mediaType);
@@ -309,25 +314,30 @@ describe('Native audio preparation (LGPL integration)', function () {
 			}
 			return upward * 10;
 		}
-		for (const ranges of [[[1000, 3000]], [[0, 1000], [2000, 3000]]] as [number, number][][]) {
+		for (const ranges of [[[1000, 3000]], [[1000, 2500]]] as [number, number][][]) {
 			const edited = native.editMovie(aac, ranges), reference = await native.decodeMonoPcm(edited);
 			for (const [format, mime] of [['adts', 'audio/aac'], ['mp4', 'audio/mp4']]) {
 				await Transcriber.loadsAudio({ model, fileAudioTarget: { format, codec: 'aac' } })(edited);
 				assert.equal(files.at(-1)!.mediaType, mime);
 				const played = await native.decodeMonoPcm(files.at(-1)!.audio);
 				assert.ok(Math.abs(played.length - reference.length) <= 2 * 1024 * 2, 'Only normal AAC frame padding fits this difference');
-				for (const [second, hz] of [ranges.length === 1 ? 1150 : 350, 2200].entries()) {
+				for (const [second, hz] of [1150, 2200].entries()) {
 					assert.ok(Math.abs(frequency(reference, second) - hz) <= 10);
 					assert.ok(Math.abs(frequency(played, second) - hz) <= 10);
 				}
 			}
 		}
 		const alac = await native.createAudioFile(resolve(directory, 'variable-edit.m4a'), new Uint8Array(tone.buffer), { codec: 'alac' });
-		const edited = native.editMovie(alac, [[0, 1000], [2000, 3000]]);
-		await assert.rejects(Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'mp4', codec: 'alac' } })(edited), /omitted by a playback edit/);
+		for (const [file, codec] of [[alac, 'alac'], [aac, 'aac']] as const) {
+			const edited = native.editMovie(file, [[0, 1000], [2000, 3000]]);
+			for (const fileAudioTarget of [{ format: 'mp4', codec }, { format: 'wav', codec: 'pcm_s16le' }]) {
+				await assert.rejects(Transcriber.loadsAudio({ model, fileAudioTarget })(edited), /playback edit.*flattened/);
+			}
+		}
 		assert.equal(files.length, 4);
-		await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } })(edited);
-		assert.deepEqual((await readWav(files[4].audio)).audio, await native.decodeMonoPcm(edited));
+		const edited = native.editMovie(alac, [[100, 1300]]);
+		await Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le', maxDurationSeconds: 1.2 } })(edited);
+		assert.deepEqual((await readWav(files[4].audio)).audio, new Uint8Array(tone.buffer, rate / 10 * 2, rate * 1.2 * 2));
 	});
 	it('bounds generated PCM and buffered files', async () => {
 		const { bytes } = await native.createPausedPcm(resolve(directory, 'byte-limit.mka'));
@@ -820,15 +830,16 @@ describe('Native audio preparation (LGPL integration)', function () {
 		await assert.rejects(prepareAudio(new Uint8Array([0, 1, 2, 3]), { inputAudioFormat: target }));
 	});
 	it('preserves native seeking and rejects the same seek-dependent file as a forward-only stream', async () => {
-		const path = resolve(directory, 'seek.mov');
-		const samples = new Uint8Array(48000 * 2 * 5);
-		const mov = await native.createAudioFile(path, samples, { codec: 'pcm_s16le' });
-		for (const source of [path, mov]) {
+		// The CAF packet table is after its variable-size ALAC payload. Use complete codec blocks.
+		const path = resolve(directory, 'seek.caf');
+		const samples = Int16Array.from({ length: 60 * 4096 }, (_, i) => (i * 2377) % 62951 - 31800);
+		const file = await native.createAudioFile(path, new Uint8Array(samples.buffer), { codec: 'alac' });
+		for (const source of [path, file]) {
 			await using prepared = await prepareAudio(source, { inputAudioFormat: target });
-			assert.equal((await consume(prepared.audio)).length, 24000 * 2 * 5);
+			assert.equal((await consume(prepared.audio)).length, samples.length);
 		}
 		await assert.rejects(async () => {
-			await using prepared = await prepareAudio(bytesStream(mov, 4096), { inputAudioFormat: target });
+			await using prepared = await prepareAudio(bytesStream(file, 4096), { inputAudioFormat: target });
 			await consume(prepared.audio);
 		});
 	});
@@ -1109,6 +1120,9 @@ describe('Native audio preparation (LGPL integration)', function () {
 		const input = new ReadableStream<Uint8Array>({ pull(controller) { reads++; controller.enqueue(pcm); controller.close(); } }, { highWaterMark: 0 });
 		const raw = { sampleRate: 48000, channels: 1, encoding: 'pcm_s16le' } as const;
 		await assert.rejects(prepareAudio(input, { sourceFormat: raw, mediaSettings: { track: -1 }, inputAudioFormat: target }), ValidationError);
+		await assert.rejects(Transcriber.loadsAudio({ model: captureTranscription().model, inputAudioFormat: target }).run({
+			audio: input, sourceFormat: { ...raw, channels: 0 },
+		}), ValidationError);
 		assert.equal(reads, 0); assert.equal(input.locked, false);
 		await using prepared = await prepareAudio(input, { sourceFormat: { sampleRate: 1, channels: 2 }, inputAudioFormat: target,
 			mediaSettings: { track: 0, format: 's16le', options: { sample_rate: raw.sampleRate, ch_layout: 'mono' } } });
@@ -1233,10 +1247,11 @@ describe('Native audio preparation (LGPL integration)', function () {
 		}
 	});
 	it('retains native HTTP seeking and authenticated HLS child requests', async () => {
-		const mov = await native.createAudioFile(resolve(directory, 'recording.mov'), new Uint8Array(48000 * 2 * 5), { codec: 'pcm_s16le' });
+		const samples = Int16Array.from({ length: 60 * 4096 }, (_, i) => (i * 2377) % 62951 - 31800);
+		const caf = await native.createAudioFile(resolve(directory, 'recording.caf'), new Uint8Array(samples.buffer), { codec: 'alac' });
 		const segment = await native.createAudioFile(resolve(directory, 'segment.ts'), pcm, { codec: 'aac' });
 		const resources: Record<string, Uint8Array> = {
-			'/recording.mov': mov, '/segment.ts': segment,
+			'/recording.caf': caf, '/segment.ts': segment,
 			'/playlist.m3u8': new TextEncoder().encode('#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:0.2,\nsegment.ts\n#EXT-X-ENDLIST\n'),
 		};
 		const requests: { url: string; start: number; authorization?: string }[] = [];
@@ -1256,9 +1271,9 @@ describe('Native audio preparation (LGPL integration)', function () {
 		try {
 			const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 			const mediaSettings = { options: { headers: 'Authorization: Bearer playlist-secret\r\n' } };
-			await using seekable = await prepareAudio(base + '/recording.mov', { inputAudioFormat: target, mediaSettings });
-			assert.equal((await consume(seekable.audio)).length, 24000 * 2 * 5);
-			assert.ok(requests.some(request => request.url === '/recording.mov' && request.start > 0), 'Native seeking issues an HTTP range request.');
+			await using seekable = await prepareAudio(base + '/recording.caf', { inputAudioFormat: target, mediaSettings });
+			assert.equal((await consume(seekable.audio)).length, samples.length);
+			assert.ok(requests.some(request => request.url === '/recording.caf' && request.start > 0), 'Native seeking issues an HTTP range request.');
 			await using playlist = await prepareAudio(base + '/redirect', { inputAudioFormat: target, mediaSettings });
 			assert.ok((await consume(playlist.audio)).length > 0);
 			assert.ok(requests.some(request => request.url === '/segment.ts'));

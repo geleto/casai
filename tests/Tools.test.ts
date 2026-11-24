@@ -398,6 +398,7 @@ describe('asTool', function () {
 					model,
 					...temperatureConfig,
 					tools: { get_weather: weatherTool },
+					stopWhen: stepCountIs(1),
 					prompt: 'What is the weather like in London?'
 				});
 
@@ -427,6 +428,7 @@ describe('asTool', function () {
 					model,
 					...temperatureConfig,
 					tools: { create_user: createUserTool },
+					stopWhen: stepCountIs(1),
 					prompt: 'Please create a user profile for Jane Doe, who is 29 years old with email jane.doe@example.com'
 				});
 
@@ -481,6 +483,7 @@ describe('asTool', function () {
 					model,
 					...temperatureConfig,
 					tools: { analyze_sentiment: sentimentTool },
+					stopWhen: stepCountIs(1),
 					prompt: 'What is the sentiment of the text "I love this product, it\'s amazing!"?'
 				});
 
@@ -508,7 +511,7 @@ describe('asTool', function () {
 					model,
 					...temperatureConfig,
 					tools: { getWeather: getWeatherTool },
-					// NOTE: No `stopWhen` is configured. We do the loop ourselves.
+					stopWhen: stepCountIs(1),
 				});
 
 				// --- TURN 1: Ask a question that requires a tool ---
@@ -666,6 +669,7 @@ describe('asTool', function () {
 					...temperatureConfig,
 					tools: { getWeather: weatherTool },
 					toolChoice: 'required',
+					stopWhen: stepCountIs(1),
 				});
 
 				const result = await agent('Hello.'); // A prompt that wouldn't normally trigger a tool
@@ -680,6 +684,7 @@ describe('asTool', function () {
 					model,
 					...temperatureConfig,
 					tools: { getWeather: weatherTool, log: loggingTool },
+					stopWhen: stepCountIs(1),
 					toolChoice: { type: 'tool', toolName: 'log' },
 				});
 

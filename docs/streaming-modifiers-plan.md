@@ -1,5 +1,7 @@
 # Streaming Modifiers and Audio Preparation
 
+**Phase 6 A/B, 2026-11-22.** The audit covered public modifiers, edited multitrack delivery, input limits and cleanup. The follow-up restored direct movie paths and URLs with selected-track edit verification. The published Cascada dependency and remaining native platforms have separate release gates. [Current movie inputs](phase6-implementation.md#movie-inputs-after-the-audit) · [Audit findings](phase6-implementation.md#multitrack-and-ownership-audit-2026-11-22)
+
 **Phase 6 A/B recording reviews, 2026-11-19.** The corpus review adds speech and media containers, complete native encoding, variable Vorbis windows and millisecond packet clocks to the A/B acceptance evidence. C covers planned browser preparation and D covers planned input composition. [Claude recording corpus review](phase6-implementation.md#claude-recording-corpus-review) · [Waveform and public-call review](phase6-implementation.md#ab-review-of-recording-classification-and-playback) · [Earlier Claude Code findings](phase6-implementation.md#claude-code-review-of-native-audio-and-sdk-dispatch).
 
 Factory and Config modifiers select behavior. Ordinary audio calls and tools return completed results. `.asStream` returns the native incremental result and excludes `.asTool`. Native media preparation uses the optional LGPL `node-av@npm:node-av-lgpl@7.1.0` installation. Ordinary Transcriber and Translator convert supplied WAV or described PCM without the native installation. The implementation preserves explicit targets, configured-resource tools, bounded worker processing and native ownership.
@@ -20,11 +22,13 @@ On Node, raw decoding and native file conversion place audio on its sample timel
 
 For a file target explicitly selected by the application, preserve the recorded content and accept native codec priming and end padding. Use known sample-accurate pre-skip when interpreting a coarse packet clock. A continuous recording must not be rejected for a rounding artifact. An application requiring exact decoded boundaries can request PCM WAV at the source rate. The installed FLAC encoder may add silence at the end of its final block. ADTS is optional and requires an endpoint accepting that AAC representation.
 
-Honor MOV/M4A playback edits. If the inspected number of fixed-size frames exceeds the presented duration beyond normal start and end padding, convert to the explicit primary target so the decoder applies the edits. A skipped interval first revealed while copying must fail before model dispatch if the copy would restore it. Keep the single source acquisition and native decoder ownership.
+Honor MOV/M4A playback edits down to the source sample before rate conversion. If the inspected number of fixed-size frames exceeds the presented duration beyond normal start and end padding, convert to the explicit primary target. Reject a copy that would expose samples beyond the presentation boundary. On an ambiguous interior restart, stop before releasing the preceding packet and direct the caller to export a flattened recording. A forward-only fragmented movie can extend its reported duration during demuxing.
 
 Recognize transport-stream packet structure, the ASF header, FLV, HLS and FFconcat manifests, and a sequence of correctly spaced MP3 or ADTS frames within the existing prefix budget. Manifests retain the native opener and its child-resource rules. Keep single frame-sync patterns usable as raw PCM. Extensible integer PCM WAV may use fewer valid bits than its sample container holds.
 
 ## Deliverable A: Required tool inputs follow-up
+
+Source-independent speech delivery checks apply to the merged settings before a function preparer or script loader runs. Check the compatibility of a completed string output format with the text after preparing that text.
 
 **Implemented and reviewed through 2026-11-19.** An explicitly empty-schema Embedder rejects missing input before SDK dispatch. A Reranker checks documents independently for each invocation. In the closing pass, one call lacked documents while a concurrent call supplied them. Only the valid call reached the model, exactly once. Ordinary, named, descriptor and injected calls have regression coverage. D owns the proposed omitted-schema default. [Required-input acceptance](phase6-implementation.md#ab-correction-implementation-2026-11-18).
 
@@ -32,7 +36,15 @@ A finished tool must resolve each operation's known required inputs through effe
 
 ## Deliverable B: Reopened audio correctness acceptance
 
-**Implemented and reviewed through 2026-11-19.** The cases below cover SDK requests, native output, public types and installed consumers. C's browser codecs and D's input conveniences remain planned. [Latest verification](phase6-implementation.md#claude-code-review-of-native-audio-and-sdk-dispatch) · [Earlier closing evidence](phase6-implementation.md#ab-review-across-call-forms-containers-and-stream-lifetimes) · [Original usability findings](api-usability-review.md).
+The multitrack audit adds independently edited QuickTime tracks and fragmented initialization segments. A movie's PCM sample table can count stored samples even when the demuxed first packet carries a smaller leading skip. WAV preparation must apply the selected track's edit. A fragmented track requires verifiable initialization metadata before dispatch. Compare native playback with the authored timeline and reject an unverifiable edit, including on a native resource whose original header cannot be verified in the same open. Keep verified, unedited tracks usable when another track has edits. [Multitrack audit](phase6-implementation.md#multitrack-and-ownership-audit-2026-11-22)
+
+Verify movie playback edits from the same native handle used to play a local or HTTP(S) movie. Select that handle automatically for extensions advertised by the native MOV demuxer, or explicitly with `mediaSettings.format: 'mov'` for an extensionless movie. FFmpeg probes the content on automatic opens. Preserve other native protocols and playlist origins. Supplied bytes, File/Blob and streamable uploads use the same selected-track metadata. Track fields can occur after a large sample table. Read them in order with bounded retention. A complete MXF header partition within the retained classification prefix selects encoded handling across equivalent representations, including an MXF with an optional run-in. [Movie inputs after the audit](phase6-implementation.md#movie-inputs-after-the-audit)
+
+Apply the authored end of an indexed track with a leading empty edit before resampling or encoding. Copy indexed AAC when the target preserves its skip and endpoint. Use the primary conversion when a flat target would restore discarded samples. A single fragmented AAC priming edit can span multiple packets. Verify its full skip against the first packet and timestamp relative to the selected track's origin, and preserve that origin when copying to M4A. Check any finite authored end as fragments arrive. A zero-duration edit spans the subsequent media. Advance on the original HTTP connection when a range request returns earlier sequential bytes. Validate a supplied PCM layout before preparation and one-shot input handoff. [November 23 findings](phase6-implementation.md#november-23-movie-and-input-corrections)
+
+On movie tracks with no playback edits, measure a pause from the end of the samples already played. A fragment clock that catches up within those samples keeps the waveform continuous. Compare actual recorder output with a control that shifts otherwise identical fragments forward by a known interval.
+
+**Implemented and reviewed on 2026-11-22.** Apply movie playback boundaries, recognize padded and movie-header-first QuickTime uploads, charge generated WAV silence cumulatively even with a separate file limit, and validate merged invocation settings before source execution. For incremental results with Casai-owned input, observe native settlement after the caller chooses the first result view. The SDK retains its single consumer. [November 22 fixes and verification](phase6-implementation.md#fixes-for-the-november-22-evaluation) · [Earlier closing evidence](phase6-implementation.md#ab-review-across-call-forms-containers-and-stream-lifetimes)
 
 | Finding | Required correction | Acceptance evidence |
 | --- | --- | --- |
@@ -57,7 +69,7 @@ Validated self-description governs ambiguous byte/file inputs before applying he
 | Numeric sample arrays | Applies | The representation is explicitly raw; `sourceFormat` supplies its rate/channels and applicable encoding. |
 | Finite bytes, File/Blob | Applies only without strong container evidence or declared encoded MIME | Use the bounded strong-signature check. Declared encoded MIME selects encoded handling even with an inconclusive header; it does not certify the actual codec. Empty/octet-stream MIME follows the bytes. |
 | Supplied byte streams, including D's iterables | Applies only without strong container evidence | Claim once, accumulate a bounded prefix in the existing adapter, then forward every inspected byte. Handle split headers and cancellation; a failure after reading leaves the source claimed. Ordinary raw streams remain unsniffed. |
-| Paths/URLs | Does not apply | Open once through the backend's native resource path; do not peek/reopen or replace the URL with custom I/O. |
+| Paths/URLs | Does not apply | Open the original resource once through the native protocol. Local and HTTP(S) movie filenames select a handle that exposes the header. Use an explicit MOV format for an extensionless movie. |
 
 For Node raw path/URL resources, use `mediaSettings.format` plus native sample options. The explicit native override takes precedence over reusable `sourceFormat` for non-array inputs; runtime validation and types admit both settings. Numeric arrays retain their explicit layout. The installed node-av `Demuxer.probeFormat` reopens files, while custom `IOContext` opening requires a format and supplies an empty URL; neither transparently classifies resources in one open. Keep origins, relative resources and seeking native. FFmpeg's low-confidence guesses do not replace strong evidence on supplied bytes.
 
@@ -74,6 +86,8 @@ Close the findings with maintained SDK-request regressions across both audio fam
 **Selected follow-up, revised after both review rounds, 2026-11-18; not implemented or accepted.** Keep Mediabunny with WebCodecs behind browser `.loadsAudio`, component-owned PCM/WAV everywhere and optional node-av on Node. Reuse source resolution, trusted tools, shared dispatch and private prepared-audio ownership. Add no public preparation helper, backend selector, registration framework or general WASM runtime. C's browser subset supersedes blanket browser `.loadsAudio` rejection; Node's installation, native options and release obligations remain distinct.
 
 ### Inputs, tracks and settings
+
+The [2026-11-22 browser plan evaluation](phase6-implementation.md#c-findings-and-acceptance-changes) records reproduced playback, output-limit and metadata failures, along with verified alternatives for sequential MP3 and described stereo PCM. Resolve those findings when implementing C.
 
 - Support File/Blob, encoded finite buffers, encoded byte streams and absolute HTTP(S) resources. Validate/normalize URL strings and URL objects before worker handoff. Relative filesystem-looking strings, unsupported schemes and implicit page-relative resolution are rejected before I/O; callers can resolve an HTTP(S) URL explicitly. Use File/Blob or supplied bytes for browser-local/data resources in the initial scope.
 - Select a specific admitted single-file format list, excluding HLS; never pass `ALL_FORMATS`. Test manifests supplied as bytes and URLs and assert zero child-resource requests. No playlist, DRM or native-protocol parity is promised.
@@ -162,6 +176,8 @@ Record C's evidence in the [acceptance record](phase6-implementation.md#planned-
 **Confirmed 2026-11-18, revised after both review rounds; implementation and acceptance pending.** Receiving components adapt supported selected files and streams through existing inputs. Keep SDK execution/result ownership and native-compatible messages/history. No new helper, result-unwrapping mode or phase 6E is needed for the selected attachment work; the SDK already supplies an explicit inline-data form.
 
 ### Admitted media and metadata
+
+The [2026-11-22 input composition evaluation](phase6-implementation.md#d-findings-and-acceptance-changes) traces the proposed inputs through early validation, native requests, audio ownership and tool consumers. It lists the call paths and counterexamples to cover when implementing D.
 
 | Input location | Selected contract |
 | --- | --- |
@@ -472,7 +488,7 @@ Transcriber.loadsAudio({
   inputAudioFormat: { type: 'audio/pcm', rate: 24000 },
   mediaSettings: {
     track: 2,
-    // format: 'mov', // Only when explicitly forcing the source demuxer
+    // format: 'matroska', // Only when explicitly forcing the source demuxer
     options: {
       headers: `Authorization: Bearer ${token}\r\n`,
       rw_timeout: 15_000_000, // Native FFmpeg units: microseconds
@@ -654,7 +670,7 @@ Keep the matching WAV writer private to preparation. It takes finite PCM bytes a
 
 #### Optional dependency and package verification
 
-For deliverable B, keep native loading behind private runtime conditions with source/emitted consumers; expose no `./node-av` or other public preparation entry. Declare `node-av` as an optional peer via `peerDependenciesMeta`, targeting the verified 7.1.0 API baseline. Install the LGPL variant as `node-av@npm:node-av-lgpl@7.1.0` for native integration. The alias satisfies a `node-av: ^7.1.0` peer and resolves through the existing normal-resolution/resolved-file-URL loader in the local probe. Do not add a second peer/package search, variant selector, native auto-install or mandatory devDependency. Earlier 6.2.0 probes remain historical evidence; recheck the actual consumed interface and all native behavior against 7.1.0 during implementation. Keep declaration/source consumers native-independent and compile the real adapter in isolated integration. Verify each supported package manager and advertised platform before claiming release support; the current install/load probe covers npm on Windows x64.
+For deliverable B, keep native loading behind private runtime conditions with source/emitted consumers; expose no `./node-av` or other public preparation entry. Declare `node-av` as an optional peer via `peerDependenciesMeta`, targeting the verified 7.1.0 API baseline. Install the LGPL variant as `node-av@npm:node-av-lgpl@7.1.0` for native integration. The alias satisfies a `node-av: ^7.1.0` peer and resolves through the existing normal-resolution/resolved-file-URL loader in the local probe. Do not add a second peer/package search, variant selector, native auto-install or mandatory devDependency. Earlier 6.2.0 probes remain historical evidence; recheck the actual consumed interface and all native behavior against 7.1.0 during implementation. Keep declaration/source consumers native-independent and compile the real adapter in isolated integration. The November 23 npm release gates passed on Windows, macOS, Linux glibc and Linux musl, each on native x64 and ARM64, for both installed variants. Verify additional package managers or targets before advertising them. [Platform acceptance](phase6-implementation.md#safari-recording-and-native-platform-verification)
 
 The optional-loader prototype compiles absent-peer declaration/source consumers and executes 14 ESM/CommonJS bundle cases covering absence, success (including asynchronous ESM initialization), missing installed entry, missing transitive dependency, initialization failure and conversion failure. This closes the loader feasibility question without installing native binaries. Production adapter typing, real conversion/platform behavior and maintained package tests remain implementation gates.
 

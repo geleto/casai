@@ -64,12 +64,17 @@ describe('Supplied audio through the component', () => {
 		const { model, raw } = capture();
 		const flac = new Uint8Array(42); flac.set([102, 76, 97, 67, 128, 0, 0, 34]);
 		const component = Transcriber({ model, inputAudioFormat: target });
+		const mxfHeader = Buffer.from('060e2b34020501010d01020101020400', 'hex');
+		await assert.rejects(component(Buffer.concat([Buffer.alloc(32), mxfHeader])), /loadsAudio/);
 		for (const audio of [flac, flac.buffer, new File([flac], 'input', { type: 'audio/flac' }), new Blob([flac])]) {
 			await assert.rejects(component(audio), /loadsAudio/);
 		}
 		await assert.rejects(component(new Blob([Uint8Array.of(255, 251, 0, 0)], { type: 'audio/mpeg' })), /loadsAudio/);
 		await assert.rejects(component(new Blob([new Uint8Array(4)], { type: 'text/plain' })), /declared Blob MIME type/);
 		assert.equal(raw.length, 0);
+		const weakLabel = mxfHeader.subarray(0, 4);
+		await component(weakLabel);
+		assert.deepEqual(raw.at(-1), Uint8Array.from(weakLabel));
 		for (const first of [-1025, -3585]) {
 			const bytes = new Uint8Array(Int16Array.of(first, 0, 250, -250).buffer);
 			for (const audio of [bytes, bytes.buffer, new Blob([bytes]), new Blob([bytes], { type: 'application/octet-stream' })]) {
@@ -195,12 +200,22 @@ describe('Supplied audio through the component', () => {
 		const ogg = new Uint8Array(27); ogg.set(text('OggS'));
 		const id3 = Uint8Array.of(...text('ID3'), 4, 0, 0, 0, 0, 0, 0);
 		const mp4 = Uint8Array.of(0, 0, 0, 24, ...text('ftypisom'), 0, 0, 0, 0, ...text('isommp42'));
+		const free = Uint8Array.of(0, 0, 0, 1, ...text('free'), 0, 0, 0, 0, 0, 0, 0, 16);
+		const movie = new Uint8Array(116);
+		movie.set([0, 0, 0, 116, ...text('moov'), 0, 0, 0, 108, ...text('mvhd')]);
+		new DataView(movie.buffer).setUint32(28, 48000);
 		const webm = Uint8Array.of(0x1a, 0x45, 0xdf, 0xa3, 0x87, 0x42, 0x82, 0x84, ...text('webm'));
 		const transcribe = Transcriber({ model, inputAudioFormat: target });
-		for (const bytes of [ogg, id3, mp4, webm]) {
+		for (const bytes of [ogg, id3, mp4, webm, movie, Uint8Array.of(...free, ...mp4)]) {
 			await assert.rejects(transcribe(bytes), /loadsAudio/);
 			const prefix = bytes.subarray(0, 4);
 			await transcribe(prefix); assert.deepEqual(raw.at(-1), prefix);
+		}
+		movie[16] = 2;
+		const outsidePrefix = new Uint8Array(4096 + mp4.length);
+		outsidePrefix.set([0, 0, 16, 0, ...text('free')]); outsidePrefix.set(mp4, 4096);
+		for (const bytes of [movie, free, free.subarray(0, 8), outsidePrefix]) {
+			await transcribe(bytes); assert.deepEqual(raw.at(-1), bytes);
 		}
 		const invalidVersion = ogg.slice(); invalidVersion[4] = 255;
 		await transcribe(invalidVersion); assert.deepEqual(raw.at(-1), invalidVersion);
@@ -603,6 +618,53 @@ describe('Supplied audio through the component', () => {
 			assert.deepEqual(reasons, [fail ? failure : undefined]);
 			assert.equal(input.locked, false);
 		}
+	});
+
+	for (const view of ['fullStream', 'warnings']) for (const family of ['transcribe', 'translate']) for (const fail of [false, true]) {
+		it(`keeps the first incremental result view and releases the ${family} input on ${fail ? 'failure' : 'success'} (${view})`, async () => {
+			const failure = new Error('provider stopped');
+			let onCancel!: (reason: unknown) => void;
+			const cancelled = new Promise<unknown>(resolve => { onCancel = resolve; });
+			const input = new ReadableStream<Uint8Array>({ pull(c) { c.enqueue(new Uint8Array(128)); },
+				cancel: onCancel }, { highWaterMark: 0 });
+			async function readPrefix(audio: ReadableStream<Uint8Array | string>) {
+				const reader = audio.getReader();
+				try { assert.equal((await reader.read()).done, false); } finally { reader.releaseLock(); }
+				if (fail) throw failure;
+			}
+			const options = { inputAudioFormat: target, sourceFormat: stereo };
+			const result = family === 'transcribe'
+				? await Transcriber.asStream({ ...options, model: new MockTranscriptionModelV4({ doStream: async ({ audio }) => {
+					await readPrefix(audio); return { stream: convertArrayToReadableStream([{ type: 'finish', ...transcript }]) };
+				} }) })(input)
+				: await Translator.asStream({ ...options, targetLanguage: 'fr', model: new Experimental_MockSpeechTranslationModelV4({ doStream: async ({ audio }) => {
+					await readPrefix(audio); return { stream: convertArrayToReadableStream([{ type: 'finish', sourceText: 'source', outputText: 'translation' }]) };
+				} }) })(input);
+			const consume = view === 'warnings' ? Promise.resolve(result.warnings) : (async () => {
+				for await (const part of result.fullStream) assert.fail(`Unexpected incremental part: ${part.type}`);
+			})();
+			if (fail) await assert.rejects(consume, error => error === failure); else await consume;
+			assert.throws(() => result.fullStream);
+			assert.equal(await cancelled, fail ? failure : undefined);
+			await new Promise<void>(resolve => setImmediate(resolve));
+			assert.equal(input.locked, false);
+		});
+	}
+
+	it('rejects invalid merged settings before calling an audio preparer', async () => {
+		let prepared = 0;
+		const audio = () => { prepared++; return new Uint8Array(8); };
+		const { model, raw } = capture();
+		const transcribe = Transcriber.withFunction({ model, audio, inputAudioFormat: target });
+		const translate = Translator.withFunction({ model: new Experimental_MockSpeechTranslationModelV4(), audio, inputAudioFormat: target, targetLanguage: 'fr' });
+		await assert.rejects(transcribe.run({ maxPreparedAudioBytes: 0 }), ValidationError);
+		await assert.rejects(translate.run({ maxPreparedAudioBytes: 0 }), ValidationError);
+		assert.throws(() => Transcriber.withFunction({ model, audio, inputAudioFormat: target, sourceFormat: { ...stereo, channels: 0 } }), ConfigError);
+		await assert.rejects(transcribe.run({ sourceFormat: { ...stereo, sampleRate: 0 } }), ValidationError);
+		await assert.rejects(translate.run({ sourceFormat: { ...stereo, channels: -1 } }), ValidationError);
+		assert.equal(prepared, 0); assert.equal(raw.length, 0);
+		await transcribe.run({ maxPreparedAudioBytes: 8 });
+		assert.equal(prepared, 1); assert.equal(raw.length, 1);
 	});
 
 	it('aborts an incremental conversion while its SDK reader is waiting for input', async () => {

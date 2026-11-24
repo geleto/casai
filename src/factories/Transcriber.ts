@@ -3,7 +3,7 @@ import type { TranscriptionResult, StreamTranscriptionResult } from 'ai';
 import { sourceMode, streamMode } from '../config/modifiers.js';
 import { ConfigError, ValidationError } from '../errors.js';
 import type { AudioCallFormat, AudioFormat, CheckPcmLayout, PcmInputSettings, RawAudio, SuppliedAudio } from '../audio.js';
-import { validateAudioSettings, withAudioInput } from '../audio/input.js';
+import { releaseOnAudioFinish, validateAudioSettings, withAudioInput } from '../audio/input.js';
 import { createComponentRuntime, type RuntimeComponentConfig } from '../runtime/component-call.js';
 import { isPlainObject } from '../schema.js';
 import { isWebStream } from '../runtime/web-input.js';
@@ -94,17 +94,21 @@ function validate(config: Record<PropertyKey, unknown>) {
 	validateAudioSettings(config, true, ConfigError);
 }
 
+function validateCall(settings: RuntimeComponentConfig) {
+	validateAudioSettings(settings, true, ValidationError);
+	if (settings[streamMode] && settings.inputAudioFormat === undefined) throw new ValidationError('Transcriber.asStream requires inputAudioFormat.');
+	if (settings[sourceMode] === 'audio-resource' && settings.inputAudioFormat === undefined && settings.fileAudioTarget === undefined) throw new ValidationError('Transcriber.loadsAudio requires inputAudioFormat or a configured fileAudioTarget.');
+}
+
 function create(config: RuntimeComponentConfig) {
 	const runtime = createComponentRuntime(config, definition);
 	async function invoke(raw: Record<string, unknown>, tool?: import('../types/execution.js').ToolInvocation) {
-		const prepared = await runtime.prepare(raw, tool);
-		validateAudioSettings(prepared.settings, true, ValidationError);
-		if (config[streamMode] && prepared.settings.inputAudioFormat === undefined) throw new ValidationError('Transcriber.asStream requires inputAudioFormat.');
-		return withAudioInput(prepared, async settings => {
+		const prepared = await runtime.prepare(raw, tool, validateCall);
+		return withAudioInput(prepared, async (settings, close) => {
 			let result: TranscriptionResult;
 			if (settings.inputAudioFormat !== undefined) {
 				const stream = streamTranscribe(settings as Parameters<typeof streamTranscribe>[0]);
-				if (config[streamMode]) return stream;
+				if (config[streamMode]) return releaseOnAudioFinish(stream, close);
 				// Native result promises collect one stream and preserve native failure semantics.
 				const [text, segments, language, durationInSeconds, warnings, responses, providerMetadata] = await Promise.all([
 					stream.text, stream.segments, stream.language, stream.durationInSeconds, stream.warnings, stream.responses, stream.providerMetadata,

@@ -159,7 +159,7 @@ await writeFile('.cache/phase6-browser/bundle.js', result.outputFiles[0].text);
 // Reuse the linked engine's existing browser-test installation, without adding a runtime dependency.
 const engineRequire = createRequire(import.meta.resolve('cascada-engine'));
 const { chromium } = engineRequire('playwright');
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CASAI_REVIEW_CHROMIUM });
 const server = createServer((request, response) => {
   if (request.url === '/audio') {
     // Complete the upload before responding: browser fetch exposes the response after upload completion.

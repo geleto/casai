@@ -1,4 +1,4 @@
-import { ValidationError } from '../errors.js';
+import { type ConfigError, ValidationError } from '../errors.js';
 import type { PcmFormat, PcmSamples, PcmSourceFormat } from './pcm.js';
 
 // Use the intrinsic typed-array brand just as the SDK does for Uint8Array.
@@ -27,10 +27,13 @@ export function sampleFormat(source: PcmSourceFormat, samples: unknown): PcmForm
 }
 
 export const sampleBytes = { pcm_u8: 1, pcm_s16le: 2, pcm_s24le: 3, pcm_s32le: 4, pcm_f32le: 4, pcm_f64le: 8 } as const;
-export function pcmFrameSize(format: PcmFormat): number {
+export function validatePcmLayout(format: PcmSourceFormat, ErrorClass: typeof ConfigError | typeof ValidationError, requireEncoding = false): void {
 	for (const key of ['sampleRate', 'channels'] as const) {
-		if (!Number.isSafeInteger(format[key]) || format[key] <= 0) throw new ValidationError(`${key} must be a positive integer.`);
+		if (!Number.isSafeInteger(format[key]) || format[key] <= 0) throw new ErrorClass(`${key} must be a positive integer.`);
 	}
-	if (!Object.hasOwn(sampleBytes, format.encoding)) throw new ValidationError('Unsupported PCM sample encoding.');
+	if ((requireEncoding || format.encoding !== undefined) && !Object.hasOwn(sampleBytes, format.encoding!)) throw new ErrorClass('Unsupported PCM sample encoding.');
+}
+export function pcmFrameSize(format: PcmFormat): number {
+	validatePcmLayout(format, ValidationError, true);
 	return sampleBytes[format.encoding] * format.channels;
 }

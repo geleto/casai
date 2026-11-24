@@ -8,6 +8,7 @@ import type { Fields } from '../types/utils.js';
 import { validatePreparedAudioLimit, validatePreparationSettings, type AudioSource, type PrepareAudioSettings } from './preparation.js';
 import { prepareSuppliedAudio } from './supplied.js';
 import { isPcmSamples, type PcmSourceFormat } from './pcm.js';
+import { validatePcmLayout } from './pcm-format.js';
 import { audioMediaType, preparedAudioTypes } from './source-evidence.js';
 import type { AudioFormat } from '../audio.js';
 
@@ -16,6 +17,7 @@ export function validateAudioSettings(settings: Record<PropertyKey, any>, fileTr
 	if (!settings[streamMode] && settings.includeRawChunks !== undefined) throw new ErrorClass('includeRawChunks requires .asStream.');
 	if (settings[sourceMode] !== 'audio-resource') {
 		validatePreparedAudioLimit(settings.maxPreparedAudioBytes, ErrorClass);
+		if (settings.sourceFormat !== undefined) validatePcmLayout(settings.sourceFormat as PcmSourceFormat, ErrorClass);
 		if (settings.mediaSettings !== undefined || settings.fileAudioTarget !== undefined) throw new ErrorClass('mediaSettings and fileAudioTarget require .loadsAudio.');
 		return;
 	}
@@ -41,21 +43,39 @@ function rawStream(audio: unknown): ReadableStream<Uint8Array | string> {
 	});
 }
 
+type CloseAudio = (reason?: unknown) => Promise<void>;
+
+/** Both native SDK results settle duration on finish and reject it on failure or cancellation.
+ * Reading it is passive only after the application has claimed a native result view. */
+export function releaseOnAudioFinish<R extends { readonly durationInSeconds: PromiseLike<number | undefined> }>(result: R, close?: CloseAudio): R {
+	if (!close) return result;
+	let observed = false;
+	return new Proxy(result, {
+		get(target, key, receiver) {
+			const value: unknown = Reflect.get(target, key, receiver);
+			if (!observed && (key === 'fullStream' || value instanceof Promise)) {
+				observed = true;
+				void Promise.resolve(target.durationInSeconds).then(() => close(), (error: unknown) => close(error)).catch(() => { /* Preserve the native result. */ });
+			}
+			return value;
+		},
+	});
+}
+
 /** Both audio-input components hand off one SDK request. Live delivery transfers consumption to the caller. */
-export async function withAudioInput<R>(prepared: PreparedComponentCall, dispatch: (settings: Fields) => Promise<R>): Promise<R> {
+export async function withAudioInput<R>(prepared: PreparedComponentCall, dispatch: (settings: Fields, close?: CloseAudio) => Promise<R>): Promise<R> {
 	const settings = sdkRequest(prepared, ['mediaSettings', 'fileAudioTarget', 'sourceFormat', 'maxPreparedAudioBytes']);
 	const { fileAudioTarget, mediaSettings } = prepared.settings;
 	const maxPreparedAudioBytes = prepared.settings.maxPreparedAudioBytes as number | undefined;
 	const sourceFormat = prepared.settings.sourceFormat as PcmSourceFormat | undefined;
 	const resource = prepared.settings[sourceMode] === 'audio-resource';
-	let close: ((reason?: unknown) => Promise<void>) | undefined;
+	let close: CloseAudio | undefined;
 	let mediaType: string | undefined;
 	if (settings.audio == null) throw new ValidationError('Audio input is required.');
 	if (resource) {
-		if (settings.inputAudioFormat === undefined && fileAudioTarget === undefined) throw new ValidationError('Transcriber.loadsAudio requires inputAudioFormat or a configured fileAudioTarget.');
 		if (isPcmSamples(settings.audio) && !sourceFormat) throw new ValidationError('Headerless sample arrays require sourceFormat.sampleRate and sourceFormat.channels.');
-		const { prepareAudio } = await import('#native-audio');
-		const owned = await prepareAudio(settings.audio as AudioSource, { inputAudioFormat: settings.inputAudioFormat, fileAudioTarget,
+		const { openAudio } = await import('#native-audio');
+		const owned = await openAudio(settings.audio as AudioSource, { inputAudioFormat: settings.inputAudioFormat, fileAudioTarget,
 			mediaSettings, sourceFormat, maxPreparedAudioBytes, abortSignal: settings.abortSignal } as PrepareAudioSettings);
 		close = owned.close;
 		settings.audio = owned.audio;
@@ -78,7 +98,7 @@ export async function withAudioInput<R>(prepared: PreparedComponentCall, dispatc
 			const detected = audioMediaType(detectMediaType({ data: bytes, topLevelType: 'audio' }) ?? 'audio/wav');
 			if (!mediaType || detected !== mediaType) throw new ValidationError('The AI SDK cannot accurately label this supplied audio container. Use .loadsAudio with a recognizable fileAudioTarget such as WAV or FLAC.');
 		}
-		const result = await dispatch(settings);
+		const result = await dispatch(settings, close);
 		if (!prepared.settings[streamMode]) await close?.();
 		return result;
 	} catch (error) {
