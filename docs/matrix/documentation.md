@@ -1957,13 +1957,17 @@ console.log(description.output);
 
 Replace the example URL with your own image. File parts and other supported message content also remain structured through Casai preparation. Script/function prompts can return these message arrays directly.
 
+An attachment URL follows the SDK's download policy. If a model calls a tool and takes a second step, a URL such as `https://example.com/reports/latest.pdf` can supply a different revision of the report. Pass inline bytes or use a URL pinned to an immutable revision when every step and a later `resume()` must see the same file.
+
+**Planned for 6D.** LLMAgent and Decision will also accept a File, Blob or generated file inside a tagged inline file part. Casai will read it once before hooks. LLMAgent will retain the native file part in history for later steps and resume. An explicit filename or MIME takes precedence when Casai prepares the part. The SDK can still detect the image format from its bytes when it sends the request. Bare provider references keep their native meaning.
+
 The model and provider determine supported media and formats. Generated files and content parts remain available on LLMAgent results. `output` controls parsed text or structured values; use ImageGenerator, Transcriber, or SpeechGenerator for their dedicated operations.
 
 <a id="guide-imagegenerator" name="guide-imagegenerator"></a>
 
 ### ImageGenerator
 
-**Work in progress:** image and mask inputs will accept selected generated files, File/Blob and HTTP(S) URL objects directly. Tagged inline LLMAgent/Decision attachments will likewise accept selected files and normalize them before hooks and retained history. Bare provider references keep their native meaning. Explicit MIME wins during Casai normalization, but the SDK can re-detect image bytes in its model request; history metadata is not a guarantee of the final transport label. Existing examples below use currently supported inputs.
+**Work in progress:** image and mask inputs will accept selected generated files, File/Blob and HTTP(S) URL objects directly. The examples below use currently supported inputs.
 
 `ImageGenerator` generates images from a prompt and supports editing when the model provides it. A function preparer can return `null` or `undefined` for an image-only edit when the component has configured images. With a prompt string, the same component sends both the text and the images.
 
@@ -2073,6 +2077,8 @@ console.log(transcript.segments);
 ```
 
 Use this ordinary call when the provider already accepts the recording. In Node.js, `readFile` supplies the bytes. In a browser, pass the selected `File` directly. Both use the AI SDK file operation without `node-av`. To have FFmpeg open a recording, select a track or convert its format, use `.loadsAudio` on the server. [Audio with and without node-av](#guide-recorded-audio-and-optional-codecs)
+
+For a meeting transcript with speaker labels, choose a transcription model that supports diarization. With the OpenAI diarization model, request `providerOptions: { openai: { responseFormat: 'diarized_json' } }` and read the `speaker` field on entries in `transcript.providerMetadata.openai.segments`. The ElevenLabs file adapter exposes `speaker_id` on entries in `transcript.providerMetadata.elevenlabs.words` when supplied. The common `transcript.segments` carry text and timing. Word-confidence scores depend on the provider and response format. If a model needs speaker labels from a tool, a Function tool can call ordinary Transcriber and return the speaker and text for each segment.
 
 `recordedAudio` contains encoded audio bytes (`Uint8Array`, Buffer or `ArrayBuffer`) or base64 data. A native `URL` instead uses the SDK downloader, including its address checks and byte limit. The installed SDK default is 2 GiB; for model-selected URLs, always set an application-appropriate limit with `download: createDownload({ maxBytes })`. Strings remain encoded data. Outside `.loadsAudio`, a native `URL` cannot be combined with `inputAudioFormat`: URLs use encoded-file execution, while that format selects supplied raw audio. The `download` setting is available only on the encoded-file path. Use `.loadsAudio` for FFmpeg preparation of paths/URLs. The selected provider determines supported formats. The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) retains text, segments, language information, and other available SDK fields.
 
@@ -2289,11 +2295,38 @@ Consume the single `fullStream` before final text/metadata promises when both ar
 
 ### Audio with and without node-av
 
-**Work in progress — browser recordings:** browser `.loadsAudio` preparation with Mediabunny/WebCodecs is selected but not implemented. It will accept supported encoded files, bytes, streams and HTTP(S) resources; codec support depends on the browser. Initial support excludes explicit browser track selection, playlists and native FFmpeg settings. Combined HTTP ranges require readable, consistent strong ETags and range metadata; servers without them can be used through application-supplied bytes or a single response stream. Preparation must preserve pauses and presentation timing. Node.js continues to use node-av; the examples below describe current execution.
+**Work in progress — browser recordings.** Browser `.loadsAudio` preparation with Mediabunny/WebCodecs is planned for supported encoded files, bytes, streams and HTTP(S) resources. Its first release requires ordinary Safari and Chrome MP4 recordings to preserve edits and pauses and Firefox Ogg/Opus to end at the recorded sample. Converting MP3 to raw audio or WAV can follow separately. When the browser adapter cannot verify an MP3's declared ending, it will reject the conversion before sending audio to the provider. For transcription, a provider that already accepts MP3 can receive the original file through ordinary `Transcriber`. Split uploads will require transferable streams, available in Safari and iOS Safari from 27. On earlier browsers, a finished recorder session can supply all its chunks together as one Blob where the needed codecs are available.
+
+For a provider that already accepts the recorded file, use ordinary `Transcriber`. For conversion, the planned browser `.loadsAudio` will take the same target settings as Node. A sole WebM/Opus target can copy the tested Chrome WebM recording. On the audited library, copying Firefox's Ogg/Opus to WebM loses its recorded ending, and copying Safari AAC to M4A exposes priming. These inputs must fail before file dispatch with that incompatible sole target. If the provider also accepts WAV, configure a WAV primary with compressed copy alternatives. WAV conversion also needs a verified playback interval. For example, an editor can trim the final Opus packet of a WebM or join two successive sections in one Ogg file. The first browser release may reject either file when it cannot preserve the trim or both sections. An optional format supported only on Node can stay in a shared profile. [Recorder results](../phase6-implementation.md#claude-code-follow-up-on-browser-recordings) · [Edited WebM and chained Ogg](../phase6-implementation.md#independent-recorder-readiness-review) · [Planned file-target behavior](../streaming-modifiers-plan.md#raw-samples-completed-files-and-timing)
+
+Codec support will depend on the browser. Initial support excludes explicit browser track selection, playlists and native FFmpeg settings. Combined HTTP ranges require readable, consistent strong ETags and range metadata. For servers that do not provide them, supply bytes or a single response stream. Today `.loadsAudio` uses node-av on Node.js. Ordinary PCM/WAV calls also run in the browser.
+
+For a single-track recording at an extensionless URL, a Node component can force the MOV demuxer. A browser child can inherit the same WAV target and let the planned adapter inspect the source. On a multitrack file, clearing an explicit track also selects the runtime's default microphone, which can differ between Node and the browser.
+
+<!-- typecheck: shared-recording-config -->
+```typescript
+const recordingSettings = create.Config.loadsAudio({
+  fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' },
+  mediaSettings: { format: 'mov' },
+});
+const nodeTranscriber = create.Transcriber({ model: transcriptionModel }, recordingSettings);
+const browserTranscriber = create.Transcriber({
+  model: transcriptionModel,
+  mediaSettings: undefined,
+}, recordingSettings);
+```
+
+The planned browser PCM conversion uses linear interpolation without a low-pass filter. When reducing 48 kHz to 24 kHz, a 16 kHz tone can appear at 8 kHz. Node's native FFmpeg decode path filters before downsampling. Ordinary component-owned PCM conversion on either runtime uses the shared linear resampler.
+
+**Prepared URLs use the whole recording.** For a three-second recording, passing `https://example.com/meeting.wav#t=1,2` to `.loadsAudio` sends all three seconds to the provider. Node and the planned browser adapter ignore playback selectors in the fragment. The selected track's own playback edits still apply. To send just the interval from 1 s to 2 s, export that clip and pass it as the source.
+
+The planned `.loadsAudio` support for Web Audio `AudioBuffer` will let one component accept either a recorder Blob or decoded audio. The buffer supplies its own sample rate and channels. Decoded mono PCM16 WAV will contain the same samples as raw output at the same rate. Prepared files on both runtimes will omit descriptive source tags and artwork, including comments inside codec headers. The current Node adapter can still carry those comments on a Vorbis copy. [Preparation decisions and current status](../streaming-modifiers-plan.md#contract-decisions-november-25)
 
 **Work in progress — input composition:** receiving components will accept selected generated audio and compatible async-iterable/binary Node streams internally. Encoded streams use `.loadsAudio`; ordinary raw streams retain their raw contract.
 
 Self-describing recordings supply their layout. With a reusable raw layout configured, `.loadsAudio` classifies supplied bytes and streams using a retained prefix of at most 4 KiB; it reads stream prefixes only after claiming the source. Node paths/URLs use native opening without `sourceFormat`. Headerless paths/URLs use explicit native demuxer/sample settings, which take precedence for non-array inputs. A declared encoded File/Blob MIME selects encoded handling even without a recognizable header; it does not certify the codec. Empty or generic MIME follows the bytes. Ordinary raw streams remain unsniffed. Headerless MP3/ADTS can resemble PCM, so use `.loadsAudio` for encoded resources rather than relying on weak frame prefixes.
+
+Ordinary file transcription already forwards the tested Safari MediaRecorder MP4 unchanged as `audio/mp4`. You can pass its bytes or a Blob assembled from the recording's chunks, even when the Blob has an empty or incorrect MIME type. This path needs a transcription provider that accepts the encoded file. Translation and raw-model transcription require decoded audio.
 
 For ordinary file transcription, a reusable `sourceFormat` applies to headerless samples. The same component accepts an SDK URL object or a base64 recording with an identifiable container, such as WAV. With this layout configured, base64 starting with only an MP3 or ADTS frame prefix is ambiguous and the call fails. For headerless PCM, decode the string to bytes and pass those bytes with the layout. For an encoded recording without a recognizable header, pass encoded bytes to `.loadsAudio` with an appropriate declared MIME or demuxer. The SDK downloader handles URL objects and their returned MIME. Casai checks the SDK's file label and rejects known mismatches such as Matroska labeled as WebM. Use `.loadsAudio` with a WAV or FLAC target for those recordings. It can also decode AIFF and Sun AU for raw model input. A headerless PCM Blob's declared rate and channel count must agree with the layout used for conversion. Ordinary direct PCM, PCMU and PCMA delivery checks those declarations against the model target.
 

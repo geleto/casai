@@ -89,8 +89,9 @@ export async function withAudioInput<R>(prepared: PreparedComponentCall, dispatc
 	try {
 		prepared.context._toolOptions.abortSignal?.throwIfAborted();
 		if (settings.inputAudioFormat !== undefined) {
-			settings.audio = rawStream(settings.audio);
-			claimLiveInput(settings.audio);
+			const stream = rawStream(settings.audio);
+			claimLiveInput(stream);
+			settings.audio = stream;
 		}
 		// Supplied-byte transcription has no MIME override. Compare the actual SDK rule, including its WAV default.
 		else if (resource || mediaType) {

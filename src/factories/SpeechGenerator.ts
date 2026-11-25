@@ -6,6 +6,7 @@ import { ConfigError, ValidationError } from '../errors.js';
 import { createComponentFactory, textModifiers, textModes, type SourceFactory } from './component-factory.js';
 import { createComponentRuntime, sdkRequest, type RuntimeComponentConfig } from '../runtime/component-call.js';
 import { claimLiveInput } from '../runtime/live-input.js';
+import { isWebStream } from '../runtime/web-input.js';
 import type { ToolInvocation } from '../types/execution.js';
 import type { Fields, UnionKeys, DistributiveOmit, ExclusiveUnion } from '../types/utils.js';
 import type { PromptType } from '../types/prompt.js';
@@ -109,7 +110,7 @@ function create(config: RuntimeComponentConfig) {
 		}
 		let result: SpeechResult, collected = false;
 		if (config[streamMode] || typeof settings.text !== 'string' || typeof settings.outputFormat === 'object' && settings.outputFormat !== null) {
-			claimLiveInput(settings.text);
+			if (isWebStream(settings.text)) claimLiveInput(settings.text);
 			const stream = streamSpeech(settings as StreamSettings);
 			if (config[streamMode]) return stream;
 			result = await collect(stream, signal);

@@ -101,7 +101,7 @@ const componentFixtures = {
   'multimodal-template': {}, decision: {}, embedder: {}, 'embedding-settings': { includes: ['embedder'] },
   reranker: {}, 'retrieval-tool': {}, 'image-generator': {}, 'image-style-tool': {}, 'image-preparer': {},
   'image-edit': { includes: ['image-generator'] }, 'image-template': { setup: "import { readFile } from 'node:fs/promises';" },
-  transcriber: {}, 'transcriber-url': {}, 'streaming-transcriber': {}, 'transcribe-video-track': {}, 'translate-wav-file': { setup: 'declare const wavFile: File;' },
+  transcriber: {}, 'transcriber-url': {}, 'streaming-transcriber': {}, 'transcribe-video-track': {}, 'shared-recording-config': {}, 'translate-wav-file': { setup: 'declare const wavFile: File;' },
   'translate-channel-samples': { includes: ['translate-wav-file'], setup: 'declare const recording: AudioBuffer;' },
   'configured-live-input': {}, 'transcription-tool': {}, speech: {}, 'speech-response': { includes: ['speech'] },
   'streaming-speech': {}, 'streaming-translation': {}, 'completed-streaming-speech': {}, 'completed-translation': {}, 'voice-token': {}, 'voice-relay-errors': {},

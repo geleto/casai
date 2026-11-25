@@ -195,7 +195,7 @@ test('Chrome recorder fragment joins preserve continuous samples and a real time
   assert.equal(decoded.length / 2, 63488);
   const kept = decoded.subarray(0, 63469 * 2); // The final AAC frame extends 19 samples beyond the movie duration.
   const joinSample = 33792;
-  for (const pause of [0, 4800]) {
+  for (const pause of [0, 480, 4800]) {
     const { model, requests } = capture();
     const transcribe = Transcriber.loadsAudio({ model, inputAudioFormat: target, sourceFormat });
     const bytes = Buffer.from(original);
@@ -211,6 +211,50 @@ test('Chrome recorder fragment joins preserve continuous samples and a real time
     const converted = await referencePcm(requests.pop(), '-ac', '1');
     for (const pcm of [...requests, converted]) {
       comparePcm(pcm, expected, 2);
+    }
+  }
+});
+
+test('a prepared WebM copy preserves the last block trim in both recorded channels', { skip: !referenceFfmpeg }, async () => {
+  const original = await readFile(new URL('./review-chrome-opus.webm', import.meta.url));
+  const trimmed = await readFile(new URL('./review-chrome-opus-trimmed.webm', import.meta.url));
+  const pcm = await referencePcm(original);
+  const frameBytes = 4; // Stereo PCM16 at 48 kHz.
+  assert.equal(pcm.length, 46080 * frameBytes);
+  const { model, requests } = capture();
+  const transcribe = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'webm', codec: 'libopus' } });
+  for (const [recording, frames] of [[original, 46080], [trimmed, 45840]]) {
+    const expected = pcm.subarray(0, frames * frameBytes);
+    assert.ok((await referencePcm(recording)).equals(expected));
+    for (const input of [new Blob([recording]), splitRecording(recording)]) {
+      await transcribe(input);
+      assert.equal(requests.length, 1);
+      assert.ok((await referencePcm(requests.pop())).equals(expected), `Provider copy must play the first ${frames} stereo frames.`);
+    }
+  }
+});
+
+test('Firefox recorder end trim reaches the provider on raw and WAV delivery', { skip: !referenceFfmpeg }, async () => {
+  const original = await readFile(new URL('review-firefox-opus.ogg', import.meta.url));
+  const lastPage = original.lastIndexOf('OggS');
+  assert.ok(lastPage >= 0 && original[lastPage + 5] === 4);
+  assert.equal(original.readBigUInt64LE(lastPage + 6), 64696n);
+  assert.equal(original.readUInt32LE(lastPage + 22), 0x19981080);
+  // These are the final granule and its page checksum for the same packets cut 240 samples earlier.
+  const shorter = Buffer.from(original);
+  shorter.writeBigUInt64LE(64456n, lastPage + 6);
+  shorter.writeUInt32LE(0xfe20860c, lastPage + 22);
+  const { model, requests } = capture();
+  const raw = Transcriber.loadsAudio({ model, inputAudioFormat: target });
+  const wav = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } });
+  for (const [bytes, frames] of [[original, 64384], [shorter, 64144]]) {
+    const expected = await referencePcm(bytes, '-ac', '1');
+    assert.equal(expected.length, 2 * frames);
+    for (const input of [() => bytes, () => new Blob([bytes]), () => splitRecording(bytes, 421)]) {
+      await raw(input());
+      comparePcm(requests.pop(), expected, 2);
+      await wav(input());
+      comparePcm(await referencePcm(requests.pop(), '-ac', '1'), expected, 2);
     }
   }
 });

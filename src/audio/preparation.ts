@@ -59,7 +59,6 @@ export type PrepareAudioSettings = AudioTarget & {
 };
 export interface PreparedAudio<Output extends Uint8Array | ReadableStream<Uint8Array> = Uint8Array | ReadableStream<Uint8Array>> {
 	readonly audio: Output;
-	readonly track: number;
 	readonly format: Output extends Uint8Array ? FileAudioFormat : AudioFormat;
 	/** Own the handle until downstream consumption finishes, or close it when abandoning/cancelling. */
 	readonly close: (reason?: unknown) => Promise<void>;

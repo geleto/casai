@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { Readable } from 'node:stream';
 import { mock } from 'node:test';
 import { Worker } from 'node:worker_threads';
 import { MockTranscriptionModelV4, MockSpeechModelV4, Experimental_MockStreamingSpeechModelV4, Experimental_MockSpeechTranslationModelV4, convertArrayToReadableStream } from 'ai/test';
@@ -6,6 +7,7 @@ import { NoSpeechGeneratedError, experimental_streamTranslate as streamTranslate
 import { Config, Transcriber, SpeechGenerator, Translator, ConfigError, ValidationError, z } from '../src/index.js';
 import { concatAudio } from '../src/audio.js';
 import { streamMode, toolMode } from '../src/config/modifiers.js';
+import { claimLiveInput } from '../src/runtime/live-input.js';
 
 const format = { type: 'audio/pcm', rate: 24000 };
 const transcript = { text: 'hello', segments: [], language: 'en', durationInSeconds: 1 };
@@ -24,6 +26,22 @@ function model() {
 }
 
 describe('Phase 6 audio delivery', () => {
+	it('claims a selected one-shot input by identity without acquiring or reading it', () => {
+		const iterator = {
+			[Symbol.asyncIterator]() { throw new Error('iterator acquired'); },
+			next() { throw new Error('iterator read'); },
+		};
+		const node = Readable.from([Uint8Array.of(7)]);
+		const web = new ReadableStream<Uint8Array>({}, { highWaterMark: 0 });
+		try {
+			for (const source of [iterator, node, web]) {
+				claimLiveInput(source);
+				assert.throws(() => { claimLiveInput(source); }, ValidationError);
+			}
+			assert.equal(web.locked, false);
+			assert.equal(node.readableDidRead, false);
+		} finally { node.destroy(); }
+	});
 	it('honors cancellation during completed translation assembly and speech tool encoding', async () => {
 		const bytes = new Uint8Array(2 * 1024 * 1024);
 		const translation = new Experimental_MockSpeechTranslationModelV4({ doStream: async () => ({
@@ -223,14 +241,17 @@ describe('Phase 6 audio delivery', () => {
 		assert.equal(result.audio.base64, 'AQIDBA=='); assert.deepEqual(result.audio.uint8Array, Uint8Array.of(1, 2, 3, 4));
 		assert.deepEqual(result.audioFormat, emitted); assert.deepEqual(result.usage, usage); assert.equal(result.audio.format, 'pcm');
 		assert.deepEqual(result.providerMetadata, { mock: { complete: true } });
-		assert.equal((await SpeechGenerator({ model })(['one', 'two'])).audio.base64, 'AQIDBA==');
+		const chunks = ['one', 'two'];
+		const speakChunks = SpeechGenerator({ model });
+		assert.equal((await speakChunks(chunks)).audio.base64, 'AQIDBA==');
+		assert.equal((await speakChunks(chunks)).audio.base64, 'AQIDBA==');
 		const tool = SpeechGenerator.asTool({ model, outputFormat: format, inputSchema: z.object({ text: z.string() }) });
 		const output = await tool.execute({ text: 'hello' }, { toolCallId: 'speech', messages: [], context: undefined });
 		assert.deepEqual(output, { mediaType: 'audio/pcm', base64: 'AQIDBA==', audioFormat: emitted });
 		assert.deepEqual(await tool.toModelOutput!({ output, input: { text: 'hello' }, toolCallId: 'speech' }), {
 			type: 'content', value: [{ type: 'file', mediaType: 'audio/pcm', data: { type: 'data', data: 'AQIDBA==' } }],
 		});
-		assert.equal(completeCalls, 1); assert.equal(streamCalls, 3);
+		assert.equal(completeCalls, 1); assert.equal(streamCalls, 4);
 	});
 	it('rejects incompatible speech delivery settings before preparing text or loading a script', async () => {
 		let prepared = 0, loaded = 0, requests = 0;

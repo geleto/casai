@@ -40,7 +40,7 @@ function movieContainer(bytes: Uint8Array, view: DataView): string | undefined {
 		}
 		if (textAt(bytes, offset + 4, 'ftyp') && body + 8 <= bytes.length && size >= body - offset + 8 && size % 4 === 0) {
 			if (textAt(bytes, body, 'qt  ')) return 'video/quicktime';
-			if (['isom', 'iso2', 'mp41', 'mp42', 'M4A ', 'M4B '].some(brand => textAt(bytes, body, brand))) return 'audio/mp4';
+			if (['isom', 'iso2', 'iso5', 'iso6', 'mp41', 'mp42', 'M4A ', 'M4B '].some(brand => textAt(bytes, body, brand))) return 'audio/mp4';
 			return 'ftyp';
 		}
 		if (textAt(bytes, offset + 4, 'moov') && textAt(bytes, body + 4, 'mvhd')) {

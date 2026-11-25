@@ -41,7 +41,7 @@ For example, one paragraph spanning pages 7 and 8 can become one passage that ci
 
 `Memory` saves and recalls conversation state for a caller-supplied resource, such as a user, and a thread. A read returns recent SDK messages and any selected context for the current request. A write persists new turns, including their tool calls, results and approvals. Casai's `LLMAgent` already returns the assembled `messageHistory`, so the integration should save each actual turn once and keep recalled passages in the outgoing request. [Casai conversation history](matrix/documentation.md#guide-conversations)
 
-Working memory keeps facts and preferences for a user or thread. Semantic recall can use `Embedder` and `VectorStore` to find relevant older messages within that scope. Observational memory condenses older exchanges into notes. For example, a support agent can recall the 45-day return exception it granted a particular customer.
+Working memory keeps facts and preferences for a user or thread. Semantic recall can use `Embedder` and `VectorStore` to find relevant older messages within that scope. Observational memory condenses older exchanges into notes. For example, a support agent can recall the 45-day return exception it granted a particular customer. [Memory implementation plan](memory.md)
 
 ### Knowledge
 

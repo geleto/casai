@@ -7,12 +7,14 @@ import { ConfigError, ValidationError } from '../errors.js';
 import { claimLiveInput } from '../runtime/live-input.js';
 import { isWebBlob, isWebStream, isWebURL } from '../runtime/web-input.js';
 import { validatePreparationSettings } from './preparation.js';
-import type { AudioSource, PrepareAudioSettings, PreparedAudio, PreparedAudioFor } from './preparation.js';
+import type { AudioSource, PrepareAudioSettings, PreparedAudioFor } from './preparation.js';
 import { createAudioInput } from './buffer-copy.js';
 import type { NativeAudioSource } from './native-pipeline.js';
 import type { NativeRequest, NativeResponse } from './native-worker.entry.js';
 import { nativeWorkerSource } from './worker-sources.js';
 import { isPcmSamples, sampleFormat } from './pcm.js';
+
+type NativePreparedAudio<T extends PrepareAudioSettings> = PreparedAudioFor<T> & { readonly track: number };
 
 function nativeFilename(): string {
 	try { return createRequire(typeof __filename === 'string' ? __filename : import.meta.url).resolve('node-av'); }
@@ -47,7 +49,7 @@ function keepWorker(worker: Worker, filename: string): boolean {
 }
 
 /** Standalone private entry for callers outside the component's validated call path. */
-export async function prepareAudio<T extends PrepareAudioSettings>(source: AudioSource, settings: T): Promise<PreparedAudioFor<T>> {
+export async function prepareAudio<T extends PrepareAudioSettings>(source: AudioSource, settings: T): Promise<NativePreparedAudio<T>> {
 	validatePreparationSettings(settings, ValidationError);
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Validate JavaScript input before native I/O.
 	if (!settings.inputAudioFormat && !settings.fileAudioTarget) throw new ValidationError('Audio preparation requires inputAudioFormat or fileAudioTarget.');
@@ -55,7 +57,7 @@ export async function prepareAudio<T extends PrepareAudioSettings>(source: Audio
 }
 
 /** Open validated settings on an exclusive native worker. */
-export async function openAudio<T extends PrepareAudioSettings>(source: AudioSource, settings: T): Promise<PreparedAudioFor<T>> {
+export async function openAudio<T extends PrepareAudioSettings>(source: AudioSource, settings: T): Promise<NativePreparedAudio<T>> {
 	settings.abortSignal?.throwIfAborted();
 	const filename = nativeFilename();
 	const worker = takeWorker(filename);
@@ -207,11 +209,11 @@ export async function openAudio<T extends PrepareAudioSettings>(source: AudioSou
 		}
 		const nativeSettings = { inputAudioFormat: settings.inputAudioFormat, fileAudioTarget: settings.fileAudioTarget,
 			mediaSettings, sourceFormat, maxPreparedAudioBytes: settings.maxPreparedAudioBytes };
-		const metadata = await request({ type: 'open', source: input, settings: nativeSettings, blobType }, transfer) as Pick<PreparedAudio, 'audio' | 'track' | 'format'>;
+		const metadata = await request({ type: 'open', source: input, settings: nativeSettings, blobType }, transfer) as Pick<NativePreparedAudio<T>, 'audio' | 'track' | 'format'>;
 		settings.abortSignal?.throwIfAborted();
 		if (metadata.audio instanceof Uint8Array) {
 			await finish();
-			return { ...metadata, close, [Symbol.asyncDispose]: close } as PreparedAudioFor<T>;
+			return { ...metadata, close, [Symbol.asyncDispose]: close };
 		}
 		const audio = new ReadableStream<Uint8Array>({
 			start(value) { controller = value; },
@@ -227,6 +229,6 @@ export async function openAudio<T extends PrepareAudioSettings>(source: AudioSou
 			},
 			cancel: close,
 		}, { highWaterMark: 0 });
-		return { ...metadata, audio, close, [Symbol.asyncDispose]: close } as PreparedAudioFor<T>;
+		return { ...metadata, audio, close, [Symbol.asyncDispose]: close } as NativePreparedAudio<T>;
 	} catch (error) { await close(); throw settings.abortSignal?.aborted ? settings.abortSignal.reason : error; }
 }

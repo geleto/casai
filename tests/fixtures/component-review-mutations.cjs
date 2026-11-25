@@ -59,7 +59,7 @@ const mutations = [
     'values: input }', 'values: input, maxParallelCalls: undefined }',
     'keeps SDK batch parallelism under the configured limit'],
   ['streaming speech ownership', 'src/factories/SpeechGenerator.ts',
-    'claimLiveInput(settings.text);', '',
+    'if (isWebStream(settings.text)) claimLiveInput(settings.text);', '',
     'forwards streaming speech voice and claims its source once'],
   ['streaming speech voice', 'src/factories/SpeechGenerator.ts',
     "call.take('voice', value => typeof value === 'string');", '',

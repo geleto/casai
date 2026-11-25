@@ -194,6 +194,28 @@ describe('Supplied audio through the component', () => {
 		assert.equal(downloads, 1); assert.equal(calls, 1);
 	});
 
+	it('dispatches iso5 and iso6 recordings as MP4 and keeps unknown major brands ambiguous', async () => {
+		const requests: Uint8Array[] = [];
+		const model = new MockTranscriptionModelV4({ doGenerate: async ({ audio, mediaType }) => {
+			assert.equal(mediaType, 'audio/mp4');
+			requests.push(Uint8Array.from(typeof audio === 'string' ? Buffer.from(audio, 'base64') : audio));
+			return { ...transcript, warnings: [], response: { timestamp: new Date(0), modelId: 'test' } };
+		} });
+		const file = Transcriber({ model, sourceFormat: { sampleRate: 24000, channels: 1, encoding: 'pcm_s16le' } });
+		const header = (major: string) => Uint8Array.of(0, 0, 0, 20, ...Buffer.from('ftyp' + major), 0, 0, 0, 0, ...Buffer.from('isom'));
+		for (const major of ['iso5', 'iso6']) {
+			const bytes = header(major);
+			for (const source of [bytes, new Blob([bytes], { type: 'application/octet-stream' }), Buffer.from(bytes).toString('base64')]) {
+				await file(source);
+				assert.deepEqual(requests.at(-1), bytes);
+			}
+			await assert.rejects(Transcriber({ model, inputAudioFormat: target })(bytes), /loadsAudio/);
+		}
+		// A compatible isom brand alone does not identify an unfamiliar major brand as MP4 audio.
+		await assert.rejects(file(header('mif1')), /accurately label/);
+		assert.equal(requests.length, 6);
+	});
+
 	it('requires structured container evidence and leaves truncated or weak prefixes usable as raw bytes', async () => {
 		const { model, raw } = capture();
 		const text = (value: string) => [...Buffer.from(value)];

@@ -1,7 +1,7 @@
 // The browser bundle must use published Cascada support and never include Node/native media.
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { dirname, resolve, join } from 'node:path';
@@ -10,6 +10,13 @@ import { dirname, resolve, join } from 'node:path';
 const pkg = dirname(dirname(createRequire(resolve('package.json')).resolve('casai')));
 const internals = process.argv.includes('--dist') ? 'dist' : 'src';
 const internal = name => JSON.stringify(join(pkg, internals, name + (internals === 'dist' ? '.js' : '.ts')));
+const recorders = {
+  'review-safari-aac.mp4': 'audio/mp4',
+  'review-ios-safari-aac.mp4': 'audio/mp4',
+  'review-chrome-aac.mp4': 'audio/mp4',
+  'review-chrome-opus.webm': 'audio/webm',
+  'review-firefox-opus.ogg': 'audio/ogg',
+};
 
 const result = await build({
   stdin: { contents: `
@@ -20,7 +27,7 @@ import { experimental_resampleAudio as sdkResample, experimental_decodeRealtimeA
 import { convertBase64ToUint8Array, convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 
 const samples = new Uint8Array([1, 0, 2, 0]);
-const same = (a, b) => { if (a.length !== b.length || a.some((value, i) => value !== b[i])) throw new Error('PCM mismatch'); };
+const same = (a, b) => { if (a.length !== b.length || a.some((value, i) => value !== b[i])) throw new Error('Audio bytes differ'); };
 const expected = (input, from, to) => convertBase64ToUint8Array(encode(sdkResample(decode(convertUint8ArrayToBase64(input)), from, to)));
 if (['allowed', 'shared', 'single'].includes(globalThis.workerMode)) {
 const parsed = await readWav(await writeWav(samples, { sampleRate: 24000, channels: 1, encoding: 'pcm_s16le' }));
@@ -137,6 +144,18 @@ if (['allowed', 'shared', 'single'].includes(globalThis.workerMode)) {
     await create.Transcriber({ model: { ...model, doGenerate: () => { throw new Error('Wrong MIME dispatched'); } } })(new File([new Uint8Array([255, 251, 0, 0])], 'recording', { type: 'audio/basic' }));
     throw new Error('Wrong MIME accepted');
   } catch (error) { if (!error.message.includes('accurately label')) throw error; }
+  for (const [filename, mime] of Object.entries(${JSON.stringify(recorders)})) {
+    const bytes = new Uint8Array(await (await fetch('/' + filename)).arrayBuffer());
+    const fileTranscriber = create.Transcriber({ model: { ...model, doGenerate: async ({ audio, mediaType }) => {
+      if (mediaType !== mime) throw new Error(filename + ' dispatched as ' + mediaType);
+      same(audio, bytes);
+      return { text: filename, segments: [], warnings: [] };
+    } } });
+    const wrongType = mime === 'audio/webm' ? 'audio/mp4' : 'audio/webm';
+    for (const input of [bytes, new Blob([bytes]), new File([bytes], filename, { type: mime }), new Blob([bytes], { type: wrongType })]) {
+      if ((await fileTranscriber(input)).text !== filename) throw new Error('Recording did not reach file transcription');
+    }
+  }
 }
 const template = create.Template({ template: 'Hello {{ name }}' });
 if (await template({ name: 'browser' }) !== 'Hello browser') throw new Error('Template');
@@ -159,8 +178,14 @@ await writeFile('.cache/phase6-browser/bundle.js', result.outputFiles[0].text);
 // Reuse the linked engine's existing browser-test installation, without adding a runtime dependency.
 const engineRequire = createRequire(import.meta.resolve('cascada-engine'));
 const { chromium } = engineRequire('playwright');
+const recordings = new Map(await Promise.all(Object.keys(recorders).map(async name =>
+  ['/' + name, await readFile(new URL(name, import.meta.url))])));
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CASAI_REVIEW_CHROMIUM });
 const server = createServer((request, response) => {
+  if (recordings.has(request.url)) {
+    response.end(recordings.get(request.url));
+    return;
+  }
   if (request.url === '/audio') {
     // Complete the upload before responding: browser fetch exposes the response after upload completion.
     const chunks = [];
