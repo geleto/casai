@@ -1,4 +1,4 @@
-// Explicit review regressions. CASAI_REVIEW_FFMPEG selects an independent decoder for the movie copy.
+// CASAI_REVIEW_FFMPEG selects the independent executable used for recording and provider-file playback checks.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rmdir, unlink, writeFile } from 'node:fs/promises';
@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { createOpenAI } from '@ai-sdk/openai';
 import { Experimental_MockSpeechTranslationModelV4, MockTranscriptionModelV4, convertArrayToReadableStream } from 'ai/test';
 import { Transcriber, Translator } from 'casai';
 import * as av from 'node-av';
@@ -34,13 +35,14 @@ after(async () => {
 });
 
 function capture() {
-  const requests = [];
+  const requests = [], interrupted = [];
   let calls = 0;
   const model = new MockTranscriptionModelV4({
     doStream: async ({ audio }) => {
       calls++;
       const parts = [];
-      for await (const part of audio) parts.push(part);
+      try { for await (const part of audio) parts.push(part); }
+      catch (error) { interrupted.push(Buffer.concat(parts)); throw error; }
       requests.push(Buffer.concat(parts));
       return { stream: convertArrayToReadableStream([{ type: 'finish', ...transcript }]) };
     },
@@ -50,7 +52,7 @@ function capture() {
       return { ...transcript, warnings: [], response: { timestamp: new Date(0), modelId: 'review' } };
     },
   });
-  return { model, requests, get calls() { return calls; } };
+  return { model, requests, interrupted, get calls() { return calls; } };
 }
 
 // FFmpeg 9.0.2 muxed two generated mono tracks. Bento4 mp4edit 1.6.0-641 authored
@@ -83,6 +85,318 @@ function comparePcm(actual, expected, tolerance) {
     assert.ok(Math.abs(value - reference) <= tolerance, `sample ${i / 2}: ${value} vs ${reference}`);
   }
 }
+
+function captureMultipart() {
+  const uploads = [];
+  const model = createOpenAI({ apiKey: 'local-fixture', fetch: async (url, init) => {
+    const file = (await new Request(url, init).formData()).get('file');
+    uploads.push({ name: file.name, mime: file.type, audio: Buffer.from(await file.arrayBuffer()) });
+    return Response.json({ text: 'heard' });
+  } }).transcription('whisper-1');
+  return { model, uploads };
+}
+
+test('Chrome Opus recorder clocks cover early packets and preserve a real pause', { skip: !referenceFfmpeg }, async () => {
+  const original = await readFile(new URL('./review-chrome-opus.webm', import.meta.url));
+  const mono = await referencePcm(original, '-ac', '1'), stereo = await referencePcm(original);
+  assert.equal(stereo.length, 46080 * 4);
+  const raw = capture(), files = captureMultipart();
+  const transcribe = Transcriber.loadsAudio({ model: raw.model, inputAudioFormat: target });
+  const wav = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } });
+  const ogg = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'ogg', codec: 'libopus' } });
+  const webm = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'webm', codec: 'libopus' } });
+  for (const [clock, pause] of [[undefined, 0], ['60*N', 0], ['60*N-10*eq(N,5)', 0], ['60*N+gte(N,5)', 48], ['60*N+100*gte(N,5)', 4800]]) {
+    const bytes = clock ? execFileSync(referenceFfmpeg, ['-v', 'error', '-i', 'pipe:0', '-c:a', 'copy', '-bsf:a',
+      `setts=time_base=1/1000:pts='${clock}':dts='${clock}':duration=60`, '-f', 'webm', 'pipe:1'], { input: original }) : original;
+    assert.deepEqual(await referencePcm(bytes), stereo);
+    const atPause = (pcm, stride) => Buffer.concat([pcm.subarray(0, 14400 * stride), Buffer.alloc(pause * stride), pcm.subarray(14400 * stride)]);
+    for (const input of [() => new Blob([bytes]), () => splitRecording(bytes, 431)]) {
+      await transcribe(input());
+      comparePcm(raw.requests.pop(), atPause(mono, 2), 2);
+      await wav(input());
+      const file = files.uploads.pop();
+      assert.equal(file.name, 'audio.wav'); assert.equal(file.mime, 'audio/wav');
+      comparePcm(await referencePcm(file.audio), atPause(stereo, 4), 2);
+    }
+    await webm(bytes);
+    const timestamped = files.uploads.pop();
+    assert.equal(timestamped.mime, 'audio/webm');
+    assert.deepEqual(await readAudioPackets(timestamped.audio), await readAudioPackets(bytes));
+    comparePcm(await referencePcm(timestamped.audio), stereo, 0);
+    if (pause) {
+      await assert.rejects(ogg(bytes), /preserve.*pause/);
+      assert.equal(files.uploads.length, 0);
+    } else {
+      await ogg(bytes);
+      comparePcm(await referencePcm(files.uploads.pop().audio), stereo, 0);
+    }
+  }
+});
+
+test('a WebM Opus clock reset starts a new epoch for the next pause', { skip: !referenceFfmpeg }, async () => {
+  const original = await readFile(new URL('./review-chrome-opus.webm', import.meta.url));
+  const bytes = Buffer.from(original);
+  await using input = await av.Demuxer.open(original);
+  let index = 0;
+  for await (const packet of input.packets(input.audio().index)) {
+    if (!packet) continue;
+    try {
+      // Each recorded SimpleBlock starts with the track number followed by its signed cluster-relative time.
+      const offset = Number(packet.pos);
+      assert.equal(bytes[offset], 0x81);
+      const start = 60 * (index < 8 ? index : index - 8) + (index < 12 ? 0 : 100);
+      bytes.writeInt16BE(bytes.readInt16BE(offset + 1) + start - Number(packet.pts), offset + 1);
+      index++;
+    } finally { packet[Symbol.dispose](); }
+  }
+  assert.equal(index, 16);
+  const pcm = await referencePcm(original, '-ac', '1'), join = 12 * 2880 * 2;
+  const expected = Buffer.concat([pcm.subarray(0, join), Buffer.alloc(4800 * 2), pcm.subarray(join)]);
+  const raw = capture();
+  await Transcriber.loadsAudio({ model: raw.model, inputAudioFormat: target })(splitRecording(bytes));
+  comparePcm(raw.requests.pop(), expected, 2);
+});
+
+test('a primed WebM Opus packet clock preserves exact pauses and fractional end padding', { skip: !referenceFfmpeg }, async () => {
+  const raw = capture(), files = captureMultipart();
+  const transcribe = Transcriber.loadsAudio({ model: raw.model, inputAudioFormat: target });
+  const wav = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } });
+  const ogg = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'ogg', codec: 'libopus' } });
+  for (const ms of [2.5, 20]) {
+    const original = execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=733:sample_rate=48000:duration=1',
+      '-c:a', 'libopus', '-frame_duration', String(ms), '-f', 'webm', 'pipe:1']);
+    const sound = await referencePcm(original);
+    assert.equal(sound.length, rate * 2);
+    const offsets = [];
+    await using input = await av.Demuxer.open(original);
+    const stream = input.audio(), preSkip = stream.codecpar.initialPadding;
+    assert.equal(preSkip, ms === 20 ? 312 : 120);
+    for await (const packet of input.packets(stream.index)) {
+      if (packet) { offsets.push(Number(packet.pos)); packet[Symbol.dispose](); }
+    }
+    for (const [first, gap] of [[1, 1], [5, 100], [5, 0]]) {
+      const bytes = Buffer.from(original), boundary = 2 * (first * ms * 48 - preSkip);
+      for (const offset of offsets.slice(first)) {
+        assert.equal(bytes[offset], 0x81);
+        bytes.writeInt16BE(bytes.readInt16BE(offset + 1) + gap, offset + 1);
+      }
+      const expected = Buffer.concat([sound.subarray(0, boundary), Buffer.alloc(gap * 48 * 2), sound.subarray(boundary)]);
+      for (const source of [() => new Blob([bytes]), () => splitRecording(bytes, 431)]) {
+        await transcribe(source());
+        comparePcm(raw.requests.pop(), expected, 2);
+        await wav(source());
+        comparePcm(await referencePcm(files.uploads.pop().audio), expected, 2);
+        if (gap) {
+          await assert.rejects(ogg(source()), /preserve.*pause/);
+          assert.equal(files.uploads.length, 0);
+        } else {
+          await ogg(source());
+          comparePcm(await referencePcm(files.uploads.pop().audio), expected, 0);
+        }
+      }
+    }
+  }
+});
+
+test('chained Ogg Opus joins both signals at the playable end and rejects an unrepresentable copy', { skip: !referenceFfmpeg }, async () => {
+  const chain = await readFile(new URL('./review-chained-opus.ogg', import.meta.url));
+  const secondHead = chain.indexOf('OpusHead', chain.indexOf('OpusHead') + 8);
+  assert.ok(secondHead > 0);
+  const page = chain.lastIndexOf('OggS', secondHead), first = chain.subarray(0, page);
+  // A second link may have no pre-skip. The previous link still has an end trim.
+  const noSkip = Buffer.from(chain);
+  assert.equal(noSkip.readUInt32LE(page + 22), 0x8342a52e);
+  noSkip.writeUInt16LE(0, secondHead + 10);
+  noSkip.writeUInt32LE(0x7e6e56b6, page + 22);
+  const raw = capture(), files = captureMultipart();
+  const transcribe = Transcriber.loadsAudio({ model: raw.model, inputAudioFormat: target });
+  const wav = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } });
+  const second = chain.subarray(page);
+  for (const [sections, frames] of [[[first, second], 84000], [[first, second, first], 132000], [[first, noSkip.subarray(page)], 84312]]) {
+    const bytes = Buffer.concat(sections), stereoParts = [], monoParts = [];
+    // A fresh decoder per logical stream also keeps the previous link's Opus prediction out of the join.
+    for (const section of sections) {
+      stereoParts.push(await referencePcm(section));
+      monoParts.push(await referencePcm(section, '-ac', '1'));
+    }
+    const stereo = Buffer.concat(stereoParts), mono = Buffer.concat(monoParts);
+    assert.equal(stereo.length, frames * 4);
+    for (const input of [() => new Blob([bytes]), () => splitRecording(bytes, 431)]) {
+      await transcribe(input());
+      comparePcm(raw.requests.pop(), mono, 2);
+      await wav(input());
+      comparePcm(await referencePcm(files.uploads.pop().audio), stereo, 2);
+    }
+  }
+  // A six-decibel gain change is structural. A metadata-only transition also
+  // cannot establish a fresh decoder when neither adjacent section has a trim.
+  const gain = Buffer.from(chain);
+  gain.writeInt16LE(6 * 256, secondHead + 16);
+  gain.writeUInt32LE(0x66941a88, page + 22);
+  const untrimmedEnd = execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=230:sample_rate=48000',
+    '-af', 'atrim=end_sample=45768', '-ac', '2', '-c:a', 'libopus', '-f', 'ogg', 'pipe:1']);
+  const translator = Translator.loadsAudio.asStream({ model: new Experimental_MockSpeechTranslationModelV4({
+    doStream: raw.model.doStream.bind(raw.model),
+  }), targetLanguage: 'fr', inputAudioFormat: target });
+  for (const [bytes, opening] of [[gain, first], [Buffer.concat([gain, first]), first], [Buffer.concat([untrimmedEnd, noSkip.subarray(page)]), untrimmedEnd]]) {
+    const allowed = await referencePcm(opening, '-ac', '1');
+    for (const input of [() => new Blob([bytes]), () => splitRecording(bytes)]) {
+      await assert.rejects(wav(input()), /decoder settings at this Ogg section change/);
+      assert.equal(files.uploads.length, 0);
+      for (const consume of [transcribe, async audio => (await translator.run({ audio })).translationText]) {
+        await assert.rejects(consume(input()), /decoder settings at this Ogg section change/);
+        const prefix = raw.interrupted.pop();
+        assert.ok(prefix.length <= allowed.length);
+        comparePcm(prefix, allowed.subarray(0, prefix.length), 2);
+      }
+    }
+  }
+  for (const format of ['ogg', 'webm']) {
+    const copy = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format, codec: 'libopus' } });
+    await copy(first);
+    comparePcm(await referencePcm(files.uploads.pop().audio), await referencePcm(first), 0);
+    for (const input of [new Blob([chain]), splitRecording(chain), noSkip]) await assert.rejects(copy(input), /trim between Ogg sections/);
+    assert.equal(files.uploads.length, 0);
+  }
+  const withAlternative = Transcriber.loadsAudio({ model: files.model,
+    fileAudioTarget: { format: 'wav', codec: 'pcm_s16le', alternatives: [{ format: 'webm', codec: 'libopus' }] } });
+  await assert.rejects(withAlternative(splitRecording(chain)), /trim between Ogg sections/);
+  assert.equal(files.uploads.length, 0);
+});
+
+test('a short Ogg middle link cannot borrow the following Opus gain', { skip: !referenceFfmpeg }, async () => {
+  const tone = hz => execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i',
+    `sine=frequency=${hz}:sample_rate=48000:duration=0.01`, '-c:a', 'libopus', '-f', 'ogg', 'pipe:1']);
+  const opening = tone(330), middle = tone(805), closing = tone(1240);
+  // Change only the middle OpusHead output gain and its Ogg page checksum.
+  assert.equal(middle.indexOf('OpusHead'), 28);
+  assert.equal(middle[27], 19);
+  middle.writeInt16LE(6 * 256, 28 + 16);
+  middle.writeUInt32LE(0, 22);
+  let crc = 0;
+  for (const byte of middle.subarray(0, 47)) {
+    crc ^= byte << 24;
+    for (let bit = 0; bit < 8; bit++) crc = (crc << 1) ^ (crc < 0 ? 0x04c11db7 : 0);
+  }
+  middle.writeUInt32LE(crc >>> 0, 22);
+  const bytes = Buffer.concat([opening, middle, closing]), allowed = await referencePcm(opening);
+  const raw = capture(), files = captureMultipart();
+  const transcribe = Transcriber.loadsAudio({ model: raw.model, inputAudioFormat: target });
+  const wav = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } });
+  await wav(middle);
+  comparePcm(await referencePcm(files.uploads.pop().audio), await referencePcm(middle), 2);
+  for (const source of [() => new Blob([bytes]), () => splitRecording(bytes)]) {
+    await assert.rejects(wav(source()), /decoder settings at this Ogg section change/);
+    assert.equal(files.uploads.length, 0);
+    await assert.rejects(transcribe(source()), /decoder settings at this Ogg section change/);
+    const prefix = raw.interrupted.pop();
+    assert.ok(prefix.length <= allowed.length);
+    comparePcm(prefix, allowed.subarray(0, prefix.length), 2);
+  }
+});
+
+test('prepared Vorbis files omit stream and codec-header comments while ordinary files retain them', { skip: !referenceFfmpeg }, async () => {
+  const marker = 'Workshop take 17';
+  const ogg = execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=415:sample_rate=48000:duration=0.8',
+    '-c:a', 'libvorbis', '-metadata:s:a:0', 'title=' + marker, '-f', 'ogg', 'pipe:1']);
+  // This WebM's only title is in the Vorbis comment header inside CodecPrivate.
+  const webm = await readFile(new URL('./review-vorbis-comments.webm', import.meta.url));
+  await using source = await av.Demuxer.open(webm);
+  assert.ok(source.audio().codecpar.extradata.includes(marker));
+  assert.ok(!source.audio().metadata?.get('title'));
+  const { model, uploads } = captureMultipart();
+  for (const [sourceFormat, bytes] of [['ogg', ogg], ['webm', webm]]) {
+    const expected = await referencePcm(bytes);
+    const packets = (await readAudioPackets(bytes)).map(packet => packet.data);
+    assert.ok(bytes.includes(marker) && expected.length > 70000);
+    await Transcriber({ model })(new File([bytes], 'recording.bin', { type: 'audio/wav' }));
+    const direct = uploads.pop();
+    assert.equal(direct.name, 'audio.' + sourceFormat);
+    assert.equal(direct.mime, 'audio/' + sourceFormat);
+    assert.ok(direct.audio.equals(bytes));
+    for (const format of ['ogg', 'webm', 'wav']) {
+      const prepare = Transcriber.loadsAudio({ model, fileAudioTarget: { format, codec: format === 'wav' ? 'pcm_s16le' : 'libvorbis' } });
+      for (const input of [new Blob([bytes]), splitRecording(bytes)]) {
+        await prepare(input);
+        const file = uploads.pop();
+        assert.equal(file.name, 'audio.' + format);
+        assert.equal(file.mime, 'audio/' + format);
+        assert.equal(file.audio.includes(marker), false);
+        if (format !== 'wav') assert.deepEqual((await readAudioPackets(file.audio)).map(packet => packet.data), packets);
+        const actual = await referencePcm(file.audio);
+        comparePcm(actual.subarray(0, expected.length), expected, 1);
+        // A compressed target can expose the remainder of the final Vorbis window.
+        assert.ok(actual.length - expected.length <= (format === 'wav' ? 0 : 2048));
+      }
+    }
+  }
+});
+
+test('prepared FLAC and WAV omit the attached cover and container title', { skip: !referenceFfmpeg }, async () => {
+  const marker = 'Artwork fixture title';
+  const art = execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=8x8',
+    '-frames:v', '1', '-c:v', 'png', '-f', 'image2pipe', 'pipe:1']);
+  const bytes = execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=530:duration=0.6', '-i', 'pipe:0',
+    '-map', '0:a', '-map', '1:v', '-c:a', 'flac', '-c:v', 'copy', '-disposition:v', 'attached_pic', '-metadata', 'title=' + marker,
+    '-f', 'flac', 'pipe:1'], { input: art });
+  assert.ok(bytes.includes(art) && bytes.includes(marker));
+  const expected = await referencePcm(bytes, '-map', '0:a:0');
+  const { model, uploads } = captureMultipart();
+  for (const [format, codec] of [['flac', 'flac'], ['wav', 'pcm_s16le']]) {
+    const prepare = Transcriber.loadsAudio({ model, fileAudioTarget: { format, codec } });
+    for (const input of [new Blob([bytes]), splitRecording(bytes)]) {
+      await prepare(input);
+      const file = uploads.pop();
+      assert.ok(!file.audio.includes(art) && !file.audio.includes(marker));
+      await using output = await av.Demuxer.open(file.audio);
+      assert.deepEqual(output.streams.map(stream => stream.codecpar.codecType), [av.AVMEDIA_TYPE_AUDIO]);
+      comparePcm(await referencePcm(file.audio), expected, 0);
+    }
+  }
+});
+
+test('a later Ogg section cannot forward its new title or change Vorbis playback at the join', { skip: !referenceFfmpeg }, async () => {
+  const makeSection = (hz, title, ...encoding) => execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i',
+    `sine=frequency=${hz}:sample_rate=48000:duration=0.5`, ...encoding, '-metadata:s:a:0', 'title=' + title, '-f', 'ogg', 'pipe:1']);
+  const marker = 'Title from the later section';
+  const { model, uploads } = captureMultipart();
+  const copy = (format, codec) => Transcriber.loadsAudio({ model, fileAudioTarget: { format, codec } });
+  const wav = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } });
+  const first = makeSection(220, 'Opening section', '-c:a', 'libvorbis', '-q:a', '3');
+  const raw = capture(), transcribe = Transcriber.loadsAudio({ model: raw.model, inputAudioFormat: target });
+  const firstPcm = await referencePcm(first);
+  for (const quality of [3, 8]) {
+    const bytes = Buffer.concat([first, makeSection(730, marker, '-c:a', 'libvorbis', '-q:a', String(quality))]);
+    for (const input of [() => new Blob([bytes]), () => splitRecording(bytes)]) {
+      for (const prepare of [copy('ogg', 'libvorbis'), copy('webm', 'libvorbis'), wav, transcribe]) {
+        await assert.rejects(prepare(input()), /Vorbis section change/);
+      }
+      assert.equal(uploads.length, 0);
+      const prefix = raw.interrupted.pop();
+      comparePcm(prefix, firstPcm.subarray(0, prefix.length), 1);
+    }
+  }
+  const opening = makeSection(220, 'Opening section', '-c:a', 'flac'), next = makeSection(730, marker, '-c:a', 'flac');
+  const bytes = Buffer.concat([opening, next]);
+  const expected = Buffer.concat([await referencePcm(opening), await referencePcm(next)]);
+  const packets = (await readAudioPackets(bytes)).map(packet => packet.data);
+  for (const input of [() => new Blob([bytes]), () => splitRecording(bytes)]) {
+    for (const format of ['ogg', 'wav']) {
+      await (format === 'ogg' ? copy('ogg', 'flac') : wav)(input());
+      const file = uploads.pop();
+      assert.equal(file.name, 'audio.' + format);
+      assert.equal(file.mime, 'audio/' + format);
+      assert.ok(!file.audio.includes(marker) && !file.audio.includes('Opening section'));
+      if (format === 'ogg') {
+        const beginning = Buffer.from('OggS\x00\x02', 'latin1');
+        assert.equal(file.audio.indexOf(beginning), 0);
+        assert.ok(file.audio.lastIndexOf(beginning) > 0, 'The provider file must retain the second Ogg logical stream.');
+        assert.deepEqual((await readAudioPackets(file.audio)).map(packet => packet.data), packets);
+      }
+      comparePcm(await referencePcm(file.audio), expected, 0);
+    }
+  }
+});
 
 test('a leading empty edit ends on the authored sample before resampling and encoding', { skip: !referenceFfmpeg }, async () => {
   const edited = editMovie(movie, [[null, 60], [0, 1300]]);
@@ -221,16 +535,38 @@ test('a prepared WebM copy preserves the last block trim in both recorded channe
   const pcm = await referencePcm(original);
   const frameBytes = 4; // Stereo PCM16 at 48 kHz.
   assert.equal(pcm.length, 46080 * frameBytes);
-  const { model, requests } = capture();
-  const transcribe = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'webm', codec: 'libopus' } });
-  for (const [recording, frames] of [[original, 46080], [trimmed, 45840]]) {
+  const { model, uploads } = captureMultipart();
+  const ogg = { format: 'ogg', codec: 'libopus' }, wav = { format: 'wav', codec: 'pcm_s16le' };
+  const fractional = Buffer.from(trimmed), trimOffset = trimmed.lastIndexOf(Buffer.from([0x75, 0xa2, 0x84]));
+  assert.equal(trimmed.readInt32BE(trimOffset + 3), 5000000);
+  fractional.writeInt32BE(500000, trimOffset + 3);
+  for (const [recording, frames] of [[original, 46080], [trimmed, 45840], [fractional, 46056]]) {
     const expected = pcm.subarray(0, frames * frameBytes);
     assert.ok((await referencePcm(recording)).equals(expected));
-    for (const input of [new Blob([recording]), splitRecording(recording)]) {
-      await transcribe(input);
-      assert.equal(requests.length, 1);
-      assert.ok((await referencePcm(requests.pop())).equals(expected), `Provider copy must play the first ${frames} stereo frames.`);
+    const packets = (await readAudioPackets(recording)).map(packet => packet.data);
+    for (const profile of [{ ...ogg, format: 'webm' }, ogg, { ...ogg, format: 'opus' }, { ...wav, alternatives: [ogg] }]) {
+      const prepare = Transcriber.loadsAudio({ model, fileAudioTarget: profile });
+      for (const input of [new Blob([recording]), splitRecording(recording)]) {
+        await prepare(input);
+        const file = uploads.pop(), format = profile.format === 'webm' ? 'webm' : 'ogg';
+        assert.equal(file.name, 'audio.' + format); assert.equal(file.mime, 'audio/' + format);
+        assert.deepEqual((await readAudioPackets(file.audio)).map(packet => packet.data), packets);
+        assert.ok((await referencePcm(file.audio)).equals(expected), `Provider copy must play the first ${frames} stereo frames.`);
+      }
     }
+  }
+  // A following cluster makes the preceding DiscardPadding an interior edit.
+  const lastCluster = original.lastIndexOf(Buffer.from([0x1f, 0x43, 0xb6, 0x75]));
+  assert.ok(lastCluster > 0);
+  const continuation = Buffer.from(original.subarray(lastCluster));
+  const timestamp = continuation.indexOf(Buffer.from([0xe7, 0x82]));
+  assert.equal(continuation.readUInt16BE(timestamp + 2), 839);
+  continuation.writeUInt16BE(960, timestamp + 2);
+  const interior = Buffer.concat([trimmed, continuation]);
+  for (const [recording, profile] of [[interior, ogg], [interior, { ...wav, alternatives: [ogg] }], [trimmed, { ...ogg, format: 'mp4' }]]) {
+    const prepare = Transcriber.loadsAudio({ model, fileAudioTarget: profile });
+    for (const input of [new Blob([recording]), splitRecording(recording)]) await assert.rejects(prepare(input), /preserve this Opus playback trim/);
+    assert.equal(uploads.length, 0);
   }
 });
 
@@ -257,6 +593,27 @@ test('Firefox recorder end trim reaches the provider on raw and WAV delivery', {
       comparePcm(await referencePcm(requests.pop(), '-ac', '1'), expected, 2);
     }
   }
+});
+
+test('an inclusive Opus-to-WAV duration limit uses playable samples for every source', { skip: !referenceFfmpeg }, async () => {
+  const { model, uploads } = captureMultipart(), path = join(directory, 'duration.ogg');
+  const second = execFileSync(referenceFfmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=sample_rate=48000:duration=1',
+    '-c:a', 'libopus', '-f', 'ogg', 'pipe:1']);
+  try {
+    for (const [bytes, frames] of [[second, 48000], [await readFile(new URL('review-firefox-opus.ogg', import.meta.url)), 64384]]) {
+      const expected = await referencePcm(bytes);
+      await writeFile(path, bytes);
+      const profile = { format: 'wav', codec: 'pcm_s16le', maxDurationSeconds: frames / rate };
+      const prepare = Transcriber.loadsAudio({ model, fileAudioTarget: profile });
+      for (const source of [() => bytes, () => Uint8Array.from(bytes).buffer, () => new Blob([bytes]), () => new File([bytes], 'sound.ogg'),
+        () => splitRecording(bytes), () => path]) {
+        await prepare(source());
+        comparePcm(await referencePcm(uploads.pop().audio), expected, 2);
+        await assert.rejects(prepare.run({ audio: source(), fileAudioTarget: { ...profile, maxDurationSeconds: (frames - 1) / rate } }), /maxDurationSeconds/);
+        assert.equal(uploads.length, 0);
+      }
+    }
+  } finally { await unlink(path); }
 });
 
 test('a four-minute fast-start video streams a selected track beyond a large video index', { skip: !referenceFfmpeg }, async () => {

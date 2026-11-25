@@ -1,6 +1,9 @@
 // Only the consumed native surface. The maintained native fixture checks it against real node-av exports.
 // No native package types enter Casai's declarations or browser import graph.
 export interface NativePacket extends Disposable {
+	streamIndex: number;
+	timeBase: NativeStream['timeBase'];
+	data: Buffer | null;
 	pos: bigint;
 	pts: bigint;
 	dts: bigint;
@@ -8,6 +11,7 @@ export interface NativePacket extends Disposable {
 	size: number;
 	flags: number;
 	getSideData(type: number): Buffer | null;
+	addSideData(type: number, data: Buffer): number;
 }
 export interface NativeFrame extends Disposable {
 	pts: bigint;
@@ -27,6 +31,7 @@ export interface NativeCodecParameters {
 	format: number;
 	initialPadding: number;
 	frameSize: number;
+	extradata: Buffer | null;
 }
 export interface NativeStream {
 	index: number;
@@ -41,6 +46,7 @@ export interface NativeStream {
 export interface NativeInput<SeekFlag extends number = number> {
 	formatName: string;
 	getFormatContext(): {
+		pbBytes: bigint;
 		getOption(name: string): string | null;
 		readFrame(packet: NativePacket): Promise<number>;
 		seekFrame(index: number, position: bigint, flags: SeekFlag): Promise<number>;
@@ -50,7 +56,10 @@ export interface NativeInput<SeekFlag extends number = number> {
 	packets(index: number): AsyncIterable<NativePacket | null>;
 	close(): Promise<void>;
 }
-export interface NativeDecoder extends Disposable { frames(packet: NativePacket | AsyncIterable<NativePacket | null> | null): AsyncIterable<NativeFrame | null> }
+export interface NativeDecoder extends Disposable {
+	frames(packet: NativePacket | AsyncIterable<NativePacket | null> | null): AsyncIterable<NativeFrame | null>;
+	getCodecContext(): { flushBuffers(): void } | null;
+}
 export interface NativeEncoder extends Disposable {
 	packets(frame: NativeFrame | AsyncIterable<NativeFrame | null> | null): AsyncIterable<NativePacket | null>;
 	getCodecContext(): { codecId: number; sampleRate: number; channels: number; sampleFormat: number; bitsPerCodedSample: number; timeBase: { num: number; den: number } } | null;
@@ -59,6 +68,7 @@ export interface NativeOutput {
 	addStream(source: NativeStream): number;
 	// eslint-disable-next-line @typescript-eslint/unified-signatures -- Match node-av's separate overloads in the real-export compatibility check.
 	addStream(source: NativeEncoder): number;
+	getStream(index: number): { metadata: object | null; codecpar: NativeCodecParameters } | undefined;
 	writePacket(packet: NativePacket | null | undefined, index: number): Promise<void>;
 	close(): Promise<void>;
 }
@@ -77,8 +87,11 @@ export interface NativeAv<SampleFormat extends number = number, Layout extends N
 	AV_SAMPLE_FMT_S16: SampleFormat;
 	AV_NOPTS_VALUE: bigint;
 	AV_PKT_DATA_SKIP_SAMPLES: number;
+	AV_PKT_DATA_STRINGS_METADATA: number;
+	AV_PKT_DATA_NEW_EXTRADATA: number;
 	AV_PKT_FLAG_DISCARD: number;
-	Packet: new () => NativePacket & { alloc(): void; data: Buffer | null; timeBase: NativeStream['timeBase'] };
+	Packet: new () => NativePacket & { alloc(): void };
+	FormatContext: new () => AsyncDisposable & { allocContext(): void; newStream(): NativeStream };
 	Frame: { fromAudioBuffer(data: Buffer, props: { format: SampleFormat; channelLayout: Layout; sampleRate: number; nbSamples: number; pts: bigint; timeBase: { num: number; den: number } }): NativeFrame };
 	FilterAPI: { create(description: string, options: { signal?: AbortSignal | undefined }): Disposable & { frames(input: AsyncIterable<Frame | null>): AsyncIterable<NativeFrame | null> } };
 	avGetBytesPerSample(format: SampleFormat): number;

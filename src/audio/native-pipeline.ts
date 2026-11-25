@@ -5,6 +5,7 @@ import { sampleFormat } from './pcm-format.js';
 import { audioContainer, audioMediaType, audioPrefixBytes, checkMimeLayout, encodedAudioType } from './source-evidence.js';
 import { type MovieHeader, observeMovieHeader, readMovieHeader, selectedMovieEdit, unverifiableMovie } from './movie-header.js';
 import { isMovieResource, openMovieResource } from './movie-resource.js';
+import { cleanVorbisHeaders, copyPauseMessage, oggOpusPackets, oggVorbisPackets, opusTime, webmOpusPackets } from './native-ogg-webm.js';
 const fileLimitMessage = 'Prepared audio exceeds the file byte limit (fileAudioTarget.maxBytes or maxPreparedAudioBytes).';
 /** The Node preparation owner resolves URLs and ArrayBuffers before worker handoff. */
 export type NativeAudioSource = Extract<AudioSource, string | Uint8Array | ReadableStream<Uint8Array>>;
@@ -18,24 +19,6 @@ function clockRounding(stream: NativeStream, rate: number): bigint {
 // A frame spanning whole container ticks has the same rounding at both ends.
 function wholeTicks(samples: number, rate: number, stream: NativeStream): boolean {
 	return samples > 0 && (samples * stream.timeBase.den) % (rate * stream.timeBase.num) === 0;
-}
-
-// Ogg stores one end granule per page. Inside a page FFmpeg can place a short Vorbis
-// window late. The preceding packet fixes its start and its own end granule stays intact.
-async function* oggVorbisPackets(packets: AsyncIterable<NativePacket | null>, noTimestamp: bigint) {
-	let end: bigint | undefined, page: bigint | undefined;
-	for await (const packet of packets) {
-		if (packet && packet.pts !== noTimestamp) {
-			const duration = packet.duration, nextEnd = packet.pts + duration;
-			if (packet.pos >= 0n && packet.pos === page && end !== undefined && duration > 0n && packet.pts > end) {
-				if (packet.dts === packet.pts) packet.dts = end;
-				packet.pts = end;
-				packet.duration = nextEnd - end;
-			}
-			end = nextEnd; page = packet.pos;
-		} else end = undefined;
-		yield packet;
-	}
 }
 
 // A MOV edit can resume inside a packet. The native demuxer marks preroll for the
@@ -106,7 +89,8 @@ function moviePlaybackEnd(av: NativeAv, stream: NativeStream, bounds: MovieBound
 }
 
 /** The decoder reports presentation timestamps in sample units. Fill pauses before rate conversion. */
-async function* decodedFrames(av: NativeAv, decoder: NativeDecoder, packets: AsyncIterable<NativePacket | null>, stream: NativeStream, movie: boolean, bounds: MovieBounds, rate: number | undefined, limit: number, signal?: AbortSignal, codec?: ReturnType<NativeAv['Codec']['findEncoderByName']>) {
+async function* decodedFrames(av: NativeAv, decoder: NativeDecoder, track: NativeTrack, movie: boolean, bounds: MovieBounds, rate: number | undefined, limit: number, signal?: AbortSignal, codec?: ReturnType<NativeAv['Codec']['findEncoderByName']>) {
+	const stream = track.stream();
 	let remaining = limit;
 	let encoderStride: number | undefined;
 	function outputStride(frame: NativeFrame) {
@@ -116,15 +100,16 @@ async function* decodedFrames(av: NativeAv, decoder: NativeDecoder, packets: Asy
 			* av.pickSupportedLayout(frame.channelLayout, codec.channelLayouts).nbChannels;
 	}
 	async function* onTimeline() {
-		let end: bigint | undefined, outputPosition = 0n, previousRate = 0, rounding = 0n, aligned = false;
-		for await (const frame of decoder.frames(packets)) {
+		// A packet wholly consumed by pre-skip can still be followed by a pause.
+		let end = track.playbackOrigin, outputPosition = 0n, previousRate = 0, rounding = 0n, aligned = false;
+		for await (const frame of decoder.frames(track.packets(decoder))) {
 			if (!frame) { yield frame; continue; }
 			let handedOff = false;
 			try {
 				const sampleRate = frame.sampleRate;
 				const timeBase = { num: 1, den: sampleRate };
 				if (previousRate !== sampleRate) {
-					if (end !== undefined) end = av.avRescaleQ(end, { num: 1, den: previousRate }, timeBase);
+					if (previousRate && end !== undefined) end = av.avRescaleQ(end, { num: 1, den: previousRate }, timeBase);
 					if (previousRate) outputPosition = av.avRescaleQ(outputPosition, { num: 1, den: previousRate }, timeBase);
 					rounding = clockRounding(stream, sampleRate);
 					aligned = false;
@@ -313,7 +298,9 @@ export async function* prepareNativeAudio(av: NativeAv, source: NativeAudioSourc
 			: input.streams.find(stream => stream.index === settings.mediaSettings!.track);
 		if (selected?.codecpar.codecType !== av.AVMEDIA_TYPE_AUDIO) throw new ValidationError('The selected container stream is missing or is not audio.');
 		const track = selected.index;
-		const movie = input.formatName.split(',').includes('mov');
+		const formats = input.formatName.split(',');
+		const movie = formats.includes('mov');
+		const codec = av.avGetCodecName(selected.codecpar.codecId);
 		let bounds: MovieBounds = {};
 		let packets = input.packets(track);
 		if (movie) {
@@ -340,10 +327,32 @@ export async function* prepareNativeAudio(av: NativeAv, source: NativeAudioSourc
 		resource?.releaseHeader();
 		uploadHeader = undefined;
 		if (movie && selected.nbFrames > 0n && selected.duration === 0n) throw new ValidationError('The selected movie track has no playable duration.');
-		if (input.formatName === 'ogg' && av.avGetCodecName(selected.codecpar.codecId) === 'vorbis') packets = oggVorbisPackets(packets, av.AV_NOPTS_VALUE);
+		if (input.formatName === 'ogg' && codec === 'vorbis') packets = oggVorbisPackets(av, packets);
+		const webmOpus = codec === 'opus' && formats.includes('webm');
+		// Both the decoder and copy muxer take their input clock from an AVStream.
+		// Give them the corrected clock without changing the stream FFmpeg is reading.
+		await using sampleContext = webmOpus ? new av.FormatContext() : undefined;
+		let sampleStream = selected;
+		if (sampleContext) {
+			sampleContext.allocContext();
+			sampleStream = sampleContext.newStream();
+			sampleStream.codecpar = selected.codecpar;
+			sampleStream.timeBase = opusTime;
+			if (selected.duration > 0n) sampleStream.duration = av.avRescaleQ(selected.duration, selected.timeBase, opusTime);
+		}
+		const nativeTrack: NativeTrack = {
+			playbackOrigin: webmOpus ? 0n : undefined,
+			stream: copy => copy?.format === 'webm' ? selected : sampleStream,
+			packets(destination) {
+				const copy = 'format' in destination ? destination : undefined;
+				if (codec === 'opus' && formats.includes('ogg')) return oggOpusPackets(av, input!, selected, 'frames' in destination ? destination : undefined, settings.abortSignal);
+				if (webmOpus && copy?.format !== 'webm') return webmOpusPackets(av, selected, packets, copy);
+				return packets;
+			},
+		};
 		const limit = settings.maxPreparedAudioBytes ?? defaultPreparedAudioBytes;
 		if (settings.fileAudioTarget) {
-			const result = await prepareFile(av, movie, packets, selected, settings.fileAudioTarget, limit, bounds, settings.abortSignal);
+			const result = await prepareFile(av, movie, nativeTrack, settings.fileAudioTarget, limit, bounds, settings.abortSignal);
 			return { ...result, track };
 		}
 		const target = settings.inputAudioFormat;
@@ -354,10 +363,10 @@ export async function* prepareNativeAudio(av: NativeAv, source: NativeAudioSourc
 			checkPreparedAudioBytes(Number(samples) * 2, limit);
 		}
 		// Frame-threaded ALAC can apply an initial edit's skip to a later frame.
-		decoder = await av.Decoder.create(selected, { context: movie ? { threadCount: 1 } : undefined, resample: { sampleFormat: av.AV_SAMPLE_FMT_S16, channelLayout: av.avChannelLayoutDefault(1) }, signal: settings.abortSignal });
+		decoder = await av.Decoder.create(sampleStream, { context: movie ? { threadCount: 1 } : undefined, resample: { sampleFormat: av.AV_SAMPLE_FMT_S16, channelLayout: av.avChannelLayoutDefault(1) }, signal: settings.abortSignal });
 		yield { track, format: target };
 		// The native iterable owns packet disposal and drains the decoder at its EOF marker.
-		for await (const frame of decodedFrames(av, decoder, packets, selected, movie, bounds, target.rate, limit, settings.abortSignal)) {
+		for await (const frame of decodedFrames(av, decoder, nativeTrack, movie, bounds, target.rate, limit, settings.abortSignal)) {
 			if (!frame) continue;
 			try {
 				if (frame.sampleRate !== target.rate || frame.format !== av.AV_SAMPLE_FMT_S16 || frame.channelLayout.nbChannels !== 1) {
@@ -381,7 +390,7 @@ export async function* prepareNativeAudio(av: NativeAv, source: NativeAudioSourc
 async function writePcmPause(av: NativeAv, output: NativeOutput, index: number, stream: NativeStream, codec: string, start: bigint, end: bigint, fileBytesLeft: number, pcmBytesLeft: number) {
 	const packed = /^pcm_[sf](8|16|24|32|64)(?:be|le)?$/.exec(codec);
 	const silentByte = codec === 'pcm_u8' ? 128 : codec === 'pcm_mulaw' ? 255 : codec === 'pcm_alaw' ? 213 : undefined;
-	if (!packed && silentByte === undefined) throw new ValidationError('The selected file copy cannot preserve this audio pause. Choose a fileAudioTarget that converts the track or use a raw PCM target.');
+	if (!packed && silentByte === undefined) throw new ValidationError(copyPauseMessage);
 	const stride = stream.codecpar.channels * (packed ? Number(packed[1]) / 8 : 1);
 	const bytes = Number((end - start) * BigInt(stride));
 	if (bytes > fileBytesLeft) throw new ValidationError(fileLimitMessage);
@@ -401,10 +410,18 @@ async function writePcmPause(av: NativeAv, output: NativeOutput, index: number, 
 	return bytes;
 }
 
-async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<NativePacket | null>, stream: NativeStream, target: FileAudioTarget, limit: number, bounds: MovieBounds, signal?: AbortSignal) {
+interface NativeTrack {
+	playbackOrigin: bigint | undefined;
+	stream(copy?: FileAudioFormat): NativeStream;
+	packets(destination: FileAudioFormat | NativeDecoder): AsyncIterable<NativePacket | null>;
+}
+
+async function prepareFile(av: NativeAv, movie: boolean, track: NativeTrack, target: FileAudioTarget, limit: number, bounds: MovieBounds, signal?: AbortSignal) {
+	let stream = track.stream();
 	const source = stream.codecpar;
 	const fileLimit = target.maxBytes ?? limit;
 	const sourceCodec = av.avGetCodecName(source.codecId)!;
+	let vorbisHeaders: Buffer | undefined;
 	const sourceFormat = av.avGetSampleFmtName(source.format) ?? undefined;
 	const sampleTime = { num: 1, den: source.sampleRate };
 	const movieSamples = movie && stream.nbFrames > 0n && stream.duration > 0n
@@ -422,7 +439,8 @@ async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<
 		&& (candidate.channels === undefined || candidate.channels === source.channels)
 		&& (candidate.sampleFormat === undefined || candidate.sampleFormat === sourceFormat)
 		&& (!editedAacStart && bounds.fragmentPriming === undefined || carriesAacEdit(candidate.format))
-		&& (movieSamples === undefined || source.frameSize <= 0 || movieSamples % BigInt(source.frameSize) === 0n || carriesAacEdit(candidate.format));
+		&& (movieSamples === undefined || source.frameSize <= 0 || movieSamples % BigInt(source.frameSize) === 0n || carriesAacEdit(candidate.format))
+		&& (sourceCodec !== 'vorbis' || candidate.format === 'ogg' || (vorbisHeaders ??= cleanVorbisHeaders(source.extradata)) !== undefined);
 	// The MOV demuxer reports the encoded packet count and the edited playback duration.
 	// A fixed-frame track can contain initial codec priming and one partially used final frame.
 	// A PCM movie can index each stored sample. Its packets have no encoder padding.
@@ -430,12 +448,15 @@ async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<
 		: stream.nbFrames * BigInt(source.frameSize) - movieSamples > BigInt(Math.max(source.frameSize, source.initialPadding) + source.frameSize)));
 	const copy = editedMovie ? undefined : [target, ...target.alternatives ?? []].find(compatible);
 	const selected = copy ?? target;
+	if (copy) stream = track.stream(copy);
 	const checkDuration = (seconds: number) => {
 		if (target.maxDurationSeconds !== undefined && seconds > target.maxDurationSeconds) throw new ValidationError('Prepared audio exceeds fileAudioTarget.maxDurationSeconds.');
 	};
 	const playableDuration = bounds.leadingEmpty && bounds.end !== undefined && stream.startTime !== av.AV_NOPTS_VALUE
 		? bounds.end - stream.startTime : stream.duration - (bounds.fragmentPriming ?? 0n) - fragmentOrigin;
-	if (playableDuration > 0n) checkDuration(Number(playableDuration) * stream.timeBase.num / stream.timeBase.den);
+	// A seekable Opus duration can include pre-skip. Conversion checks the actual
+	// playable frames and the output encoder's padding below.
+	if (playableDuration > 0n && (copy || sourceCodec !== 'opus')) checkDuration(Number(playableDuration) * stream.timeBase.num / stream.timeBase.den);
 	let storage = Buffer.alloc(0), position = 0, length = 0;
 	let writeError: ValidationError | undefined;
 	const output = await av.Muxer.open({
@@ -462,6 +483,7 @@ async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<
 	let format: FileAudioFormat = { format: selected.format, codec: sourceCodec, rate: source.sampleRate, channels: source.channels, sampleFormat: sourceFormat };
 	try {
 		let decodedSeconds = 0, encodedBytes = 0, pcmBytesLeft = limit;
+		let packets: AsyncIterable<NativePacket | null>;
 		if (!copy) {
 			// Use the encoder's native rate selection before resampling so its expansion is metered.
 			const requestedRate = selected.rate ?? source.sampleRate;
@@ -473,7 +495,7 @@ async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<
 				channelLayout: selected.channels === undefined ? undefined : av.avChannelLayoutDefault(selected.channels),
 			}, signal });
 			encoder = await av.Encoder.create(selected.codec, { decoder, autoResample: true, signal });
-			const decoded = decodedFrames(av, decoder, packets, stream, movie, bounds, rate, limit, signal, codec);
+			const decoded = decodedFrames(av, decoder, track, movie, bounds, rate, limit, signal, codec);
 			async function* frames() {
 				let rate = 0, samples = 0, previousSeconds = 0;
 				for await (const frame of decoded) {
@@ -493,9 +515,17 @@ async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<
 			}
 			// Native iteration disposes frames and propagates EOF through the encoder's drain.
 			packets = encoder.packets(frames());
-		}
+		} else packets = track.packets(copy);
 		const index = encoder ? output.addStream(encoder) : output.addStream(stream);
+		if (copy) {
+			const copiedStream = output.getStream(index)!;
+			copiedStream.metadata = null;
+			// The Ogg muxer generates its own comment header from the output metadata.
+			if (vorbisHeaders && selected.format !== 'ogg') copiedStream.codecpar.extradata = vorbisHeaders;
+		}
 		let start: bigint | undefined, durationTicks = 0n, summedTicks = 0n;
+		let wrotePacket = false;
+		const oggComments = (selected.format === 'ogg' || selected.format === 'opus') && ['vorbis', 'opus', 'flac'].includes(sourceCodec);
 		const next = { value: av.AV_NOPTS_VALUE };
 		let exactEnd: bigint | undefined;
 		const checkCopyTiming = copy && selected.format !== 'webm';
@@ -503,6 +533,11 @@ async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<
 		for await (const packet of packets) {
 			if (!packet) continue;
 			try {
+				// Keep the Ogg muxer's section restart, with an empty tag dictionary.
+				if (copy && wrotePacket && oggComments && packet.getSideData(av.AV_PKT_DATA_STRINGS_METADATA)) {
+					if (sourceCodec !== 'flac') throw new ValidationError('Cannot verify playback across this Ogg section change. Choose a target that converts the track or use raw PCM.');
+					av.FFmpegError.throwIfError(packet.addSideData(av.AV_PKT_DATA_STRINGS_METADATA, Buffer.alloc(0)), 'Clear Ogg packet metadata');
+				}
 				if (copy && movie) {
 					// Variable-frame tracks or incomplete indexes may only reveal an edit during copying.
 					const skip = packet.getSideData(av.AV_PKT_DATA_SKIP_SAMPLES)?.readUInt32LE(0);
@@ -555,6 +590,7 @@ async function prepareFile(av: NativeAv, movie: boolean, packets: AsyncIterable<
 					if (packet.dts !== av.AV_NOPTS_VALUE) packet.dts -= fragmentOrigin;
 				}
 				await output.writePacket(packet, index);
+				wrotePacket = true;
 			} finally { packet[Symbol.dispose](); }
 		}
 		if (copy && target.maxDurationSeconds !== undefined && stream.duration <= 0n && durationTicks === 0n) throw new ValidationError('Native audio duration is unavailable; cannot enforce fileAudioTarget.maxDurationSeconds.');

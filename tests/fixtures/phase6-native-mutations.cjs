@@ -13,7 +13,7 @@ const mutations = [
   ['playlist upload evidence', "return 'ffconcat';", 'return undefined;', 'applies native playlist opening', 'source-evidence.ts'],
   ['transport-stream upload evidence', "return 'video/mp2t';", 'return undefined;', 'dispatches decoded transport streams', 'source-evidence.ts'],
   ['untagged audio frame evidence', 'return framedAudio(bytes);', 'return undefined;', 'distinguishes untagged MP3', 'source-evidence.ts'],
-  ['rounded native pre-skip', 'const rounding = clockRounding(stream, source.sampleRate);', 'const rounding = 0n;', 'copies continuous Opus across'],
+  ['rounded native pre-skip', 'observed === ticks(-preSkip)', 'false', 'copies continuous Opus across', 'native-ogg-webm.ts'],
   ['AVI input layout', "if (textAt(bytes, 0, 'RIFF') && textAt(bytes, 8, 'AVI '))", 'if (false)', 'recognizes native containers', 'source-evidence.ts'],
   ['uploaded resource isolation', "if (supplied) options.protocol_whitelist ??= '';", '', 'blocks nested resources'],
   ['selected track', 'input.streams.find(stream => stream.index === settings.mediaSettings!.track)', 'input.findBestStream(av.AVMEDIA_TYPE_AUDIO)', 'preserves selected tracks'],
@@ -38,7 +38,7 @@ const mutations = [
   ['contiguous encoder samples', 'frame.pts = outputPosition;', 'frame.pts = start ?? outputPosition;', 'RealMedia packet timestamps'],
   ['large MP3 input blocks', "if (codecName === 'mp3')", 'if (false)', 'large WavPack and TTA'],
   ['large Vorbis input blocks', "if (codecName === 'vorbis')", 'if (false)', 'complete Vorbis conversion'],
-  ['Vorbis window transition', 'packet.pos === page', 'false', 'complete Vorbis conversion'],
+  ['Vorbis window transition', 'packet.pos === page', 'false', 'complete Vorbis conversion', 'native-ogg-webm.ts'],
   ['missing encoder packets', 'encodedSamples < Math.round(decodedSeconds * actual.sampleRate)', 'false', 'encoder that drops packets'],
   ['speech corpus upload evidence', "return 'audio/x-nist';", 'return undefined;', 'decodes AMR, SPHERE', 'source-evidence.ts'],
   ['copied interior pause', "const checkCopyTiming = copy &&", "const checkCopyTiming = false &&", 'preserves the position and duration of an interior pause'],
@@ -72,7 +72,7 @@ const reviewMutations = [
   ['fragmented selected-track edit admission', "type === 'mvex'", "type === 'skip'", 'unverifiable fragmented movie edits', 'movie-header.ts'],
   ['unselected movie track seeks', 'other.discard = av.AVDISCARD_ALL', 'other.discard = 0', 'unverifiable fragmented movie edits'],
   ['MXF header partition', "return 'application/mxf';", 'return undefined;', 'MXF header partition', 'source-evidence.ts'],
-  ['movie path edit verification', "const movie = input.formatName.split(',').includes('mov');", "const movie = typeof source !== 'string' && input.formatName.split(',').includes('mov');", 'movie paths and URLs'],
+  ['movie path edit verification', "const movie = formats.includes('mov');", "const movie = typeof source !== 'string' && formats.includes('mov');", 'movie paths and URLs'],
   ['automatic movie path selection', 'if (isMovieResource(av, source, format))', 'if (format && isMovieResource(av, source, format))', 'movie paths and URLs'],
   ['movie cursor after EOF', 'if (requested !== nextPacket)', 'if (offset !== start + block.length)', 'resumes at the next block after probing EOF', 'movie-resource.ts'],
   ['unknown-length movie index scan', "options.fflags = String(options.fflags ?? '') + '+ignidx';", '', 'fragmented HTTP response body'],
@@ -92,6 +92,21 @@ const reviewMutations = [
     ['Safari AAC copy origin', 'if (copy && fragmentOrigin)', 'if (false && copy && fragmentOrigin)', 'Safari recorder'],
     ['Safari WAV duration origin', '- (bounds.fragmentPriming ?? 0n) - fragmentOrigin;', '- (bounds.fragmentPriming ?? 0n);', 'Safari recorder'],
     ['recorder clock catch-up', 'if (bounds.unedited &&', 'if (false &&', 'Chrome recorder fragment joins'],
+    ['Opus recorder covered interval', 'place(packet, delta > 0n ? delta : 0n);', 'place(packet, delta);', 'Chrome Opus recorder clocks', 'native-ogg-webm.ts'],
+    ['Opus pause after codec priming', 'av.avRescaleQ(delay, clock, opusTime);', 'av.avRescaleQ(delay, clock, opusTime) + (delay ? 24n : 0n);', 'a primed WebM Opus', 'native-ogg-webm.ts'],
+    ['Ogg copy end granule', 'copy ? samples - tail : samples', 'samples', 'a prepared WebM copy', 'native-ogg-webm.ts'],
+    ['Ogg copy interior trim', 'copy && (trimmedEnd || head', 'copy && (head', 'a prepared WebM copy', 'native-ogg-webm.ts'],
+    ['Ogg link pre-skip', 'offset = end - BigInt(head) - packet.pts;', 'offset = end - packet.pts;', 'chained Ogg Opus joins', 'native-ogg-webm.ts'],
+    ['Ogg link copy guard', 'if (!decoder) {', 'if (false) {', 'chained Ogg Opus joins', 'native-ogg-webm.ts'],
+    ['Ogg Opus decoder restart', 'decoder.getCodecContext()!.flushBuffers();', '', 'chained Ogg Opus joins', 'native-ogg-webm.ts'],
+    ['Ogg Opus gain change', '!header.subarray(16).equals(current.subarray(16))', 'false', 'chained Ogg Opus joins', 'native-ogg-webm.ts'],
+    ['Ogg header read-ahead', 'covered >= headerReadAt', 'true', 'a short Ogg middle link', 'native-ogg-webm.ts'],
+    ['inclusive playable duration', "(copy || sourceCodec !== 'opus')", 'true', 'an inclusive Opus-to-WAV'],
+    ['prepared stream metadata', 'copiedStream.metadata = null;', '', 'prepared Vorbis files omit'],
+    ['Vorbis codec header comments', 'copiedStream.codecpar.extradata = vorbisHeaders;', 'void vorbisHeaders;', 'prepared Vorbis files omit'],
+    ['later Ogg source metadata', 'oggComments && packet.getSideData', 'false && packet.getSideData', 'a later Ogg section'],
+    ['Ogg FLAC section restart', 'packet.addSideData(av.AV_PKT_DATA_STRINGS_METADATA, Buffer.alloc(0))', '(packet.freeSideData(), 0)', 'a later Ogg section'],
+    ['later Vorbis decoder headers', 'if (packet?.getSideData(av.AV_PKT_DATA_NEW_EXTRADATA))', 'if (false)', 'a later Ogg section', 'native-ogg-webm.ts'],
     ['streamed movie index size', 'const next = offset + size;', "if (type === 'moov' && size > movieHeaderBudget) return unverifiableMovie(); const next = offset + size;", 'four-minute fast-start', 'movie-header.ts'],
   ] : []),
 ];
@@ -113,14 +128,14 @@ function run(pattern, mutated = false, invert = false, review = false) {
 try {
   fs.cpSync(path.join(workspace, 'src'), path.join(temporary, 'src'), { recursive: true });
   fs.copyFileSync(path.join(workspace, 'package.json'), path.join(temporary, 'package.json'));
-  for (const file of ['scripts/build-audio-workers.mjs', 'tests/NativeAudio.integration.test.ts', 'tests/fixtures/native-audio-media.mjs', 'tests/fixtures/phase6-ab-evaluation.mjs', 'tests/fixtures/review-indexed.mov', 'tests/fixtures/review-fragmented.mov', 'tests/fixtures/review-hybrid.mov', 'tests/fixtures/review-chrome-aac.mp4', 'tests/fixtures/review-safari-aac.mp4']) {
+  for (const file of ['scripts/build-audio-workers.mjs', 'tests/NativeAudio.integration.test.ts', 'tests/fixtures/native-audio-media.mjs', 'tests/fixtures/phase6-ab-evaluation.mjs', 'tests/fixtures/review-indexed.mov', 'tests/fixtures/review-fragmented.mov', 'tests/fixtures/review-hybrid.mov', 'tests/fixtures/review-chrome-aac.mp4', 'tests/fixtures/review-safari-aac.mp4', 'tests/fixtures/review-chrome-opus.webm', 'tests/fixtures/review-chrome-opus-trimmed.webm', 'tests/fixtures/review-firefox-opus.ogg', 'tests/fixtures/review-chained-opus.ogg', 'tests/fixtures/review-vorbis-comments.webm']) {
     fs.mkdirSync(path.dirname(path.join(temporary, file)), { recursive: true });
     fs.copyFileSync(path.join(workspace, file), path.join(temporary, file));
   }
   // Check related controls in small groups under the same 60-second process watchdog as each fault.
   const controls = [...new Set(selected.filter(m => mutations.includes(m)).map(m => m[3]))];
-  const reviewControls = selected.filter(m => reviewMutations.includes(m)).map(m => m[3]);
-  for (let start = 0; start < reviewControls.length; start += 4) run(reviewControls.slice(start, start + 4).join('|'), false, false, true);
+  const reviewControls = [...new Set(selected.filter(m => reviewMutations.includes(m)).map(m => m[3]))];
+  for (let start = 0; start < reviewControls.length; start += 2) run(reviewControls.slice(start, start + 2).join('|'), false, false, true);
   for (let start = 0; start < controls.length; start += 8) run(controls.slice(start, start + 8).join('|'));
   if (!process.argv[2]) run(controls.join('|'), false, true); // Also cover every test without a mutation.
   for (const mutation of selected) {
