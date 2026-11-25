@@ -73,8 +73,12 @@ async function record() {
   };
 }
 
-document.querySelector('#record').onclick = () => {
-  window.probe = record().catch(error => ({ error: String(error) }));
+document.querySelector('#record').onclick = async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  const report = await record().catch(error => ({ error: String(error) }));
+  const reply = await fetch('/capture', { method: 'POST', body: JSON.stringify(report) });
+  button.textContent = reply.ok && !report.error ? 'Captured' : 'Recording failed';
 };
 </script>
 </html>

@@ -5,15 +5,13 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 
 import imageio_ffmpeg
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.safari.service import Service
 
 
 def boot_iphone():
@@ -24,30 +22,38 @@ def boot_iphone():
         raise RuntimeError(f"No iPhone available on {runtime}: {list(devices['devices'])}")
     phone = next((item for item in phones if item["name"] == "iPhone 17"), phones[0])
     print("Booting", runtime, phone["name"], phone["udid"])
-    subprocess.run(["xcrun", "simctl", "bootstatus", phone["udid"], "-b"], check=True, timeout=360)
+    subprocess.run(["xcrun", "simctl", "bootstatus", phone["udid"], "-b"], check=True, timeout=360,
+                   stdout=subprocess.DEVNULL)
     return phone, runtime
 
 
 def capture(phone):
-    handler = functools.partial(SimpleHTTPRequestHandler, directory=str(Path(__file__).parent))
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    report = {}
+
+    class ProbePage(SimpleHTTPRequestHandler):
+        def do_POST(self):
+            if self.path != "/capture":
+                self.send_error(404)
+                return
+            report.update(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            self.send_response(204)
+            self.end_headers()
+
+    directory = Path(__file__).resolve().parent
+    handler = functools.partial(ProbePage, directory=str(directory))
+    server = ThreadingHTTPServer(("127.0.0.1", 8765), handler)
     Thread(target=server.serve_forever, daemon=True).start()
-    options = webdriver.SafariOptions()
-    options.set_capability("platformName", "ios")
-    options.set_capability("safari:useSimulator", True)
-    options.set_capability("safari:deviceUDID", phone["udid"])
     try:
-        with webdriver.Safari(options=options, service=Service("/usr/bin/safaridriver")) as safari:
-            print("Safari session", json.dumps(safari.capabilities))
-            assert safari.capabilities["platformName"].lower() == "ios"
-            safari.set_script_timeout(45)
-            safari.get(f"http://127.0.0.1:{server.server_port}/ios-safari-probe.html")
-            safari.find_element(By.ID, "record").click()
-            result = safari.execute_async_script("window.probe.then(arguments[0])")
-            if "error" in result:
-                raise RuntimeError(result["error"])
-            result["safariVersion"] = safari.capabilities["browserVersion"]
-            return result
+        result = subprocess.run(["xcodebuild", "test", "-project", str(directory / "ios-safari-ui/SafariRecording.xcodeproj"),
+                                 "-scheme", "SafariRecording", "-destination", "id=" + phone["udid"],
+                                 "-parallel-testing-enabled", "NO", "-maximum-test-execution-time-allowance", "120"])
+        if "error" in report:
+            raise RuntimeError(report["error"])
+        result.check_returncode()
+        if not report:
+            raise RuntimeError("Safari did not submit a recording")
+        report["safariVersion"] = re.search(r"Version/([\d.]+)", report["userAgent"]).group(1)
+        return report
     finally:
         server.shutdown()
         server.server_close()

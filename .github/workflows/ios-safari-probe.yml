@@ -17,10 +17,12 @@ jobs:
           python-version: '3.13'
       - name: Prepare Apple Simulator and the independent decoder
         run: |
+          sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
           xcodebuild -version
           xcrun simctl list runtimes
-          sudo /usr/bin/safaridriver --enable
-          python -m pip install selenium==4.39.0 imageio-ffmpeg==0.8.1
+          command -v xcodegen || brew install xcodegen
+          xcodegen generate --spec .github/ci/ios-safari-ui/project.yml
+          python -m pip install imageio-ffmpeg==0.8.1
       - name: Record and transfer AAC in iPhone Simulator Safari
         run: python -u .github/ci/ios-safari-probe.py
       - uses: actions/upload-artifact@v4
