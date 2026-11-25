@@ -3,6 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Safari recording probe</title>
+<style>body { margin: 0; } button { width: 100vw; height: 90vh; }</style>
 <button id="record">Record tones</button>
 <script>
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -33,8 +34,10 @@ async function readInWorker(blob) {
 }
 
 async function record() {
+  fetch('/stage', { method: 'POST', body: 'record tapped' });
   const context = new AudioContext();
   await context.resume();
+  fetch('/stage', { method: 'POST', body: 'audio running' });
   const destination = context.createMediaStreamDestination();
   const tone = context.createOscillator();
   const gain = context.createGain();
@@ -55,6 +58,7 @@ async function record() {
   await pause(1100);
   recorder.stop();
   await stopped;
+  fetch('/stage', { method: 'POST', body: 'recorder stopped' });
   tone.stop();
   destination.stream.getTracks().forEach(track => track.stop());
   await context.close();
@@ -80,5 +84,6 @@ document.querySelector('#record').onclick = async event => {
   const reply = await fetch('/capture', { method: 'POST', body: JSON.stringify(report) });
   button.textContent = reply.ok && !report.error ? 'Captured' : 'Recording failed';
 };
+fetch('/stage', { method: 'POST', body: 'loaded' });
 </script>
 </html>

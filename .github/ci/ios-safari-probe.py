@@ -6,7 +6,9 @@ import json
 import math
 import os
 import re
+import ssl
 import subprocess
+import tempfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
@@ -27,26 +29,66 @@ def boot_iphone():
     return phone, runtime
 
 
-def capture(phone):
+def serve_https(server, phone, directory):
+    def openssl(*args):
+        subprocess.run(["openssl", *args], cwd=directory, check=True, capture_output=True)
+    (directory / "root.conf").write_text("[req]\ndistinguished_name=dn\n[dn]\n[root]\n"
+                                         "basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\n")
+    openssl("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256", "-days", "2",
+            "-subj", "/CN=Safari Probe CA", "-config", "root.conf", "-extensions", "root",
+            "-keyout", "root.key", "-out", "root.pem")
+    openssl("req", "-newkey", "rsa:2048", "-nodes", "-subj", "/CN=localhost",
+            "-keyout", "server.key", "-out", "server.csr")
+    (directory / "extensions").write_text("basicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\n"
+                                         "extendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n")
+    openssl("x509", "-req", "-in", "server.csr", "-CA", "root.pem", "-CAkey", "root.key",
+            "-CAcreateserial", "-sha256", "-days", "2", "-extfile", "extensions", "-out", "server.pem")
+    subprocess.run(["xcrun", "simctl", "keychain", phone["udid"], "add-root-cert", str(directory / "root.pem")], check=True)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(directory / "server.pem", directory / "server.key")
+    server.socket = context.wrap_socket(server.socket, server_side=True, do_handshake_on_connect=False)
+
+
+def capture(phone, certificates):
     report = {}
+    progress = []
 
     class ProbePage(SimpleHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/status":
+                value = ("captured" if report else "loaded" if "loaded" in progress else "waiting").encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(value)))
+                self.end_headers()
+                self.wfile.write(value)
+                return
+            super().do_GET()
+
         def do_POST(self):
-            if self.path != "/capture":
+            data = self.rfile.read(int(self.headers["Content-Length"]))
+            if self.path == "/stage":
+                progress.append(data.decode())
+                print("Safari page", progress[-1], self.headers.get("User-Agent"))
+            elif self.path == "/capture":
+                report.update(json.loads(data))
+            else:
                 self.send_error(404)
                 return
-            report.update(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
             self.send_response(204)
             self.end_headers()
 
     directory = Path(__file__).resolve().parent
     handler = functools.partial(ProbePage, directory=str(directory))
     server = ThreadingHTTPServer(("127.0.0.1", 8765), handler)
+    serve_https(server, phone, certificates)
     Thread(target=server.serve_forever, daemon=True).start()
     try:
+        subprocess.run(["xcrun", "simctl", "openurl", phone["udid"],
+                        "https://127.0.0.1:8765/ios-safari-probe.html"], check=True)
         result = subprocess.run(["xcodebuild", "test", "-project", str(directory / "ios-safari-ui/SafariRecording.xcodeproj"),
                                  "-scheme", "SafariRecording", "-destination", "id=" + phone["udid"],
-                                 "-parallel-testing-enabled", "NO", "-maximum-test-execution-time-allowance", "120"])
+                                 "-quiet", "-parallel-testing-enabled", "NO", "-maximum-test-execution-time-allowance", "220"])
+        print("Browser progress", progress)
         if "error" in report:
             raise RuntimeError(report["error"])
         result.check_returncode()
@@ -86,7 +128,8 @@ def check_tones(path):
 
 
 phone, runtime = boot_iphone()
-report = capture(phone)
+with tempfile.TemporaryDirectory() as temporary:
+    report = capture(phone, Path(temporary))
 recording = base64.b64decode(report.pop("audio"), validate=True)
 worker = report["worker"]
 assert "iPhone" in report["userAgent"] and "mp4" in report["mime"]
