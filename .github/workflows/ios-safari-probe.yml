@@ -1,0 +1,32 @@
+name: iOS Safari recording probe
+on:
+  push:
+    branches: ['ci/ios-safari/20261125']
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: xcode-27
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Prepare Apple Simulator and the independent decoder
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+          sudo /usr/bin/safaridriver --enable
+          python -m pip install selenium==4.39.0 imageio-ffmpeg==0.8.1
+      - name: Record and transfer AAC in iPhone Simulator Safari
+        run: python -u .github/ci/ios-safari-probe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-safari-recording
+          path: ios-safari-output/
+          if-no-files-found: warn
+          retention-days: 7

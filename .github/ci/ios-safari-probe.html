@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Safari recording probe</title>
+<button id="record">Record tones</button>
+<script>
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function readInWorker(blob) {
+  const worker = new Worker('ios-safari-worker.js');
+  let offset = 0;
+  const stream = new ReadableStream({
+    async pull(controller) {
+      if (offset === blob.size) {
+        controller.close();
+        return;
+      }
+      const end = Math.min(offset + 1024, blob.size);
+      controller.enqueue(new Uint8Array(await blob.slice(offset, end).arrayBuffer()));
+      offset = end;
+    }
+  });
+  try {
+    return await new Promise((resolve, reject) => {
+      worker.onmessage = ({ data }) => data.error ? reject(new Error(data.error)) : resolve(data);
+      worker.onerror = event => reject(new Error(event.message));
+      worker.postMessage(stream, [stream]);
+    });
+  } finally {
+    worker.terminate();
+  }
+}
+
+async function record() {
+  const context = new AudioContext();
+  await context.resume();
+  const destination = context.createMediaStreamDestination();
+  const tone = context.createOscillator();
+  const gain = context.createGain();
+  gain.gain.value = 0.25;
+  tone.connect(gain).connect(destination);
+  tone.frequency.value = 523;
+  const recorder = new MediaRecorder(destination.stream);
+  const chunks = [];
+  recorder.ondataavailable = ({ data }) => { if (data.size) chunks.push(data); };
+  const stopped = new Promise((resolve, reject) => {
+    recorder.onstop = resolve;
+    recorder.onerror = event => reject(event.error);
+  });
+  recorder.start(200);
+  tone.start();
+  await pause(1050);
+  tone.frequency.value = 997;
+  await pause(1100);
+  recorder.stop();
+  await stopped;
+  tone.stop();
+  destination.stream.getTracks().forEach(track => track.stop());
+  await context.close();
+
+  const blob = new Blob(chunks, { type: recorder.mimeType });
+  const worker = await readInWorker(blob);
+  const reader = new FileReader();
+  const encoded = new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(reader.error);
+  });
+  reader.readAsDataURL(blob);
+  return {
+    audio: await encoded, mime: recorder.mimeType, chunkSizes: chunks.map(chunk => chunk.size),
+    sourceRate: context.sampleRate, worker, userAgent: navigator.userAgent
+  };
+}
+
+document.querySelector('#record').onclick = () => {
+  window.probe = record().catch(error => ({ error: String(error) }));
+};
+</script>
+</html>
