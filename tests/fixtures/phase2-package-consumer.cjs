@@ -283,7 +283,11 @@ for (const settings of [{ inputAudioFormat }, { fileAudioTarget: { format: 'wav'
     run(process.execPath, ['native-load-failure.mjs', expected]);
     console.log(`Installed native ${name} retains its original error for both targets.`);
   }
-  if (engine) console.log(run(process.execPath, [path.join(workspace, 'tests/fixtures/phase6-browser.mjs'), '--dist']));
+  if (engine) {
+    for (const fixture of ['phase6-browser.mjs', 'browser-media-contracts.test.mjs']) {
+      console.log(run(process.execPath, [path.join(workspace, 'tests/fixtures', fixture), '--dist']));
+    }
+  }
   console.log('Packed consumer passed without workspace resolution.');
 } finally {
   assert.equal(path.dirname(temporary), tempRoot);

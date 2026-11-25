@@ -109,6 +109,49 @@ describe('Phase 6 audio delivery', () => {
 		});
 		assert.equal(calls, 1);
 	});
+	for (const fails of [false, true]) {
+		it(`delivers speech before input ends and then ${fails ? 'surfaces the connection failure' : 'finishes normally'}`, async () => {
+			let release!: () => void;
+			const suffix = new Promise<void>(resolve => { release = resolve; });
+			async function* words() {
+				yield 'first';
+				await suffix;
+				yield 'second';
+			}
+			const received: string[] = [];
+			const disconnected = new Error('speech connection lost');
+			let requests = 0;
+			const model = new Experimental_MockStreamingSpeechModelV4({ doStream: async ({ text }) => {
+				requests++;
+				return { stream: new ReadableStream({ async start(controller) {
+					for await (const part of text) {
+						assert.ok(part.type === 'text');
+						received.push(part.text);
+						if (fails && part.text === 'second') throw disconnected;
+						controller.enqueue({ type: 'audio', audio: Uint8Array.of(part.text.length), audioFormat: format });
+					}
+					controller.enqueue({ type: 'finish' });
+					controller.close();
+				} }) };
+			} });
+			try {
+				const speech = await SpeechGenerator.asStream({ model }).run({ text: words(), abortSignal: AbortSignal.timeout(1500) });
+				const reader = speech.audioStream.getReader();
+				try {
+					assert.deepEqual(await reader.read(), { done: false, value: Uint8Array.of(5) });
+					assert.deepEqual(received, ['first']);
+					release();
+					if (fails) await assert.rejects(reader.read(), error => error === disconnected);
+					else {
+						assert.deepEqual(await reader.read(), { done: false, value: Uint8Array.of(6) });
+						assert.equal((await reader.read()).done, true);
+					}
+					assert.deepEqual(received, ['first', 'second']);
+					assert.equal(requests, 1);
+				} finally { reader.releaseLock(); }
+			} finally { release(); }
+		});
+	}
 	it('preserves finite raw bytes in bounded frame-aligned chunks without changing caller streams', async () => {
 		const captured: Uint8Array[][] = [];
 		const inputs: ReadableStream<Uint8Array | string>[] = [];

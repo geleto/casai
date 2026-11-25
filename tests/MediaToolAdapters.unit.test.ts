@@ -2,13 +2,61 @@ import assert from 'node:assert/strict';
 import { createGoogle } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { generateText, type ModelMessage } from 'ai';
+import { generateText, isStepCount, ToolLoopAgent, type ModelMessage } from 'ai';
 import { MockSpeechModelV4 } from 'ai/test';
 import { SpeechGenerator, z } from '../src/index.js';
+import { modelFor } from './fixtures/phase2-security-sdk.js';
 
 // Real installed HTTP serializers, fake fetch: these checks establish transport shape,
 // not that a provider can hear audio. The paid control lives in Phase6MediaTools.live.test.ts.
 describe('Native media tool serialization', () => {
+	for (const mode of ['generate', 'stream'] as const) {
+		for (const outcome of ['success', 'invalid input', 'speech failure', 'formatter failure'] as const) {
+			it(`${mode}: reports ${outcome} on the speech tool's native result path`, async () => {
+				let executions = 0, projections = 0;
+				const speech = SpeechGenerator.asTool({
+					model: new MockSpeechModelV4({ doGenerate: async () => {
+						executions++;
+						if (outcome === 'speech failure') throw new Error('speech unavailable');
+						return { audio: 'AQIDBA==', warnings: [], response: { timestamp: new Date(0), modelId: 'fixture' } };
+					} }),
+					maxRetries: 0, inputSchema: z.object({ text: z.string() }),
+					toModelOutput: ({ output }) => {
+						projections++;
+						if (outcome === 'formatter failure') throw new Error('speech projection failed');
+						return { type: 'text', value: `recording ${output.base64}` };
+					},
+				});
+				const model = modelFor({ text: outcome === 'invalid input' ? 15 : 'Hello' }, 'speak');
+				const agent = new ToolLoopAgent({ model, tools: { speak: speech }, stopWhen: isStepCount(2), maxRetries: 0 });
+				const calls = mode === 'generate' ? model.doGenerateCalls : model.doStreamCalls;
+				const complete = async () => (await agent[mode]({ prompt: 'Use the speech tool.' })).text;
+				if (outcome === 'formatter failure') {
+					await assert.rejects(complete, /speech projection failed/);
+					assert.equal(calls.length, 1);
+				} else {
+					assert.equal(await complete(), 'done');
+					assert.equal(calls.length, 2);
+					const results = calls[1].prompt.flatMap(message => message.role === 'tool' ? message.content : []);
+					assert.equal(results.length, 1);
+					const [part] = results;
+					assert.ok(part.type === 'tool-result' && part.toolName === 'speak' && part.toolCallId === 'call-1');
+					if (outcome === 'success') {
+						assert.deepEqual(part.output, { type: 'text', value: 'recording AQIDBA==' });
+					} else {
+						assert.equal(part.output.type, 'error-text');
+						if (outcome === 'invalid input') {
+							assert.match(part.output.value, /text/);
+							assert.match(part.output.value, /expected string/i);
+						} else assert.match(part.output.value, /speech unavailable/);
+					}
+				}
+				assert.equal(executions, outcome === 'invalid input' ? 0 : 1);
+				assert.equal(projections, outcome === 'success' || outcome === 'formatter failure' ? 1 : 0);
+			});
+		}
+	}
+
 	for (const route of ['google', 'openai-chat', 'anthropic', 'google-interactions'] as const) {
 		it(`${route}: preserves the adapter's actual audio-result behavior`, async () => {
 			const tool = SpeechGenerator.asTool({

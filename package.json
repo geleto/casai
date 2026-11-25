@@ -85,6 +85,7 @@
 		"test:native:release": "npm run build && node tests/fixtures/native-audio-release.mjs && npm run test:native",
 		"test:native:release:gpl": "npm run build && node tests/fixtures/native-audio-release.mjs --gpl && npm run test:native",
 		"test:audio:live": "npm run test:file -- tests/Phase6Audio.live.test.ts",
+		"test:media:browser": "node scripts/build-audio-workers.mjs && node --test tests/fixtures/browser-media-contracts.test.mjs",
 		"test:media-tools:live": "npm run test:file -- tests/Phase6MediaTools.live.test.ts",
 		"test:matrix": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs",
 		"test:matrix:native": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs --native",

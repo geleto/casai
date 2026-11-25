@@ -502,6 +502,31 @@ test('Safari recorder preserves both tones across its multi-packet AAC priming e
   }
 });
 
+test('Chrome MediaRecorder pause and resume preserves its recorded gap and last playable AAC sample', { skip: !referenceFfmpeg }, async () => {
+  const bytes = await readFile(new URL('review-chrome-aac-recorder-pause.mp4', import.meta.url));
+  const rawMix = await referencePcm(bytes, '-ac', '1');
+  // The native file encoder mixes to float mono before quantizing to PCM16.
+  const fileMix = await referencePcm(bytes, '-af', 'aformat=sample_fmts=fltp:channel_layouts=mono');
+  // FFmpeg's packet timestamps put the resumed block at 32,127 and the last block's end at 63,855.
+  const join = 31744 * 2;
+  function playable(samples) {
+    assert.equal(samples.length, 63488 * 2);
+    return Buffer.concat([samples.subarray(0, join), Buffer.alloc(383 * 2), samples.subarray(join)]).subarray(0, 63855 * 2);
+  }
+  const expectedRaw = playable(rawMix), expectedFile = playable(fileMix);
+  const raw = capture(), files = captureMultipart();
+  const transcribe = Transcriber.loadsAudio({ model: raw.model, inputAudioFormat: target });
+  const wav = Transcriber.loadsAudio({ model: files.model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le', rate, channels: 1 } });
+  for (const fresh of [() => new Blob([bytes]), () => splitRecording(bytes)]) {
+    await transcribe(fresh());
+    comparePcm(raw.requests.pop(), expectedRaw, 2);
+    await wav(fresh());
+    const file = files.uploads.pop();
+    assert.equal(file.mime, 'audio/wav');
+    comparePcm(await referencePcm(file.audio), expectedFile, 2);
+  }
+});
+
 test('Chrome recorder fragment joins preserve continuous samples and a real timestamped pause', { skip: !referenceFfmpeg }, async () => {
   // Chrome 158 MediaRecorder encoded a continuous Web Audio oscillator, 440 Hz then 1,400 Hz.
   const original = await readFile(new URL('review-chrome-aac.mp4', import.meta.url));

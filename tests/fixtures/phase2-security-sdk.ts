@@ -1,9 +1,9 @@
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
-import type { LanguageModelV3StreamPart } from '@ai-sdk/provider';
+import type { LanguageModelV3, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 
 type Fields = Record<string, unknown>;
 export type Mode = 'generate' | 'stream';
-export function modelFor(input: Fields | undefined, toolName = 'probe') {
+export function modelFor(input: Fields | undefined, toolName = 'probe', supportedUrls: LanguageModelV3['supportedUrls'] = {}) {
 	let step = 0;
 	const next = () => {
 		const calling = input !== undefined && step++ === 0;
@@ -14,7 +14,7 @@ export function modelFor(input: Fields | undefined, toolName = 'probe') {
 			usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }, warnings: [],
 		};
 	};
-	return new MockLanguageModelV3({ doGenerate: async () => next(), doStream: async () => {
+	return new MockLanguageModelV3({ supportedUrls, doGenerate: async () => next(), doStream: async () => {
 		const result = next();
 		return { stream: convertArrayToReadableStream([
 			{ type: 'stream-start', warnings: [] },
