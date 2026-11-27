@@ -25,6 +25,7 @@ jobs:
           xcodebuild -version | tee "$RUNNER_TEMP/casai-xcode-version"
           if [[ "${{ matrix.platform }}" == "ios" ]]; then
             xcrun simctl list runtimes
+            brew tap meta/fb && brew trust meta/fb && brew install meta/fb/idb || echo "Using the XCUITest touch driver"
             command -v xcodegen || brew install xcodegen
             xcodegen generate --spec tests/fixtures/recorder-devices/ios-safari-ui/project.yml
           else
@@ -56,16 +57,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
-        with:
-          api-level: 36
-          system-image-api-level: ${{ matrix.image }}
-          target: google_apis_playstore
-          arch: x86_64
-          profile: pixel_7
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: python -u tests/fixtures/recorder-devices/run.py android
+      - name: Exercise the Chrome app after Android's input service is ready
+        run: bash .github/ci/device-android.sh '${{ matrix.image }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

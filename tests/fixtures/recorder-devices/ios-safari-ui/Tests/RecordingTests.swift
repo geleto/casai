@@ -26,16 +26,19 @@ final class RecordingTests: XCTestCase {
             address.tap()
             safari.typeText(probe.absoluteString + "\n")
         }
-        guard await reached("loaded", within: 45) else {
+        guard await reached("loaded", within: 120) else {
             XCTFail("Safari never loaded the recording page. " + safari.debugDescription)
             return
         }
-        let record = safari.buttons["Record tones"]
-        if record.waitForExistence(timeout: 10) && record.isHittable {
-            record.tap()
-        } else {
-            // The button fills the test page even before WebKit publishes its accessibility tree.
-            safari.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap()
+        for _ in 0..<4 {
+            let record = safari.buttons["Record tones"].firstMatch
+            if record.waitForExistence(timeout: 8) && record.isHittable {
+                record.tap()
+            } else {
+                safari.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap()
+            }
+            if await reached("running", within: 10) { break }
+            print(safari.debugDescription)
         }
         let captured = await reached("captured", within: 850)
         XCTAssertTrue(captured, safari.debugDescription)

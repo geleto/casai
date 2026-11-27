@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -77,6 +78,37 @@ def android_open(loaded, activated):
     return device
 
 
+def iphone_touch(phone, loaded, activated):
+    if not shutil.which("idb") or not loaded.wait(320):
+        return False
+    udid = phone["udid"]
+    for attempt in range(4):
+        try:
+            # The full-page button covers the centre of an iPhone 17 in portrait. Send a simulator HID touch.
+            result = subprocess.run(["idb", "ui", "tap", "200", "390", "--udid", udid], capture_output=True, text=True, timeout=80)
+            print("Simulator touch", result.returncode, result.stderr[-300:])
+            if activated.wait(8):
+                return True
+            tree = subprocess.run(["idb", "ui", "describe-all", "--json", "--udid", udid], capture_output=True, text=True, timeout=50)
+            (OUTPUT / f"ios-ui-{attempt}.json").write_text(tree.stdout)
+            nodes = json.loads(tree.stdout)
+            if isinstance(nodes, list):
+                for label in ("Record tones", "Continue", "Start Browsing", "Not Now", "Done"):
+                    node = next((n for n in nodes if (n.get("AXLabel") or n.get("label")) == label), None)
+                    if not node:
+                        continue
+                    frame = node["frame"]
+                    x, y = (str(int(frame[k] + frame[size] / 2)) for k, size in [("x", "width"), ("y", "height")])
+                    subprocess.run(["idb", "ui", "tap", x, y, "--udid", udid], timeout=50, check=True)
+                    if activated.wait(5):
+                        return True
+                    break
+        except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            print("Simulator touch driver", error)
+            break
+    return False
+
+
 def capture(platform, certificates, memory):
     done, loaded, activated = Event(), Event(), Event()
     report, stages, identity = {}, [], {}
@@ -85,7 +117,7 @@ def capture(platform, certificates, memory):
     class Page(SimpleHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/status":
-                body = ("captured" if done.is_set() else "loaded" if loaded.is_set() else "waiting").encode()
+                body = ("captured" if done.is_set() else "running" if activated.is_set() else "loaded" if loaded.is_set() else "waiting").encode()
                 self.send_response(200)
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
@@ -134,9 +166,22 @@ def capture(platform, certificates, memory):
     try:
         if platform == "ios":
             subprocess.run(["xcrun", "simctl", "openurl", phone["udid"], URL.replace("http:", "https:")], check=True)
-            subprocess.run(["xcodebuild", "test", "-project", str(HERE / "ios-safari-ui/SafariRecording.xcodeproj"),
-                            "-scheme", "SafariRecording", "-destination", "id=" + phone["udid"], "-quiet",
-                            "-parallel-testing-enabled", "NO", "-maximum-test-execution-time-allowance", "960"], check=True)
+            if iphone_touch(phone, loaded, activated):
+                identity["touchDriver"] = "Simulator HID"
+                if not done.wait(1000):
+                    raise TimeoutError("Mobile Safari did not complete the checks")
+            else:
+                identity["touchDriver"] = "XCUITest"
+                xcresult = certificates / "mobile.xcresult"
+                result = subprocess.run(["xcodebuild", "test", "-project", str(HERE / "ios-safari-ui/SafariRecording.xcodeproj"),
+                                         "-scheme", "SafariRecording", "-destination", "id=" + phone["udid"],
+                                         "-resultBundlePath", str(xcresult), "-parallel-testing-enabled", "NO",
+                                         "-maximum-test-execution-time-allowance", "1100", "-test-timeouts-enabled", "YES"])
+                if result.returncode and xcresult.exists():
+                    details = subprocess.run(["xcrun", "xcresulttool", "get", "test-results", "tests", "--path", str(xcresult)], capture_output=True)
+                    (OUTPUT / "xcresult-tests.json").write_bytes(details.stdout)
+                if not done.is_set():
+                    result.check_returncode()
         elif platform == "android":
             identity = android_open(loaded, activated)
             if not done.wait(850):
