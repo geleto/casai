@@ -1,0 +1,69 @@
+name: Qualify 6C recorder worker on devices
+on:
+  push:
+    branches: ['ci/6c-devices/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safari:
+    name: ${{ matrix.platform }} Safari
+    runs-on: xcode-27
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos, ios]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/recorder-devices
+      - name: Configure Safari
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
+          xcodebuild -version
+          if [[ "${{ matrix.platform }}" == "ios" ]]; then
+            xcrun simctl list runtimes
+            command -v xcodegen || brew install xcodegen
+            xcodegen generate --spec tests/fixtures/recorder-devices/ios-safari-ui/project.yml
+          else
+            sudo /usr/bin/safaridriver --enable
+          fi
+      - name: Exercise the browser and compare provider audio
+        run: python -u tests/fixtures/recorder-devices/run.py ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.platform }}-recorder-evidence
+          path: device-output/
+          retention-days: 30
+  android:
+    name: Android Chrome
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/recorder-devices
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: python -u tests/fixtures/recorder-devices/run.py android
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-recorder-evidence
+          path: device-output/
+          retention-days: 30

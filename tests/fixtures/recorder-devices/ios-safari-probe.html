@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casai recorder qualification</title>
+<style>body { margin: 0 } button { width: 100vw; height: 90vh }</style>
+<button id="record" type="button">Record tones</button>
+<script src="casai-audio.js"></script>
+<script src="cases.js"></script>
+<script>
+const stage = name => fetch('/stage', { method: 'POST', body: name });
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const storeFile = async (name, data) => {
+  const response = await fetch('/files/' + name, { method: 'POST', body: data });
+  if (!response.ok) throw Error('Could not save ' + name + ' (' + response.status + ')');
+};
+
+function splitInput(blob, size) {
+  let offset = 0;
+  return new ReadableStream({ async pull(controller) {
+    if (offset === blob.size) return controller.close();
+    const bytes = new Uint8Array(await blob.slice(offset, offset + size).arrayBuffer());
+    offset += bytes.byteLength;
+    controller.enqueue(bytes);
+  }}, { highWaterMark: 0 });
+}
+
+function providerFile(target, receive) {
+  const model = casaiAudio.createOpenAI({ apiKey: 'local-fixture', fetch: async (url, init) => {
+    const file = (await new Request(url, init).formData()).get('file');
+    await receive(file);
+    return Response.json({ text: 'heard' });
+  }}).transcription('whisper-1');
+  return casaiAudio.Transcriber.loadsAudio({ model, maxRetries: 0, fileAudioTarget: target });
+}
+
+async function record() {
+  const context = new AudioContext({ sampleRate: 48000 });
+  await context.resume();
+  await stage('audio running');
+  const destination = context.createMediaStreamDestination();
+  const tone = context.createOscillator(), gain = context.createGain();
+  const recorder = new MediaRecorder(destination.stream);
+  gain.gain.value = 0.25;
+  tone.connect(gain).connect(destination);
+  tone.frequency.value = 523;
+  const chunks = [];
+  recorder.ondataavailable = ({data}) => { if (data.size) chunks.push(data); };
+  const stopped = new Promise((resolve, reject) => {
+    recorder.onstop = resolve;
+    recorder.onerror = event => reject(event.error);
+  });
+  try {
+    recorder.start(200);
+    tone.start();
+    await pause(1050);
+    tone.frequency.value = 997;
+    await pause(1100);
+    recorder.stop();
+    await stopped;
+  } finally {
+    tone.stop();
+    destination.stream.getTracks().forEach(track => track.stop());
+    await context.close();
+  }
+  const mime = recorder.mimeType, blob = new Blob(chunks, { type: mime });
+  await storeFile(mime.includes('mp4') ? 'fresh.mp4' : 'fresh.webm', blob);
+  const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate };
+  try {
+    const worker = new Worker('ios-safari-worker.js'), stream = splitInput(blob, 1024);
+    try {
+      report.worker = await new Promise((resolve, reject) => {
+        worker.onmessage = ({data}) => data.error ? reject(Error(data.error)) : resolve(data);
+        worker.onerror = event => reject(Error(event.message));
+        worker.postMessage(stream, [stream]);
+      });
+    } finally { worker.terminate(); }
+  } catch (error) { report.transferError = String(error); }
+  for (const name of ['blob', 'split']) {
+    try {
+      await stage('fresh ' + name);
+      const file = providerFile({ format: 'wav', codec: 'pcm_s16le', channels: 1, rate: context.sampleRate }, async part => {
+        if (part.type !== 'audio/wav') throw Error('Unexpected provider MIME ' + part.type);
+        await storeFile(name + '.wav', part);
+      });
+      await file(name === 'blob' ? blob : splitInput(blob, 421));
+    } catch (error) { report.freshError = (report.freshError || '') + name + ': ' + error + ' '; }
+  }
+  return report;
+}
+document.querySelector('#record').onclick = async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  const report = { userAgent: navigator.userAgent, secureContext: isSecureContext };
+  try {
+    await stage('record tapped');
+    Object.assign(report, await record());
+  } catch (error) { report.error = String(error); }
+  try { report.cases = await runDeviceCases(); } catch (error) { report.casesError = String(error); }
+  await fetch('/capture', { method: 'POST', body: JSON.stringify(report) });
+  button.textContent = 'Finished';
+};
+stage('loaded');
+</script>
+</html>

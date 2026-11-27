@@ -1,0 +1,5 @@
+casai-audio.js
+__pycache__/
+*.xcodeproj/
+ios-safari-ui/*.xcodeproj/
+media/

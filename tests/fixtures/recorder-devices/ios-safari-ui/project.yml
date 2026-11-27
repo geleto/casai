@@ -1,0 +1,32 @@
+name: SafariRecording
+options:
+  deploymentTarget:
+    iOS: '27.0'
+settings:
+  base:
+    GENERATE_INFOPLIST_FILE: YES
+    SWIFT_VERSION: '5.0'
+targets:
+  ProbeHost:
+    type: application
+    platform: iOS
+    sources: [Host]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: org.casai.safariprobe.host
+  SafariTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: ProbeHost
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: org.casai.safariprobe.tests
+      TEST_TARGET_NAME: ProbeHost
+schemes:
+  SafariRecording:
+    build:
+      targets:
+        ProbeHost: all
+        SafariTests: [test]
+    test:
+      targets: [SafariTests]

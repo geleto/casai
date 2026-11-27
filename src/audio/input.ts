@@ -5,6 +5,7 @@ import { type ConfigError, ValidationError } from '../errors.js';
 import { claimLiveInput } from '../runtime/live-input.js';
 import { isAudioBufferSource, isWebBlob, isWebStream } from '../runtime/web-input.js';
 import { isPlainObject } from '../schema.js';
+import { readableIterator } from '../streams.js';
 import { sdkRequest, type PreparedComponentCall } from '../runtime/component-call.js';
 import type { Fields } from '../types/utils.js';
 import { validatePreparedAudioLimit, validatePreparationSettings, type AudioSource, type PrepareAudioSettings } from './preparation.js';
@@ -81,16 +82,7 @@ function ownedAudioView<T>(source: ReadableStream<T>, close: CloseAudio): AsyncI
 		},
 	}, { highWaterMark: 0 });
 	return Object.assign(view, {
-		async *[Symbol.asyncIterator]() {
-			const reader = view.getReader();
-			try {
-				for (;;) {
-					const result = await reader.read();
-					if (result.done) break;
-					yield result.value;
-				}
-			} finally { try { await reader.cancel(); } finally { reader.releaseLock(); } }
-		},
+		[Symbol.asyncIterator]: () => readableIterator(view),
 	});
 }
 
