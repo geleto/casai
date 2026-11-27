@@ -8,7 +8,9 @@ sdkmanager "$image"
 echo no | avdmanager create avd --name casai --package "$image" --device pixel_7 --force
 printf 'hw.cpu.ncore=2\ndisk.dataPartition.size=6G\n' >> "$ANDROID_AVD_HOME/casai.avd/config.ini"
 df -h "$ANDROID_AVD_HOME"
-"$ANDROID_HOME/emulator/emulator" -port 5554 -avd casai -memory 4096 -no-window -gpu software -noaudio -no-boot-anim -no-snapshot -no-metrics > device-output/emulator-boot.log 2>&1 &
+# This image's RegionSamplingThread aborts if the host advertises read-color-buffer DMA.
+# Gfxstream derives the extension from GLDirectMem and its shared-slot allocator.
+"$ANDROID_HOME/emulator/emulator" -port 5554 -avd casai -memory 4096 -no-window -gpu software -feature -GLDirectMem -noaudio -no-boot-anim -no-snapshot -no-metrics > device-output/emulator-boot.log 2>&1 &
 emulator_pid=$!
 finish() {
   if (( $? != 0 )); then
