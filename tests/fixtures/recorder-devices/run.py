@@ -69,11 +69,18 @@ def android_open(loaded, activated):
     else:
         (OUTPUT / "chrome-launch.txt").write_text(last_launch + "\n" + adb("shell", "dumpsys", "package", package))
         raise RuntimeError("Android could not start the installed Chrome activity: " + last_launch)
+    last_tree = ""
     for _ in range(16):
         if loaded.wait(2):
             break
-        adb("shell", "uiautomator", "dump", "/sdcard/probe-window.xml")
-        tree = ElementTree.fromstring(adb("shell", "cat", "/sdcard/probe-window.xml"))
+        try:
+            adb("shell", "uiautomator", "dump", "/sdcard/probe-window.xml")
+            last_tree = adb("shell", "cat", "/sdcard/probe-window.xml")
+            tree = ElementTree.fromstring(last_tree)
+        except (subprocess.SubprocessError, ElementTree.ParseError) as error:
+            # A launch transition may have no root window or dump file yet.
+            print("Waiting for Chrome's first window", str(error))
+            continue
         for element in tree.iter("node"):
             label = element.get("text", "") + " " + element.get("content-desc", "")
             if re.search(r"use without an account|continue without an account|accept & continue|no thanks|got it|use chrome without an account|skip", label, re.I):
@@ -81,7 +88,7 @@ def android_open(loaded, activated):
                 adb("shell", "input", "tap", str((x + end_x) // 2), str((y + end_y) // 2))
                 break
     if not loaded.is_set():
-        (OUTPUT / "android-window.xml").write_text(adb("shell", "cat", "/sdcard/probe-window.xml"))
+        (OUTPUT / "android-window.xml").write_text(last_tree)
         raise RuntimeError("The Android Chrome app did not reach the loopback page")
     width, height = map(int, re.findall(r"(\d+)x(\d+)", adb("shell", "wm", "size"))[-1])
     adb("shell", "input", "tap", str(width // 2), str(height // 2))
