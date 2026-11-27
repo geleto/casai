@@ -179,10 +179,10 @@ index 45b1599..fb87a1c 100644
  			blockOffset,
  			blockSize: frame.blockSize,
 diff --git a/src/input-format.ts b/src/input-format.ts
-index 0374cc5..6296ac7 100644
+index 0374cc5..2c1415c 100644
 --- a/src/input-format.ts
 +++ b/src/input-format.ts
-@@ -733,6 +733,28 @@ export const HLS_FORMATS: InputFormat[] = [HLS, MP4, QTFF, MP3, ADTS, MPEG_TS];
+@@ -733,6 +733,30 @@ export const HLS_FORMATS: InputFormat[] = [HLS, MP4, QTFF, MP3, ADTS, MPEG_TS];
   * @public
   */
  export type InputFormatOptions = {
@@ -193,6 +193,8 @@ index 0374cc5..6296ac7 100644
 +		skipMetadataTags?: boolean;
 +	};
 +	matroska?: {
++		/** Emit complete unlaced Opus blocks from an open single-track recorder cluster during sequential playback. */
++		progressiveOpus?: boolean;
 +		/** Skip leading descriptive tags and attachments during track inspection. */
 +		skipMetadataTags?: boolean;
 +	};
@@ -211,7 +213,7 @@ index 0374cc5..6296ac7 100644
  	/** ISOBMFF-specific configuration. */
  	isobmff?: IsobmffInputFormatOptions;
  	/** HLS-specific configuration. */
-@@ -745,6 +767,9 @@ export type InputFormatOptions = {
+@@ -745,6 +769,9 @@ export type InputFormatOptions = {
   * @public
   */
  export type IsobmffInputFormatOptions = {
@@ -221,7 +223,7 @@ index 0374cc5..6296ac7 100644
  	/**
  	 * A callback that gets invoked for each key ID required for sample content decryption. The key ID is provided as a
  	 * 32-character lowercase hexadecimal string.
-@@ -789,10 +814,29 @@ export const validateInputFormatOptions = (options: InputFormatOptions, prefix:
+@@ -789,10 +816,34 @@ export const validateInputFormatOptions = (options: InputFormatOptions, prefix:
  	if (!options || typeof options !== 'object') {
  		throw new TypeError(`${prefix}, when provided, must be an object.`);
  	}
@@ -238,9 +240,14 @@ index 0374cc5..6296ac7 100644
 +		const value = options[format]?.skipMetadataTags;
 +		if (value !== undefined && typeof value !== 'boolean') throw new TypeError(`${prefix}.${format}.skipMetadataTags must be a boolean.`);
 +	}
-+	if (options.matroska !== undefined && (!options.matroska || typeof options.matroska !== 'object' || (
-+		options.matroska.skipMetadataTags !== undefined && typeof options.matroska.skipMetadataTags !== 'boolean'
-+	))) throw new TypeError(`${prefix}.matroska must be an object with an optional boolean skipMetadataTags.`);
++	if (options.matroska !== undefined) {
++		if (!options.matroska || typeof options.matroska !== 'object') throw new TypeError(`${prefix}.matroska must be an object.`);
++		for (const key of ['skipMetadataTags', 'progressiveOpus'] as const) {
++			if (options.matroska[key] !== undefined && typeof options.matroska[key] !== 'boolean') {
++				throw new TypeError(`${prefix}.matroska.${key} must be a boolean.`);
++			}
++		}
++	}
  	if (options.isobmff !== undefined) {
  		if (!options.isobmff || typeof options.isobmff !== 'object') {
  			throw new TypeError(`${prefix}.isobmff, when provided, must be an object.`);
@@ -1874,7 +1881,7 @@ index 6c3cab0..117778b 100644
  	Cluster = 0x1f43b675,
  	Timestamp = 0xe7,
 diff --git a/src/matroska/matroska-demuxer.ts b/src/matroska/matroska-demuxer.ts
-index 932df9d..a345f45 100644
+index 932df9d..3554970 100644
 --- a/src/matroska/matroska-demuxer.ts
 +++ b/src/matroska/matroska-demuxer.ts
 @@ -70,6 +70,7 @@ import {
@@ -1885,7 +1892,15 @@ index 932df9d..a345f45 100644
  	LEVEL_0_AND_1_EBML_IDS,
  	LEVEL_0_EBML_IDS,
  	LEVEL_1_EBML_IDS,
-@@ -161,6 +162,7 @@ enum BlockLacing {
+@@ -129,6 +130,7 @@ type SeekEntry = {
+ 
+ type Cluster = {
+ 	segment: Segment;
++	continues?: boolean;
+ 	elementStartPos: number;
+ 	elementEndPos: number;
+ 	dataStartPos: number;
+@@ -161,6 +163,7 @@ enum BlockLacing {
  }
  
  type ClusterBlock = {
@@ -1893,7 +1908,7 @@ index 932df9d..a345f45 100644
  	timestamp: number;
  	duration: number;
  	isKeyFrame: boolean;
-@@ -286,6 +288,7 @@ export class MatroskaDemuxer extends Demuxer {
+@@ -286,6 +289,7 @@ export class MatroskaDemuxer extends Demuxer {
  	currentTrack: InternalTrack | null = null;
  	currentCluster: Cluster | null = null;
  	currentBlock: ClusterBlock | null = null;
@@ -1901,7 +1916,7 @@ index 932df9d..a345f45 100644
  	currentBlockAdditional: {
  		addId: number;
  		data: Uint8Array | null;
-@@ -526,7 +529,7 @@ export class MatroskaDemuxer extends Demuxer {
+@@ -526,7 +530,7 @@ export class MatroskaDemuxer extends Demuxer {
  				if (slice) {
  					this.readContiguousElements(slice);
  				}
@@ -1910,7 +1925,104 @@ index 932df9d..a345f45 100644
  				// Metadata found at the beginning of the segment, great, let's parse it
  				if (id === EBMLId.Tags) {
  					this.currentSegment.tagsSeen = true;
-@@ -999,6 +1002,7 @@ export class MatroskaDemuxer extends Demuxer {
+@@ -689,7 +693,34 @@ export class MatroskaDemuxer extends Demuxer {
+ 		this.currentSegment = null;
+ 	}
+ 
+-	async readCluster(startPos: number, segment: Segment) {
++	// The Opus TOC fixes each unlaced packet's duration. It can be decoded while its enclosing cluster is open.
++	// Laced frames and block groups keep the ordinary cluster reader's duration and padding handling.
++	private async firstOpenOpusBlock(start: number, segment: Segment, hasTimestamp: boolean) {
++		let pos = start;
++		while (segment.elementEndPos === null || pos < segment.elementEndPos) {
++			const slice = await this.reader.requestSliceRange(pos, MIN_HEADER_SIZE, MAX_HEADER_SIZE);
++			if (!slice) break;
++			const header = readElementHeader(slice);
++			if (!header || LEVEL_0_AND_1_EBML_IDS.includes(header.id)) break;
++			if (header.size === undefined || header.id === EBMLId.BlockGroup) return null;
++			const end = slice.filePos + header.size;
++			if (!Number.isSafeInteger(end) || (segment.elementEndPos !== null && end > segment.elementEndPos)) {
++				throw new Error('Invalid recorder cluster element size.');
++			}
++			if (header.id === EBMLId.Timestamp) hasTimestamp = true;
++			if (header.id === EBMLId.SimpleBlock) {
++				const block = await this.reader.requestSlice(slice.filePos, Math.min(header.size, 11));
++				if (!hasTimestamp || !block || readVarInt(block) === null || block.remainingLength < 3) return null;
++				readI16Be(block);
++				if ((readU8(block) & 6) !== 0) return null;
++				return { end, continues: true };
++			}
++			pos = end;
++		}
++		return { end: pos, continues: false };
++	}
++
++	async readCluster(startPos: number, segment: Segment, continuation?: Cluster) {
+ 		if (segment.lastReadCluster?.elementStartPos === startPos) {
+ 			return segment.lastReadCluster;
+ 		}
+@@ -703,10 +734,19 @@ export class MatroskaDemuxer extends Demuxer {
+ 		assert(elementHeader);
+ 
+ 		const id = elementHeader.id;
+-		assert(id === EBMLId.Cluster);
+-
+-		let size = elementHeader.size;
+-		const dataStartPos = headerSlice.filePos;
++		assert(continuation || id === EBMLId.Cluster);
++
++		let size = continuation ? undefined : elementHeader.size;
++		const dataStartPos = continuation ? startPos : headerSlice.filePos;
++		let continues = false;
++		if (size === undefined && this.input._formatOptions.matroska?.progressiveOpus
++			&& segment.tracks.length === 1 && segment.tracks[0]!.info?.codec === 'opus') {
++			const part = await this.firstOpenOpusBlock(dataStartPos, segment, (continuation?.timestamp ?? -1) >= 0);
++			if (part) {
++				size = part.end - dataStartPos;
++				continues = part.continues;
++			}
++		}
+ 
+ 		if (size === undefined) {
+ 			// The cluster's size is undefined (can happen in livestreamed files). We'd still like to know the size of
+@@ -725,13 +765,17 @@ export class MatroskaDemuxer extends Demuxer {
+ 		// Load the entire cluster, or whatever's left of it in case the file got cut off
+ 		let dataSlice = this.reader.requestSliceRange(dataStartPos, 0, size);
+ 		if (isThenable(dataSlice)) dataSlice = await dataSlice;
++		if ((continues || continuation) && (!dataSlice || dataSlice.length !== size)) {
++			throw new Error('Incomplete Matroska recording block.');
++		}
+ 
+ 		const cluster: Cluster = {
+ 			segment,
+ 			elementStartPos,
+ 			elementEndPos: dataStartPos + size,
+ 			dataStartPos,
+-			timestamp: -1,
++			timestamp: continuation?.timestamp ?? -1,
++			continues,
+ 			trackData: new Map(),
+ 		};
+ 		if (dataSlice) {
+@@ -833,7 +877,7 @@ export class MatroskaDemuxer extends Demuxer {
+ 			const nextEntry = track.clusterPositionCache[insertionIndex + 1];
+ 
+ 			// Only remember it if the timestamp order matches the cluster position order
+-			if (
++			if (!continues && !continuation &&
+ 				(!previousEntry || previousEntry.elementStartPos < elementStartPos)
+ 				&& (!nextEntry || nextEntry.elementStartPos > elementStartPos)
+ 			) {
+@@ -846,7 +890,7 @@ export class MatroskaDemuxer extends Demuxer {
+ 		}
+ 
+ 		segment.lastReadCluster = cluster;
+-		segment.clusterSummaries.set(startPos, {
++		if (!continues && !continuation) segment.clusterSummaries.set(startPos, {
+ 			elementEndPos: cluster.elementEndPos,
+ 			trackIds: new Set(cluster.trackData.keys()),
+ 		});
+@@ -999,6 +1043,7 @@ export class MatroskaDemuxer extends Demuxer {
  					decoded: originalBlock.decoded,
  					postProcessed: false,
  					mainAdditional: originalBlock.mainAdditional,
@@ -1918,7 +2030,7 @@ index 932df9d..a345f45 100644
  				});
  			}
  		}
-@@ -1836,11 +1840,17 @@ export class MatroskaDemuxer extends Demuxer {
+@@ -1836,11 +1881,17 @@ export class MatroskaDemuxer extends Demuxer {
  			case EBMLId.BlockGroup: {
  				if (!this.currentCluster) break;
  
@@ -1936,7 +2048,7 @@ index 932df9d..a345f45 100644
  			case EBMLId.Block: {
  				if (!this.currentCluster) break;
  
-@@ -2577,6 +2587,7 @@ abstract class MatroskaTrackBacking implements InputTrackBacking {
+@@ -2577,6 +2628,7 @@ abstract class MatroskaTrackBacking implements InputTrackBacking {
  		const duration = block.duration / segment.timestampFactor;
  
  		const sideData: EncodedPacketSideData = {};
@@ -1944,6 +2056,43 @@ index 932df9d..a345f45 100644
  		if (block.mainAdditional && this.internalTrack.info?.type === 'video' && this.internalTrack.info.alphaMode) {
  			sideData.alpha = options.metadataOnly ? PLACEHOLDER_DATA : block.mainAdditional;
  			sideData.alphaByteLength = block.mainAdditional.byteLength;
+@@ -2674,6 +2726,7 @@ abstract class MatroskaTrackBacking implements InputTrackBacking {
+ 			}
+ 
+ 			const scanStartPos = currentCluster ? currentCluster.elementStartPos : currentPos;
++			let continuation = currentCluster?.continues ? currentCluster : undefined;
+ 
+ 			while (
+ 				(segment.elementEndPos === null || currentPos <= segment.elementEndPos - MIN_HEADER_SIZE)
+@@ -2703,6 +2756,7 @@ abstract class MatroskaTrackBacking implements InputTrackBacking {
+ 
+ 				const elementStartPos = currentPos;
+ 				const elementHeader = readElementHeader(slice);
++				if (!elementHeader || LEVEL_0_AND_1_EBML_IDS.includes(elementHeader.id)) continuation = undefined;
+ 
+ 				if (segment.elementEndPos === null && elementHeader && LEVEL_0_EBML_IDS.includes(elementHeader.id)) {
+ 					// A new file or segment begins here, so we now know where this segment ends. The new segment is
+@@ -2714,7 +2768,7 @@ abstract class MatroskaTrackBacking implements InputTrackBacking {
+ 
+ 				if (
+ 					!elementHeader
+-					|| (!LEVEL_1_EBML_IDS.includes(elementHeader.id) && elementHeader.id !== EBMLId.Void)
++					|| (!continuation && !LEVEL_1_EBML_IDS.includes(elementHeader.id) && elementHeader.id !== EBMLId.Void)
+ 				) {
+ 					// There's an element here that shouldn't be here. Might be garbage. In this case, let's
+ 					// try and resync to the next valid element.
+@@ -2737,8 +2791,9 @@ abstract class MatroskaTrackBacking implements InputTrackBacking {
+ 				let size = elementHeader.size;
+ 				const dataStartPos = slice.filePos;
+ 
+-				if (id === EBMLId.Cluster) {
+-					currentCluster = await demuxer.readCluster(elementStartPos, segment);
++				if (id === EBMLId.Cluster || continuation) {
++					currentCluster = await demuxer.readCluster(elementStartPos, segment, continuation);
++					continuation = currentCluster.continues ? currentCluster : undefined;
+ 					// readCluster computes the proper size even if it's undefined in the header, so let's use that
+ 					// instead
+ 					size = currentCluster.elementEndPos - dataStartPos;
 diff --git a/src/media-sink.ts b/src/media-sink.ts
 index 91f5b43..374d7da 100644
 --- a/src/media-sink.ts

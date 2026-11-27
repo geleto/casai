@@ -45,9 +45,9 @@ async function corpus(name) {
   return { frames };
 }
 
-async function livePrefix() {
-  const blob = await (await mediaResponse(sourceFiles.webm)).blob();
-  const prefix = new Uint8Array(await blob.slice(0, 512 * 1024).arrayBuffer());
+async function livePrefix(filename = sourceFiles.webm, prefixBytes = 512 * 1024) {
+  const blob = await (await mediaResponse(filename)).blob();
+  const prefix = new Uint8Array(await blob.slice(0, prefixBytes).arrayBuffer());
   let sent = false, released = 0, firstBytes = 0, holdPull;
   const input = new ReadableStream({
     pull(c) {
@@ -163,10 +163,11 @@ async function runDeviceCases() {
     await storeFile('progress.json', JSON.stringify(results));
   }
   for (const name of ['review-ios-safari-aac.mp4', 'review-safari-aac.mp4', 'review-chrome-aac.mp4',
-    'review-chrome-aac-recorder-pause.mp4', 'review-firefox-opus.ogg', 'shorter.ogg']) {
+    'review-chrome-aac-recorder-pause.mp4', 'review-firefox-opus.ogg', 'shorter.ogg', 'review-android-chrome-open-cluster.webm']) {
     await run(name, () => corpus(name));
   }
   await run('live-prefix-cancel', livePrefix);
+  await run('android-open-cluster-prefix', () => livePrefix('review-android-chrome-open-cluster.webm', 12 * 1024));
   await run('rejected-copy', rejectedCopy);
   await run('decoder-free', noDecoder);
   for (const kind of ['wav', 'webm', 'aac']) for (const form of ['blob', 'stream']) {

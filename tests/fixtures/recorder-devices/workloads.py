@@ -13,6 +13,7 @@ CORPUS = {
     "review-ios-safari-aac.mp4": 97216, "review-safari-aac.mp4": 78784,
     "review-chrome-aac.mp4": 63469, "review-chrome-aac-recorder-pause.mp4": 63855,
     "review-firefox-opus.ogg": 64384, "shorter.ogg": 64144,
+    "review-android-chrome-open-cluster.webm": 452160,
 }
 PROFILES = {"wav": "stereo.wav", "webm": "long.webm", "aac": "long.m4a"}
 
@@ -73,9 +74,9 @@ def validate_cases(report, output, failures):
             actual = ff("-i", wav, "-ac", "1", "-f", "s16le", "-")
             assert len(actual) == frames * 2
             # FFmpeg decodes all AAC packets. Materialize the preserved pause and restrict the final access unit.
-            # All six checked-in recorder controls have two channels. Casai uses their arithmetic mean.
+            # The recorder controls have two channels. Casai uses their arithmetic mean.
             mix = "pan=mono|c0=0.5*c0+0.5*c1"
-            flags = ["-c:a", "libopus", "-request_sample_fmt", "flt"] if name.endswith(".ogg") else []
+            flags = ["-c:a", "libopus", "-request_sample_fmt", "flt"] if name.endswith((".ogg", ".webm")) else []
             raw = ff(*flags, "-i", MEDIA / name, "-map", "0:a:0", "-af", mix, "-f", "s16le", "-")
             if "pause" in name:
                 raw = raw[:31744*2] + bytes(383*2) + raw[31744*2:]
@@ -86,7 +87,7 @@ def validate_cases(report, output, failures):
             assert peak <= 16, (name, peak)
         check(name, recording)
 
-    for name in ["live-prefix-cancel", "decoder-free", "rejected-copy"]:
+    for name in ["live-prefix-cancel", "android-open-cluster-prefix", "decoder-free", "rejected-copy"]:
         check(name, lambda case: None)
     for kind, source in PROFILES.items():
         source_file = MEDIA / source

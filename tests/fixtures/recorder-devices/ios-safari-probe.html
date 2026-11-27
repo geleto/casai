@@ -45,13 +45,15 @@ async function record() {
   tone.connect(gain).connect(destination);
   tone.frequency.value = 523;
   const chunks = [], live = { beforeStop: false, rawBytes: 0 };
-  let inlet, writes = Promise.resolve(), finishPartial;
+  let inlet, writes = Promise.resolve(), finishPartial, enoughTone;
+  const firstTone = new Promise(resolve => { enoughTone = resolve; });
   const partial = new Promise(resolve => { finishPartial = resolve; });
   const source = new ReadableStream({ start(c) { inlet = c; } });
   const abort = new AbortController();
   recorder.ondataavailable = ({data}) => {
     if (!data.size) return;
     chunks.push(data);
+    if (chunks.filter(part => part.size > 32).length >= 4) enoughTone();
     writes = writes.then(async () => {
       const bytes = new Uint8Array(await data.arrayBuffer());
       if (!abort.signal.aborted) inlet.enqueue(bytes);
@@ -95,6 +97,7 @@ async function record() {
     tone.start();
     streaming = streamRecording().catch(error => { live.error = String(error); finishPartial(); });
     await pause(1050);
+    await Promise.race([firstTone, pause(8000)]);
     tone.frequency.value = 997;
     await pause(1100);
     await Promise.race([partial, pause(8000)]);

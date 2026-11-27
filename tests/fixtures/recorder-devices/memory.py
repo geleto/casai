@@ -16,13 +16,11 @@ class Memory:
         if self.platform == "local":
             return {}
         if self.platform == "android":
-            text = subprocess.check_output(["adb", "shell", "dumpsys", "meminfo"], text=True, timeout=20)
-            section = re.search(r"(?ims)^\s*Total PSS by process:\s*\n(.+?)(?=\n\s*Total [^\n]+:|\Z)", text)
-            if not section:
-                (self.output / "android-meminfo.txt").write_text(text)
-                raise ValueError("Missing OS process PSS")
-            rows = re.findall(r"([\d,]+)K:\s+([^\n(]*com\.android\.chrome[^\n(]*)\(pid\s+(\d+)", section[1])
-            return {pid: [name.strip(), int(kb.replace(",", ""))] for kb, name, pid in rows}
+            text = subprocess.check_output(["adb", "shell", "ps", "-A", "-o", "PID,RSS,ARGS"], text=True, timeout=15)
+            rows = re.findall(r"(?m)^\s*(\d+)\s+(\d+)\s+(com\.android\.chrome(?:\:[^\s]+)?)(?:\s|$)", text)
+            if not rows:
+                (self.output / "android-ps.txt").write_text(text)
+            return {pid: [name, int(kb)] for pid, kb, name in rows}
         text = subprocess.check_output(["ps", "-axo", "pid=,rss=,comm="], text=True, timeout=15)
         processes = {}
         for row in text.splitlines():

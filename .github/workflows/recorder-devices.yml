@@ -39,9 +39,13 @@ jobs:
           path: device-output/
           retention-days: 30
   android:
-    name: Android Chrome
+    name: Android Chrome (API ${{ matrix.image }})
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['36', '37.0']
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,6 +59,7 @@ jobs:
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 36
+          system-image-api-level: ${{ matrix.image }}
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_7
@@ -64,6 +69,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-recorder-evidence
+          name: android-${{ matrix.image }}-recorder-evidence
           path: device-output/
           retention-days: 30
