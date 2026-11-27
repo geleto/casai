@@ -112,11 +112,27 @@ def iphone_touch(phone, loaded, activated):
 def capture(platform, certificates, memory):
     done, loaded, activated = Event(), Event(), Event()
     report, stages, identity = {}, [], {}
+    held = {}
     assets = {"ios-safari-probe.html", "ios-safari-worker.js", "casai-audio.js", "cases.js"}
 
     class Page(SimpleHTTPRequestHandler):
         def do_GET(self):
-            if self.path == "/status":
+            if re.fullmatch(r"/held/large-(open|sized)\.webm", self.path):
+                filename = self.path.split("/")[-1]
+                state = held.setdefault(filename, {"resume": Event(), "waiting": False, "requests": 0})
+                state["requests"] += 1
+                data = (HERE / "media" / filename).read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "audio/webm")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                state["waiting"] = True
+                self.wfile.write(data[:12288])
+                self.wfile.flush()
+                state["resume"].wait(20)
+                state["waiting"] = False
+                self.wfile.write(data[12288:])
+            elif self.path == "/status":
                 body = ("captured" if done.is_set() else "running" if activated.is_set() else "loaded" if loaded.is_set() else "waiting").encode()
                 self.send_response(200)
                 self.send_header("Content-Length", str(len(body)))
@@ -128,7 +144,16 @@ def capture(platform, certificates, memory):
                 self.send_error(404)
 
         def do_POST(self):
-            data = self.rfile.read(int(self.headers["Content-Length"]))
+            data = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            if re.fullmatch(r"/resume/large-(open|sized)\.webm", self.path):
+                state = held[self.path.split("/")[-1]]
+                body = json.dumps({"held": state["waiting"], "requests": state["requests"]}).encode()
+                state["resume"].set()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
             if self.path == "/stage":
                 stage = data.decode()
                 stages.append(stage)

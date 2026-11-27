@@ -124,6 +124,22 @@ async function rejectedCopy() {
   return { requests, rejection, lockedAfter: input.locked };
 }
 
+async function heldUrl(name) {
+  let witness, total = 0;
+  const model = { provider: 'fixture', modelId: 'device', specificationVersion: 'v4',
+    async doStream({ audio }) {
+      for await (const part of audio) {
+        if (!total) witness = await (await fetch('/resume/' + name, { method: 'POST' })).json();
+        total += part.byteLength;
+      }
+      return { stream: new ReadableStream({ start(c) { c.enqueue({ type: 'finish', text: 'heard', segments: [] }); c.close(); } }) };
+    }
+  };
+  await casaiAudio.Transcriber.loadsAudio({ model, maxRetries: 0, inputAudioFormat: { type: 'audio/pcm', rate: 48000 } })(new URL('/held/' + name, location.href));
+  if (!witness?.held || witness.requests !== 1 || total !== 3110400) throw Error('HTTP prefix or complete output failed ' + JSON.stringify({witness,total}));
+  return { ...witness, pcmBytes: total };
+}
+
 async function measure(kind, form) {
   const name = 'profile-' + kind + '-' + form, filename = sourceFiles[kind];
   const get = () => mediaResponse(filename);
@@ -174,7 +190,7 @@ async function runDeviceCases() {
     for (const form of ['blob', 'split']) {
       await providerFile(copies.webm, part => storeFile(name + '.' + form + '.webm', part))(form === 'blob' ? blob : splitInput(blob, 8192));
     }
-    return { ...live, ...await corpus(name, 8192) };
+    return { ...live, ...await corpus(name, 8192), http: await heldUrl(name) };
   });
   await run('rejected-copy', rejectedCopy);
   await run('decoder-free', noDecoder);

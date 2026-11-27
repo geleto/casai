@@ -43,7 +43,7 @@ async function* prepare({ source, settings }, signal) {
   const input = new Input({ source: media, formats, formatOptions: {
     flac: { requireCompleteData: true, skipMetadataTags: true }, wave: { requireCompleteData: true, skipMetadataTags: true },
     ogg: { requireSingleLink: true, requireCompleteData: true },
-    matroska: { skipMetadataTags: true, progressiveOpus: source instanceof ReadableStream },
+    matroska: { skipMetadataTags: true, progressiveOpus: source instanceof ReadableStream || typeof source === 'string' },
     isobmff: { skipMetadataTags: true },
   } });
   let output, conversion, playbackFailure;
