@@ -49,7 +49,31 @@ export async function finishedRecording(recorder, { signal } = {}) {
 // A live adapter consumes the encoded bytes of each timeslice in their original order.
 export function liveRecording(recorder, { signal, maxQueuedBytes = 1024 * 1024 } = {}) {
   if (!Number.isSafeInteger(maxQueuedBytes) || maxQueuedBytes <= 0) throw new RangeError('Choose a positive recorder queue limit.');
-  return recorderBlobs(recorder, signal, maxQueuedBytes).pipeThrough(new TransformStream({
-    async transform(blob, controller) { controller.enqueue(new Uint8Array(await blob.arrayBuffer())); },
-  }));
+  const reader = recorderBlobs(recorder, signal, maxQueuedBytes).getReader();
+  let ended = false;
+  return new ReadableStream({
+    start(controller) {
+      void reader.closed.catch(error => {
+        if (!ended) { ended = true; controller.error(error); reader.releaseLock(); }
+      });
+    },
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (ended) return;
+      if (done) { ended = true; reader.releaseLock(); controller.close(); return; }
+      try {
+        const bytes = new Uint8Array(await value.arrayBuffer());
+        if (!ended) controller.enqueue(bytes);
+      } catch (error) {
+        if (ended) return;
+        ended = true; controller.error(error);
+        try { await reader.cancel(error); } finally { reader.releaseLock(); }
+      }
+    },
+    async cancel(reason) {
+      ended = true;
+      // Stop capture while an immutable Blob read may still be pending.
+      try { await reader.cancel(reason); } finally { reader.releaseLock(); }
+    },
+  }, { highWaterMark: 0 });
 }

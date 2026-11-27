@@ -73,6 +73,26 @@ async function directPcm(context, track, rate, captions) {
 }
 
 let examples;
+async function cancelHeldTimeslice() {
+  const recorder = Object.assign(new EventTarget(), {
+    state: 'inactive',
+    stop() { this.state = 'inactive'; },
+  });
+  const reader = examples.liveRecording(recorder).getReader();
+  let start, release;
+  const started = new Promise(resolve => { start = resolve; });
+  const held = new Promise(resolve => { release = resolve; });
+  const slice = new Blob(['held']);
+  slice.arrayBuffer = () => { start(); return held; };
+  const pending = reader.read();
+  recorder.state = 'recording';
+  recorder.dispatchEvent(Object.assign(new Event('dataavailable'), { data: slice }));
+  await started;
+  await reader.cancel();
+  const stopped = recorder.state === 'inactive';
+  release(new ArrayBuffer(4));
+  return stopped && (await pending).done;
+}
 async function ownedMicrophone(track) {
   const own = track.clone(), permission = Object.getOwnPropertyDescriptor(navigator.mediaDevices, 'getUserMedia');
   const stop = new AbortController(), abort = new AbortController();
@@ -200,7 +220,7 @@ async function record() {
   await storeFile(mime.includes('mp4') ? 'fresh.mp4' : 'fresh.webm', blob);
   const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate, live, microphone, ownership: await ownership };
   const digest = async b => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await b.arrayBuffer())), v => v.toString(16).padStart(2, '0')).join('');
-  report.examples = { saved: await digest(await saved), streamed: await digest(await forwarded), beforeStop: originalBeforeStop };
+  report.examples = { saved: await digest(await saved), streamed: await digest(await forwarded), beforeStop: originalBeforeStop, cancelledDuringRead: await cancelHeldTimeslice() };
   const NativeWorker = globalThis.Worker;
   try {
     await stage('forward original recording');

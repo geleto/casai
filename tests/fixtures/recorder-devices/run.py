@@ -344,7 +344,7 @@ def validate(report, platform):
     owned = report["ownership"]
     assert owned.get("text") == "heard" and owned["releasedDuringInput"] and owned["peak"] > 6000, owned
     digest = hashlib.sha256(original).hexdigest()
-    assert report["examples"] == {"saved": digest, "streamed": digest, "beforeStop": True}, report["examples"]
+    assert report["examples"] == {"saved": digest, "streamed": digest, "beforeStop": True, "cancelledDuringRead": True}, report["examples"]
     assert isinstance(mic, list) and [take["rate"] for take in mic] == [report["sourceRate"], 16000], mic
     for take in mic:
         assert take["beforeStop"] and take["text"] == "heard" and take["calls"] == 1, take
