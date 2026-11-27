@@ -1762,7 +1762,7 @@ export default {
       "inputAudioFormat-62bc6c075147",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "audio-221b71f6d125",
+      "audio-eabc6c56abd0",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -1784,11 +1784,11 @@ export default {
       "inputAudioFormat-6a9bbf3af99e",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "audio-c5353c50d3bd"
+      "audio-4e06c305d82e"
     ],
     "TranscriberStream_inputs": [
-      "direct-967e6ed4ead5",
-      "prepared-0a9776bb5fab"
+      "direct-340c3e0b0658",
+      "prepared-2b72789340ee"
     ],
     "SpeechGeneratorStream_config": [
       "providerOptions-e3f548cd88dc",
@@ -10788,9 +10788,9 @@ export default {
         "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11856"
       }
     },
-    "audio-221b71f6d125": {
+    "audio-eabc6c56abd0": {
       "name": "audio",
-      "type": "TranscriptionFile | RawAudio | undefined",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | Blob | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | AudioBufferSource | TranscriptionFile | ReadableStream<string | Uint8Array<ArrayBufferLike>> | undefined",
       "optional": true,
       "description": "",
       "tags": []
@@ -10805,9 +10805,9 @@ export default {
         "path": "src/factories/Transcriber.ts"
       }
     },
-    "audio-c5353c50d3bd": {
+    "audio-4e06c305d82e": {
       "name": "audio",
-      "type": "TranscriptionFile | RawAudio",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | Blob | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | AudioBufferSource | TranscriptionFile | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
       "optional": false,
       "description": "",
       "tags": [],
@@ -10815,16 +10815,16 @@ export default {
         "path": "src/factories/Transcriber.ts"
       }
     },
-    "direct-967e6ed4ead5": {
+    "direct-340c3e0b0658": {
       "name": "direct",
-      "type": "TranscriptionFile | RawAudio",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | Blob | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | AudioBufferSource | TranscriptionFile | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "prepared-0a9776bb5fab": {
+    "prepared-2b72789340ee": {
       "name": "prepared",
-      "type": "TranscriptionFile | RawAudio",
+      "type": "ArrayBuffer | Uint8Array<ArrayBufferLike> | Blob | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | AudioBufferSource | TranscriptionFile | ReadableStream<string | Uint8Array<ArrayBufferLike>>",
       "optional": false,
       "description": "",
       "tags": []

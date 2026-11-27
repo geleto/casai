@@ -2,7 +2,7 @@ import { transcribe, experimental_streamTranscribe as streamTranscribe } from 'a
 import type { TranscriptionResult, StreamTranscriptionResult } from 'ai';
 import { sourceMode, streamMode, toolMode } from '../config/modifiers.js';
 import { ConfigError, ValidationError } from '../errors.js';
-import type { AudioCallFormat, AudioFormat, CheckPcmLayout, PcmInputSettings, RawAudio, SuppliedAudio, TranscriptionFile } from '../audio.js';
+import type { AudioBytes, AudioCallFormat, AudioFormat, CheckPcmLayout, PcmInputSettings, RawAudio, SuppliedAudio, TranscriptionFile } from '../audio.js';
 import { isAudioArgument, releaseOnAudioFinish, validateAudioSettings, withAudioInput } from '../audio/input.js';
 import { createComponentRuntime, type RuntimeComponentConfig } from '../runtime/component-call.js';
 import { isPlainObject } from '../schema.js';
@@ -21,7 +21,7 @@ type NativeFile = Parameters<typeof transcribe>[0];
 type FileSettings = Omit<NativeFile, '_internal' | 'audio'> & PcmInputSettings & { audio: NativeFile['audio'] | SuppliedAudio | TranscriptionFile; inputAudioFormat?: undefined };
 type NativeLive = Extract<Parameters<typeof streamTranscribe>[0], { inputAudioFormat: AudioFormat }>;
 type RawSettings = Omit<NativeLive, '_internal' | 'audio'> & PcmInputSettings & { audio: RawAudio };
-type FileStreamSettings = Omit<RawSettings, 'audio' | 'inputAudioFormat' | 'sourceFormat'> & { audio: TranscriptionFile | Blob; inputAudioFormat?: undefined; sourceFormat?: undefined };
+type FileStreamSettings = Omit<RawSettings, 'audio' | 'inputAudioFormat' | 'sourceFormat'> & { audio: TranscriptionFile | Blob | AudioBytes; inputAudioFormat?: undefined; sourceFormat?: undefined };
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- Inline this shape in exported consumer declarations.
 type NoMedia = { mediaSettings?: undefined; fileAudioTarget?: undefined };
 type LoadedRaw = Omit<RawSettings, 'audio' | 'inputAudioFormat'> & { audio: AudioSource; inputAudioFormat: LoadedPcmFormat; mediaSettings?: MediaSettings; fileAudioTarget?: undefined; download?: undefined };

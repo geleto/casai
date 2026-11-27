@@ -65,6 +65,7 @@ describe('Component streams', () => {
 		assert.equal(acquired, 0);
 		assert.equal(parsed, 0);
 		const iterator = values[Symbol.asyncIterator]();
+		assert.equal((iterator as AsyncIterableIterator<number>)[Symbol.asyncIterator](), iterator);
 		assert.deepEqual(await iterator.next(), { value: 2, done: false });
 		await assert.rejects(iterator.next(), error => error instanceof ValidationError && error.message === 'Stream element validation failed.' && error.cause instanceof Error);
 		assert.equal(parsed, 2);
@@ -193,6 +194,77 @@ describe('Component streams', () => {
 		assert.equal(acquired, 0);
 		await stream.cancel();
 		assert.equal(acquired, 0);
+	});
+
+	it('cancels an interruptible producer while a schema is waiting for the next element', async () => {
+		let start!: () => void, end!: (item: IteratorResult<string>) => void;
+		const started = new Promise<void>(resolve => { start = resolve; });
+		const pending = new Promise<IteratorResult<string>>(resolve => { end = resolve; });
+		const reasons: unknown[] = [];
+		const source: AsyncIterable<string> = { [Symbol.asyncIterator]: () => ({
+			next() { start(); return pending; },
+			async return(reason) { reasons.push(reason); return { done: true, value: undefined }; },
+		}) };
+		let parsed = 0;
+		const checked = await create.Function({
+			execute: () => source, schema: streamSchema(z.string().transform(text => { parsed++; return text; })),
+		})();
+		const reader = toReadableStream(checked).getReader();
+		const read = reader.read();
+		await started;
+		try {
+			await reader.cancel('tab closed');
+			assert.deepEqual(reasons, ['tab closed']);
+			assert.equal((await read).done, true);
+		} finally { end({ done: false, value: 'late' }); reader.releaseLock(); }
+		await new Promise<void>(resolve => setImmediate(resolve));
+		assert.equal(parsed, 0);
+	});
+
+	it('cancels a quiet Web source through direct and declared streams and preserves a custom iterator', async () => {
+		for (const declared of [false, true]) {
+			let start!: () => void, cancelled: unknown;
+			const started = new Promise<void>(resolve => { start = resolve; });
+			const source = new ReadableStream<string>({ pull: start, cancel(reason) { cancelled = reason; } }, { highWaterMark: 0 });
+			const output = declared ? await create.Function({ execute: () => source, schema: textStreamSchema() })() : source;
+			const reader = toReadableStream(output).getReader();
+			const read = reader.read();
+			await started;
+			await reader.cancel('finished');
+			assert.equal(cancelled, 'finished');
+			assert.equal(source.locked, false);
+			assert.equal((await read).done, true);
+			reader.releaseLock();
+		}
+		const custom = Object.assign(new ReadableStream<string>(), { async *[Symbol.asyncIterator]() { yield 'custom'; } });
+		assert.equal((await toReadableStream(custom).getReader().read()).value, 'custom');
+	});
+
+	it('settles queued reads while an element is being validated and leaves another call usable', async () => {
+		let start!: () => void, release!: () => void;
+		const started = new Promise<void>(resolve => { start = resolve; });
+		const gate = new Promise<void>(resolve => { release = resolve; });
+		let pulls = 0, closed = 0;
+		const op = create.Function({
+			execute: async function* () { try { pulls++; yield 'word'; } finally { closed++; } },
+			schema: streamSchema(z.string().transform(async text => { start(); await gate; return text.toUpperCase(); })),
+		});
+		const first = (await op())[Symbol.asyncIterator]();
+		const later = await op();
+		const reads = [first.next(), first.next()];
+		await started;
+		try {
+			const reason = Error('listener left');
+			await assert.rejects(first.throw!(reason), error => error === reason);
+			assert.ok((await Promise.all(reads)).every(item => item.done));
+			assert.deepEqual([pulls, closed], [1, 1]);
+		} finally { release(); }
+		assert.deepEqual(await collectStream(later), ['WORD']);
+		assert.deepEqual([pulls, closed], [2, 2]);
+		const active = (await op())[Symbol.asyncIterator]() as AsyncIterableIterator<string> & AsyncDisposable;
+		assert.equal((await active.next()).value, 'WORD');
+		await active[Symbol.asyncDispose]();
+		assert.deepEqual([pulls, closed], [3, 3]);
 	});
 
 	it('does not prefetch the next item while a reader is idle', async () => {

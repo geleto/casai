@@ -55,6 +55,7 @@ try {
     process.env.CASAI_PACKED_RECORDER = '1';
   }
   const packagedPaths = new Set(packed.files.map(({ path: file }) => file));
+  assert.ok(packagedPaths.has('LICENSE'), 'Missing LICENSE in the Casai package');
   for (const { path: file } of packed.files.filter(({ path: file }) => file.endsWith('.map'))) {
     const map = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
     for (const source of map.sources) {

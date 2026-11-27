@@ -9,6 +9,7 @@ When a public contract changes, update its plan and user documentation together.
 ## Design principles
 
 - Delegate model execution to the AI SDK and script and template execution to Cascada. Inspect the installed runtime's types, implementation and relevant tests before adding integration code. Each wrapper or abstraction needs a concrete caller benefit that justifies its implementation, typing and maintenance costs.
+- Forward original media whenever it satisfies the caller's content, authorization and timing requirements and the receiving operation accepts its format. Open a container, remux, decode, render or invoke another model only for a requirement that forwarding cannot satisfy. Preserve incremental input and output independently.
 - Support direct calls and Cascada composition in Node and browsers, independent of UI frameworks. Reserve positional arguments for common, unambiguous inputs. Put longer option lists in configuration or named calls.
 - Keep invocation state out of reusable components and settings. Each call owns its execution, cancellation and cleanup. Result views share that execution. Specify who owns each stream and when its output is final.
 - Keep application data, executable source, trusted bindings and execution controls distinct. Resolve application inputs before parsing, use the parsed values and preserve shared data and defaults. Protect user- and model-facing boundaries. Verify ordinary calls before adding or removing defensive handling.

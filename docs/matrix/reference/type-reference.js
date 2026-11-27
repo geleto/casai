@@ -48,6 +48,8 @@ export const typeReference = {
   AIOutput: { description: 'An SDK output specification, such as `Output.text()` or `Output.object({ schema })`, which controls how model output is parsed.' },
   SharedV4ProviderOptions: { description: 'An object keyed by provider name. Each entry contains settings supported by that provider.' },
   ProviderOptions: { description: 'An object keyed by provider name. Each entry contains settings supported by that provider.' },
+  RawAudio: { description: 'A Uint8Array (including Node Buffer), ArrayBuffer, Blob or File, Web Audio channel data, PCM sample array, or a stream of byte or base64 chunks. The model and inputAudioFormat determine which representations it accepts.' },
+  TranscriptionFile: { description: 'A recording described by `{ type: "file", data, mediaType, filename? }`. Supply a Blob, Uint8Array or one-shot byte stream. For example, `{ type: "file", data: take, mediaType: "audio/mp4", filename: "take.m4a" }` requests that exact upload metadata.' },
   SharedV4AudioFormat: { description: 'An audio-format object, for example `{ type: "audio/pcm", rate: 24000 }`. The provider determines which formats and sample rates are supported.' },
   DownloadFunction: { description: 'A function receiving an array of `{ url, isUrlSupportedByModel }` requests. It returns a promise of matching `{ data, mediaType }` download results, or `null` entries when no data is downloaded. `data` is a `Uint8Array`.' },
   OnLanguageModelCallStartCallback: { description: 'A function receiving an event object just before a model request begins. It can return a promise if it needs to do asynchronous work.' },

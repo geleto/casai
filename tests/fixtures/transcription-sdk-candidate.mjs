@@ -70,6 +70,34 @@ test('a File survives retry with independently verified MIME, original bytes and
   for (const form of forms) await fileFields(form, mp4, 'council.archive', 'audio/mp4');
 });
 
+test('registered model IDs keep native File uploads and still work with byte-only adapters', { timeout }, async () => {
+  const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
+  const requested = [], forms = [];
+  const native = createOpenAI({ apiKey, baseURL }).transcription('gpt-4o-transcribe');
+  const byteOnly = { specificationVersion: 'v4', provider: 'fixture', modelId: 'bytes',
+    doGenerate: options => native.doGenerate(options) };
+  receive = async (req, res) => {
+    forms.push(await readForm(req));
+    res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ text: 'complete' }));
+  };
+  globalThis.AI_SDK_DEFAULT_PROVIDER = { specificationVersion: 'v4', transcriptionModel(id) {
+    requested.push(id);
+    return id.endsWith('/native') ? native : byteOnly;
+  } };
+  try {
+    const file = new File([mp4], 'field.capture', { type: 'audio/mp4' });
+    file.arrayBuffer = () => assert.fail('materializing a registered native model upload');
+    assert.equal((await Transcriber({ model: 'test/native' })(file)).text, 'complete');
+    await fileFields(forms[0], mp4, 'field.capture', 'audio/mp4');
+    assert.equal((await Transcriber({ model: 'test/bytes' })(new Blob([mp4]))).text, 'complete');
+    await fileFields(forms[1], mp4, 'audio.m4a', 'audio/mp4');
+    assert.deepEqual(requested, ['test/native', 'test/bytes']);
+  } finally {
+    if (previous === undefined) delete globalThis.AI_SDK_DEFAULT_PROVIDER;
+    else globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
+  }
+});
+
 test('the same reusable PCM layout still wraps genuine headerless input as a WAV', { timeout }, async () => {
   let form;
   receive = async (req, res) => { form = await readForm(req); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ text: 'wrapped' })); };
@@ -141,15 +169,53 @@ test('Groq reads a one-shot prefix before EOF and receives exact multipart metad
   await fileFields(form, mp4, 'audio.capture', 'audio/mp4');
 });
 
+test('file, file SSE and live transcription share one claim on the original recording stream', { timeout }, async () => {
+  const original = await readFile(new URL('review-android-chrome-open-cluster.webm', import.meta.url));
+  const model = createOpenAI({ apiKey, baseURL }).transcription('gpt-4o-mini-transcribe');
+  const file = Transcriber({ model }), sse = Transcriber.asStream({ model });
+  let uploads = 0, liveCalls = 0;
+  receive = async (req, res) => {
+    const form = await readForm(req);
+    await fileFields(form, original, 'capture.webm', 'audio/webm');
+    uploads++;
+    if (form.get('stream') === 'true') {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sendEvent(res, { type: 'transcript.text.done', text: 'uploaded' }); res.end();
+    } else {
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ text: 'uploaded' }));
+    }
+  };
+  const live = Transcriber({ inputAudioFormat: { type: 'audio/webm' }, model: {
+    specificationVersion: 'v4', provider: 'fixture', modelId: 'live', async doStream({ audio }) {
+      liveCalls++;
+      assert.deepEqual(Buffer.concat(await Array.fromAsync(audio)), original);
+      return { stream: ReadableStream.from([{ type: 'finish', text: 'heard', segments: [] }]) };
+    },
+  } });
+  for (const component of [file, sse]) {
+    const recording = () => transcriptionFile(ReadableStream.from([original]), { mediaType: 'audio/webm', filename: 'capture.webm' });
+    const first = recording();
+    if (component === file) await assert.rejects(component.run({ audio: first, maxRetries: 1 }), /retr/i);
+    await assert.rejects(component({ ...first, mediaType: '' }), /MIME/i);
+    assert.equal(first.data.locked, false);
+    assert.equal(await (await component(first)).text, 'uploaded');
+    await assert.rejects(live(first.data), /handed off/);
+    const second = recording();
+    assert.equal((await live(second.data)).text, 'heard');
+    await assert.rejects(component(second), /handed off/);
+  }
+  assert.deepEqual([uploads, liveCalls], [2, 2]);
+});
+
 test('OpenAI file SSE exposes its first delta before the response finishes', { timeout }, async () => {
   const finish = Promise.withResolvers();
   let form;
   receive = async (req, res) => {
     form = await readForm(req);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
-    sendEvent(res, { type: 'transcript.text.delta', delta: 'provisional' });
+    res.write('data: ' + JSON.stringify({ type: 'transcript.text.delta', delta: 'provisional' }) + '\r\n\r\n');
     await finish.promise;
-    sendEvent(res, { type: 'transcript.text.done', text: 'authoritative', languages: [{ code: 'en' }] }); res.end();
+    res.end('data: ' + JSON.stringify({ type: 'transcript.text.done', text: 'authoritative', languages: [{ code: 'en' }] }) + '\r\r');
   };
   const result = await Transcriber.asStream({ model: createOpenAI({ apiKey, baseURL }).transcription('gpt-4o-mini-transcribe') })
     .run({ audio: transcriptionFile(mp4, { mediaType: 'audio/mp4', filename: 'hearing.m4a' }) });
@@ -162,6 +228,33 @@ test('OpenAI file SSE exposes its first delta before the response finishes', { t
   assert.equal((await reader.read()).done, true);
   assert.equal(await result.text, 'authoritative');
   assert.equal(await result.language, 'en');
+});
+
+test('OpenAI sends file deltas for a byte view and an ArrayBuffer without a wrapper or a live format', { timeout }, async () => {
+  const run = Transcriber.asStream({ model: createOpenAI({ apiKey, baseURL }).transcription('gpt-4o-transcribe') });
+  const storage = Buffer.concat([Buffer.from('prefix'), mp4, Buffer.from('tail')]);
+  for (const data of [storage.subarray(6, -4), Uint8Array.from(mp4).buffer]) {
+    const release = Promise.withResolvers();
+    let form;
+    receive = async (req, res) => {
+      form = await readForm(req);
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sendEvent(res, { type: 'transcript.text.delta', delta: 'early' });
+      await release.promise;
+      sendEvent(res, { type: 'transcript.text.done', text: 'complete' });
+      res.end();
+    };
+    const result = await (data instanceof ArrayBuffer ? run.run({ audio: data }) : run(data));
+    const reader = result.fullStream.getReader();
+    try {
+      assert.equal((await within(reader.read(), 'file prefix')).value.delta, 'early');
+      const file = form.get('file');
+      assert.equal(file.type, 'audio/mp4');
+      assert.deepEqual(Buffer.from(await file.arrayBuffer()), mp4);
+    } finally { release.resolve(); }
+    assert.equal((await reader.read()).done, true);
+    assert.equal(await result.text, 'complete');
+  }
 });
 
 test('file SSE cancels a held upload and rejects final text', { timeout }, async () => {
@@ -254,7 +347,7 @@ test('browser file deltas and cancellation before provider response headers', { 
   const release = Promise.withResolvers(), pending = Promise.withResolvers();
   try {
     const bundle = await build({
-      stdin: { contents: "export {Transcriber} from 'casai'; export {createOpenAI} from '@ai-sdk/openai'; export {createDeepgram} from '@ai-sdk/deepgram'; export {createGroq} from '@ai-sdk/groq';", resolveDir: process.cwd() },
+      stdin: { contents: "export {Transcriber} from 'casai'; export {createOpenAI} from '@ai-sdk/openai'; export {createDeepgram} from '@ai-sdk/deepgram'; export {createGroq} from '@ai-sdk/groq'; export {finishedRecording,liveRecording} from './docs/examples/recorder-audio.mjs';", resolveDir: process.cwd() },
       platform: 'browser', target: 'es2022', format: 'iife', globalName: 'client', bundle: true, write: false,
       conditions: ['casai-source', 'browser'], plugins: [{ name: 'candidate-sdk', setup(build) {
         build.onResolve({ filter: /^(ai|@ai-sdk\/(provider|provider-utils|openai|deepgram|groq))$/ }, ({ path }) => ({ path: fileURLToPath(packages.get(path)) }));
@@ -313,18 +406,19 @@ test('browser file deltas and cancellation before provider response headers', { 
         }
       });
     });
+    let completedUpload;
+    receive = async (req, res) => {
+      completedUpload = (await readForm(req)).get('file');
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ text: 'whole recording' }));
+    };
     await page.mouse.click(1, 1);
-    const live = await within(page.evaluate(async ({ useFlux }) => {
+    const live = await within(page.evaluate(async ({ useFlux, baseURL }) => {
       const context = new AudioContext(), output = context.createMediaStreamDestination(), tone = context.createOscillator();
       tone.connect(output); tone.start();
       const chunks = [], recorder = new MediaRecorder(output.stream, { mimeType: useFlux ? 'audio/ogg;codecs=opus' : 'audio/webm;codecs=opus' });
-      let queue = Promise.resolve();
-      const audio = new ReadableStream({ start(controller) {
-        recorder.ondataavailable = ({ data }) => { if (data.size) queue = queue.then(async () => {
-          const bytes = new Uint8Array(await data.arrayBuffer()); chunks.push(bytes.length); controller.enqueue(bytes);
-        }); };
-        recorder.onstop = () => { void queue.then(() => controller.close(), error => controller.error(error)); };
-      } });
+      recorder.addEventListener('dataavailable', ({ data }) => { if (data.size) chunks.push(data.size); });
+      const saved = client.finishedRecording(recorder);
+      const audio = client.liveRecording(recorder);
       class LocalWebSocket extends WebSocket {
         constructor(url, auth) {
           const local = new URL(url); super('ws://' + location.host + local.pathname + local.search, auth);
@@ -339,14 +433,21 @@ test('browser file deltas and cancellation before provider response headers', { 
         const first = (await reader.read()).value, state = recorder.state;
         recorder.stop();
         while (!(await reader.read()).done) { /* consume the same live result */ }
-        return { first: first.text, state, text: await result.text, chunks };
+        const recording = await saved;
+        const fileModel = client.createOpenAI({ apiKey: 'local', baseURL }).transcription('gpt-4o-transcribe');
+        const completed = await client.Transcriber({ model: fileModel })(recording);
+        return { first: first.text, state, text: await result.text, chunks, completed: completed.text,
+          original: [...new Uint8Array(await recording.arrayBuffer())] };
       } finally {
         if (recorder.state !== 'inactive') recorder.stop();
         tone.stop(); output.stream.getTracks().forEach(track => track.stop()); await context.close();
       }
-    }, { useFlux }), 'live browser recorder');
+    }, { useFlux, baseURL }), 'live browser recorder');
     assert.deepEqual([live.first, live.state, live.text], ['recording', 'recording', 'stopped']);
     assert.deepEqual(received.map(bytes => bytes.length), live.chunks);
+    assert.deepEqual(Buffer.concat(received), Buffer.from(live.original));
+    assert.equal(live.completed, 'whole recording');
+    assert.deepEqual(Buffer.from(await completedUpload.arrayBuffer()), Buffer.from(live.original));
     assert.equal(Buffer.concat(received).subarray(0, 4).toString('hex'), useFlux ? '4f676753' : '1a45dfa3');
     await t.test('one-shot multipart over browser HTTPS/2', { skip: !process.env.CASAI_TRANSCRIPTION_TLS_CERT },
       () => browserUpload(browser, bundle.outputFiles[0].text));

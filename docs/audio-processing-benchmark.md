@@ -176,4 +176,38 @@ On November 25, 2026, the installed 6C candidate ran pairs of simultaneous publi
 | Spoken FLAC to mono 24 kHz WAV | 197,968 | 1,019 ms | 190 | 20.1 MiB | 21.1 MiB |
 | Chrome WebM/Opus copy | 15,746 | 724 ms | 159 | 13.2 MiB | 14.2 MiB |
 
-The three pairs ran in that order in one browser session. The sampler obtained 7, 11 and 7 in-operation observations. These measurements describe the tested recordings and cache state. Large seekable and sequential recordings, each admitted muxer and the mobile platforms still need peak-memory measurements. The application-worker regression separately checks the delivered samples, input ownership and timer progress when the caller is itself a worker. [Provider and worker tests](../tests/fixtures/browser-media-contracts.test.mjs)
+The three pairs ran in that order in one browser session. The sampler obtained 7, 11 and 7 in-operation observations. These measurements describe the tested recordings and cache state. The application-worker regression separately checks the delivered samples, input ownership and timer progress when the caller is itself a worker. [Provider and worker tests](../tests/fixtures/browser-media-contracts.test.mjs)
+
+## Recorder memory on target browsers
+
+On November 27, 2026, each target prepared files through the public `Transcriber.loadsAudio` entry. A 72-second, 13,824,078-byte stereo WAV produced a 27,648,056-byte float WAV. The WebM input contained 4,320 Opus packets across 259.2 seconds. The M4A input contained 12,001 AAC packets. FFmpeg verified the decoded audio for each source form, as well as every encoded packet payload for both copies. The seekable case reused a Blob. Each sequential call opened a fresh HTTP response body and passed its stream to the component. [Workload definitions and audio checks](https://github.com/geleto/casai/blob/0a6ca56ce3e0f2be1ef50a9036c14fbdb792c317/tests/fixtures/recorder-devices/workloads.py)
+
+The six workloads ran in order in one browser session, with repeated calls within each workload. The baseline was taken immediately before its first call. The sampler summed resident set sizes for Safari and its WebKit processes, or the Android Chrome app and its renderer and service processes. These sums can count shared pages more than once. The captures include multipart serialization and browser overhead. Their peaks depend on the sampling interval, previous calls and the runtime's garbage collection. [Memory sampler](https://github.com/geleto/casai/blob/0a6ca56ce3e0f2be1ef50a9036c14fbdb792c317/tests/fixtures/recorder-devices/memory.py) · [Device acceptance record](phase6-implementation.md#patched-6c-worker-on-target-devices)
+
+Each cell gives the highest sampled resident set in MiB, followed by the increase over the baseline for that workload. A zero increase means that every in-operation observation was at or below its baseline. The parenthesized increases cannot be added across rows.
+
+### First measurement
+
+| Output and input form | Safari 27.0.1, macOS | Safari 27.2, iPhone 17 simulator | Chrome 133, Android 16 emulator |
+| --- | ---: | ---: | ---: |
+| Float WAV from Blob | 997.4 (+323.3) | 1,644.7 (+200.8) | 449.5 (+69.8) |
+| Float WAV from stream | 1,150.5 (+157.4) | 1,721.7 (+113.0) | 412.0 (+6.5) |
+| WebM/Opus copy from Blob | 1,233.1 (+102.7) | 1,821.5 (+81.3) | 394.0 (+22.8) |
+| WebM/Opus copy from stream | 1,290.0 (+51.7) | 1,840.5 (+25.2) | 539.3 (+134.4) |
+| M4A/AAC copy from Blob | 1,332.6 (+38.9) | 1,787.9 (+0.0) | 482.2 (+81.7) |
+| M4A/AAC copy from stream | 1,390.9 (+15.9) | 1,816.9 (+29.0) | 452.6 (+76.0) |
+
+Each row covers 15–20 calls and 5–20 in-operation memory samples on macOS, 5–20 calls and 2–8 samples on iOS Simulator, and 3–14 calls and 23–33 samples on Android. The targets independently reproduced the input's decoded hash on every workload. The WebM copies preserved all 4,320 packets and the M4A copies preserved all 12,001 packets. A physical-phone memory ceiling requires a measurement on that hardware. [macOS samples](https://github.com/geleto/casai/actions/runs/46029576299/job/140609661792) · [iOS Simulator samples](https://github.com/geleto/casai/actions/runs/46029576299/job/140609662411) · [Android samples](https://github.com/geleto/casai/actions/runs/46029576299/job/140609662238)
+
+### Confirmation measurement
+
+| Output and input form | Safari 27.0.1, macOS | Safari 27.2, iPhone 17 simulator | Chrome 133, Android 16 emulator |
+| --- | ---: | ---: | ---: |
+| Float WAV from Blob | 1,166.4 (+412.6) | 1,399.6 (+0.0) | 586.4 (+161.7) |
+| Float WAV from stream | 1,170.7 (+57.0) | 1,732.3 (+68.3) | 576.5 (+146.6) |
+| WebM/Opus copy from Blob | 1,172.3 (+96.3) | 1,743.8 (+34.9) | 481.1 (+40.5) |
+| WebM/Opus copy from stream | 1,198.7 (+36.6) | 1,789.7 (+35.0) | 515.3 (+22.0) |
+| M4A/AAC copy from Blob | 1,239.3 (+44.9) | 1,714.7 (+0.0) | 498.1 (+52.0) |
+| M4A/AAC copy from stream | 1,240.2 (+38.1) | 1,746.2 (+21.3) | 453.1 (+27.9) |
+
+The fresh run made 11–20 calls per workload on macOS, 4–20 in iOS Simulator and 2–9 on Android. It sampled each workload 5–19 times on macOS, only once or twice on the iPhone simulator, and 21–33 times on Android. For the same WAV Blob, the earlier simulator run captured a 200.8 MiB increase over baseline. The confirmation run sampled it below baseline. The sampled peaks across both runs describe the variability of this workload and cannot establish a physical handset limit. [macOS confirmation](https://github.com/geleto/casai/actions/runs/46031647685/job/140616685245) · [iOS Simulator confirmation](https://github.com/geleto/casai/actions/runs/46031647685/job/140616684802) · [Android confirmation](https://github.com/geleto/casai/actions/runs/46031647685/job/140616685236)

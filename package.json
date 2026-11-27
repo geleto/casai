@@ -96,6 +96,7 @@
 		"test:native:release:gpl": "npm run build && node tests/fixtures/native-audio-release.mjs --gpl && npm run test:native",
 		"test:audio:live": "npm run test:file -- tests/Phase6Audio.live.test.ts",
 		"test:media:browser": "node scripts/build-audio-workers.mjs && node --test tests/fixtures/browser-media-contracts.test.mjs",
+		"test:voice:workflow": "node --import tsx/esm --conditions=casai-source --test tests/fixtures/streaming-voice-workflow.test.mjs",
 		"test:media-tools:live": "npm run test:file -- tests/Phase6MediaTools.live.test.ts",
 		"test:matrix": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs",
 		"test:matrix:native": "node --import tsx/esm --conditions=casai-source tests/fixtures/matrix-runtime.mjs --native",
@@ -108,7 +109,7 @@
 		"test:phase2-production": "node tests/fixtures/phase2-factory-cost.cjs && node tests/fixtures/phase2-production-editor.cjs && node tests/fixtures/phase2-production-mutations.cjs && node tests/fixtures/phase2-production-types.cjs",
 		"test:package": "npm run build && node tests/fixtures/phase2-package-consumer.cjs",
 		"test:watch": "npm run test:local -- --watch",
-		"test:checks": "node --test tests/fixtures/check-workflow.test.mjs tests/fixtures/documentation-workflows.test.mjs",
+		"test:checks": "node --test tests/fixtures/check-workflow.test.mjs tests/fixtures/documentation-workflows.test.mjs && npm run test:voice:workflow",
 		"check": "npm run test:checks && npm run test:types && npm run test:matrix && npm run lint && npm run test:coverage"
 	},
 	"c8": {

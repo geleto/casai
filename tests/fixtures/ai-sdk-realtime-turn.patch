@@ -1,0 +1,365 @@
+diff --git a/.changeset/realtime-tool-turn.md b/.changeset/realtime-tool-turn.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..33e6f8372e1a2f38d3e4737a6867286564237f26
+--- /dev/null
++++ b/.changeset/realtime-tool-turn.md
+@@ -0,0 +1,5 @@
++---
++'ai': patch
++---
++
++Keep automatic realtime tool continuations with the response that requested them. Submit late tool outputs without interrupting a newer turn.
+diff --git a/content/docs/03-ai-sdk-core/36-realtime.mdx b/content/docs/03-ai-sdk-core/36-realtime.mdx
+index 12c67194cfaa7151811261e0e3453dd07ddca1f5..8200faafdcea7c22e8fe9fe96e0790f50440ee85 100644
+--- a/content/docs/03-ai-sdk-core/36-realtime.mdx
++++ b/content/docs/03-ai-sdk-core/36-realtime.mdx
+@@ -265,6 +265,13 @@ WebSocket, and your application handles them with `onToolCall`. If the result is
+ available immediately, return it from `onToolCall`. The SDK sends it back to the
+ provider as tool output.
+ 
++On a turn-based connection where the SDK requests continuations, it waits for
++the response to complete and for all its tools to submit their outputs. New
++speech, a user submission, an explicit response request or cancellation, or a
++newer response supersedes that continuation. A late result still goes back
++with its original call ID. An application that wants the result announced
++later can invoke `requestResponse()` after the current reply.
++
+ For server-backed tools, call an app-specific API endpoint from `onToolCall`.
+ Avoid generic "execute tool by name" routes. App-specific endpoints are easier
+ to secure because they can use your normal authentication, authorization,
+diff --git a/packages/ai/src/realtime/realtime-session.test.ts b/packages/ai/src/realtime/realtime-session.test.ts
+index a344c6f15f6c1ef82221bd4bc529de4dccc0bc10..fa7753b065d7f7e9f3a0c5624f6101b16757f1de 100644
+--- a/packages/ai/src/realtime/realtime-session.test.ts
++++ b/packages/ai/src/realtime/realtime-session.test.ts
+@@ -3,6 +3,7 @@ import type { RealtimeModel } from '../types/realtime-model';
+ 
+ // Capture transport instances created lazily by connect().
+ const sentEvents: Array<{ type: string; [key: string]: unknown }> = [];
++const sendGuards: Array<(() => boolean) | undefined> = [];
+ const transportInstances: Array<{
+   connect: ReturnType<typeof vi.fn>;
+   emitServerEvent: (event: unknown) => Promise<void> | void;
+@@ -26,8 +27,9 @@ vi.mock('./browser-realtime-transport', () => ({
+     disconnect = vi.fn();
+     dispose = vi.fn();
+     sendRaw = vi.fn();
+-    sendEvent = (event: { type: string }) => {
++    sendEvent = (event: { type: string }, guard?: () => boolean) => {
+       sentEvents.push(event);
++      sendGuards.push(guard);
+       return Promise.resolve();
+     };
+     emitServerEvent(event: unknown) {
+@@ -97,6 +99,7 @@ function createModel(
+ describe('AbstractRealtimeSession', () => {
+   beforeEach(() => {
+     sentEvents.length = 0;
++    sendGuards.length = 0;
+     transportInstances.length = 0;
+     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+       Response.json({ token: 'secret', url: 'wss://example.com/realtime' }),
+@@ -305,4 +308,129 @@ describe('AbstractRealtimeSession', () => {
+       1,
+     );
+   });
++
++  it.each(['speech', 'text', 'commit', 'cancel', 'new response'] as const)(
++    'submits late output without continuing the old turn after %s',
++    async boundary => {
++      const session = new TestSession({
++        model: createModel(),
++        api: { token: 'token' },
++        onToolCall: () => undefined,
++      });
++      await session.connect();
++      const transport = transportInstances.at(-1)!;
++      const emit = (event: unknown) => transport.emitServerEvent(event);
++      await emit({ type: 'session-created', raw: {} });
++      await emit({ type: 'response-created', responseId: 'resp-1', raw: {} });
++      await emit(functionCallDone('old', 'lookup'));
++      await emit(responseDone());
++      if (boundary === 'speech')
++        await emit({ type: 'speech-started', raw: {} });
++      if (boundary === 'text') session.sendTextMessage('another question');
++      if (boundary === 'commit') session.commitAudio();
++      if (boundary === 'cancel') session.cancelResponse();
++      if (boundary === 'new response')
++        await emit({ type: 'response-created', responseId: 'resp-2', raw: {} });
++      const requests = () =>
++        sentEvents.filter(e => e.type === 'response-create').length;
++      const before = requests();
++      session.addToolOutput('old', { found: true });
++      expect(requests()).toBe(before);
++      // A late event for response 1 cannot complete the tool group for response 2.
++      await emit({ type: 'response-created', responseId: 'resp-2', raw: {} });
++      await emit({
++        ...functionCallDone('new', 'lookup'),
++        responseId: 'resp-2',
++      });
++      session.addToolOutput('new', 'ok');
++      await emit(responseDone());
++      expect(requests()).toBe(before);
++      await emit({ ...responseDone(), responseId: 'resp-2' });
++      expect(requests()).toBe(before + 1);
++      expect(
++        sentEvents
++          .filter(
++            e =>
++              e.type === 'conversation-item-create' &&
++              (e.item as { type?: string }).type === 'function-call-output',
++          )
++          .map(e => (e.item as { callId: string }).callId),
++      ).toEqual(['old', 'new']);
++    },
++  );
++
++  it.each(['text-delta', 'audio-delta'] as const)(
++    'recognizes a new response first identified by %s on an implicit-start relay',
++    async type => {
++      const session = new TestSession({
++        model: createModel(),
++        api: { token: 'token' },
++        onToolCall: () => undefined,
++      });
++      await session.connect();
++      const transport = transportInstances.at(-1)!;
++      await transport.emitServerEvent({ type: 'session-created', raw: {} });
++      await transport.emitServerEvent(functionCallDone('old', 'lookup'));
++      await transport.emitServerEvent(responseDone());
++      await transport.emitServerEvent({
++        type,
++        responseId: 'resp-2',
++        itemId: 'answer',
++        delta: type === 'audio-delta' ? 'AAA=' : 'Ready',
++        raw: {},
++      });
++      session.addToolOutput('old', 'ok');
++      expect(sentEvents.at(-1)).toMatchObject({
++        type: 'conversation-item-create',
++        item: { callId: 'old' },
++      });
++      expect(sentEvents.some(event => event.type === 'response-create')).toBe(
++        false,
++      );
++    },
++  );
++
++  it('checks ownership again when an automatic response reaches the transport', async () => {
++    const session = new TestSession({
++      model: createModel(),
++      api: { token: 'token' },
++      onToolCall: () => undefined,
++    });
++    await session.connect();
++    const transport = transportInstances.at(-1)!;
++    await transport.emitServerEvent({ type: 'session-created', raw: {} });
++    await transport.emitServerEvent(functionCallDone('old', 'lookup'));
++    session.addToolOutput('old', 'ok');
++    await transport.emitServerEvent(responseDone());
++    const guard =
++      sendGuards[
++        sentEvents.findIndex(event => event.type === 'response-create')
++      ]!;
++    expect(guard()).toBe(true);
++    await transport.emitServerEvent({ type: 'speech-started', raw: {} });
++    expect(guard()).toBe(false);
++    session.requestResponse();
++    expect(sentEvents.filter(e => e.type === 'response-create')).toHaveLength(
++      2,
++    );
++  });
++
++  it('preserves the tool result after an unsuccessful response without requesting further speech', async () => {
++    const session = new TestSession({
++      model: createModel(),
++      api: { token: 'token' },
++      onToolCall: () => undefined,
++    });
++    await session.connect();
++    const transport = transportInstances.at(-1)!;
++    await transport.emitServerEvent({ type: 'session-created', raw: {} });
++    await transport.emitServerEvent(functionCallDone('old', 'lookup'));
++    await transport.emitServerEvent({ ...responseDone(), status: 'cancelled' });
++    session.addToolOutput('old', 'ok');
++    expect(sentEvents.at(-1)).toMatchObject({
++      type: 'conversation-item-create',
++      item: { callId: 'old' },
++    });
++    expect(sentEvents.some(e => e.type === 'response-create')).toBe(false);
++  });
+ });
+diff --git a/packages/ai/src/realtime/realtime-session.ts b/packages/ai/src/realtime/realtime-session.ts
+index a54929d589df3d0d8d78d956a95786b945e11eab..8dcf4abd030101cbda0d74aa7c46341e312ee9b7 100644
+--- a/packages/ai/src/realtime/realtime-session.ts
++++ b/packages/ai/src/realtime/realtime-session.ts
+@@ -79,6 +79,12 @@ export type RealtimeSessionOptions = {
+   onError?: (error: Error) => void;
+ };
+ 
++type ToolResponse = {
++  id: string;
++  status: 'open' | 'completed' | 'superseded';
++  pending?: Set<string>;
++};
++
+ export abstract class AbstractRealtimeSession {
+   protected state: RealtimeState = createInitialRealtimeState();
+   protected maxEvents: number;
+@@ -99,9 +105,8 @@ export abstract class AbstractRealtimeSession {
+   private suppliedStream?: MediaStream;
+   private captureGeneration = 0;
+   private captureRequested = false;
+-  private readonly toolCallsInResponse = new Set<string>();
+-  private readonly submittedToolOutputs = new Set<string>();
+-  private responseToolCallsClosed = false;
++  private toolResponse?: ToolResponse;
++  private receivesResponseStarts = false;
+ 
+   protected abstract setState<K extends keyof RealtimeState>(
+     key: K,
+@@ -223,9 +228,8 @@ export abstract class AbstractRealtimeSession {
+       }
+       if (!current()) return;
+       this.reducer = new RealtimeEventReducer(this.maxEvents);
+-      this.toolCallsInResponse.clear();
+-      this.submittedToolOutputs.clear();
+-      this.responseToolCallsClosed = false;
++      this.toolResponse = undefined;
++      this.receivesResponseStarts = false;
+       if (this.sessionLifecycle)
+         this.applyState({ ...this.state, session: createSessionState() });
+       if (!current()) return;
+@@ -644,6 +648,15 @@ export abstract class AbstractRealtimeSession {
+       return this.close({ eventId: event.eventId });
+     if (event.type === 'session-start' && this.sessionLifecycle)
+       throw new Error('Realtime session has already started');
++    if (
++      event.type === 'input-audio-commit' ||
++      event.type === 'response-create' ||
++      event.type === 'response-cancel' ||
++      (event.type === 'conversation-item-create' &&
++        'role' in event.item &&
++        event.item.role === 'user')
++    )
++      this.supersedeToolResponse();
+     if (!this.sessionLifecycle && this.state.session == null) {
+       const attempt = this.attempt;
+       return this.sendTransport(
+@@ -738,26 +751,43 @@ export abstract class AbstractRealtimeSession {
+       type: 'conversation-item-create',
+       item: { type: 'function-call-output', ...output },
+     });
+-    this.submittedToolOutputs.add(callId);
+-    this.maybeRequestToolResponse();
++    if (this.toolResponse?.pending?.delete(callId))
++      this.maybeRequestToolResponse(this.toolResponse, attempt);
+   }
+ 
+-  private maybeRequestToolResponse(): void {
++  private supersedeToolResponse(): void {
++    if (this.toolResponse) {
++      this.toolResponse.status = 'superseded';
++      this.toolResponse.pending = undefined;
++    }
++  }
++
++  private maybeRequestToolResponse(
++    response: ToolResponse,
++    attempt: RealtimeAttempt,
++  ): void {
+     if (
+       this.providerTransport != null ||
+       this.state.status !== 'connected' ||
+-      this.attempt?.closing ||
+-      !this.responseToolCallsClosed ||
+-      this.toolCallsInResponse.size === 0 ||
+-      [...this.toolCallsInResponse].some(
+-        id => !this.submittedToolOutputs.has(id),
+-      )
++      response.status !== 'completed' ||
++      response.pending?.size !== 0
+     )
+       return;
+-    this.sendEvent({ type: 'response-create' });
+-    this.toolCallsInResponse.clear();
+-    this.submittedToolOutputs.clear();
+-    this.responseToolCallsClosed = false;
++    response.pending = undefined;
++    // The transport may still be serializing an earlier event when the user speaks.
++    const ownsTurn = () =>
++      this.attempt === attempt &&
++      attempt.active &&
++      !attempt.closing &&
++      attempt.cause == null &&
++      this.toolResponse === response &&
++      response.status === 'completed';
++    if (ownsTurn())
++      void this.sendTransport({ type: 'response-create' }, ownsTurn).catch(
++        error => {
++          if (ownsTurn()) void this.reportError(error, attempt);
++        },
++      );
+   }
+ 
+   startAudioCapture(stream: MediaStream): void {
+@@ -967,9 +997,34 @@ export abstract class AbstractRealtimeSession {
+         functionality:
+           'Turn-based audio-delta in a continuous PCM session; use audio-chunk',
+       });
++    if (event.type === 'speech-started') this.supersedeToolResponse();
++    if (event.type === 'response-created') this.receivesResponseStarts = true;
++    // Some adapters first identify a turn on its content or tool call. Trailing
++    // completion events can still belong to a previous response.
++    if (
++      (event.type === 'response-created' ||
++        (!this.receivesResponseStarts &&
++          (event.type === 'output-item-added' ||
++            event.type === 'content-part-added' ||
++            event.type === 'audio-delta' ||
++            event.type === 'audio-transcript-delta' ||
++            event.type === 'text-delta' ||
++            event.type === 'function-call-arguments-delta' ||
++            event.type === 'function-call-arguments-done'))) &&
++      this.toolResponse?.id !== event.responseId
++    )
++      this.toolResponse = { id: event.responseId, status: 'open' };
++    const response = this.toolResponse;
+     const command = this.commands?.receive(event);
+     const result = await this.reducer.reduceServerEvent(this.state, event);
+     if (!current()) return;
++    if (
++      event.type === 'function-call-arguments-done' &&
++      response?.id === event.responseId &&
++      response.status === 'open' &&
++      result.effects.some(effect => effect.type === 'tool-call')
++    )
++      (response.pending ??= new Set()).add(event.callId);
+     const session =
+       this.state.session ??
+       (event.type === 'session-started' ? createSessionState() : undefined);
+@@ -995,9 +1050,14 @@ export abstract class AbstractRealtimeSession {
+     if (event.type === 'audio-chunk')
+       (this.pcm ?? this.audio)?.playAudio(event.delta);
+     if (!current()) return;
+-    if (event.type === 'response-done' && this.toolCallsInResponse.size > 0) {
+-      this.responseToolCallsClosed = true;
+-      this.maybeRequestToolResponse();
++    if (
++      event.type === 'response-done' &&
++      response?.id === event.responseId &&
++      response.status === 'open'
++    ) {
++      response.status =
++        event.status === 'completed' ? 'completed' : 'superseded';
++      this.maybeRequestToolResponse(response, attempt);
+     }
+     if (!current()) return;
+     if (event.type === 'session-closed' && session != null) {
+@@ -1052,7 +1112,6 @@ export abstract class AbstractRealtimeSession {
+         break;
+       case 'tool-call':
+         if (this.continuous) break;
+-        this.toolCallsInResponse.add(effect.callId);
+         void this.executeTool(effect.callId, effect.name, effect.args, attempt);
+         break;
+       case 'error':

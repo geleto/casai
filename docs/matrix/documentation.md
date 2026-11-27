@@ -1650,16 +1650,16 @@ Concurrency starts independent work sooner. Streaming lets the next consumer use
 
 ### Streaming contracts
 
-A component's result-delivery mode is chosen when it is created and inherited by derived components. To choose complete or streaming delivery independently, derive variants from shared Config. `.asStream` enables streaming on LLMAgent, Template, Transcriber, SpeechGenerator and Translator; the base factory does not disable it. Ordinary audio components may collect native streaming internally according to their input/format contract. Script and Function return what their schema declares. Each invocation executes once, and independent nested components keep their own modes.
+A component's result-delivery mode is chosen when it is created and inherited by derived components. To choose complete or streaming delivery independently, derive variants from shared Config. `.asStream` enables streaming on LLMAgent, Transcriber, SpeechGenerator and Translator. Ordinary audio components may collect native streaming internally according to their input/format contract. Script and Function can return a JavaScript async iterable. Each invocation executes once, and nested components keep their own modes.
 
 | Component | Complete | Streaming |
 | :--- | :--- | :--- |
 | LLMAgent | SDK `generateText` result | With `.asStream`: SDK `streamText` result |
-| Template | Rendered string | With `.asStream`: text chunks as the template renders |
+| Template | Rendered string | Planned in Phase 9. `.asStream` emits text chunks as the template renders. |
 | Transcriber | Completed transcript fields | With `.asStream`: native transcript events and final promises |
 | SpeechGenerator | Completed audio and metadata | With `.asStream`: native audio stream and final metadata |
 | Translator | Completed translated audio/text and metadata | With `.asStream`: native translation events and final promises |
-| Script | Returns a value | Returns an async iterable or a native `stream`/`tstream` channel declared by a [stream schema](#guide-stream-schemas) |
+| Script | Returns a value | Returns a JavaScript async iterable declared by a [stream schema](#guide-stream-schemas). Native `stream`/`tstream` channels are planned in Phase 9. |
 | Function | `execute` returns a value | `execute` returns a stream, declared by a stream schema |
 
 To enable streaming on a supported component in complete mode, derive a streaming component from it: `create.LLMAgent.asStream({}, writer)`.
@@ -1698,6 +1698,8 @@ The schema distinguishes text chunks from list elements and preserves that kind 
 Elements are parsed lazily during consumption: producer, schema parser, then caller. Where needed, one wrapper reads each producer element once and forwards the parsed element, including transformations. Neither a new wrapper nor a new element duplicates producer execution, starts another source reader, or retains replay history. Preparing a wrapper reads nothing. Collection uses that view without reparsing. Reuse parsing already done by the SDK or Cascada for the same contract.
 
 Text schemas parse string chunks; element schemas parse complete healthy elements and forward their schema-produced values. Failures stop JavaScript iteration after the valid prefix. Whole-result checks finish only at completion; guaranteeing whole-stream validity before exposing anything requires explicit collection.
+
+When a listener leaves during a pending read, cancelling the Web reader or returning the schema iterator forwards cancellation to the active producer. A custom async iterator can interrupt its pending work in `return()`. For an async generator waiting on external I/O, pass the caller's abort signal to that I/O as well. [Executed cancellation cases](https://github.com/geleto/casai/blob/main/tests/Streams.unit.test.ts)
 
 Each component applies its declared schema at its own boundary. When SDK/Cascada performs that same boundary's parsing, reuse its parsed values. A Function forwarding a native stream through a newly declared `streamSchema(...)` still applies its own schema: `z.number().positive()` must reject a forwarded `-1`, and two components each declaring a number-increment transform apply it once each. Forwarding adapters and collectors with no new schema add no validation pass, producer, or replay history.
 
@@ -2101,7 +2103,7 @@ const blueWorkshop = await repaint({ color: 'light blue' });
 
 ### Transcriber
 
-`Transcriber` returns a completed transcript. Without `inputAudioFormat`, it uses the provider's encoded-file operation; OpenAI handles that through its file-transcription endpoint. With `inputAudioFormat`, it accepts raw audio, uses native streaming and waits for the authoritative final transcript. `Transcriber.asStream` exposes the live result instead. An unsupported selected operation reports the native error without trying another operation.
+`Transcriber` returns a completed transcript. Omit `inputAudioFormat` to use the provider's file-transcription endpoint for a finished recording. Supply `inputAudioFormat` to use a live operation and collect its final transcript. When that adapter accepts your recording's format, a File, Blob, byte array or ordered byte stream goes through with its original encoding. `Transcriber.asStream` exposes incremental events. An unsupported operation reports the native error.
 
 <!-- typecheck: transcriber -->
 ```typescript
@@ -2160,11 +2162,50 @@ The model supplies `{ audio: "https://example.com/recording" }`. The tool downlo
 
 #### Streaming transcription
 
-`Transcriber.asStream` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It uses the AI SDK's experimental `experimental_streamTranscribe` API.
+Choose the call by when audio must reach the provider and when the application needs an answer.
+
+| What the application needs | How to send the audio |
+| --- | --- |
+| A final transcript after the user presses Stop | Give ordinary `Transcriber` the finished original in a format the file endpoint accepts. A recorder that emits chunks can collect them into a Blob through its stop event. |
+| Captions or a translated reply before the microphone stops | Use a live adapter and `.asStream`. Send an ordered stream of its accepted encoded format, or capture PCM at the layout the adapter requests. If the source supplies only encoded audio and the adapter requires PCM, decode incrementally. |
+| Live input with just one final answer | Give ordinary `Transcriber` the live stream and `inputAudioFormat`. It sends audio during capture and collects the result. Ordinary `Translator` also collects its native live operation. |
+| Progress while transcribing an already finished file | Pass a recognizable `Uint8Array`, `ArrayBuffer`, Blob or File to `Transcriber.asStream`. A file-capable adapter emits transcript events while processing the original recording. This operation requires the qualified SDK candidate on the current baseline. |
+
+Live transcription uses the AI SDK's experimental `experimental_streamTranscribe`. For captions before Stop, choose an adapter that both accepts audio during capture and emits interim transcripts. When the caller requires a bounded upload, preserve the input stream even if the application only reads the final result. A native streaming upload can provide that memory bound independently of when transcription begins.
 
 For an adapter that accepts live WebM/Opus, use one ordered stream with `inputAudioFormat: { type: 'audio/webm' }`. Include the recorder's first chunk and keep the same call through the last chunk. Each `dataavailable` Blob can depend on the original container header. The browser preparation candidate can decode growing Chrome WebM/Opus and AAC/MP4, and Firefox Ogg/Opus, to PCM for a PCM-only model. For browser record-and-send, skip empty blobs, preserve `recorder.mimeType`, collect through the `stop` event, and stop the microphone tracks your application acquired. [Browser recording qualification](../phase6-implementation.md#browser-worker-implementation)
 
+The recorder example provides both routes. Call `finishedRecording(recorder)` before starting the recorder, then pass its resolved Blob to ordinary `Transcriber` after Stop. For a live adapter, call `liveRecording(recorder)` before starting, pass that stream with the accepted recorder MIME, and start the recorder with a timeslice such as `recorder.start(150)`. Both include the final timeslice. Cancelling the live stream stops the recorder immediately, including during a pending Blob read. Queued data above the application's byte limit ends capture with an error. Both helpers accept an abort signal. In the application's `finally` block, abort any remaining capture and stop the microphone tracks it acquired. [Executable recorder example](../examples/recorder-audio.mjs)
+
+If the live model takes PCM, capture from the microphone directly. The browser example uses a Web Audio worklet to produce mono PCM16 and reports the audio context's actual sample rate. Casai forwards matching samples and resamples when the chosen model requires another rate. The application can request permission on Record and release the microphone on Stop while it waits for the final transcript. The example fails the recording if the consumer falls more than a second behind. Serve both example modules together on HTTPS or localhost. [Microphone example](../examples/microphone-pcm.mjs) · [Audio worklet](../examples/microphone-worklet.mjs)
+
+For a live transcription model configured to send interim results, call this from the application's Record handler. Each recording gets its own Stop signal. Use an ordinary `Transcriber` and omit `onEvent` when the application only needs the final text.
+
+```js
+import { transcribeMicrophone } from './microphone-pcm.mjs';
+import { create } from 'casai';
+
+async function recordCaptions(model, stopButton, showCaption, abortSignal) {
+  const stop = new AbortController();
+  const finish = () => stop.abort();
+  stopButton.addEventListener('click', finish);
+  try {
+    const listen = create.Transcriber.asStream({
+      model, inputAudioFormat: { type: 'audio/pcm', rate: 16000 },
+      providerOptions: { deepgram: { streaming: { interimResults: true } } },
+    });
+    return await transcribeMicrophone(listen, { stopSignal: stop.signal, abortSignal,
+      onEvent(event) { if (event.type === 'transcript-partial') showCaption(event.text); },
+    });
+  } finally { stopButton.removeEventListener('click', finish); }
+}
+```
+
+If the caption callback fails, the example stops capture and cancels the provider with the same error. Pressing Stop still flushes the captured samples and waits for the final transcript. When the application already owns a microphone track, use `captureMicrophonePcm(context, track, signal)` and pass its `audio` and `sourceFormat` to the component. Its `stop()` flushes the last partial block. The application retains ownership of its track and audio context. [Chained voice workflow](#guide-streaming-voice-turns)
+
 Finite raw bytes are also accepted, but completion follows the provider's streaming session rules. OpenAI file transcription returns a completed result with the installed adapter. Its separate realtime adapter commits once after input ends and finishes on the first transcription-completed event. This does not establish support for arbitrary long recordings or multiple completed items; use ordinary Transcriber for whole files.
+
+When a source already exposes bytes incrementally, pass that stream directly with its known format. For raw PCM, check that the sample representation, rate and channels match the model’s input. For a finished recording, retain the original filename and content type alongside its bytes. If the application needs both playback and storage from a URL whose content can change, save the media once and replay that version. Reading the URL twice can return two different recordings.
 
 <!-- typecheck: streaming-transcriber -->
 ```typescript
@@ -2186,9 +2227,9 @@ console.log(await transcriptStream.text);
 
 For live captions, read `fullStream` first so your application sees each event. After the loop, await `text` for the transcript to pass to the next step. A workflow that only needs the final transcript can await `text` directly. To show captions in a Template or Script, select the text from the events you consume. [Streaming transcription return fields and errors](https://casai.run/documentation/reference/transcriber_asstream/?view=return#return)
 
-Use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configure `inputAudioFormat` to shorten this to `transcriberStream(audioStream)`; both entry paths require an unconfigured format. Ordinary Transcriber tools using raw audio require a configured format because their model-facing arguments are input/preparation data; `Transcriber.asStream` has no tool form.
+For live input, use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configure `inputAudioFormat` once to shorten later calls to `transcriberStream(audioStream)`. For transcript events from a finished file, omit the live format. Ordinary Transcriber tools using raw audio require a configured format because their model-facing arguments are input/preparation data; `Transcriber.asStream` has no tool form.
 
-**Native SDK candidate.** On OpenAI file models such as `gpt-4o-mini-transcribe`, call `Transcriber.asStream({ model })(file)` for transcript deltas from a completed recording. The same delivery works with a configured `Transcriber.loadsAudio.asStream` file target after preparation finishes. Read `fullStream` first and then `text` from that result. For OpenAI or Groq uploads with independent labels, pass `{ type: 'file', data, mediaType: 'audio/mp4', filename: 'interview.m4a' }` as the audio value. A File or Blob can be retried. A byte stream is consumed once and requires a transport that supports streaming request bodies. A one-shot HTTP upload needs browser support for streaming request bodies. Use a completed Blob or File when the browser lacks it.
+**Native SDK candidate.** On OpenAI file models such as `gpt-4o-mini-transcribe`, call `Transcriber.asStream({ model })(file)` for transcript deltas from a completed recording. Recognizable encoded bytes, including a Node Buffer or an ArrayBuffer, also select the file operation. Bytes with an unknown format need an explicit recording description. The same delivery works with a configured `Transcriber.loadsAudio.asStream` file target after preparation finishes. Read `fullStream` first and then `text` from that result. On the published SDK, an unnamed byte recording with its exact SDK-detected MIME can be sent directly for a final transcript. For OpenAI or Groq uploads with independent labels, pass `{ type: 'file', data, mediaType: 'audio/mp4', filename: 'interview.m4a' }` as the audio value. A File or Blob can be retried. A byte stream is consumed once and requires a transport that supports streaming request bodies. A one-shot HTTP upload needs browser support for streaming request bodies. Use a completed Blob or File when the browser lacks it.
 
 For live Deepgram captions, pass the ordered byte stream from one recorder to `Transcriber.asStream` with `inputAudioFormat: { type: 'audio/webm;codecs=opus' }`. Ogg/Opus and WAV with 16-bit PCM are also supported. For Nova, set `providerOptions.deepgram.streaming.interimResults` to receive interim text. Flux revises each turn under the same ID. An orderly stop preserves the final pending phrase. The checked-in SDK patch supplies these capabilities while its upstream release is pending. [Candidate and qualification](../phase6-implementation.md#native-file-and-recorder-sdk-candidate)
 
@@ -2205,7 +2246,7 @@ const transcript = await transcribeThisRequest();
 console.log(await transcript.text);
 ```
 
-The same rule applies to configured Translator audio and native-streaming SpeechGenerator text inputs. Inheritance shares the input object; it does not create a new stream. Once Casai hands a ReadableStream to the SDK, handing that exact object off again throws ValidationError, even through a different component. A failed SDK attempt still claims the input; failures before dispatch do not. Reusable finite audio bytes are wrapped in a fresh stream for each call. Casai does not promise detection of external consumption or generic iterator reuse.
+The same rule applies to configured Translator audio and native-streaming SpeechGenerator text inputs. Inheritance shares the input object; it does not create a new stream. Casai claims a raw ReadableStream on dispatch and a file stream when the SDK takes its reader. A second handoff of that stream throws ValidationError. This includes switching between a transcription file descriptor and live input in either order. A request rejected before it takes the file reader leaves the stream available. After handoff, open a fresh source for another attempt, including after provider failure. Reusable finite audio bytes are wrapped in a fresh stream for each call. Casai does not promise detection of external consumption or generic iterator reuse.
 
 For repeatable operations, a configured function/script preparer can open a fresh stream each time. Normal native LLMAgent results also provide independent textStream projections from the same execution: a preparer can obtain a new view per invocation. Capturing one view in configuration does not make that view reusable. Explicit `makeSharedIterable` sharing retains history; its owner controls disposal. Audio still needs a new `toReadableStream(sharedAudio)` bridge per call, while streaming speech can accept a replayable iterable directly. Casai does not enable replay automatically for live input.
 
@@ -2298,11 +2339,34 @@ Shorthand is `(textOrTextStream, voice?)`; `.run()` accepts the native fields by
 
 Select either `audioStream` for bytes or `fullStream` for audio format, raw and error parts, before accessing final metadata promises. These are alternative single-consumer views. Chunks need not be standalone audio files. Native error events, callback behavior, cancellation and finish/failure behavior are preserved; `audioStream` skips error parts, while `fullStream` exposes them. The native streaming operation takes an audio-format object; native complete speech generation takes a string format. With `.asStream`, the component returns the live SDK result and cannot be a tool. Ordinary SpeechGenerator collects this native operation when the request uses an object format or non-string text, including through `.asTool`.
 
+<a id="guide-streaming-voice-turns" name="guide-streaming-voice-turns"></a>
+
+#### From microphone captions to a spoken reply
+
+The streaming voice example takes a configured `Transcriber.asStream`, a speaking `LLMAgent.asStream`, a `SpeechGenerator.asStream` and one mono microphone stream. The application supplies caption, playback and stop-playback callbacks. The example awaits each caption in order. A caption writer can use its second argument, the session signal, to cancel pending I/O. Start `runVoiceTurns` once for the recording. The transcription result stays open across replies. Use a dedicated speaking agent when a workflow also has planning or tool-execution steps. [Executed application example](https://github.com/geleto/casai/blob/main/docs/examples/streaming-voice.mjs)
+
+For the Deepgram recorder adapter candidate, enable Nova interim results and append each stable segment to the current utterance. “Turn on” can arrive as a final segment and “the lights” as another. Submit the combined text when `providerMetadata.deepgram.speechFinal` signals the boundary, including when the boundary packet has empty text. With Flux, display draft updates and commit a turn index once on `EndOfTurn`. An eager ending, a resumed turn or the last update at microphone shutdown can still be provisional. For a push-to-talk interface the user's commit can supply the boundary. [Recorder adapter qualification](../phase6-implementation.md#native-file-and-recorder-sdk-candidate)
+
+For each committed utterance, select `fullStream` in the expression that binds the script variable. Cascada 0.7.0 can inspect enumerable getters when assigning an already-created SDK result to a variable. On a single-consumer result, that inspection can claim a stream before the application reads it. The application binds `spokenText` to a reader that forwards the speaker's text deltas and propagates errors. The first audio bytes can reach the player while the language model is still generating.
+
+```cascada
+var parts = answer.run({ prompt: utterance, abortSignal: turnSignal }).fullStream
+return speak.run({ text: spokenText(parts, turnSignal), abortSignal: turnSignal })
+```
+
+For a long plain-text reply with one listener, the example also accepts `answer: singleListenerAnswer(model)`. It uses the AI SDK's `experimental_streamTextLowMemory`. The player owns one projection and the SDK can report completion metadata as the player drains it. Choose the ordinary `LLMAgent.asStream` when you need Casai prompt preparation, replay or final conversation history. Accessing a completion promise such as `finishReason` on the ordinary result starts a consumer that can read ahead of a paused player. [Executed single-listener example](https://github.com/geleto/casai/blob/main/tests/fixtures/streaming-voice-workflow.test.mjs)
+
+Give each reply its own abort signal. On the next Flux turn start or first Nova speech evidence, cancel the old agent and synthesis, discard queued playback and keep listening on the original microphone. The `play(speech, signal)` callback consumes one output view, stops scheduling samples on abort and resolves when playback finishes. Consume `fullStream` when the player needs to surface provider error events after an audible prefix. The session signal stops capture as well as the current reply. [Turn, cancellation and late-error tests](https://github.com/geleto/casai/blob/main/tests/fixtures/streaming-voice-workflow.test.mjs)
+
+**HTTP playback.** For a model configured to emit MP3, register its ongoing speech result under a reply ID in the authenticated conversation. Pass the Fetch `Request` to `takeMp3Reply(replies, replyId, request)` and return its `Response`. HEAD returns the playback headers and leaves the reply available for GET. Point the audio element at that URL. In a multi-worker deployment, route the GET to the worker holding the live reply. The example claims the existing stream once, checks the emitted format and forwards its bytes as `audio/mpeg`. A repeated GET receives 410. Expire unclaimed replies with their owning conversation. For replay, seeking or a disconnected listener, serve a committed asset with a stable ID. A service that retains run events can resume them from its execution ID and last delivered event ID. Continuing live playback would also require the service to retain the audio and its playback position. Starting generation again creates a new reply. A browser can start a longer response before EOF and still buffer a short utterance. Use PCM scheduling when you need tighter control of first playback. [HTTP example](https://github.com/geleto/casai/blob/main/docs/examples/streaming-voice.mjs)
+
+**Saved voice memos.** The same example exposes `voiceMemoTool(speak, save)`. Its application-owned writer receives the MP3 stream, filename, MIME and cancellation signal. It returns an immutable asset ID after the write commits. A failed write aborts the ongoing synthesis. The tool returns that receipt and the caption to the application. Its `toModelOutput` sends the caption to the language model. An authorized playback route can later read the stored bytes by ID. A playback retry can use that ID without generating the memo again. If the tool call itself can be redelivered, apply the durable action pattern in the voice backend section. Use an application-owned file record when a model-facing tool result must also survive a later turn. [Streaming write and result projection](https://github.com/geleto/casai/blob/main/docs/examples/streaming-voice.mjs)
+
 <a id="guide-translator" name="guide-translator"></a>
 
 ### Translator
 
-`Translator` translates raw speech into target-language audio and text through one native [streaming translation operation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate). Ordinary calls collect its completed result; `Translator.asStream` exposes live events. A supporting provider model is required; OpenAI exposes `translation('gpt-realtime-translate')`.
+`Translator` uses one native streaming operation. Supply audio in a format the chosen translation adapter accepts. Matching recording bytes pass through directly. Ordinary calls collect the completed target-language audio and text. `Translator.asStream` exposes live events. OpenAI exposes `translation('gpt-realtime-translate')` for speech translation. [SDK streaming translation](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate)
 
 Pass an uncompressed WAV, a Web Audio `AudioBuffer` or raw samples to `Translator`. Configure the model's target format and language once. For compressed recordings or video, `Translator.loadsAudio` on Node.js detects the source and prepares the audio. [Audio formats and examples](#guide-recorded-audio-and-optional-codecs)
 
@@ -2381,11 +2445,13 @@ In the browser you can also supply headerless PCM as a numeric sample array, fin
 
 The browser recording candidate can resample stereo Opus to a stereo PCM16 WAV at the requested rate. It plays successive WAV data chunks in order and requires whole sample frames, including in WAVs with streaming headers. It checks standalone FLAC against its declared sample count when available and rejects a discontinuous or incomplete Ogg stream. An incomplete recording can fail during a raw read or before a completed file reaches the provider. Release any reader you hold on an upload before handing it to the component. For incremental delivery, cancelling `fullStream` or its reader releases the component-owned upload. Pass an `AbortSignal` to stop a call you abandon before selecting a result view.
 
+With the qualified worker candidate, an Android Chrome `MediaRecorder` stream can deliver PCM to a raw-input model while the recorder is still running. This also works when a server sends that single-track WebM/Opus recording in one HTTP response. If the provider takes a WAV or WebM file, Casai finishes preparing the file before uploading it. [Tested browser versions and release status](../phase6-implementation.md#patched-6c-worker-on-target-devices)
+
 **Work in progress — input composition:** receiving components will accept selected generated audio and compatible async-iterable/binary Node streams internally. Encoded streams requiring decoding use `.loadsAudio`. An ordinary live byte stream can carry a format the selected adapter accepts directly.
 
 Self-describing recordings supply their layout. With a reusable raw layout configured, `.loadsAudio` starts classification with up to 4 KiB of the supplied bytes and reads stream prefixes only after claiming the source. In the browser, plausible QuickTime, MP4 or EBML headers can extend that prefix up to 64 KiB. If the prefix remains inconclusive, pass a Blob with the recording's MIME type or use a component without `sourceFormat`. For actual raw samples with a similar prefix, use numeric PCM samples or an `audio/pcm` Blob with the matching layout. A declared encoded MIME selects recording handling even without a recognizable header. Node paths and URLs use native opening. Headerless paths and URLs use explicit native demuxer and sample settings. Ordinary raw streams remain unsniffed. Headerless MP3 and ADTS can resemble PCM, so use `.loadsAudio` with an identified recording.
 
-Ordinary file transcription already forwards the tested Safari MediaRecorder MP4 unchanged as `audio/mp4`. You can pass its bytes or a Blob assembled from the recording's chunks, even when the Blob has an empty or incorrect MIME type. This path needs a transcription provider that accepts the encoded file. Translation and raw-model transcription require decoded audio.
+Ordinary file transcription already forwards the tested Safari MediaRecorder MP4 unchanged as `audio/mp4`. You can pass its bytes or a Blob assembled from the recording's chunks, even when the Blob has an empty or incorrect MIME type. This path needs a transcription provider that accepts the encoded file. For live transcription or translation, send the original encoding if the adapter accepts it. A PCM-only model needs decoded samples.
 
 For ordinary file transcription, a reusable `sourceFormat` applies to headerless samples. The same component accepts an SDK URL object or a base64 recording with an identifiable container, such as WAV. With this layout configured, base64 starting with only an MP3 or ADTS frame prefix is ambiguous and the call fails. For headerless PCM, decode the string to bytes and pass those bytes with the layout. For an encoded recording without a recognizable header, pass encoded bytes to `.loadsAudio` with an appropriate declared MIME or demuxer. For URL objects the SDK can use the adapter's URL operation. On a download it uses an audio response MIME or identifies the bytes. Casai checks the SDK's file label and rejects known mismatches such as Matroska labeled as WebM. Use `.loadsAudio` with a WAV or FLAC target for those recordings. It can also decode AIFF and Sun AU for raw model input. A headerless PCM Blob's declared rate and channel count must agree with the layout used for conversion. Ordinary direct PCM, PCMU and PCMA delivery checks those declarations against the model target.
 
@@ -2639,6 +2705,8 @@ The ordinary call prepares instructions and returns SDK session setup; `.run()` 
 `executeTool()` is a direct executor, like a native tool's `execute()`: it does not evaluate `needsApproval` or run the LLMAgent approval loop. The application must authorize the call and obtain any required user approval before invoking it.
 
 This method returns the tool's execution result. The realtime browser sends that result as native function-output JSON; it does not apply the language-generation tool's `toModelOutput` formatter. Returning encoded audio or images therefore sends tool data rather than playing audio or creating a rich media tool message. Use the native session's speech response or application playback for audio delivery.
+
+For a tool with a durable effect, bind the authenticated account and conversation on the server and pass the real `_toolOptions.toolCallId` to the operation. The SQLite ticket example inserts one ticket under a unique account, conversation and call ID. A retry returns that ticket, including after reconnecting to the database. Reusing the ID with a different subject fails. The ticket row itself records the effect. For an external payment or fulfillment service, pass an idempotency key to that service as well. An independent local receipt cannot resolve a crash between an external charge and the receipt write. [Ticket example](https://github.com/geleto/casai/blob/main/docs/examples/voice-ticket.mjs) · [Executed backend calls](https://github.com/geleto/casai/blob/main/tests/fixtures/streaming-voice-workflow.test.mjs)
 
 Convert a completed `undefined` result to JSON `null` at the HTTP boundary, as above. Native `onToolCall` treats an `undefined` return as no automatic submission, so returning it directly leaves the call pending. `Response.json(undefined)` also fails. The helper preserves the original execution result; this conversion belongs to the application's transport response.
 

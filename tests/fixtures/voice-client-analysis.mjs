@@ -35,5 +35,10 @@ try {
  assert.equal(evidence.connected,'connected'); assert.equal(evidence.closed,'disconnected'); assert.equal(evidence.failure,'caught');
  assert(evidence.independent); assert(evidence.sameHandle); assert.equal(evidence.sockets,0); assert.equal(evidence.listenersAfterTeardown,0);
  assert(evidence.nativeConnectReturnsBeforeReady);
+ const deadline = new Promise((_, reject) => {
+   setTimeout(() => reject(new Error('Credential retry did not settle')), 5000).unref();
+ });
+ const recovery = await Promise.race([page.evaluate(async () => (await import('/bundle.mjs')).reconnectAfterTimeout()), deadline]);
+ assert.deepEqual(recovery, { requests: 2, connections: ['current'], timeout: 'Realtime session startup timed out', aborted: true, status: 'connected' });
  await writeFile(new URL('evidence.json',here),JSON.stringify({...evidence,bundleBytes:result.metafile.outputs[Object.keys(result.metafile.outputs)[0]].bytes},null,2));
 } finally {await browser?.close();await new Promise(resolve=>server.close(resolve));}

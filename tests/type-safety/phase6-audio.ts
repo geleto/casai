@@ -62,8 +62,11 @@ const collected: Promise<TranscriptionResult> = file(bytes, format);
 const live = Transcriber.asStream({ model });
 const incremental: Promise<StreamTranscriptionResult> = live(bytes, format);
 const named: Promise<StreamTranscriptionResult> = live.run({ audio: stream, inputAudioFormat: format });
-// @ts-expect-error Raw streaming requires a format.
+// Recognizable finished bytes select native file-result streaming.
 void live(bytes);
+void live.run({ audio: new ArrayBuffer(32) });
+// @ts-expect-error An open byte stream needs a live format or an explicit recording description.
+void live(stream);
 // @ts-expect-error Raw streaming requires a format in named calls too.
 void live.run({ audio: stream });
 // @ts-expect-error URL downloading belongs to encoded-file execution.

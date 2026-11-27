@@ -6,8 +6,8 @@ import { createElevenLabs } from '@ai-sdk/elevenlabs';
 import { createOpenAI } from '@ai-sdk/openai';
 import { experimental_generateVideo as generateVideo, experimental_getVideoStatus as getVideoStatus,
   experimental_startVideo as startVideo, uploadFile } from 'ai';
-import { MockTranscriptionModelV4 } from 'ai/test';
-import { Config, ConfigError, Function as CasaiFunction, LLMAgent, Script, Transcriber, ValidationError, z } from 'casai';
+import { Experimental_MockSpeechTranslationModelV4, MockTranscriptionModelV4 } from 'ai/test';
+import { Config, ConfigError, Function as CasaiFunction, LLMAgent, Script, Transcriber, Translator, ValidationError, z } from 'casai';
 
 import { withAudioInput } from '../src/audio/input.ts';
 import { sourceMode, streamMode } from '../src/config/modifiers.ts';
@@ -19,6 +19,41 @@ describe('Casai recording selection at the SDK boundary', () => {
   const handoff = (audio, settings = {}, signal) => withAudioInput({
     settings: { model, audio, ...settings }, supplied: { audio }, context: { _toolOptions: { abortSignal: signal } },
   }, async request => request.audio, sdk);
+
+  it('preserves a registered native File and keeps byte delivery for byte-only and legacy providers', async () => {
+    const bytes = await readFile(new URL('fixtures/review-ios-safari-aac.mp4', import.meta.url));
+    const file = new File([bytes], 'session.m4a', { type: 'audio/mp4' });
+    const provider = globalThis.AI_SDK_DEFAULT_PROVIDER;
+    const lookups = [];
+    try {
+      globalThis.AI_SDK_DEFAULT_PROVIDER = { specificationVersion: 'v4', transcriptionModel(id) {
+        lookups.push(id);
+        return id === 'fixture/native' ? model : {};
+      } };
+      assert.equal((await handoff(file, { model: 'fixture/native' })).data, file);
+      assert.deepEqual(Buffer.from(await handoff(file, { model: 'fixture/bytes' })), bytes);
+      assert.deepEqual(lookups, ['fixture/native', 'fixture/bytes']);
+      globalThis.AI_SDK_DEFAULT_PROVIDER = { specificationVersion: 'v3', transcriptionModel() {
+        assert.fail('the native SDK owns legacy model resolution');
+      } };
+      assert.deepEqual(Buffer.from(await handoff(file, { model: 'fixture/legacy' })), bytes);
+    } finally {
+      if (provider === undefined) delete globalThis.AI_SDK_DEFAULT_PROVIDER;
+      else globalThis.AI_SDK_DEFAULT_PROVIDER = provider;
+    }
+  });
+
+  it('shares accepted file readers with live calls and leaves rejected file inputs available', async () => {
+    const data = ReadableStream.from([Uint8Array.of(7)]);
+    const audio = { type: 'file', data, mediaType: 'audio/example' };
+    const prepared = { settings: { audio, model }, supplied: { audio }, context: { _toolOptions: {} } };
+    await assert.rejects(withAudioInput(prepared, async () => { throw Error('invalid request'); }, sdk), /invalid request/);
+    const reader = await withAudioInput(prepared, async request => request.audio.data.getReader(), sdk);
+    await assert.rejects(handoff(data, { inputAudioFormat: { type: 'audio/example' } }), /handed off/);
+    assert.deepEqual((await reader.read()).value, Uint8Array.of(7));
+    reader.releaseLock();
+    await assert.rejects(handoff(audio), /handed off/);
+  });
 
   it('retains an encoded File with a reusable PCM layout and wraps genuine raw input using that layout', async () => {
     const bytes = await readFile(new URL('fixtures/review-ios-safari-aac.mp4', import.meta.url));
@@ -91,6 +126,19 @@ describe('Casai recording selection at the SDK boundary', () => {
     assert.deepEqual(Buffer.from(fallback), mp4);
   });
 
+  it('selects file transcript events for recognizable finite bytes and requires a format for live or unidentified input', async () => {
+    const bytes = await readFile(new URL('fixtures/review-ios-safari-aac.mp4', import.meta.url));
+    const backing = Buffer.concat([Buffer.from([137]), bytes, Buffer.from([0])]);
+    for (const data of [backing.subarray(1, -1), Uint8Array.from(bytes).buffer]) {
+      const recording = await handoff(data, { [streamMode]: true });
+      assert.equal(recording.mediaType, 'audio/mp4');
+      assert.deepEqual(Buffer.from(recording.data), bytes);
+    }
+    await assert.rejects(handoff(new Uint8Array(80), { [streamMode]: true, sourceFormat }), /describe live audio with inputAudioFormat/);
+    await assert.rejects(handoff(new ReadableStream(), { [streamMode]: true }), /inputAudioFormat for live/);
+    await assert.rejects(handoff(bytes, { model: { doGenerate() {} }, [streamMode]: true }), /native recording upload/);
+  });
+
   it('rejects an unidentified or raw Blob before dispatch and observes abortion during the bounded read', async () => {
     for (const type of ['', 'audio/pcm', 'application/octet-stream']) {
       await assert.rejects(handoff(new Blob([Uint8Array.of(9, 5)], { type }), { [streamMode]: true }), /encoded recording MIME/);
@@ -103,6 +151,27 @@ describe('Casai recording selection at the SDK boundary', () => {
 });
 
 describe('Media handoff through the installed SDK', () => {
+  it('sends explicitly described unnamed bytes when the published adapter preserves their exact MIME', async () => {
+    const bytes = await readFile(new URL('fixtures/review-ios-safari-aac.mp4', import.meta.url));
+    const posts = [];
+    const model = createOpenAI({ apiKey: 'fixture', fetch: async (_url, { body }) => {
+      const file = body.get('file');
+      posts.push({ name: file.name, type: file.type, bytes: Buffer.from(await file.arrayBuffer()) });
+      return Response.json({ text: 'complete' });
+    } }).transcription('whisper-1');
+    const run = Transcriber({ model, maxRetries: 0 });
+    const recording = { type: 'file', data: bytes, mediaType: 'audio/mp4' };
+    assert.equal((await run(bytes)).text, 'complete');
+    assert.equal((await run.run({ audio: recording })).text, 'complete');
+    assert.deepEqual(posts[1], posts[0]);
+    assert.equal(posts[1].type, 'audio/mp4');
+    assert.deepEqual(posts[1].bytes, bytes);
+    for (const changes of [{ filename: 'original.capture' }, { mediaType: 'audio/webm' }, { mediaType: 'audio/mp4;codecs=mp4a.40.2' }]) {
+      await assert.rejects(run({ ...recording, ...changes }), /preserve its input and metadata/);
+    }
+    assert.equal(posts.length, 2);
+  });
+
   it('rejects explicit file operations on a byte-only model before taking the producer', async () => {
     const calls = [];
     const model = new MockTranscriptionModelV4({ doGenerate: async options => {
@@ -238,6 +307,69 @@ describe('Media handoff through the installed SDK', () => {
     assert.equal(forwarded, 0);
   });
 
+  it('forwards matching finite containers for transcription and translation, and rejects a conflicting format before dispatch', async () => {
+    const uploads = [];
+    const receive = async ({ audio, inputAudioFormat }) => {
+      uploads.push({ type: inputAudioFormat.type, bytes: Buffer.from(await new Response(audio).arrayBuffer()) });
+    };
+    const transcriber = Transcriber.asStream({ model: new MockTranscriptionModelV4({ doStream: async request => {
+      await receive(request);
+      return { stream: ReadableStream.from([{ type: 'finish', text: 'heard', segments: [] }]) };
+    } }) });
+    const translator = Translator({ targetLanguage: 'fr', model: new Experimental_MockSpeechTranslationModelV4({ doStream: async request => {
+      await receive(request);
+      return { stream: ReadableStream.from([{ type: 'finish', sourceText: 'heard', outputText: 'entendu' }]) };
+    } }) });
+    for (const [name, type] of [
+      ['review-ios-safari-aac.mp4', 'audio/mp4'], ['review-firefox-opus.ogg', 'audio/ogg'],
+      ['review-android-chrome-open-cluster.webm', 'audio/webm'], ['review-mp3-44100.mp3', 'audio/mpeg'],
+    ]) {
+      const bytes = await readFile(new URL('fixtures/' + name, import.meta.url));
+      const inputAudioFormat = { type };
+      const file = new File([bytes], name, { type: 'application/octet-stream' });
+      file.arrayBuffer = () => assert.fail('materializing a recording for an adapter that can consume it directly');
+      assert.equal(await (await transcriber(file, inputAudioFormat)).text, 'heard');
+      await translator(bytes, inputAudioFormat);
+      assert.deepEqual(uploads.splice(0), [{ type, bytes }, { type, bytes }]);
+    }
+    const bytes = await readFile(new URL('fixtures/review-firefox-opus.ogg', import.meta.url));
+    const wrongContainer = new File([bytes], 'wrong.webm', { type: 'audio/webm' });
+    await assert.rejects(transcriber(wrongContainer, { type: 'audio/webm' }), /does not match/);
+    const recording = new Blob([bytes], { type: 'audio/ogg; codecs="opus"' });
+    await assert.rejects(translator(recording, { type: 'audio/ogg;codecs=vorbis' }), /codecs conflict/);
+    assert.equal(uploads.length, 0);
+  });
+
+  it('reuses the inspected Blob prefix and stops reading when a live model finishes early', async () => {
+    const bytes = await readFile(new URL('fixtures/review-android-chrome-open-cluster.webm', import.meta.url));
+    const recording = new Blob([bytes], { type: 'audio/webm' });
+    const reads = mock.method(recording, 'slice');
+    let full = false;
+    const translate = Translator({ targetLanguage: 'fr', inputAudioFormat: { type: 'audio/webm' },
+      model: new Experimental_MockSpeechTranslationModelV4({ doStream: async ({ audio }) => {
+        if (full) assert.deepEqual(Buffer.from(await new Response(audio).arrayBuffer()), bytes);
+        else {
+          const reader = audio.getReader();
+          try { assert.deepEqual(Buffer.from((await reader.read()).value), bytes.subarray(0, 4096)); }
+          finally { reader.releaseLock(); }
+        }
+        return { stream: ReadableStream.from([{ type: 'finish', sourceText: 'heard', outputText: 'entendu' }]) };
+      } }) });
+    await translate(recording);
+    assert.deepEqual(reads.mock.calls.map(call => call.arguments), [[0, 4096]]);
+    reads.mock.resetCalls();
+    full = true;
+    await translate(recording);
+    let end = 0;
+    for (const call of reads.mock.calls) {
+      const [start, next] = call.arguments;
+      assert.equal(start, end);
+      assert.ok(next > start && next - start <= 9600);
+      end = next;
+    }
+    assert.equal(end, recording.size);
+  });
+
   it('carries ordered WebM through a Cascada Script and delivers a partial while the producer is open', async () => {
     const bytes = await readFile(new URL('fixtures/review-chrome-opus.webm', import.meta.url));
     let producer;
@@ -279,13 +411,13 @@ describe('Media handoff through the installed SDK', () => {
     assert.equal(source.locked, false);
   });
 
-  for (const viaReader of [true, false]) {
-    it('releases the PCM producer and provider when the caller ' + (viaReader ? 'cancels a pending read' : 'breaks after a partial'), async () => {
+  for (const action of ['cancels a pending read', 'breaks after a partial', 'returns before reading', 'returns during a read', 'throws during a read']) {
+    it('releases the PCM producer and provider when the caller ' + action, async () => {
       const reason = Error('closed captions');
       const cancelled = [];
       const source = new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(1024)); },
         cancel(reason) { cancelled.push(reason); } }, { highWaterMark: 0 });
-      const transportEnded = Promise.withResolvers();
+      const listening = Promise.withResolvers(), transportEnded = Promise.withResolvers();
       const model = new MockTranscriptionModelV4({ doStream: async ({ audio, abortSignal }) => {
         const reader = audio.getReader();
         try { assert.ok((await reader.read()).value.byteLength > 0); } finally { reader.releaseLock(); }
@@ -295,13 +427,15 @@ describe('Media handoff through the installed SDK', () => {
             transportEnded.resolve(abortSignal.reason);
             controller.error(abortSignal.reason);
           }, { once: true });
+          listening.resolve();
         } }) };
       } });
       const listen = Transcriber.asStream({ model, inputAudioFormat: { type: 'audio/pcm', rate: 8000 },
         sourceFormat: { sampleRate: 16000, channels: 1, encoding: 'pcm_s16le' } });
       const result = await listen(source);
       const stream = result.fullStream;
-      if (viaReader) {
+      await listening.promise;
+      if (action === 'cancels a pending read') {
         const reader = stream.getReader();
         try {
           assert.equal((await reader.read()).value.delta, 'partial');
@@ -310,7 +444,7 @@ describe('Media handoff through the installed SDK', () => {
           assert.equal((await pending).done, true);
         } finally { reader.releaseLock(); }
         assert.equal(await transportEnded.promise, reason);
-      } else {
+      } else if (action === 'breaks after a partial') {
         let count = 0;
         for await (const part of stream) {
           assert.equal(part.delta, 'partial');
@@ -319,8 +453,20 @@ describe('Media handoff through the installed SDK', () => {
         }
         assert.equal(count, 1);
         assert.equal((await transportEnded.promise).name, 'AbortError');
+      } else {
+        const iterator = stream[Symbol.asyncIterator]();
+        let pending;
+        if (action !== 'returns before reading') {
+          assert.equal((await iterator.next()).value.delta, 'partial');
+          pending = iterator.next();
+        }
+        if (action === 'throws during a read') await assert.rejects(iterator.throw(reason), error => error === reason);
+        else assert.deepEqual(await iterator.return(reason), { done: true, value: reason });
+        if (pending) assert.equal((await pending).done, true);
+        assert.equal((await iterator.next()).done, true);
+        assert.equal(await transportEnded.promise, reason);
       }
-      assert.deepEqual(cancelled, [viaReader ? reason : undefined]);
+      assert.deepEqual(cancelled, [action === 'breaks after a partial' ? undefined : reason]);
       assert.equal(source.locked, false);
       assert.equal(stream.locked, false);
     });

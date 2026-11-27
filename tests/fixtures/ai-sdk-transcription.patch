@@ -1,9 +1,9 @@
 diff --git a/.changeset/transcription-file-streams.md b/.changeset/transcription-file-streams.md
 new file mode 100644
-index 0000000000000000000000000000000000000000..232cd81756c7540bb728df8dd8653d827882e6e8
+index 0000000000000000000000000000000000000000..401941119dfbde8a5a41a7209b9494a677aca1bb
 --- /dev/null
 +++ b/.changeset/transcription-file-streams.md
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,12 @@
 +---
 +'ai': patch
 +'@ai-sdk/provider': patch
@@ -14,6 +14,8 @@ index 0000000000000000000000000000000000000000..232cd81756c7540bb728df8dd8653d82
 +---
 +
 +Support explicitly named recording uploads, OpenAI file transcript events, and live recorder containers on Deepgram Nova and Flux. Preserve the last Flux update on clean input shutdown.
++
++Deliver complete server-sent events ending in a carriage return while the connection is still open. Discard an unfinished event at the end of the response.
 diff --git a/content/docs/03-ai-sdk-core/36-transcription.mdx b/content/docs/03-ai-sdk-core/36-transcription.mdx
 index 13b78fab8b902ff31552611ac716815b55a61cb1..d5aca3bc7c8d299758cc32da573f68a36b01eb37 100644
 --- a/content/docs/03-ai-sdk-core/36-transcription.mdx
@@ -2717,3 +2719,103 @@ index e442318fb502597f8930946d1aade0b7981a1167..4fdf9067d170d8080971362cba622bc4
            ['Duration', 'duration'],
            ['Segments', 'segments'],
            ['Language', 'language'],
+diff --git a/packages/provider-utils/src/parse-json-event-stream.test.ts b/packages/provider-utils/src/parse-json-event-stream.test.ts
+index bde4542b635168289451dbaa32d897a6b4d7f6f8..7041a826d8eb6f4ef7130b2962a3ee8bf82bb123 100644
+--- a/packages/provider-utils/src/parse-json-event-stream.test.ts
++++ b/packages/provider-utils/src/parse-json-event-stream.test.ts
+@@ -54,6 +54,60 @@ function createRepeatingStream({
+ }
+ 
+ describe('parseJsonEventStream', () => {
++  it('delivers a CR-terminated event before EOF and discards an unfinished event', async () => {
++    let source!: ReadableStreamDefaultController<Uint8Array>;
++    const stream = new ReadableStream<Uint8Array>({
++      start(controller) {
++        source = controller;
++      },
++    });
++    const reader = parseJsonEventStream({
++      stream,
++      schema: z.string(),
++    }).getReader();
++    for (const byte of encoder.encode('\uFEFFdata: "🎙"\r\r')) {
++      source.enqueue(Uint8Array.of(byte));
++    }
++    await expect(reader.read()).resolves.toMatchObject({
++      value: { success: true, value: '🎙' },
++    });
++    // A split CRLF belongs to the same line. A single final CR ends the
++    // last data line but does not supply the blank line needed to dispatch.
++    source.enqueue(encoder.encode('\ndata: "sec'));
++    source.enqueue(encoder.encode('ond"\r'));
++    source.enqueue(encoder.encode('\n\r'));
++    await expect(reader.read()).resolves.toMatchObject({
++      value: { success: true, value: 'second' },
++    });
++    source.enqueue(encoder.encode('data: "unfinished"\r'));
++    source.close();
++    await expect(reader.read()).resolves.toMatchObject({ done: true });
++  });
++
++  it('keeps the original read-ahead bound when a consumer pauses after one event', async () => {
++    let pulls = 0;
++    const stream = new ReadableStream<Uint8Array>(
++      {
++        pull(controller) {
++          controller.enqueue(encoder.encode('data: ' + ++pulls + '\n\n'));
++        },
++      },
++      { highWaterMark: 0 },
++    );
++    const reader = parseJsonEventStream({
++      stream,
++      schema: z.number(),
++    }).getReader();
++    try {
++      await reader.read();
++      await new Promise(resolve => setTimeout(resolve, 0));
++      // Each of the three transform stages can have one additional chunk in flight.
++      expect(pulls).toBeLessThanOrEqual(4);
++    } finally {
++      await reader.cancel();
++    }
++  });
++
+   it('should parse events and ignore the [DONE] event', async () => {
+     const stream = new ReadableStream<Uint8Array>({
+       start(controller) {
+diff --git a/packages/provider-utils/src/parse-json-event-stream.ts b/packages/provider-utils/src/parse-json-event-stream.ts
+index d0652f5ab14a5b2505a516175ae7e6cb77b705b9..bf0d405adc7a06ad2e0b131b5820c52c5853860a 100644
+--- a/packages/provider-utils/src/parse-json-event-stream.ts
++++ b/packages/provider-utils/src/parse-json-event-stream.ts
+@@ -32,9 +32,29 @@ export function parseJsonEventStream<T>({
+    */
+   maxEventSize?: number;
+ }): ReadableStream<ParseResult<T>> {
++  const decoder = new TextDecoder();
++  let skipLineFeed = false;
++  function enqueue(
++    text: string,
++    controller: TransformStreamDefaultController<string>,
++  ) {
++    if (!text) return;
++    if (skipLineFeed && text.startsWith('\n')) text = text.slice(1);
++    // A trailing CR already finishes the line. Parser 3.x waits for the
++    // next chunk, so complete its CRLF now and skip a paired LF later.
++    skipLineFeed = text.endsWith('\r');
++    if (text) controller.enqueue(skipLineFeed ? text + '\n' : text);
++  }
+   return stream
+     .pipeThrough(
+-      new TextDecoderStream() as ReadableWritablePair<string, Uint8Array>,
++      new TransformStream<Uint8Array, string>({
++        transform(chunk, controller) {
++          enqueue(decoder.decode(chunk, { stream: true }), controller);
++        },
++        flush(controller) {
++          enqueue(decoder.decode(), controller);
++        },
++      }),
+     )
+     .pipeThrough(new EventSourceParserStream({ maxBufferSize: maxEventSize }))
+     .pipeThrough(

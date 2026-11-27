@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, rmdir } from 'node:fs/promises';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { buildRecordingWorker } from '../../scripts/build-recording-worker.mjs';
 import { after, before, test } from 'node:test';
 import { build } from 'esbuild';
@@ -79,6 +79,136 @@ function candidatePlugins() {
   } }] : [];
 }
 
+test('the PCM microphone example delivers captions and collected transcription while capture is open', { timeout: 30000 }, async t => {
+  const { createServer } = await import('node:http');
+  const modules = new Map();
+  for (const name of ['microphone-pcm.mjs', 'microphone-worklet.mjs']) {
+    modules.set('/' + name, await readFile(new URL('../../docs/examples/' + name, import.meta.url)));
+  }
+  const server = createServer((req, res) => {
+    const module = modules.get(req.url);
+    res.writeHead(200, { 'Content-Type': module ? 'text/javascript' : 'text/html' });
+    res.end(module ?? '<button>Capture audio</button>');
+  });
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  t.after(() => { server.closeAllConnections(); server.close(); });
+  const page = await openPage(t, audioEntry);
+  await page.goto('http://127.0.0.1:' + server.address().port);
+  await page.addScriptTag({ content: bundles.get(audioEntry) });
+  await page.getByRole('button').click();
+  const observed = await page.evaluate(async () => {
+    const { captureMicrophonePcm, transcribeMicrophone } = await import('/microphone-pcm.mjs');
+    const context = new AudioContext(), device = context.createMediaStreamDestination();
+    const tone = context.createConstantSource();
+    tone.offset.value = 0.25;
+    tone.connect(device); tone.start();
+    const [track] = device.stream.getAudioTracks();
+    const observations = [];
+    try {
+      await context.resume();
+      for (const captions of [true, false]) {
+        const capture = await captureMicrophonePcm(context, track);
+        let heard, beforeStop = false, stopped = false, calls = 0, peak = 0;
+        const firstSignal = new Promise(resolve => { heard = resolve; });
+        const rate = captions ? context.sampleRate : 16000;
+        const model = { specificationVersion: 'v4', provider: 'local', modelId: 'mic', async doStream({ audio, inputAudioFormat }) {
+          calls++;
+          if (inputAudioFormat.rate !== rate) throw new Error('Unexpected PCM rate');
+          return { stream: new ReadableStream({ async start(controller) {
+            const reader = audio.getReader();
+            try {
+              for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const view = new DataView(value.buffer, value.byteOffset, value.byteLength);
+                for (let i = 0; i < view.byteLength; i += 2) peak = Math.max(peak, view.getInt16(i, true));
+                if (peak > 7000 && !beforeStop) {
+                  beforeStop = !stopped;
+                  controller.enqueue({ type: 'transcript-partial', text: 'during capture' }); heard();
+                }
+              }
+              controller.enqueue({ type: 'finish', text: 'done', segments: [] }); controller.close();
+            } catch (error) { controller.error(error); } finally { reader.releaseLock(); }
+          } }) };
+        } };
+        const component = (captions ? consumer.Transcriber.asStream : consumer.Transcriber)({ model,
+          inputAudioFormat: { type: 'audio/pcm', rate }, sourceFormat: capture.sourceFormat });
+        const run = component(capture.audio);
+        let text;
+        if (captions) {
+          const result = await run, reader = result.fullStream.getReader();
+          if ((await reader.read()).value.text !== 'during capture') throw new Error('Missing caption');
+          stopped = true; capture.stop();
+          while (!(await reader.read()).done) {}
+          text = await result.text;
+        } else {
+          await firstSignal;
+          stopped = true; capture.stop();
+          text = (await run).text;
+        }
+        observations.push({ calls, beforeStop, text, peak, liveTrack: track.readyState === 'live' });
+      }
+      const stalled = await captureMicrophonePcm(context, track);
+      // No reader requests a block. Capture must fail at its queue bound.
+      const reader = stalled.audio.getReader();
+      const failure = await reader.closed.then(() => '', error => error.message);
+      const abort = new AbortController(), cancelled = await captureMicrophonePcm(context, track, abort.signal);
+      const reason = new Error('cancel capture'); abort.abort(reason);
+      const owned = track.clone(), stop = new AbortController();
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async () => new MediaStream([owned]) });
+      let endedBeforeReply;
+      const final = await transcribeMicrophone({ async run({ audio }) {
+        const input = audio.getReader();
+        if ((await input.read()).done) throw Error('Expected live microphone PCM');
+        stop.abort(); endedBeforeReply = owned.readyState === 'ended';
+        while (!(await input.read()).done) {}
+        return { text: 'finished' };
+      } }, { stopSignal: stop.signal });
+      const callbackTrack = track.clone(), callbackError = new Error('caption target closed');
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async () => new MediaStream([callbackTrack]) });
+      let providerSignal;
+      const captioner = consumer.Transcriber.asStream({ inputAudioFormat: { type: 'audio/pcm', rate: context.sampleRate }, model: {
+        specificationVersion: 'v4', provider: 'local', modelId: 'captions', async doStream({ abortSignal }) {
+          providerSignal = abortSignal;
+          return { stream: new ReadableStream({ start(c) { c.enqueue({ type: 'transcript-partial', text: 'still listening' }); } }) };
+        },
+      } });
+      const callbackFailed = await transcribeMicrophone(captioner, {
+        stopSignal: new AbortController().signal, onEvent() { throw callbackError; },
+      }).then(() => false, error => error === callbackError);
+      let grant, prompt;
+      const permission = new Promise(resolve => { grant = resolve; });
+      const waiting = new Promise(resolve => { prompt = resolve; });
+      const late = track.clone(), abandoned = new AbortController();
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: () => { prompt(); return permission; } });
+      const abandonedRun = transcribeMicrophone({ run() { throw Error('Unexpected late provider call'); } }, { stopSignal: abandoned.signal })
+        .then(() => false, error => error === reason);
+      await waiting;
+      abandoned.abort(reason);
+      const stoppedBeforePermission = await abandonedRun;
+      grant(new MediaStream([late]));
+      await new Promise(done => setTimeout(done, 0));
+      return { observations, failure, abortReason: await cancelled.audio.getReader().read().then(() => false, error => error === reason),
+        trackState: track.readyState, endedBeforeReply, final, stoppedBeforePermission, lateTrack: late.readyState,
+        callbackFailed, providerAbortedWithCause: providerSignal?.reason === callbackError, callbackTrack: callbackTrack.readyState };
+    } finally { track.stop(); tone.stop(); await context.close(); }
+  });
+  for (const result of observed.observations) {
+    assert.deepEqual({ ...result, peak: undefined }, { calls: 1, beforeStop: true, text: 'done', peak: undefined, liveTrack: true });
+    assert.ok(result.peak >= 8188 && result.peak <= 8193, 'quarter-scale mono PCM16');
+  }
+  assert.match(observed.failure, /one second/);
+  assert.equal(observed.abortReason, true);
+  assert.equal(observed.trackState, 'live');
+  assert.equal(observed.endedBeforeReply, true);
+  assert.equal(observed.final, 'finished');
+  assert.equal(observed.callbackFailed, true);
+  assert.equal(observed.providerAbortedWithCause, true);
+  assert.equal(observed.callbackTrack, 'ended');
+  assert.equal(observed.stoppedBeforePermission, true);
+  assert.equal(observed.lateTrack, 'ended');
+});
+
 test('browser transcription tools fetch model URLs locally even with a URL-capable provider', async t => {
   const page = await openPage(t, audioEntry);
   const bytes = await readFile(new URL('review-ios-safari-aac.mp4', import.meta.url));
@@ -108,6 +238,123 @@ test('browser transcription tools fetch model URLs locally even with a URL-capab
 
 const recorderFormats = process.env.CASAI_RECORDER_BROWSER === 'firefox' ? ['audio/ogg;codecs=opus']
   : ['audio/webm;codecs=opus', ...(process.env.CASAI_RECORDER_BROWSER === 'chrome' ? ['audio/mp4;codecs=mp4a.40.2'] : [])];
+
+test('a live adapter receives the original recording bytes without a codec worker or a whole Blob read', async t => {
+  const page = await openPage(t, audioEntry);
+  const bytes = await readFile(new URL('review-android-chrome-open-cluster.webm', import.meta.url));
+  const expected = createHash('sha256').update(bytes).digest('hex');
+  const result = await page.evaluate(async base64 => {
+    globalThis.Worker = class { constructor() { throw Error('unexpected media worker'); } };
+    const recording = new File([Uint8Array.fromBase64(base64)], 'memo.webm', { type: 'audio/webm;codecs=opus' });
+    recording.arrayBuffer = () => { throw Error('unexpected whole File read'); };
+    const format = { type: 'audio/webm' };
+    const uploads = [];
+    const model = { specificationVersion: 'v4', provider: 'test', modelId: 'test',
+      async doStream({ audio, inputAudioFormat }) {
+        const data = await new Response(audio).arrayBuffer();
+        uploads.push([inputAudioFormat.type, new Uint8Array(await crypto.subtle.digest('SHA-256', data)).toHex()]);
+        return { stream: new ReadableStream({ start(controller) {
+          controller.enqueue({ type: 'transcript-delta', delta: 'heard' });
+          controller.enqueue({ type: 'finish', text: 'heard', segments: [] });
+          controller.close();
+        } }) };
+      } };
+    const final = await consumer.Transcriber({ model, inputAudioFormat: format })(recording);
+    const live = await consumer.Transcriber.asStream({ model, inputAudioFormat: format })(Uint8Array.fromBase64(base64));
+    const events = await Array.fromAsync(live.fullStream);
+    return { text: final.text, delta: events.find(event => event.type === 'transcript-delta')?.delta, uploads };
+  }, bytes.toString('base64'));
+  assert.deepEqual(result, { text: 'heard', delta: 'heard', uploads: [['audio/webm', expected], ['audio/webm', expected]] });
+});
+
+recordingTest('an open Android Chrome WebM cluster delivers the first PCM before its tail', { timeout: 20000 }, async t => {
+  const page = await openPage(t, audioEntry);
+  const original = await readFile(new URL('review-android-chrome-open-cluster.webm', import.meta.url));
+  const result = await page.evaluate(async encoded => {
+    const bytes = Uint8Array.fromBase64(encoded);
+    const releaseTail = Promise.withResolvers();
+    let offset = 0, early = false;
+    const source = new ReadableStream({ async pull(c) {
+      if (offset === bytes.length) return c.close();
+      if (offset) await releaseTail.promise;
+      const chunk = bytes.subarray(offset, offset ? bytes.length : 12 * 1024);
+      offset += chunk.length;
+      c.enqueue(chunk);
+    } }, { highWaterMark: 0 });
+    const samples = [];
+    const model = { provider: 'fixture', modelId: 'fixture', specificationVersion: 'v4', async doStream({ audio }) {
+      return { stream: new ReadableStream({ async start(c) {
+        try {
+          for await (const chunk of audio) {
+            samples.push(chunk);
+            if (samples.length === 1) c.enqueue({ type: 'transcript-delta', delta: 'heard' });
+          }
+          c.enqueue({ type: 'finish', text: 'done', segments: [] });
+          c.close();
+        } catch (error) { c.error(error); }
+      } }) };
+    } };
+    const component = consumer.Transcriber.loadsAudio.asStream({ model, inputAudioFormat: { type: 'audio/pcm', rate: 48000 } });
+    const abort = new AbortController(), timeout = setTimeout(() => abort.abort(Error('No partial from complete Opus blocks')), 8000);
+    try {
+      const result = await component.run({ audio: source, abortSignal: abort.signal });
+      for await (const part of result.fullStream) if (part.type === 'transcript-delta') {
+        early = offset === 12 * 1024;
+        releaseTail.resolve();
+      }
+      const pcm = new Uint8Array(await new Blob(samples).arrayBuffer());
+      return { early, lockedAtEnd: source.locked, text: await result.text, pcm: pcm.toBase64() };
+    } finally { clearTimeout(timeout); releaseTail.resolve(); }
+  }, original.toString('base64'));
+  assert.deepEqual([result.early, result.lockedAtEnd, result.text], [true, false, 'done']);
+  const raw = Buffer.from(result.pcm, 'base64');
+  assert.equal(raw.length, 452160 * 2);
+  if (process.env.CASAI_REVIEW_FFMPEG) {
+    const reference = execFileSync(process.env.CASAI_REVIEW_FFMPEG, ['-v', 'error', '-c:a', 'libopus', '-request_sample_fmt', 'flt',
+      '-i', 'pipe:0', '-af', 'pan=mono|c0=0.5*c0+0.5*c1,asetpts=N/SR/TB', '-f', 's16le', 'pipe:1'], { input: original });
+    assert.equal(raw.length, reference.length);
+    for (let offset = 0; offset < raw.length; offset += 2) {
+      assert.ok(Math.abs(raw.readInt16LE(offset) - reference.readInt16LE(offset)) <= 16, 'PCM sample at byte ' + offset);
+    }
+  }
+});
+
+recordingTest('one HTTP 200 delivers Android recorder PCM while its response tail is held', { timeout: 20000 }, async t => {
+  const { createServer } = await import('node:http');
+  const original = await readFile(new URL('review-android-chrome-open-cluster.webm', import.meta.url));
+  let requests = 0, sentTail = false, early = false;
+  const release = Promise.withResolvers();
+  const server = createServer(async (req, res) => {
+    if (req.url !== '/recording') { res.end('<title>Open recorder</title>'); return; }
+    requests++;
+    res.writeHead(200, { 'Content-Type': 'audio/webm', 'Content-Length': original.length });
+    res.write(original.subarray(0, 12 * 1024));
+    const deadline = setTimeout(release.resolve, 8000);
+    try { await release.promise; } finally { clearTimeout(deadline); }
+    sentTail = true;
+    res.end(original.subarray(12 * 1024));
+  });
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  t.after(() => { release.resolve(); server.closeAllConnections(); server.close(); });
+  const page = await openPage(t, audioEntry);
+  await page.goto('http://127.0.0.1:' + server.address().port);
+  await page.addScriptTag({ content: bundles.get(audioEntry) });
+  await page.exposeFunction('heardPrefix', () => { early = !sentTail; release.resolve(); });
+  const pcmBytes = await page.evaluate(async () => {
+    let count = 0;
+    const model = { provider: 'fixture', modelId: 'fixture', specificationVersion: 'v4', async doStream({ audio }) {
+      for await (const chunk of audio) {
+        if (!count) await window.heardPrefix();
+        count += chunk.byteLength;
+      }
+      return { stream: new ReadableStream({ start(c) { c.enqueue({ type: 'finish', text: 'heard', segments: [] }); c.close(); } }) };
+    } };
+    await consumer.Transcriber.loadsAudio({ model, inputAudioFormat: { type: 'audio/pcm', rate: 48000 } })(new URL('/recording', location.href));
+    return count;
+  });
+  assert.deepEqual([early, requests, pcmBytes], [true, 1, 452160 * 2]);
+});
+
 for (const mimeType of recorderFormats) {
   recordingTest('live MediaRecorder ' + mimeType + ' reaches the caller before stop and matches the finished recording', { timeout: 30000 }, async t => {
     const page = await openPage(t, audioEntry);
@@ -657,9 +904,10 @@ test('a pending raw provider read gets the exact local abort or producer error',
 
 test('browser prepared raw input unlocks on incremental finish, view cancellation and abandonment', { timeout: 18000 }, async t => {
   const page = await openPage(t, audioEntry);
-  const results = await page.evaluate(async () => {
+  const actions = ['finish', 'cancel', 'cancel reader', 'return before reading', 'return during a read', 'abort'];
+  const results = await page.evaluate(async actions => {
     const results = [];
-    for (const factory of ['Transcriber', 'Translator']) for (const action of ['finish', 'cancel', 'cancel reader', 'abort']) {
+    for (const factory of ['Transcriber', 'Translator']) for (const action of actions) {
       const stop = Error('stop ' + action), controller = new AbortController();
       const ready = Promise.withResolvers(), closed = Promise.withResolvers(), modelAbort = Promise.withResolvers();
       let calls = 0, cancellations = 0, closeReason, inputBytes = 0;
@@ -693,6 +941,11 @@ test('browser prepared raw input unlocks on incremental finish, view cancellatio
         else if (action === 'cancel reader') {
           const reader = result.fullStream.getReader();
           try { await reader.cancel(stop); } finally { reader.releaseLock(); }
+        } else if (action.startsWith('return')) {
+          const iterator = result.fullStream[Symbol.asyncIterator]();
+          const pending = action === 'return during a read' ? iterator.next() : undefined;
+          await iterator.return(stop);
+          if (pending && !(await pending).done) throw Error('Read continued after returning the iterator.');
         } else controller.abort(stop);
       }
       const [, abortReason] = await Promise.race([
@@ -705,8 +958,7 @@ test('browser prepared raw input unlocks on incremental finish, view cancellatio
         closeReason === abortReason && abortReason === (action === 'finish' ? undefined : stop)]);
     }
     return results;
-  });
-  const actions = ['finish', 'cancel', 'cancel reader', 'abort'];
+  }, actions);
   assert.deepEqual(results, [...actions, ...actions].map(action => [action, 1, true, 1, true, true]));
 });
 
@@ -1294,6 +1546,43 @@ async function capturePreparedFile(page, input, target, split = false) {
   }, { data: input.toString('base64'), target, split });
   return { type, bytes: Buffer.from(encoded, 'base64') };
 }
+
+recordingTest('a sequential Opus cluster larger than the worker cache preserves WAV and WebM playback',
+  { skip: !process.env.CASAI_REVIEW_FFMPEG }, async t => {
+    const page = await openPage(t, audioEntry);
+    const recording = await readFile(new URL('review-android-chrome-open-cluster.webm', import.meta.url));
+    const cluster = recording.indexOf(Buffer.from('1f43b67501ffffffffffffffe78100', 'hex'));
+    assert.ok(cluster >= 0);
+    const first = cluster + 15;
+    assert.equal(recording[first], 0xa3);
+    const size = recording.readUInt16BE(first + 1) & 0x3fff;
+    const template = recording.subarray(first, first + 3 + size);
+    const blocks = Array.from({ length: 420 }, (_, i) => {
+      const block = Buffer.from(template);
+      block.writeInt16BE(i * 60, 4); // This recorder's SimpleBlocks each contain one 60 ms Opus packet.
+      return block;
+    });
+    const source = Buffer.concat([recording.subarray(0, first), ...blocks]);
+    assert.ok(source.length > 512 * 1024);
+    const inspect = (input, args) => execFileSync(process.env.CASAI_REVIEW_FFMPEG,
+      ['-v', 'error', '-copyts', '-i', 'pipe:0', '-map', '0:a:0', ...args, 'pipe:1'], { input, encoding: 'utf8' });
+    const pcmHash = input => inspect(input, ['-c:a', 'pcm_s16le', '-f', 'hash', '-hash', 'sha256']);
+    const packets = input => inspect(input, ['-c:a', 'copy', '-f', 'framecrc']).split(/\r?\n/).filter(line => line.startsWith('0,'));
+    const expectedPcm = pcmHash(source), expectedPackets = packets(source);
+    assert.equal(expectedPackets.length, blocks.length);
+    for (const sized of [false, true]) {
+      if (sized) source.writeBigUInt64BE((1n << 56n) | BigInt(source.length - cluster - 12), cluster + 4);
+      const wav = await capturePreparedFile(page, source, { format: 'wav', codec: 'pcm_s16le', channels: 2 }, true);
+      assert.equal(wav.type, 'audio/wav');
+      const webm = await capturePreparedFile(page, source, { format: 'webm', codec: 'libopus' }, true);
+      assert.equal(webm.type, 'audio/webm');
+      assert.equal(pcmHash(webm.bytes), expectedPcm);
+      assert.deepEqual(packets(webm.bytes), expectedPackets);
+      // The two decoder implementations can round PCM differently. Check the sample bytes against the seekable call.
+      const seekable = await capturePreparedFile(page, source, { format: 'wav', codec: 'pcm_s16le', channels: 2 });
+      assert.equal(pcmHash(wav.bytes), pcmHash(seekable.bytes));
+    }
+  });
 
 function inspectAudioFile(input, filters = []) {
   const result = spawnSync(process.env.CASAI_REVIEW_FFMPEG, ['-hide_banner', '-i', 'pipe:0', '-map', '0:a:0', ...filters, '-f', 's16le', 'pipe:1'], { input });
@@ -2061,9 +2350,83 @@ for (const [name, frames, gap] of [
   });
 }
 
-// The same relay and browser audio assertions run against the installed native session today.
+test('an audio element plays an authorized MP3 reply before its HTTP body closes', { timeout: 45000 }, async t => {
+  const { createServer } = await import('node:http');
+  const { once } = await import('node:events');
+  const { Readable } = await import('node:stream');
+  const { pipeline } = await import('node:stream/promises');
+  const { SpeechGenerator } = await import('casai');
+  const { Experimental_MockStreamingSpeechModelV4 } = await import('ai/test');
+  const { takeMp3Reply } = await import('../../docs/examples/streaming-voice.mjs');
+  const example = await readFile(new URL('review-mp3-44100.mp3', import.meta.url));
+  // The first 357 bytes of this fixture contain ID3 and the MPEG Info frame.
+  const frames = example.subarray(357);
+  assert.equal(frames.readUInt16BE(0), 0xfffb);
+  const release = Promise.withResolvers(), delivered = Promise.withResolvers();
+  t.signal.addEventListener('abort', () => release.resolve(), { once: true });
+  let generations = 0, ended = false;
+  const model = new Experimental_MockStreamingSpeechModelV4({ doStream: async () => {
+    generations++;
+    return { stream: new ReadableStream({ async start(c) {
+      const audio = bytes => ({ type: 'audio', audioFormat: { type: 'audio/mpeg' }, audio: bytes });
+      c.enqueue(audio(Buffer.concat(Array(8).fill(frames))));
+      await release.promise; c.enqueue(audio(frames)); c.enqueue({ type: 'finish' }); c.close();
+    } }) };
+  } });
+  const replies = new Map([['demo', await SpeechGenerator.asStream({ model })('Playback example')]]);
+  const server = createServer(async (req, res) => {
+    if (req.url !== '/reply') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<button onclick="sound.src=\'/reply\'; sound.play()">Listen</button><audio id="sound"></audio>');
+      return;
+    }
+    const abort = new AbortController();
+    res.on('close', () => { if (!res.writableEnded) abort.abort(); });
+    try {
+      const response = takeMp3Reply(replies, 'demo', new Request('http://localhost/reply', { method: req.method, signal: abort.signal }));
+      res.writeHead(response.status, Object.fromEntries(response.headers));
+      if (response.body === null) { res.end(); return; }
+      await pipeline(Readable.fromWeb(response.body), res);
+      ended = true; delivered.resolve();
+    } catch (error) { res.destroy(); delivered.resolve(error); }
+  });
+  const page = await browser.newPage();
+  try {
+    server.listen(0, '127.0.0.1'); await once(server, 'listening');
+    await page.goto('http://127.0.0.1:' + server.address().port);
+    const metadata = await page.request.head(new URL('/reply', page.url()).href);
+    assert.equal(metadata.status(), 200);
+    assert.equal(metadata.headers()['content-type'], 'audio/mpeg');
+    await page.getByRole('button', { name: 'Listen' }).click();
+    await page.waitForFunction(() => document.querySelector('audio').currentTime > 0.15, null, { timeout: 6500 });
+    assert.equal(ended, false);
+    // A browser may serialize two fetches of the same URL. A separate HTTP
+    // client checks the in-flight route while the page retries normally.
+    const [retryStatus] = await Promise.all([
+      page.evaluate(async () => (await fetch('/reply', { signal: AbortSignal.timeout(10000) })).status),
+      page.request.get(new URL('/reply', page.url()).href, { timeout: 5000 }).then(response => {
+        assert.equal(response.status(), 410);
+        assert.equal(ended, false);
+        release.resolve();
+      }),
+    ]);
+    assert.equal(retryStatus, 410);
+    assert.equal(await delivered.promise, undefined);
+    assert.equal(generations, 1);
+  } finally {
+    release.resolve();
+    const closed = new Promise(resolveClose => server.close(resolveClose));
+    server.closeAllConnections();
+    await page.close();
+    await closed;
+  }
+});
+
+const realtimeSdk = process.env.CASAI_REALTIME_SDK;
+const publishedContinuationBug = !realtimeSdk &&
+  createRequire(resolve('package.json'))('ai/package.json').version === '7.0.183';
 const nativeSession = `
-  import { Experimental_AbstractRealtimeSession } from 'ai';
+  import { Experimental_AbstractRealtimeSession } from ${JSON.stringify(realtimeSdk ? resolve(realtimeSdk, 'packages/ai/dist/index.js') : 'ai')};
   class Session extends Experimental_AbstractRealtimeSession {
     setState() {}
     getSnapshot() { return this.state; }
@@ -2075,8 +2438,9 @@ const clientSession = `
   export const createSession = settings => VoiceAgentClient(settings)();
 `;
 for (const [owner, run, entry] of [['native SDK', test, nativeSession], ['Phase 7 client', test.skip, clientSession]]) {
-  for (const interrupt of [false, true]) {
-    run(`${owner} plays audio during a pending tool and ${interrupt ? 'interrupts it' : 'finishes playback after generation'}`, async t => {
+  for (const action of ['finishes playback after generation', 'interrupts it', 'starts the next reply']) {
+    const interrupt = action !== 'finishes playback after generation';
+    run(`${owner} plays audio during a pending tool and ${action}`, async t => {
       const sent = [];
       let relay;
       const page = await openPage(t, entry, socket => {
@@ -2106,6 +2470,7 @@ for (const [owner, run, entry] of [['native SDK', test, nativeSession], ['Phase 
             onToolCall({ toolCall }) { observed.calls.push(toolCall); return tool.promise; },
             onEvent(event) {
               if (event.type === 'response-done') observed.playingAtGenerationEnd = session.getSnapshot().isPlaying;
+              if (event.type === 'text-delta' && event.responseId === 'next') observed.nextReplyStarted = true;
             },
             onError(error) { observed.errors.push(error.message); },
           });
@@ -2116,6 +2481,7 @@ for (const [owner, run, entry] of [['native SDK', test, nativeSession], ['Phase 
           JSON.stringify(await page.evaluate(() => observed.errors)));
         await page.evaluate(() => session.resumePlayback());
         const send = event => relay.send(JSON.stringify({ responseId: 'response', raw: {}, ...event }));
+        send({ type: 'response-created' });
         send({ type: 'function-call-arguments-done', itemId: 'tool-item', callId: 'call', name: 'lookup', arguments: '{"id":7}' });
         await page.waitForFunction(() => observed.calls.length > 0);
         const pcm = Int16Array.from({ length: 24000 }, (_, i) => Math.round(5000 * Math.sin(i / 10)));
@@ -2132,12 +2498,24 @@ for (const [owner, run, entry] of [['native SDK', test, nativeSession], ['Phase 
         const outputs = () => sent.filter(event => event.item?.type === 'function-call-output');
         assert.deepEqual(outputs(), []);
         assert.ok(!sent.some(event => event.type === 'response-create'));
-        if (interrupt) await t.waitFor(() => sent.some(event => event.type === 'conversation-item-truncate'));
+        if (interrupt) await t.waitFor(() => assert.ok(sent.some(event => event.type === 'conversation-item-truncate')));
         const truncations = sent.filter(event => event.type === 'conversation-item-truncate');
         assert.deepEqual(truncations.map(event => event.itemId), interrupt ? ['spoken'] : []);
         if (interrupt) assert.ok(truncations[0].audioEndMs >= 0 && truncations[0].audioEndMs < 1000);
+        if (action === 'starts the next reply') {
+          send({ type: 'speech-stopped', itemId: 'next-turn' });
+          send({ type: 'input-transcription-completed', itemId: 'next-turn', transcript: 'What time is it?' });
+          send({ type: 'response-created', responseId: 'next' });
+          send({ type: 'text-delta', responseId: 'next', itemId: 'clock', delta: 'The time is' });
+          await page.waitForFunction(() => globalThis.observed.nextReplyStarted);
+        }
         await page.evaluate(() => releaseTool({ found: true }));
-        await t.waitFor(() => sent.some(event => event.type === 'response-create'));
+        await t.waitFor(() => assert.equal(outputs().length, 1));
+        // A later native command confirms delivery of all preceding queued events.
+        await page.evaluate(() => session.sendEvent({ type: 'input-audio-clear' }));
+        await t.waitFor(() => assert.ok(sent.some(event => event.type === 'input-audio-clear')));
+        const continuesOldTurn = !interrupt || (owner === 'native SDK' && publishedContinuationBug);
+        assert.equal(sent.filter(event => event.type === 'response-create').length, continuesOldTurn ? 1 : 0);
         assert.deepEqual(outputs().map(event => event.item), [
           { type: 'function-call-output', callId: 'call', name: 'lookup', output: '{"found":true}' },
         ]);

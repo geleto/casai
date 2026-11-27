@@ -60,6 +60,54 @@ describe('Supplied audio through the component', () => {
 		await Translator({ model: translated, inputAudioFormat: target, targetLanguage: 'fr', sourceFormat: { sampleRate: 8000, channels: 2 } })(wav);
 	});
 
+	it('keeps the WAV header for a WAV model and streams a matching raw Blob past the inspected prefix', async () => {
+		const { model, raw } = capture();
+		const layout = { channels: 1, sampleRate: 24000, encoding: 'pcm_s16le' } as const;
+		const pcm = new Uint8Array(Int16Array.from({ length: 12000 }, (_, i) => i - 6000).buffer);
+		const wav = await writeWav(pcm, layout);
+		const wavModel = new MockTranscriptionModelV4({ doStream: async ({ audio, inputAudioFormat }) => {
+			assert.equal(inputAudioFormat.type, 'audio/wav');
+			const chunks = []; for await (const chunk of audio) chunks.push(chunk);
+			assert.deepEqual(await concatAudio(chunks), wav);
+			return { stream: convertArrayToReadableStream([{ type: 'finish', ...transcript }]) };
+		} });
+		const liveWav = Transcriber({ model: wavModel, inputAudioFormat: { type: 'audio/wav' }, maxPreparedAudioBytes: 1 });
+		const file = new Blob([wav], { type: 'audio/x-wav' });
+		file.arrayBuffer = () => assert.fail('materializing the entire WAV');
+		await liveWav(file);
+		await liveWav(wav.buffer);
+		await Transcriber({ model, inputAudioFormat: target })(new Blob([wav]));
+		const rawBlob = new Blob([pcm], { type: 'audio/pcm' });
+		rawBlob.arrayBuffer = () => assert.fail('materializing the entire PCM Blob');
+		await Transcriber({ model, inputAudioFormat: target })(rawBlob);
+		const described = Transcriber({ model, inputAudioFormat: target, sourceFormat: layout });
+		await described(rawBlob);
+		assert.deepEqual(raw, [pcm, pcm, pcm]);
+		await assert.rejects(described.run({ audio: rawBlob, maxPreparedAudioBytes: pcm.length - 1 }), /maxPreparedAudioBytes/);
+		await assert.rejects(described(new Blob([pcm.subarray(1)])), /incomplete/);
+	});
+
+	it('converts a described Blob across a range boundary inside a stereo PCM24 frame', async () => {
+		const { model, raw } = capture();
+		const mono = new Int16Array(3600);
+		const pcm24 = new Uint8Array(mono.length * 6), view = new DataView(pcm24.buffer);
+		for (let i = 0; i < mono.length; i++) {
+			const amplitude = (i % 5 - 2) / 8;
+			view.setInt16(i * 6 + 1, amplitude * 32768, true);
+			view.setInt16(i * 6 + 4, amplitude * 32768, true);
+			mono[i] = amplitude * (amplitude < 0 ? 32768 : 32767);
+		}
+		const sourceFormat = { channels: 2, sampleRate: 44100, encoding: 'pcm_s24le' } as const;
+		const recording = new Blob([pcm24]);
+		recording.arrayBuffer = () => assert.fail('materializing a described Blob for live conversion');
+		const transcribe = Transcriber({ model, inputAudioFormat: target, sourceFormat });
+		await transcribe(pcm24);
+		await transcribe(recording);
+		const expected = sdkPcm(new Uint8Array(mono.buffer), sourceFormat.sampleRate, target.rate);
+		assert.deepEqual(raw[0], expected);
+		assert.deepEqual(raw[1], expected);
+	});
+
 	it('rejects strong encoded evidence consistently while accepting generic raw blobs and weak PCM prefixes', async () => {
 		const { model, raw } = capture();
 		const flac = new Uint8Array(42); flac.set([102, 76, 97, 67, 128, 0, 0, 34]);
@@ -638,11 +686,20 @@ describe('Supplied audio through the component', () => {
 
 	it('respects cancellation during a file read and cancels converted streams on early provider failure', async () => {
 		const { model, raw } = capture();
-		const abort = new AbortController(), reason = new Error('stop reading');
-		class InterruptedFile extends Blob {
-			override async arrayBuffer() { abort.abort(reason); return super.arrayBuffer(); }
+		const reason = new Error('stop reading');
+		const wav = await writeWav(new Uint8Array(8192), { channels: 1, sampleRate: 24000, encoding: 'pcm_s16le' });
+		for (const stage of ['prefix', 'conversion']) {
+			const abort = new AbortController(), file = new Blob([wav]);
+			async function interrupt(this: Blob) { abort.abort(reason); return Blob.prototype.arrayBuffer.call(this); }
+			if (stage === 'prefix') {
+				file.slice = (...args) => {
+					const prefix = Blob.prototype.slice.apply(file, args);
+					prefix.arrayBuffer = interrupt;
+					return prefix;
+				};
+			} else file.arrayBuffer = interrupt;
+			await assert.rejects(Transcriber({ model, inputAudioFormat: target }).run({ audio: file, abortSignal: abort.signal }), error => error === reason);
 		}
-		await assert.rejects(Transcriber({ model, inputAudioFormat: target }).run({ audio: new InterruptedFile(), abortSignal: abort.signal }), error => error === reason);
 		assert.equal(raw.length, 0);
 		let cancelled: unknown;
 		const stream = new ReadableStream<Uint8Array>({ cancel(error) { cancelled = error; throw new Error('source cleanup failed'); } }, { highWaterMark: 0 });

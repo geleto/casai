@@ -49,6 +49,8 @@ The installed session assigns its complete next state before invoking the abstra
 
 Native `connect()` is a connection initiation operation: in the inspected WebSocket path its promise settles before readiness. Preserve that behavior. Application observation can resolve a readiness promise from `getSnapshot().status`, rejecting on error/disconnection and unsubscribing when settled. This is a small recipe, not a mandatory session layer, new polling loop or public `ready` promise with a second lifecycle. Use native `sendEvent` when the workflow needs an awaited submission boundary; void native conveniences keep their existing semantics and do not establish provider completion.
 
+Use the native `startupTimeoutMs` for credential acquisition and the handshake. Acceptance holds the first credential response past timeout, connects again, then delivers the stale response. Only the new credentials may open a transport. [Browser recovery probe](../tests/fixtures/voice-client-browser-analysis.mjs)
+
 Keep native `connect`, `disconnect`, graceful `close`, `dispose`, text/audio input, tool output, capture/playback controls and `sendEvent`, with their actual provider/transport limits. Applications unsubscribe and dispose on teardown. Do not impose a terminal-disposal guard that the SDK lacks or promise ownership of caller media beyond its native contract. A session is a long-lived handle, not a completed conversation result or an async iterable.
 
 ## Cascada composition and UI boundary
@@ -116,6 +118,8 @@ Use native types or a shared public schema for meaningful compile-time/runtime c
 Perform a final whole-surface review of construction, calls, native methods, callbacks, state ownership, transports, tools, packaging and downstream consumers. Follow [the repository review process](review-process.md); require a subsequent complete pass without important unresolved findings.
 
 ### Playback during a tool call
+
+**November 27 turn ownership decision.** A turn-based session still submits a late tool result against its original call ID. Request an automatic reply only for the latest eligible, successfully completed response after all its tools have returned. New speech, a user message or audio commit, an explicit response request or cancellation, or a newer response supersedes the old continuation. The application may explicitly announce a late result after the current turn. Provider-managed continuations stay with the provider. The upstream SDK candidate implements this behavior, including sends waiting for transport serialization. Qualify the published dependency before enabling the Phase 7 client gate. [Two-turn reproduction](phase6-7-langgraph-review.md#1-give-late-realtime-tool-results-a-turn-owner)
 
 Show two capture lifecycles in the client examples. Record-and-send chooses an available recorder MIME, collects through the final data event and releases application-owned microphone tracks. Live dictation passes the native session its supported input as it arrives. For an encoded stream, retain the recorder header and one session across timeslices. A voice picker can use the selected provider's catalog and filter by model and locale.
 

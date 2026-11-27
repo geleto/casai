@@ -1,5 +1,11 @@
 # VoiceAgentClient Cascada and UI analysis
 
+The [November 27 LangGraph comparison](phase6-7-langgraph-review.md) adds a two-turn browser relay reproduction, a retried backend tool call and a tested Cascada workflow for independently selected speech and language models.
+
+## November 27 SDK correction
+
+Published `ai@7.0.183` submitted the original tool result and an extra generation request after the user had started another turn. The standalone SDK candidate tracks which response owns the outstanding tool calls and checks again when the queued request reaches the transport. The original output keeps its call ID. Two simultaneous tools on the current turn still produce one follow-up. Tests also exercise cancellation, unsuccessful responses, late completion frames, and adapters that first identify a new reply on a content delta. The browser relay checks both the published behavior and the corrected outbound frames. The standalone patch applied cleanly to the pinned SDK revision, and all 298 realtime tests passed in each of the Node and Edge configurations. The public `casai/client` gate remains open until the client exists and the selected SDK release passes the same controls. [SDK patch](../tests/fixtures/ai-sdk-realtime-turn.patch) · [Qualification commands](../tests/README.md#streaming-voice-and-realtime-turn-ownership)
+
 Reviewed 2026-11-14 against the installed `ai@7.0.162` and linked Cascada working tree (`cascada-engine@0.6.2`, HEAD `a32c326a`). The user confirmed that components remain stateless, may return state for later calls, and must be useful through the common interface and Cascada Script. Cascada browser support is established; any missing upstream packaging will be supplied there.
 
 ## Conclusion

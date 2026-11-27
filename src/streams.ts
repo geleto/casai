@@ -3,6 +3,7 @@ import type { Schema } from 'ai';
 import { jsonSchema } from 'ai';
 import { ConfigError, ValidationError } from './errors.js';
 import { parseSchema, validateSchemaVersion } from './schema.js';
+import { isWebStream } from './runtime/web-input.js';
 
 export { makeSharedIterable } from 'cascada-engine';
 
@@ -18,14 +19,71 @@ export function isAsyncIterable(value: unknown): value is AsyncIterable<unknown>
 		&& Symbol.asyncIterator in value && typeof value[Symbol.asyncIterator] === 'function';
 }
 
+/** A reader can cancel a pending read, including before the producer's first event. */
+export function readableIterator<T>(stream: ReadableStream<T>): AsyncIterableIterator<T> & AsyncDisposable {
+	const reader = stream.getReader();
+	let finished: Promise<void> | undefined;
+	const done = { done: true, value: undefined } as const;
+	function finish(cancel: boolean, reason?: unknown) {
+		return finished ??= (cancel ? reader.cancel(reason) : Promise.resolve()).finally(() => { reader.releaseLock(); });
+	}
+	return {
+		[Symbol.asyncIterator]() { return this; },
+		[Symbol.asyncDispose]() { return finish(true); },
+		async next() {
+			if (finished) return done;
+			try {
+				const result = await reader.read();
+				if (!result.done) return { done: false, value: result.value };
+			} catch (error) { await finish(false); throw error; }
+			await finish(false);
+			return done;
+		},
+		async return(value?: unknown) { await finish(true, value); return { done: true, value }; },
+		async throw(error?: unknown) { await finish(true, error); throw error; },
+	};
+}
+
+function sourceIterator<T>(source: AsyncIterable<T>): AsyncIterator<T> {
+	// The standard Web iterator queues return() behind next(). Preserve custom iterators.
+	if (isWebStream(source) && source[Symbol.asyncIterator] === source.values) return readableIterator(source as ReadableStream<T>);
+	return source[Symbol.asyncIterator]();
+}
+
+function checkedIterator<T>(source: AsyncIterable<unknown>, parse: (value: unknown) => T | PromiseLike<T>) {
+	let input: AsyncIterator<unknown> | undefined;
+	let cancelled = false;
+	async function cancel(reason?: unknown) {
+		if (cancelled) return;
+		cancelled = true;
+		await input?.return?.(reason);
+	}
+	// Web streams serialize concurrent reads and settle outstanding reads on cancellation.
+	return readableIterator(new ReadableStream<T>({
+		async pull(controller) {
+			input ??= sourceIterator(source);
+			const item = await input.next();
+			if (cancelled) return;
+			if (item.done) { controller.close(); return; }
+			try {
+				const parsed = await parse(item.value);
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- validation can be asynchronous.
+				if (!cancelled) controller.enqueue(parsed);
+			} catch (error) {
+				try { await cancel(); } catch { /* Preserve the validation error. */ }
+				throw error;
+			}
+		},
+		cancel,
+	}, { highWaterMark: 0 }));
+}
+
 function declaredStream<INPUT, OUTPUT, KIND extends 'text' | 'elements'>(kind: KIND, parse: (value: unknown) => OUTPUT | PromiseLike<OUTPUT>): StreamSchema<INPUT, OUTPUT, KIND> {
 	return Object.assign(jsonSchema<AsyncIterable<OUTPUT>>({}, {
 		validate(value) {
 			if (!isAsyncIterable(value)) return { success: false, error: new ValidationError('Expected an async iterable.') };
 			return { success: true, value: {
-				async *[Symbol.asyncIterator]() {
-					for await (const item of value) yield await parse(item);
-				},
+				[Symbol.asyncIterator]: () => checkedIterator(value, parse),
 			} };
 		},
 	}), { [streamKind]: kind });
@@ -70,7 +128,7 @@ export function toReadableStream<T>(source: AsyncIterable<T>): ReadableStream<T>
 		async pull(controller) {
 			if (cancelled) return;
 			try {
-				iterator ??= source[Symbol.asyncIterator]();
+				iterator ??= sourceIterator(source);
 				const result = await iterator.next();
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cancel can run while next is pending.
 				if (cancelled) return;
