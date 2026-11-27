@@ -1,0 +1,24 @@
+name: Build patched 6C qualification bundle
+description: Build the public Casai entry with the pinned recorder worker.
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: Vanilagy/mediabunny
+        ref: b5cbd7e8fcacdfdf505854184704be7c504b6f35
+        path: .cache/6c-decoder
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - shell: bash
+      run: |
+        git -C .cache/6c-decoder apply "$GITHUB_WORKSPACE/tests/fixtures/mediabunny-recorder-timing.patch"
+        npm ci --ignore-scripts
+        npm run build
+        node tests/fixtures/recorder-devices/build.mjs .cache/6c-decoder/src/index.ts
+        python -m pip install imageio-ffmpeg==0.8.1 selenium
