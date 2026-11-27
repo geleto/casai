@@ -1,4 +1,6 @@
+import array
 import hashlib
+import re
 import shutil
 import struct
 import subprocess
@@ -14,12 +16,40 @@ CORPUS = {
     "review-chrome-aac.mp4": 63469, "review-chrome-aac-recorder-pause.mp4": 63855,
     "review-firefox-opus.ogg": 64384, "shorter.ogg": 64144,
     "review-android-chrome-open-cluster.webm": 452160,
+    "review-android-chrome-opus-rounding.webm": 152880,
 }
 PROFILES = {"wav": "stereo.wav", "webm": "long.webm", "aac": "long.m4a"}
 
 
 def ff(*args):
     return subprocess.check_output([FF, "-v", "error", "-y", *map(str, args)])
+
+
+def opus_playback(path, decoded, rate):
+    manifest = ff("-copyts", "-i", path, "-map", "0:a:0", "-c:a", "copy", "-f", "framecrc", "pipe:1").decode()
+    clock = re.search(r"#tb 0: 1/(\d+)", manifest)
+    assert clock and int(clock[1]) == 1000 and rate % 1000 == 0, manifest[:200]
+    rows = [tuple(int(n) for n in row.split(",")[2:4]) for row in manifest.splitlines() if row.startswith("0,")]
+    assert rows and rows[0][0] == 0
+    per_tick = rate // 1000
+    assert sum(duration for _, duration in rows) * per_tick == len(decoded), "Unexpected Opus packet trim"
+    # FFmpeg's flat PCM concatenates packets. Use its independent packet clock for genuine gaps.
+    # The accepted WebM contract resolves one late tick by the next clock or, at EOF, a preceding early clock.
+    silence, coded, rendered, previous_delta = [], 0, 0, 0
+    for index, (pts, duration) in enumerate(rows):
+        delta = pts - rendered
+        if delta > 0:
+            next_pts = rows[index + 1][0] if index + 1 < len(rows) else None
+            returns_to_clock = (pts <= next_pts <= rendered + duration) if next_pts is not None else previous_delta < 0
+            if delta != 1 or not returns_to_clock:
+                silence.append((coded * per_tick, delta * per_tick))
+                rendered += delta
+        previous_delta = delta
+        coded += duration
+        rendered += duration
+    for position, frames in reversed(silence):
+        decoded[position:position] = array.array("h", [0]) * frames
+    return silence
 
 
 def large_recorder_clusters():
@@ -107,9 +137,13 @@ def validate_cases(report, output, failures):
             assert len(actual) == frames * 2
             # FFmpeg decodes all AAC packets. Materialize the preserved pause and restrict the final access unit.
             # The recorder controls have two channels. Casai uses their arithmetic mean.
-            mix = "pan=mono|c0=0.5*c0+0.5*c1"
+            mix = "pan=mono|c0=0.5*c0+0.5*c1,asetpts=N/SR/TB"
             flags = ["-c:a", "libopus", "-request_sample_fmt", "flt"] if name.endswith((".ogg", ".webm")) else []
             raw = ff(*flags, "-i", MEDIA / name, "-map", "0:a:0", "-af", mix, "-f", "s16le", "-")
+            if name.endswith(".webm"):
+                samples = array.array("h", raw)
+                opus_playback(MEDIA / name, samples, 48000)
+                raw = samples.tobytes()
             if "pause" in name:
                 raw = raw[:31744*2] + bytes(383*2) + raw[31744*2:]
             reference = raw[:frames*2]

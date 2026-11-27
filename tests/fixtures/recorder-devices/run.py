@@ -18,7 +18,7 @@ from xml.etree import ElementTree
 
 import imageio_ffmpeg
 from oracle import boot_iphone, check_tones, serve_https
-from workloads import prepare, validate_cases
+from workloads import opus_playback, prepare, validate_cases
 from memory import Memory
 
 HERE = Path(__file__).resolve().parent
@@ -274,37 +274,10 @@ def ffmpeg(*args):
                           capture_output=True, check=True).stdout
 
 
-def pcm(path, mix):
+def pcm(path, mix, *decoder):
     samples = array.array("h")
-    samples.frombytes(ffmpeg("-i", path, "-map", "0:a:0", "-af", mix, "-f", "s16le", "pipe:1"))
+    samples.frombytes(ffmpeg(*decoder, "-i", path, "-map", "0:a:0", "-af", mix, "-f", "s16le", "pipe:1"))
     return samples
-
-
-def opus_playback(path, decoded, rate):
-    manifest = ffmpeg("-copyts", "-i", path, "-map", "0:a:0", "-c:a", "copy", "-f", "framecrc", "pipe:1").decode()
-    clock = re.search(r"#tb 0: 1/(\d+)", manifest)
-    assert clock and int(clock[1]) == 1000 and rate % 1000 == 0, manifest[:200]
-    rows = [tuple(int(n) for n in row.split(",")[2:4]) for row in manifest.splitlines() if row.startswith("0,")]
-    assert rows and rows[0][0] == 0
-    per_tick = rate // 1000
-    assert sum(duration for _, duration in rows) * per_tick == len(decoded), "Unexpected Opus packet trim"
-    # FFmpeg's flat PCM concatenates packets. Use its independent packet clock for genuine gaps.
-    # The accepted WebM contract resolves one late tick by the next clock or, at EOF, a preceding early clock.
-    silence, coded, rendered, previous_delta = [], 0, 0, 0
-    for index, (pts, duration) in enumerate(rows):
-        delta = pts - rendered
-        if delta > 0:
-            next_pts = rows[index + 1][0] if index + 1 < len(rows) else None
-            returns_to_clock = (pts <= next_pts <= rendered + duration) if next_pts is not None else previous_delta < 0
-            if delta != 1 or not returns_to_clock:
-                silence.append((coded * per_tick, delta * per_tick))
-                rendered += delta
-        previous_delta = delta
-        coded += duration
-        rendered += duration
-    for position, frames in reversed(silence):
-        decoded[position:position] = array.array("h", [0]) * frames
-    return silence
 
 
 def validate(report, platform):
@@ -326,7 +299,8 @@ def validate(report, platform):
     tones = check_tones(path)
     report["independentDecode"] = tones
     mix = "pan=mono|c0=0.5*c0+0.5*c1" if "stereo" in tones["stream"] else "anull"
-    reference = pcm(path, mix)
+    opus_decoder = ("-c:a", "libopus", "-request_sample_fmt", "flt")
+    reference = pcm(path, mix, *(() if movie else opus_decoder))
     if movie:
         packets = ffmpeg("-copyts", "-i", path, "-map", "0:a:0", "-c:a", "copy", "-f", "framecrc", "pipe:1").decode()
         rate = int(re.search(r"#tb 0: 1/(\d+)", packets).group(1))
@@ -346,6 +320,15 @@ def validate(report, platform):
     peak = max(abs(a - b) for a, b in zip(actual, reference))
     report["peakPcm16Error"] = peak
     assert peak <= 16, f"Maximum provider PCM16 error {peak}"
+    if not movie:
+        # Different Opus decoders round samples differently. Keep an independent decoder and the same packet clock.
+        native = pcm(path, mix)
+        assert opus_playback(path, native, report["sourceRate"]) == report["opusPacketGaps"]
+        assert len(native) == len(reference)
+        report["independentOpusPeakDifference"] = max(abs(a - b) for a, b in zip(reference, native))
+        report["nativeOpusPeakPcm16Error"] = max(abs(a - b) for a, b in zip(actual, native))
+        report["nativeOpusRmsPcm16Error"] = (sum((a - b) ** 2 for a, b in zip(actual, native)) / len(native)) ** 0.5
+        assert report["nativeOpusRmsPcm16Error"] <= 16, report["nativeOpusRmsPcm16Error"]
     live = report["live"]
     assert not live.get("error") and live["beforeStop"], live
     assert live["rawBytes"] == 2 * len(actual) and (OUTPUT / "fresh-live.pcm").read_bytes() == actual.tobytes(), live

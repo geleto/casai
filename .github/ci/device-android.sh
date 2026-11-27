@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-image="system-images;android-$1;google_apis_playstore_ps16k;x86_64"
+target=google_apis_playstore
+graphics=(-gpu swiftshader_indirect)
+if [[ "$1" == '37.2' ]]; then
+  target=google_apis_playstore_ps16k
+  # The guest's graphics mapper aborts when the host advertises read-color-buffer DMA.
+  # Keep direct mappings for Android startup while disabling the other prerequisite for this extension.
+  graphics=(-gpu swiftshader -feature -HasSharedSlotsHostMemoryAllocator)
+fi
+image="system-images;android-$1;$target;x86_64"
 export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 export ANDROID_AVD_HOME="$HOME/.android/avd"
 mkdir -p "$ANDROID_AVD_HOME" device-output
@@ -8,9 +16,7 @@ sdkmanager "$image"
 echo no | avdmanager create avd --name casai --package "$image" --device pixel_7 --force
 printf 'hw.cpu.ncore=2\ndisk.dataPartition.size=6G\n' >> "$ANDROID_AVD_HOME/casai.avd/config.ini"
 df -h "$ANDROID_AVD_HOME"
-# This image's RegionSamplingThread aborts if the host advertises read-color-buffer DMA.
-# Gfxstream derives the extension from GLDirectMem and its shared-slot allocator.
-"$ANDROID_HOME/emulator/emulator" -port 5554 -avd casai -memory 4096 -no-window -gpu software -feature -GLDirectMem -noaudio -no-boot-anim -no-snapshot -no-metrics > device-output/emulator-boot.log 2>&1 &
+"$ANDROID_HOME/emulator/emulator" -port 5554 -avd casai -memory 4096 -no-window "${graphics[@]}" -noaudio -no-boot-anim -no-snapshot -no-metrics > device-output/emulator-boot.log 2>&1 &
 emulator_pid=$!
 finish() {
   if (( $? != 0 )); then

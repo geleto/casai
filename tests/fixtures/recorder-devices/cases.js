@@ -179,7 +179,8 @@ async function runDeviceCases() {
     await storeFile('progress.json', JSON.stringify(results));
   }
   for (const name of ['review-ios-safari-aac.mp4', 'review-safari-aac.mp4', 'review-chrome-aac.mp4',
-    'review-chrome-aac-recorder-pause.mp4', 'review-firefox-opus.ogg', 'shorter.ogg', 'review-android-chrome-open-cluster.webm']) {
+    'review-chrome-aac-recorder-pause.mp4', 'review-firefox-opus.ogg', 'shorter.ogg', 'review-android-chrome-open-cluster.webm',
+    'review-android-chrome-opus-rounding.webm']) {
     await run(name, () => corpus(name));
   }
   await run('live-prefix-cancel', livePrefix);
