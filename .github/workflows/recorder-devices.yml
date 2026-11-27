@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ${{ fromJSON(contains(github.event.head_commit.message, '[extended-android]') && '["36.1","37.2"]' || '["36","36.1","37.2"]') }}
+        image: ${{ fromJSON(contains(github.event.head_commit.message, '[extended-android]') && '["36.1","37.2"]' || '["36"]') }}
     steps:
       - uses: actions/checkout@v4
         with:
