@@ -23,12 +23,12 @@ function rawTranslation(receive) {
   return casaiAudio.Translator.loadsAudio({ model, targetLanguage: 'en', inputAudioFormat: { type: 'audio/pcm', rate: 48000 } });
 }
 
-async function corpus(name) {
+async function corpus(name, splitSize = 421) {
   const source = await (await mediaResponse(name)).blob();
   const frames = [];
   let firstPcm;
   for (const form of ['blob', 'split']) {
-    const audio = () => form === 'blob' ? source : splitInput(source, 421);
+    const audio = () => form === 'blob' ? source : splitInput(source, splitSize);
     let wav, raw;
     const file = providerFile(wavTarget, part => { wav = part; });
     const translate = rawTranslation(part => { raw = part; });
@@ -168,6 +168,14 @@ async function runDeviceCases() {
   }
   await run('live-prefix-cancel', livePrefix);
   await run('android-open-cluster-prefix', () => livePrefix('review-android-chrome-open-cluster.webm', 12 * 1024));
+  for (const name of ['large-open.webm', 'large-sized.webm']) await run(name, async () => {
+    const live = await livePrefix(name, 12 * 1024);
+    const blob = await (await mediaResponse(name)).blob();
+    for (const form of ['blob', 'split']) {
+      await providerFile(copies.webm, part => storeFile(name + '.' + form + '.webm', part))(form === 'blob' ? blob : splitInput(blob, 8192));
+    }
+    return { ...live, ...await corpus(name, 8192) };
+  });
   await run('rejected-copy', rejectedCopy);
   await run('decoder-free', noDecoder);
   for (const kind of ['wav', 'webm', 'aac']) for (const form of ['blob', 'stream']) {

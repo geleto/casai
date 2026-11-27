@@ -22,6 +22,37 @@ def ff(*args):
     return subprocess.check_output([FF, "-v", "error", "-y", *map(str, args)])
 
 
+def large_recorder_clusters():
+    # Retain the Android recorder's track header and complete packets. Each packet is 60 ms.
+    original = (MEDIA / "review-android-chrome-open-cluster.webm").read_bytes()
+    cluster = original.index(bytes.fromhex("1f43b675"))
+    first = original.index(bytes.fromhex("e78100"), cluster) + 3
+    pos, packets = first, []
+    while pos < len(original):
+        assert original[pos] == 0xa3
+        width = 9 - original[pos + 1].bit_length()
+        size = int.from_bytes(original[pos + 1:pos + 1 + width], "big") ^ (1 << (7 * width))
+        block = original[pos:pos + 1 + width + size]
+        assert len(block) == 1 + width + size and block[1 + width] == 0x81
+        packets.append((block, 2 + width))
+        pos += len(block)
+    data = bytearray(original[:first])
+    for index in range(540):
+        block, stamp = packets[index % len(packets)]
+        start = len(data)
+        data.extend(block)
+        struct.pack_into(">h", data, start + stamp, 60 * index)
+    (MEDIA / "large-open.webm").write_bytes(data)
+    size = cluster + 4
+    width = 9 - data[size].bit_length()
+    length = len(data) - size - width
+    if width * 7 < length.bit_length():
+        data[size:size + width] = ((1 << 21) | length).to_bytes(3, "big")
+    else:
+        data[size:size + width] = ((1 << (7 * width)) | length).to_bytes(width, "big")
+    (MEDIA / "large-sized.webm").write_bytes(data)
+
+
 def prepare():
     MEDIA.mkdir(exist_ok=True)
     for name in CORPUS:
@@ -32,6 +63,7 @@ def prepare():
     struct.pack_into("<Q", data, last + 6, 64456)
     struct.pack_into("<I", data, last + 22, 0xfe20860c)
     (MEDIA / "shorter.ogg").write_bytes(data)
+    large_recorder_clusters()
     if not (MEDIA / "stereo.wav").exists():
         ff("-f", "lavfi", "-i", "aevalsrc=0.4*sin(2*PI*261*t)|0.25*sin(2*PI*773*t):s=48000:d=72",
            "-c:a", "pcm_s16le", MEDIA / "stereo.wav")
@@ -89,6 +121,19 @@ def validate_cases(report, output, failures):
 
     for name in ["live-prefix-cancel", "android-open-cluster-prefix", "decoder-free", "rejected-copy"]:
         check(name, lambda case: None)
+    for name in ["large-open.webm", "large-sized.webm"]:
+        def long_cluster(case):
+            assert case["firstBytes"] > 0 and case["lockedAfter"] is False
+            expected = ff("-copyts", "-i", MEDIA / name, "-c:a", "copy", "-f", "framecrc", "-").splitlines()
+            decoded = decoded_hash(MEDIA / name)
+            for form in ["blob", "split"]:
+                copied = output / (name + "." + form + ".webm")
+                packets = ff("-copyts", "-i", copied, "-c:a", "copy", "-f", "framecrc", "-").splitlines()
+                assert [r for r in packets if r.startswith(b"0,")] == [r for r in expected if r.startswith(b"0,")]
+                assert decoded_hash(copied) == decoded
+                copied.unlink()
+            assert case["frames"] == [1555200, 1555200], case
+        check(name, long_cluster)
     for kind, source in PROFILES.items():
         source_file = MEDIA / source
         source_hash = decoded_hash(source_file)
