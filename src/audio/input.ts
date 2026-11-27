@@ -10,7 +10,7 @@ import { sdkRequest, type PreparedComponentCall } from '../runtime/component-cal
 import type { Fields } from '../types/utils.js';
 import { validatePreparedAudioLimit, validatePreparationSettings, type AudioSource, type PrepareAudioSettings } from './preparation.js';
 import { describeBlob, isTranscriptionFile, recordingUpload, type RecordingSdk } from './transcription-file.js';
-import { prepareSuppliedAudio } from './supplied.js';
+import { prepareSuppliedAudio, streamAudioBytes } from './supplied.js';
 import { isPcmSamples, type PcmSourceFormat } from './pcm.js';
 import { validatePcmLayout } from './pcm-format.js';
 import { audioMediaType, preparedAudioTypes } from './source-evidence.js';
@@ -43,17 +43,7 @@ export function validateAudioSettings(settings: Record<PropertyKey, any>, fileTr
 function rawStream(audio: unknown): ReadableStream<Uint8Array | string> {
 	if (isWebStream(audio)) return audio as ReadableStream<Uint8Array | string>;
 	if (!(audio instanceof Uint8Array || audio instanceof ArrayBuffer)) throw new ValidationError('Raw audio requires bytes or a ReadableStream and inputAudioFormat.');
-	const bytes = audio instanceof Uint8Array ? audio : new Uint8Array(audio);
-	let offset = 0;
-	return new ReadableStream({
-		pull(controller) {
-			if (offset === bytes.byteLength) { controller.close(); return; }
-			// 200 ms of 24 kHz mono PCM16; also aligns mono/stereo 8/16/24/32-bit frames.
-			const end = Math.min(offset + 9600, bytes.byteLength);
-			controller.enqueue(bytes.subarray(offset, end));
-			offset = end;
-		},
-	});
+	return streamAudioBytes(audio instanceof Uint8Array ? audio : new Uint8Array(audio));
 }
 
 type CloseAudio = (reason?: unknown) => Promise<void>;

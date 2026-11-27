@@ -116,6 +116,25 @@ async function record() {
   const mime = recorder.mimeType, blob = new Blob(chunks, { type: mime });
   await storeFile(mime.includes('mp4') ? 'fresh.mp4' : 'fresh.webm', blob);
   const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate, live };
+  const NativeWorker = globalThis.Worker;
+  try {
+    await stage('forward original recording');
+    globalThis.Worker = class { constructor() { throw Error('Unexpected worker for direct input'); } };
+    const file = new File([blob], 'fresh-recording', { type: mime });
+    file.arrayBuffer = () => { throw Error('Unexpected whole File read'); };
+    const model = { modelId: 'direct', provider: 'fixture', specificationVersion: 'v4',
+      async doStream({ audio, inputAudioFormat }) {
+        const original = await new Response(audio).arrayBuffer();
+        const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', original));
+        report.forwarded = { type: inputAudioFormat.type, bytes: original.byteLength,
+          sha256: Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('') };
+        return { stream: new ReadableStream({ start(controller) {
+          controller.enqueue({ type: 'finish', text: 'heard', segments: [] }); controller.close();
+        } }) };
+      } };
+    await casaiAudio.Transcriber({ model, inputAudioFormat: { type: mime } })(file);
+  } catch (error) { report.forwardError = String(error); }
+  finally { globalThis.Worker = NativeWorker; }
   try {
     const worker = new Worker('ios-safari-worker.js'), stream = splitInput(blob, 1024);
     try {

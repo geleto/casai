@@ -6,7 +6,7 @@ runs:
     - uses: actions/checkout@v4
       with:
         repository: Vanilagy/mediabunny
-        ref: b5cbd7e8fcacdfdf505854184704be7c504b6f35
+        ref: 52ca0157194bad6ae3f2a4238cf7cffaa7b8449a
         path: .cache/6c-decoder
         persist-credentials: false
     - uses: actions/setup-node@v4

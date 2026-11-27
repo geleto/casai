@@ -292,6 +292,9 @@ def validate(report, platform):
     movie = "mp4" in report["mime"]
     path = OUTPUT / ("fresh.mp4" if movie else "fresh.webm")
     original = path.read_bytes()
+    assert not report.get("forwardError"), report.get("forwardError")
+    assert report.get("forwarded") == {"type": report["mime"], "bytes": len(original),
+                                       "sha256": hashlib.sha256(original).hexdigest()}, report.get("forwarded")
     assert (original[4:8] == b"ftyp") if movie else original.startswith(bytes.fromhex("1a45dfa3"))
     worker = report["worker"]
     assert worker["bytes"] == sum(report["chunkSizes"]) == len(original) and worker["chunks"] > 1
