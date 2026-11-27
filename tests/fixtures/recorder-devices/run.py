@@ -41,15 +41,23 @@ def android_open(loaded, activated):
     print("Android Chrome", device)
     (OUTPUT / "android-runtime.json").write_text(json.dumps(device, indent=2))
     adb("reverse", "tcp:8765", "tcp:8765")
-    adb("shell", "am", "set-debug-app", "--persistent", package)
+    # Some release images disallow this optional Chrome first-run preference.
+    preference = subprocess.run(["adb", "shell", "am", "set-debug-app", "--persistent", package],
+                                text=True, capture_output=True, timeout=30)
+    if preference.returncode:
+        print("Chrome first-run preference", preference.returncode, preference.stdout, preference.stderr)
     adb("shell", "echo 'chrome --disable-fre --no-first-run --disable-search-engine-choice-screen' > /data/local/tmp/chrome-command-line")
     adb("shell", "am", "force-stop", package)
+    current = adb("shell", "am", "get-current-user")
+    launcher = adb("shell", "cmd", "package", "resolve-activity", "--brief", "--user", current,
+                   "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", "-p", package)
+    activity = next((line.strip() for line in launcher.splitlines() if line.startswith(package + "/")),
+                    package + "/com.google.android.apps.chrome.Main")
     last_launch = ""
     for attempt in range(12):
-        # New images can report boot completion before user 0 has a usable Activity Manager.
-        component = ["-n", package + "/com.google.android.apps.chrome.Main"] if attempt % 2 else ["-p", package]
+        component = ["-n", activity] if attempt % 2 else ["-p", package]
         try:
-            launch = subprocess.run(["adb", "shell", "am", "start", "-W", "--user", "0", *component,
+            launch = subprocess.run(["adb", "shell", "am", "start", "-W", "--user", current, *component,
                                      "-a", "android.intent.action.VIEW", "-d", URL], text=True, capture_output=True, timeout=45)
             last_launch = (launch.stdout + launch.stderr).strip()
             print("Chrome launch", attempt + 1, launch.returncode, last_launch[-500:])

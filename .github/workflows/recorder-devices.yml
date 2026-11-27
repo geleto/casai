@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ['36', '37.0']
+        image: ['36', '37.2']
     steps:
       - uses: actions/checkout@v4
         with:
