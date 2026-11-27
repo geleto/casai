@@ -44,8 +44,48 @@ async function record() {
   gain.gain.value = 0.25;
   tone.connect(gain).connect(destination);
   tone.frequency.value = 523;
-  const chunks = [];
-  recorder.ondataavailable = ({data}) => { if (data.size) chunks.push(data); };
+  const chunks = [], live = { beforeStop: false, rawBytes: 0 };
+  let inlet, writes = Promise.resolve(), finishPartial;
+  const partial = new Promise(resolve => { finishPartial = resolve; });
+  const source = new ReadableStream({ start(c) { inlet = c; } });
+  const abort = new AbortController();
+  recorder.ondataavailable = ({data}) => {
+    if (!data.size) return;
+    chunks.push(data);
+    writes = writes.then(async () => {
+      const bytes = new Uint8Array(await data.arrayBuffer());
+      if (!abort.signal.aborted) inlet.enqueue(bytes);
+    }).catch(error => { live.error = String(error); });
+  };
+  const model = { modelId: 'device', provider: 'fixture', specificationVersion: 'v4', async doStream({ audio }) {
+    return { stream: new ReadableStream({ async start(c) {
+      const blocks = [];
+      try {
+        for await (const block of audio) {
+          if (!block.byteLength) continue;
+          blocks.push(block);
+          if (blocks.length === 1) c.enqueue({ type: 'transcript-delta', delta: 'hearing' });
+        }
+        const pcm = new Blob(blocks);
+        live.rawBytes = pcm.size;
+        await storeFile('fresh-live.pcm', pcm);
+        c.enqueue({ type: 'finish', text: 'heard', segments: [] });
+        c.close();
+      } catch (error) { c.error(error); }
+    } }) };
+  }};
+  async function streamRecording() {
+    const transcribe = casaiAudio.Transcriber.loadsAudio.asStream({ model, maxRetries: 0, inputAudioFormat: { type: 'audio/pcm', rate: 48000 } });
+    const result = await transcribe.run({ audio: source, abortSignal: abort.signal });
+    for await (const part of result.fullStream) {
+      if (part.type === 'transcript-delta') {
+        live.beforeStop = recorder.state === 'recording';
+        live.recorderChunksAtPartial = chunks.length;
+        finishPartial();
+      }
+    }
+  }
+  let streaming;
   const stopped = new Promise((resolve, reject) => {
     recorder.onstop = resolve;
     recorder.onerror = event => reject(event.error);
@@ -53,11 +93,18 @@ async function record() {
   try {
     recorder.start(200);
     tone.start();
+    streaming = streamRecording().catch(error => { live.error = String(error); finishPartial(); });
     await pause(1050);
     tone.frequency.value = 997;
     await pause(1100);
+    await Promise.race([partial, pause(8000)]);
+    await pause(250);
     recorder.stop();
     await stopped;
+    await writes;
+    try { inlet.close(); } catch (error) { live.error ??= String(error); }
+    const stopDeadline = setTimeout(() => abort.abort(Error('Recorder stream did not finish after stop')), 12000);
+    try { await streaming; } finally { clearTimeout(stopDeadline); }
   } finally {
     tone.stop();
     destination.stream.getTracks().forEach(track => track.stop());
@@ -65,7 +112,7 @@ async function record() {
   }
   const mime = recorder.mimeType, blob = new Blob(chunks, { type: mime });
   await storeFile(mime.includes('mp4') ? 'fresh.mp4' : 'fresh.webm', blob);
-  const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate };
+  const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate, live };
   try {
     const worker = new Worker('ios-safari-worker.js'), stream = splitInput(blob, 1024);
     try {
@@ -93,7 +140,7 @@ document.querySelector('#record').onclick = async event => {
   button.disabled = true;
   const report = { userAgent: navigator.userAgent, secureContext: isSecureContext };
   try {
-    await stage('record tapped');
+    void stage('record tapped');
     Object.assign(report, await record());
   } catch (error) { report.error = String(error); }
   try { report.cases = await runDeviceCases(); } catch (error) { report.casesError = String(error); }

@@ -12,6 +12,7 @@ import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Thread
+from urllib.request import urlopen
 from xml.etree import ElementTree
 
 import imageio_ffmpeg
@@ -28,7 +29,7 @@ def command(*args):
     return subprocess.check_output(args, text=True, timeout=90).strip()
 
 
-def android_open(loaded):
+def android_open(loaded, activated):
     def adb(*args):
         return command("adb", *args)
     package = "com.android.chrome"
@@ -37,6 +38,7 @@ def android_open(loaded):
     device = {"device": adb("shell", "getprop", "ro.product.model"),
               "runtime": adb("shell", "getprop", "ro.build.fingerprint"), "appVersion": version}
     print("Android Chrome", device)
+    (OUTPUT / "android-runtime.json").write_text(json.dumps(device, indent=2))
     adb("reverse", "tcp:8765", "tcp:8765")
     adb("shell", "am", "set-debug-app", "--persistent", package)
     adb("shell", "echo 'chrome --disable-fre --no-first-run --disable-search-engine-choice-screen' > /data/local/tmp/chrome-command-line")
@@ -58,11 +60,25 @@ def android_open(loaded):
         raise RuntimeError("The Android Chrome app did not reach the loopback page")
     width, height = map(int, re.findall(r"(\d+)x(\d+)", adb("shell", "wm", "size"))[-1])
     adb("shell", "input", "tap", str(width // 2), str(height // 2))
+    if not activated.wait(6):
+        import websocket
+        adb("forward", "tcp:9222", "localabstract:chrome_devtools_remote")
+        tabs = json.load(urlopen("http://127.0.0.1:9222/json/list", timeout=8))
+        tab = next(item for item in tabs if item.get("url") == URL)
+        ws = websocket.create_connection(tab["webSocketDebuggerUrl"], timeout=10, suppress_origin=True)
+        try:
+            expression = "document.querySelector('#record').click()"
+            ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": expression, "userGesture": True}}))
+            print("Chrome tap", ws.recv())
+        finally:
+            ws.close()
+        if not activated.wait(12):
+            raise RuntimeError("Chrome loaded the qualification page but did not start the recording")
     return device
 
 
 def capture(platform, certificates, memory):
-    done, loaded = Event(), Event()
+    done, loaded, activated = Event(), Event(), Event()
     report, stages, identity = {}, [], {}
     assets = {"ios-safari-probe.html", "ios-safari-worker.js", "casai-audio.js", "cases.js"}
 
@@ -87,6 +103,8 @@ def capture(platform, certificates, memory):
                 print("Page", stage)
                 if stage == "loaded":
                     loaded.set()
+                elif stage == "record tapped":
+                    activated.set()
                 elif stage.startswith("begin profile-"):
                     memory.begin(stage.split(" ", 1)[1])
                 elif stage.startswith("end profile-"):
@@ -109,7 +127,8 @@ def capture(platform, certificates, memory):
     server = ThreadingHTTPServer(("127.0.0.1", 8765), functools.partial(Page, directory=str(HERE)))
     if platform == "ios":
         phone, runtime = boot_iphone()
-        identity = {"device": phone["name"], "runtime": runtime, "xcode": command("xcodebuild", "-version")}
+        xcode_info = Path(os.environ["RUNNER_TEMP"]) / "casai-xcode-version"
+        identity = {"device": phone["name"], "runtime": runtime, "xcode": xcode_info.read_text().strip()}
         serve_https(server, phone, certificates)
     Thread(target=server.serve_forever, daemon=True).start()
     try:
@@ -119,7 +138,7 @@ def capture(platform, certificates, memory):
                             "-scheme", "SafariRecording", "-destination", "id=" + phone["udid"], "-quiet",
                             "-parallel-testing-enabled", "NO", "-maximum-test-execution-time-allowance", "960"], check=True)
         elif platform == "android":
-            identity = android_open(loaded)
+            identity = android_open(loaded, activated)
             if not done.wait(850):
                 raise TimeoutError("Android Chrome did not complete the checks")
         else:
@@ -160,6 +179,33 @@ def pcm(path, mix):
     return samples
 
 
+def opus_playback(path, decoded, rate):
+    manifest = ffmpeg("-copyts", "-i", path, "-map", "0:a:0", "-c:a", "copy", "-f", "framecrc", "pipe:1").decode()
+    clock = re.search(r"#tb 0: 1/(\d+)", manifest)
+    assert clock and int(clock[1]) == 1000 and rate % 1000 == 0, manifest[:200]
+    rows = [tuple(int(n) for n in row.split(",")[2:4]) for row in manifest.splitlines() if row.startswith("0,")]
+    assert rows and rows[0][0] == 0
+    per_tick = rate // 1000
+    assert sum(duration for _, duration in rows) * per_tick == len(decoded), "Unexpected Opus packet trim"
+    # FFmpeg's flat PCM concatenates packets. Use its independent packet clock for genuine gaps.
+    # The accepted WebM contract resolves one late tick by the next clock or, at EOF, a preceding early clock.
+    silence, coded, rendered, previous_delta = [], 0, 0, 0
+    for index, (pts, duration) in enumerate(rows):
+        delta = pts - rendered
+        if delta > 0:
+            next_pts = rows[index + 1][0] if index + 1 < len(rows) else None
+            returns_to_clock = (pts <= next_pts <= rendered + duration) if next_pts is not None else previous_delta < 0
+            if delta != 1 or not returns_to_clock:
+                silence.append((coded * per_tick, delta * per_tick))
+                rendered += delta
+        previous_delta = delta
+        coded += duration
+        rendered += duration
+    for position, frames in reversed(silence):
+        decoded[position:position] = array.array("h", [0]) * frames
+    return silence
+
+
 def validate(report, platform):
     ua = report["userAgent"]
     assert report["secureContext"], "Recording must run in a secure browser context"
@@ -186,6 +232,8 @@ def validate(report, platform):
         assert rate == report["sourceRate"], (rate, report["sourceRate"])
         last = next(row for row in reversed(packets.splitlines()) if row.startswith("0,")).split(",")
         reference = reference[:int(last[2]) + int(last[3])]
+    else:
+        report["opusPacketGaps"] = opus_playback(path, reference, report["sourceRate"])
     if report.get("freshError"):
         raise AssertionError(report["freshError"])
     provider = OUTPUT / "blob.wav"
@@ -197,6 +245,9 @@ def validate(report, platform):
     peak = max(abs(a - b) for a, b in zip(actual, reference))
     report["peakPcm16Error"] = peak
     assert peak <= 16, f"Maximum provider PCM16 error {peak}"
+    live = report["live"]
+    assert not live.get("error") and live["beforeStop"], live
+    assert live["rawBytes"] == 2 * len(actual) and (OUTPUT / "fresh-live.pcm").read_bytes() == actual.tobytes(), live
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ jobs:
       - name: Configure Safari
         run: |
           sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
-          xcodebuild -version
+          xcodebuild -version | tee "$RUNNER_TEMP/casai-xcode-version"
           if [[ "${{ matrix.platform }}" == "ios" ]]; then
             xcrun simctl list runtimes
             command -v xcodegen || brew install xcodegen
