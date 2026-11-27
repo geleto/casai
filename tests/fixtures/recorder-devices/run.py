@@ -169,7 +169,7 @@ def capture(platform, certificates, memory):
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
-            elif self.path in {"/microphone-pcm.mjs", "/microphone-worklet.mjs"}:
+            elif self.path in {"/microphone-pcm.mjs", "/microphone-worklet.mjs", "/recorder-audio.mjs"}:
                 body = (HERE.parents[2] / "docs" / "examples" / self.path[1:]).read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/javascript")
@@ -341,6 +341,10 @@ def validate(report, platform):
         assert report["nativeOpusRmsPcm16Error"] <= 16, report["nativeOpusRmsPcm16Error"]
     live = report["live"]
     mic = report["microphone"]
+    owned = report["ownership"]
+    assert owned.get("text") == "heard" and owned["releasedDuringInput"] and owned["peak"] > 6000, owned
+    digest = hashlib.sha256(original).hexdigest()
+    assert report["examples"] == {"saved": digest, "streamed": digest, "beforeStop": True}, report["examples"]
     assert isinstance(mic, list) and [take["rate"] for take in mic] == [report["sourceRate"], 16000], mic
     for take in mic:
         assert take["beforeStop"] and take["text"] == "heard" and take["calls"] == 1, take

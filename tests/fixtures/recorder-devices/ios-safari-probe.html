@@ -72,13 +72,54 @@ async function directPcm(context, track, rate, captions) {
   } finally { clearTimeout(timer); abort.abort(); }
 }
 
+let examples;
+async function ownedMicrophone(track) {
+  const own = track.clone(), permission = Object.getOwnPropertyDescriptor(navigator.mediaDevices, 'getUserMedia');
+  const stop = new AbortController(), abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(Error('Timed out on owned microphone')), 12000);
+  let peak = 0, frames = 0, releasedDuringInput = false;
+  try {
+    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async () => new MediaStream([own]) });
+    const listen = casaiAudio.Transcriber({ inputAudioFormat: { type: 'audio/pcm', rate: 16000 },
+      model: { modelId: 'owned-mic', provider: 'fixture', specificationVersion: 'v4',
+        async doStream({ audio }) {
+          return { stream: new ReadableStream({ async start(c) {
+            try {
+              for await (const block of audio) {
+                const view = new DataView(block.buffer, block.byteOffset, block.byteLength);
+                for (let i = 0; i < block.byteLength; i += 2) peak = Math.max(peak, Math.abs(view.getInt16(i, true)));
+                frames += block.byteLength / 2;
+                if (peak > 6000 && !stop.signal.aborted) { stop.abort(); releasedDuringInput = own.readyState === 'ended'; }
+              }
+              c.enqueue({ type: 'finish', text: 'heard', segments: [] }); c.close();
+            } catch (error) { c.error(error); }
+          } }) };
+        } } });
+    const text = await examples.transcribeMicrophone(listen, { stopSignal: stop.signal, abortSignal: abort.signal });
+    return { text, peak, frames, releasedDuringInput };
+  } finally {
+    clearTimeout(timer); own.stop();
+    if (permission) Object.defineProperty(navigator.mediaDevices, 'getUserMedia', permission);
+    else delete navigator.mediaDevices.getUserMedia;
+  }
+}
 async function record() {
   const context = new AudioContext({ sampleRate: 48000 });
-  await context.resume();
-  await stage('audio running');
+  const resumed = context.resume();
   const destination = context.createMediaStreamDestination();
+  const ownership = ownedMicrophone(destination.stream.getAudioTracks()[0]).catch(error => ({ error: String(error) }));
+  await resumed;
+  await stage('audio running');
   const tone = context.createOscillator(), gain = context.createGain();
   const recorder = new MediaRecorder(destination.stream);
+  const saved = examples.finishedRecording(recorder);
+  const encoded = examples.liveRecording(recorder);
+  let originalBeforeStop = false;
+  const forwarded = (async () => {
+    const parts = [];
+    for await (const bytes of encoded) { originalBeforeStop ||= recorder.state === 'recording'; parts.push(bytes); }
+    return new Blob(parts);
+  })();
   gain.gain.value = 0.25;
   tone.connect(gain).connect(destination);
   tone.frequency.value = 523;
@@ -157,7 +198,9 @@ async function record() {
   }
   const mime = recorder.mimeType, blob = new Blob(chunks, { type: mime });
   await storeFile(mime.includes('mp4') ? 'fresh.mp4' : 'fresh.webm', blob);
-  const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate, live, microphone };
+  const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate, live, microphone, ownership: await ownership };
+  const digest = async b => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await b.arrayBuffer())), v => v.toString(16).padStart(2, '0')).join('');
+  report.examples = { saved: await digest(await saved), streamed: await digest(await forwarded), beforeStop: originalBeforeStop };
   const NativeWorker = globalThis.Worker;
   try {
     await stage('forward original recording');
@@ -211,6 +254,8 @@ document.querySelector('#record').onclick = async event => {
   await fetch('/capture', { method: 'POST', body: JSON.stringify(report) });
   button.textContent = 'Finished';
 };
-stage('loaded');
+Promise.all([import('./microphone-pcm.mjs'), import('./recorder-audio.mjs')]).then(([mic, recorder]) => {
+  examples = { ...mic, ...recorder }; return stage('loaded');
+});
 </script>
 </html>

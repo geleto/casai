@@ -1,3 +1,40 @@
+// Call from a user gesture with a configured Transcriber and a fresh Stop signal for this recording.
+export async function transcribeMicrophone(transcriber, { stopSignal, abortSignal, onEvent }) {
+  const end = abortSignal ? AbortSignal.any([stopSignal, abortSignal]) : stopSignal;
+  end.throwIfAborted();
+  const context = new AudioContext();
+  let media, capture;
+  function stop() {
+    capture?.stop();
+    media?.getTracks().forEach(track => track.stop());
+  }
+  end.addEventListener('abort', stop, { once: true });
+  let cancelSetup;
+  const cancelled = new Promise((_, reject) => { cancelSetup = () => reject(end.reason); });
+  end.addEventListener('abort', cancelSetup, { once: true });
+  async function start() {
+    await context.resume();
+    end.throwIfAborted();
+    media = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Permission prompts cannot be cancelled. Release a late grant before opening the worklet.
+    if (end.aborted) { stop(); end.throwIfAborted(); }
+    return captureMicrophonePcm(context, media.getAudioTracks()[0], abortSignal);
+  }
+  try {
+    capture = await Promise.race([start(), cancelled]);
+    end.removeEventListener('abort', cancelSetup);
+    end.throwIfAborted();
+    const result = await transcriber.run({ audio: capture.audio, sourceFormat: capture.sourceFormat, abortSignal });
+    if (onEvent) for await (const event of result.fullStream) await onEvent(event);
+    return await result.text;
+  } finally {
+    end.removeEventListener('abort', cancelSetup);
+    end.removeEventListener('abort', stop);
+    stop();
+    await context.close();
+  }
+}
+
 // The application owns the AudioContext and the selected microphone track.
 export async function captureMicrophonePcm(context, track, signal) {
   signal?.throwIfAborted();

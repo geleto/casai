@@ -14,6 +14,13 @@ type MakeFile = (data: TranscriptionFile['data'], options: { mediaType: string; 
 export interface RecordingSdk { transcriptionFile?: MakeFile }
 export const recordingSdk = sdk as typeof sdk & RecordingSdk;
 
+/** Resolve a registered V4 model once when an automatic Blob can use either native upload or bytes. */
+export function recordingModelForBlob(id: string) {
+	const provider = globalThis.AI_SDK_DEFAULT_PROVIDER ?? sdk.gateway;
+	return 'specificationVersion' in provider && provider.specificationVersion === 'v4' && provider.transcriptionModel
+		? provider.transcriptionModel(id) : id;
+}
+
 /** Published SDKs can still execute ordinary recording and live audio calls. */
 export function recordingUpload({ transcriptionFile: create }: RecordingSdk, model: unknown, stream: boolean, unnamedBytes: boolean): MakeFile | undefined {
 	const method = stream ? 'doStreamFromFile' : 'doGenerateFromFile';
