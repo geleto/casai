@@ -169,6 +169,13 @@ def capture(platform, certificates, memory):
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
+            elif self.path in {"/microphone-pcm.mjs", "/microphone-worklet.mjs"}:
+                body = (HERE.parents[2] / "docs" / "examples" / self.path[1:]).read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/javascript")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
             elif self.path.lstrip("/") in assets or re.fullmatch(r"/media/[\w.-]+", self.path):
                 super().do_GET()
             else:
@@ -333,6 +340,11 @@ def validate(report, platform):
         report["nativeOpusRmsPcm16Error"] = (sum((a - b) ** 2 for a, b in zip(actual, native)) / len(native)) ** 0.5
         assert report["nativeOpusRmsPcm16Error"] <= 16, report["nativeOpusRmsPcm16Error"]
     live = report["live"]
+    mic = report["microphone"]
+    assert isinstance(mic, list) and [take["rate"] for take in mic] == [report["sourceRate"], 16000], mic
+    for take in mic:
+        assert take["beforeStop"] and take["text"] == "heard" and take["calls"] == 1, take
+        assert take["borrowedTrack"] == "live" and 6000 < take["peak"] <= 10000 and take["frames"] >= take["rate"] / 10, take
     assert not live.get("error") and live["beforeStop"], live
     assert live["rawBytes"] == 2 * len(actual) and (OUTPUT / "fresh-live.pcm").read_bytes() == actual.tobytes(), live
 

@@ -105,20 +105,26 @@ export async function withAudioInput<R>(prepared: PreparedComponentCall, dispatc
 	if (settings.audio == null) throw new ValidationError('Audio input is required.');
 	const streamFile = Boolean(prepared.settings[streamMode] && settings.inputAudioFormat === undefined);
 	const explicit = transcription && isTranscriptionFile(settings.audio) ? settings.audio : undefined;
-	const unnamedBytes = !streamFile && (resource || (explicit ? explicit.filename === undefined && isUint8Array(explicit.data) : isUint8Array(settings.audio) || isArrayBuffer(settings.audio)));
+	const finiteBytes = isUint8Array(settings.audio) || isArrayBuffer(settings.audio);
+	const unnamedBytes = !streamFile && (resource || (explicit ? explicit.filename === undefined && isUint8Array(explicit.data) : finiteBytes));
 	const makeFile = transcription && settings.inputAudioFormat === undefined && (typeof settings.model !== 'string' || explicit || streamFile || unnamedBytes)
 		? recordingUpload(transcription, settings.model, streamFile, unnamedBytes) : undefined;
 	if (explicit && (resource || settings.inputAudioFormat !== undefined)) {
 		throw new ValidationError('A transcription file supplies its own encoded input. Remove inputAudioFormat or .loadsAudio.');
 	}
-	if ((explicit || streamFile && (resource || isWebBlob(settings.audio))) && !makeFile) {
-		throw new ValidationError('File delivery requires an AI SDK and transcription adapter with native recording upload support.');
+	if (streamFile && !explicit && !resource && !isWebBlob(settings.audio) && !finiteBytes) {
+		throw new ValidationError('Transcriber.asStream requires inputAudioFormat for live input or an encoded recording.');
 	}
-	if (streamFile && !explicit && !resource && !isWebBlob(settings.audio)) throw new ValidationError('Transcriber.asStream requires inputAudioFormat for live input or a transcription file.');
+	if (streamFile && !makeFile) throw new ValidationError('File delivery requires an AI SDK and transcription adapter with native recording upload support. Supply inputAudioFormat for live audio.');
 	const blobFile = !resource && makeFile && isWebBlob(settings.audio)
 		? await describeBlob(settings.audio, makeFile, sourceFormat !== undefined && !streamFile, prepared.context._toolOptions.abortSignal) : undefined;
-	if (explicit && makeFile) {
-		settings.audio = makeFile(explicit.data, explicit);
+	if (explicit) {
+		if (makeFile) settings.audio = makeFile(explicit.data, explicit);
+		else if (explicit.filename === undefined && isUint8Array(explicit.data) && typeof explicit.mediaType === 'string'
+			&& detectMediaType({ data: explicit.data, topLevelType: 'audio' }) === explicit.mediaType) {
+			// The byte-only SDK sends exactly the requested MIME and bytes.
+			settings.audio = explicit.data;
+		} else throw new ValidationError('This recording requires an AI SDK and transcription adapter with native recording upload support to preserve its input and metadata.');
 	} else if (blobFile) {
 		settings.audio = blobFile;
 	} else if (resource) {
@@ -130,7 +136,7 @@ export async function withAudioInput<R>(prepared: PreparedComponentCall, dispatc
 		settings.audio = owned.audio;
 		if ('format' in owned.format) mediaType = preparedAudioTypes[owned.format.format];
 	} else {
-		const supplied = await prepareSuppliedAudio(settings.audio, settings.inputAudioFormat as AudioFormat | undefined, sourceFormat, prepared.context._toolOptions.abortSignal, maxPreparedAudioBytes);
+		const supplied = await prepareSuppliedAudio(settings.audio, settings.inputAudioFormat as AudioFormat | undefined, streamFile ? undefined : sourceFormat, prepared.context._toolOptions.abortSignal, maxPreparedAudioBytes);
 		close = supplied.close;
 		settings.audio = supplied.audio;
 		mediaType = supplied.mediaType;

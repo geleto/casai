@@ -34,6 +34,44 @@ function providerFile(target, receive) {
   return casaiAudio.Transcriber.loadsAudio({ model, maxRetries: 0, fileAudioTarget: target });
 }
 
+async function directPcm(context, track, rate, captions) {
+  const { captureMicrophonePcm } = await import('./microphone-pcm.mjs');
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(Error('Timed out reading microphone PCM')), 8500);
+  try {
+    const mic = await captureMicrophonePcm(context, track, abort.signal);
+    let peak = 0, frames = 0, beforeStop = false, stopped = false, calls = 0;
+    const model = { modelId: 'direct-pcm', provider: 'fixture', specificationVersion: 'v4', async doStream({ audio, inputAudioFormat }) {
+      if (inputAudioFormat.rate !== rate) throw Error('Unexpected input sample rate');
+      calls++;
+      return { stream: new ReadableStream({ async start(controller) {
+        try {
+          for await (const bytes of audio) {
+            const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            for (let i = 0; i < bytes.byteLength; i += 2) peak = Math.max(peak, Math.abs(view.getInt16(i, true)));
+            frames += bytes.byteLength / 2;
+            if (!beforeStop && peak > 6000 && frames >= rate / 10) {
+              beforeStop = !stopped;
+              controller.enqueue({ type: 'transcript-partial', text: 'hearing' });
+              if (!captions) { stopped = true; mic.stop(); }
+            }
+          }
+          controller.enqueue({ type: 'finish', text: 'heard', segments: [] }); controller.close();
+        } catch (error) { controller.error(error); }
+      } }) };
+    } };
+    const transcribe = (captions ? casaiAudio.Transcriber.asStream : casaiAudio.Transcriber)({ model, sourceFormat: mic.sourceFormat,
+      inputAudioFormat: { type: 'audio/pcm', rate } });
+    const result = await transcribe.run({ audio: mic.audio, abortSignal: abort.signal });
+    if (captions) {
+      for await (const part of result.fullStream) {
+        if (part.type === 'transcript-partial') { stopped = true; mic.stop(); }
+      }
+    }
+    return { rate, calls, peak, frames, beforeStop, text: await result.text, borrowedTrack: track.readyState };
+  } finally { clearTimeout(timer); abort.abort(); }
+}
+
 async function record() {
   const context = new AudioContext({ sampleRate: 48000 });
   await context.resume();
@@ -87,7 +125,7 @@ async function record() {
       }
     }
   }
-  let streaming;
+  let streaming, microphone;
   const stopped = new Promise((resolve, reject) => {
     recorder.onstop = resolve;
     recorder.onerror = event => reject(event.error);
@@ -108,6 +146,10 @@ async function record() {
     try { inlet.close(); } catch (error) { live.error ??= String(error); }
     const stopDeadline = setTimeout(() => abort.abort(Error('Recorder stream did not finish after stop')), 12000);
     try { await streaming; } finally { clearTimeout(stopDeadline); }
+    await stage('direct PCM microphone');
+    const track = destination.stream.getAudioTracks()[0];
+    try { microphone = [await directPcm(context, track, context.sampleRate, true), await directPcm(context, track, 16000, false)]; }
+    catch (error) { microphone = { error: String(error) }; }
   } finally {
     tone.stop();
     destination.stream.getTracks().forEach(track => track.stop());
@@ -115,7 +157,7 @@ async function record() {
   }
   const mime = recorder.mimeType, blob = new Blob(chunks, { type: mime });
   await storeFile(mime.includes('mp4') ? 'fresh.mp4' : 'fresh.webm', blob);
-  const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate, live };
+  const report = { mime, chunkSizes: chunks.map(chunk => chunk.size), sourceRate: context.sampleRate, live, microphone };
   const NativeWorker = globalThis.Worker;
   try {
     await stage('forward original recording');
