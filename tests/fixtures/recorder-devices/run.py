@@ -16,6 +16,8 @@ from xml.etree import ElementTree
 
 import imageio_ffmpeg
 from oracle import boot_iphone, check_tones, serve_https
+from workloads import prepare, validate_cases
+from memory import Memory
 
 HERE = Path(__file__).resolve().parent
 OUTPUT = Path("device-output")
@@ -59,7 +61,7 @@ def android_open(loaded):
     return device
 
 
-def capture(platform, certificates):
+def capture(platform, certificates, memory):
     done, loaded = Event(), Event()
     report, stages, identity = {}, [], {}
     assets = {"ios-safari-probe.html", "ios-safari-worker.js", "casai-audio.js", "cases.js"}
@@ -85,6 +87,10 @@ def capture(platform, certificates):
                 print("Page", stage)
                 if stage == "loaded":
                     loaded.set()
+                elif stage.startswith("begin profile-"):
+                    memory.begin(stage.split(" ", 1)[1])
+                elif stage.startswith("end profile-"):
+                    memory.end(stage.split(" ", 1)[1])
             elif self.path == "/capture":
                 report.update(json.loads(data))
                 done.set()
@@ -198,13 +204,27 @@ if __name__ == "__main__":
     parser.add_argument("platform", choices=["android", "ios", "macos", "local"])
     platform = parser.parse_args().platform
     OUTPUT.mkdir(exist_ok=True)
+    prepare()
+    memory = Memory(platform, OUTPUT)
     with tempfile.TemporaryDirectory() as temp:
-        report = capture(platform, Path(temp))
+        report = capture(platform, Path(temp), memory)
+    failures = []
     try:
         if "error" in report:
             raise AssertionError(report["error"])
         validate(report, platform)
-    finally:
-        result = json.dumps(report, indent=2) + "\n"
-        (OUTPUT / "report.json").write_text(result)
-        print(result)
+    except Exception as error:
+        failures.append(f"fresh recording: {type(error).__name__} {error}")
+    validate_cases(report, OUTPUT, failures)
+    try:
+        report["memory"] = memory.summarize()
+        if platform != "local" and len(report["memory"]) != 6:
+            raise ValueError("Expected all six source and muxer profiles")
+    except Exception as error:
+        failures.append(f"memory: {error}")
+    report["failures"] = failures
+    result = json.dumps(report, indent=2) + "\n"
+    (OUTPUT / "report.json").write_text(result)
+    print(result)
+    if failures:
+        raise SystemExit(1)
