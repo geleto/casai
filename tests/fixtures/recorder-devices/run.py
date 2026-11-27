@@ -44,7 +44,23 @@ def android_open(loaded, activated):
     adb("shell", "am", "set-debug-app", "--persistent", package)
     adb("shell", "echo 'chrome --disable-fre --no-first-run --disable-search-engine-choice-screen' > /data/local/tmp/chrome-command-line")
     adb("shell", "am", "force-stop", package)
-    adb("shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", URL, package)
+    last_launch = ""
+    for attempt in range(12):
+        # New images can report boot completion before user 0 has a usable Activity Manager.
+        component = ["-n", package + "/com.google.android.apps.chrome.Main"] if attempt % 2 else ["-p", package]
+        try:
+            launch = subprocess.run(["adb", "shell", "am", "start", "-W", "--user", "0", *component,
+                                     "-a", "android.intent.action.VIEW", "-d", URL], text=True, capture_output=True, timeout=45)
+            last_launch = (launch.stdout + launch.stderr).strip()
+            print("Chrome launch", attempt + 1, launch.returncode, last_launch[-500:])
+            if launch.returncode == 0 and "Error:" not in last_launch:
+                break
+        except subprocess.TimeoutExpired as error:
+            last_launch = str(error)
+        time.sleep(4)
+    else:
+        (OUTPUT / "chrome-launch.txt").write_text(last_launch + "\n" + adb("shell", "dumpsys", "package", package))
+        raise RuntimeError("Android could not start the installed Chrome activity: " + last_launch)
     for _ in range(16):
         if loaded.wait(2):
             break

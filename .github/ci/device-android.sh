@@ -15,10 +15,14 @@ for ((attempt=0; attempt<160; attempt++)); do
   if ! kill -0 "$emulator_pid" 2>/dev/null; then tail -50 device-output/emulator-boot.log; exit 1; fi
   if adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1 &&
      adb shell service check input 2>/dev/null | grep -q ': found' &&
+     adb shell cmd user is-user-unlocked 0 2>/dev/null | grep -q true &&
      adb shell pm path com.android.chrome 2>/dev/null | grep -q 'package:'; then
     adb shell input keyevent 82 && break
   fi
   sleep 3
 done
 adb shell wm dismiss-keyguard
+adb shell settings put global device_provisioned 1
+adb shell settings put secure user_setup_complete 1
+adb shell pm enable --user 0 com.android.chrome
 python -u tests/fixtures/recorder-devices/run.py android
