@@ -5,7 +5,21 @@ import type { sourceMode, toolMode } from './config/modifiers.js';
 
 /** Finite audio bytes. Buffer is a Uint8Array and needs no separate Node-only type. */
 export type AudioBytes = Uint8Array | ArrayBuffer;
-export type SuppliedAudio = AudioBytes | Blob | AudioBuffer | PcmSamples;
+/** Readable channel planes from browser or imported Web Audio implementations. */
+export interface AudioBufferSource {
+	readonly length: number;
+	readonly numberOfChannels: number;
+	readonly sampleRate: number;
+	getChannelData(channel: number): Float32Array;
+}
+export type SuppliedAudio<Planes extends AudioBufferSource = AudioBufferSource> = AudioBytes | Blob | Planes | PcmSamples;
+/** One encoded recording with explicit upload metadata for a file-capable transcription adapter. */
+export interface TranscriptionFile {
+	type: 'file';
+	data: Blob | Uint8Array | ReadableStream<Uint8Array>;
+	mediaType: string;
+	filename?: string;
+}
 export type RawAudio = SuppliedAudio | ReadableStream<Uint8Array | string>;
 export interface PcmInputSettings {
 	/** Byte budget for recording preparation and decoded PCM sent to an encoder. Defaults to 32 MiB. */
@@ -13,11 +27,11 @@ export interface PcmInputSettings {
 	/** Original layout of headerless PCM. Omit for WAV or Web Audio AudioBuffer. Numeric sample arrays supply their encoding. */
 	sourceFormat?: PcmSourceFormat;
 }
-export type AudioFormat = Parameters<typeof import('ai').experimental_streamTranscribe>[0]['inputAudioFormat'];
+export type AudioFormat = NonNullable<Parameters<typeof import('ai').experimental_streamTranscribe>[0]['inputAudioFormat']>;
 export type AudioCallFormat<P, T, Call> = Call extends unknown[] ? P extends 'text' | 'audio-resource'
 	? true extends ConfigValue<T, typeof toolMode>
-		? Call[0] extends string | URL | SuppliedAudio | ReadableStream<unknown> | undefined ? Call[2] : Call[1]
-		: Call[0] extends SuppliedAudio ? Call[1] : Call[0] extends AudioFormat ? Call[0] : Call[1]
+		? Call[0] extends string | URL | SuppliedAudio<AudioBuffer> | ReadableStream<unknown> | undefined ? Call[2] : Call[1]
+		: Call[0] extends SuppliedAudio | TranscriptionFile ? Call[1] : Call[0] extends AudioFormat ? Call[0] : Call[1]
 	: Call[0] extends string | ((...args: never[]) => unknown) | undefined ? Call[2] : Call[1] : undefined;
 /** Enforce the missing metadata when the caller's source type is known. */
 export type CheckPcmLayout<Input, Config, Layout = ConfigValue<Config, 'sourceFormat'>> =

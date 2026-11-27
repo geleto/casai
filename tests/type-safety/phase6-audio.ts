@@ -20,10 +20,17 @@ const format = { type: 'audio/pcm', rate: 24000 };
 const bytes = new Uint8Array(2);
 const stream = new ReadableStream<Uint8Array>();
 declare const recording: AudioBuffer, upload: File;
+declare const importedBuffer: { readonly sampleRate: number; readonly numberOfChannels: number; readonly length: number; getChannelData(channel: number): Float32Array };
+void Transcriber({ model })(importedBuffer);
+void Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_f32le' } }).run({ audio: importedBuffer });
 void Transcriber({ model })(upload);
 void Transcriber({ model, inputAudioFormat: format })(recording);
 void Transcriber({ model, sourceFormat: { sampleRate: 48000, channels: 2 } })(new Float32Array(2));
 void Transcriber.loadsAudio({ model, inputAudioFormat: format }).run({ audio: upload });
+declare const decodedOrRecorded: AudioBuffer | Blob;
+const prepareRecording = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' } });
+void prepareRecording(decodedOrRecorded);
+void prepareRecording.run({ audio: decodedOrRecorded });
 // @ts-expect-error A numeric sample array does not carry its rate or channel count.
 void Transcriber({ model })(new Float32Array(2));
 // Finite input may supply a WAV header; encoding is checked only after classification.
@@ -97,6 +104,9 @@ void Promise.all([completed, collected, incremental, named, inheritedResult, cop
 
 declare const speechModel: Parameters<typeof import('ai').generateSpeech>[0]['model'];
 declare const translationModel: Parameters<typeof import('ai').experimental_streamTranslate>[0]['model'];
+const translateRecording = Translator.loadsAudio({ model: translationModel, inputAudioFormat: format, targetLanguage: 'fr' });
+void translateRecording(decodedOrRecorded);
+void translateRecording.run({ audio: decodedOrRecorded });
 declare const mixedSamples: Uint8Array | Float32Array;
 // @ts-expect-error An explicit loaded target annotation describes mono PCM16.
 const _loadedCompanded: ComponentConfig<'Transcriber', 'audio-resource', 'stream'> = { model, inputAudioFormat: { type: 'audio/pcmu', rate: 8000 } };
@@ -162,6 +172,15 @@ Translator.asTool({ ...translationSettings, inputSchema: z.object({ audio: z.str
 
 const target = { format: 'wav', codec: 'pcm_s16le' };
 const loaded = Transcriber.loadsAudio({ model, fileAudioTarget: target });
+const providerRecording = { elevenlabs: { sourceUrl: 'https://media.example/whole-meeting.mp4' } };
+Transcriber({ model, providerOptions: providerRecording });
+Transcriber.loadsAudio({ model, fileAudioTarget: target, providerOptions: { elevenlabs: { diarize: true, sourceUrl: null } } });
+declare const sharedProviderOptions: NonNullable<Parameters<typeof import('ai').transcribe>[0]['providerOptions']>;
+void loaded.run({ audio: bytes, providerOptions: sharedProviderOptions });
+// @ts-expect-error This setting would replace the prepared file at the provider.
+Transcriber.loadsAudio({ model, fileAudioTarget: target, providerOptions: providerRecording });
+// @ts-expect-error Invocation overrides cannot replace the prepared file at the provider.
+void loaded.run({ audio: bytes, providerOptions: providerRecording });
 declare const demuxer: string | undefined;
 void loaded.run({ audio: bytes, mediaSettings: { format: demuxer } });
 void loaded.run({ audio: new Float32Array(4), sourceFormat: { sampleRate: 48000, channels: 2 } });
@@ -170,8 +189,14 @@ void loaded(bytes);
 void loaded.run({ audio: stream, mediaSettings: { track: 2, options: { headers: 'Authorization: Bearer private\r\n' } } });
 // @ts-expect-error Loaded encoded-file preparation cannot also select raw streaming.
 Transcriber.loadsAudio({ model, fileAudioTarget: target, inputAudioFormat: format });
-// @ts-expect-error File targets are not raw streaming targets.
-Transcriber.loadsAudio.asStream({ model, fileAudioTarget: target });
+const _preparedDeltas: Promise<StreamTranscriptionResult> = Transcriber.loadsAudio.asStream({ model, fileAudioTarget: target })(bytes);
+const described = { type: 'file', data: stream, mediaType: 'audio/mp4', filename: 'interview.m4a' } as const;
+void live(described);
+void live.run({ audio: described });
+void file(described);
+void live(new Blob([new Uint8Array(4)], { type: 'audio/mp4' }));
+// @ts-expect-error An encoded recording and a live sample format select different provider operations.
+void live(described, format);
 // @ts-expect-error Ordinary supplied audio does not use native media options.
 Transcriber({ model, mediaSettings: { track: 0 } });
 // @ts-expect-error Loaded tools cannot delegate resource selection to model arguments.
@@ -307,6 +332,11 @@ void Transcriber({ model }, correlatedParent)(bytes);
 
 // Trusted source overrides on tools distinguish streams from application context.
 const uploadedTool = Transcriber.loadsAudio.asTool({ model, audio: bytes, inputAudioFormat: format, inputSchema: z.object({ label: z.string() }) });
+const bufferContextTool = Transcriber.loadsAudio.asTool({ model, audio: bytes, inputAudioFormat: format,
+	inputSchema: z.object({ length: z.number(), sampleRate: z.number(), numberOfChannels: z.number(), getChannelData: z.unknown() }) });
+void bufferContextTool(importedBuffer, format);
+// @ts-expect-error A structural buffer in the tool context slot leaves the next argument in the format slot.
+void bufferContextTool(importedBuffer, { type: 'audio/pcmu', rate: 8000 } as const);
 void uploadedTool(stream, { label: 'upload' });
 void uploadedTool.run({ audio: stream, context: { label: 'upload' } });
 // @ts-expect-error Source recognition must not hide required application input.

@@ -1,9 +1,10 @@
 import { ValidationError } from '../errors.js';
-import { isWebAudioBuffer, isWebBlob, isWebStream, isWebURL } from '../runtime/web-input.js';
+import { isAudioBufferSource, isWebBlob, isWebStream, isWebURL } from '../runtime/web-input.js';
 import { convertBase64ToUint8Array, detectMediaType, isArrayBuffer, isUint8Array } from '@ai-sdk/provider-utils';
 import type { AudioFormat } from '../audio.js';
 import { asMonoPcm16, isPcmSamples, preparePcmStream, readWav, resamplePcm16, sampleFormat, writeWav, type PcmFormat, type PcmSourceFormat } from './pcm.js';
 import { runPcm } from './pcm-pool.js';
+import { copyAudioPlanes } from './buffer-copy.js';
 import { pcmFrameSize } from './pcm-format.js';
 import { checkPreparedAudioBytes, defaultPreparedAudioBytes } from './preparation.js';
 import { audioContainer, audioMediaType, checkMimeLayout, encodedAudioType } from './source-evidence.js';
@@ -25,18 +26,11 @@ function checkPcmOutput(inputBytes: number, format: PcmFormat, target: AudioForm
 /** Prepare only supplied media. URLs and native file inputs keep the SDK's own download rules. */
 export async function prepareSuppliedAudio(audio: unknown, target?: AudioFormat, source?: PcmSourceFormat, signal?: AbortSignal, limit = defaultPreparedAudioBytes): Promise<{ audio: unknown; mediaType?: string | undefined; close?: (reason?: unknown) => Promise<void> }> {
 	let format: PcmFormat | undefined;
-	if (isWebAudioBuffer(audio)) {
+	if (isAudioBufferSource(audio)) {
 		const recording = audio;
 		format = { encoding: 'pcm_f32le', channels: recording.numberOfChannels, sampleRate: recording.sampleRate };
 		checkPcmOutput(recording.length * pcmFrameSize(format), format, target, limit);
-		audio = await runPcm('interleaveChannels', async copy => {
-			const planes: Uint8Array[] = [];
-			for (let c = 0; c < recording.numberOfChannels; c++) {
-				const data = recording.getChannelData(c);
-				planes.push(await copy(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)));
-			}
-			return [planes];
-		}, signal);
+		audio = await runPcm('interleaveChannels', async copy => [await copyAudioPlanes(recording, copy)], signal);
 	} else if (isPcmSamples(audio)) {
 		if (!source) throw new ValidationError('Headerless sample arrays require sourceFormat.sampleRate and sourceFormat.channels.');
 		format = sampleFormat(source, audio);

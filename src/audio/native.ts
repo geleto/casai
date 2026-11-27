@@ -1,14 +1,14 @@
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { isArrayBuffer, isUint8Array } from '@ai-sdk/provider-utils';
+import { isArrayBuffer } from '@ai-sdk/provider-utils';
 import { MessageChannel, Worker, type Transferable } from 'node:worker_threads';
 import { ConfigError, ValidationError } from '../errors.js';
-import { claimLiveInput } from '../runtime/live-input.js';
-import { isWebBlob, isWebStream, isWebURL } from '../runtime/web-input.js';
+import { claimAudioUpload } from './upload.js';
+import { isAudioBufferSource, isWebBlob, isWebStream, isWebURL } from '../runtime/web-input.js';
 import { validatePreparationSettings } from './preparation.js';
 import type { AudioSource, PrepareAudioSettings, PreparedAudioFor } from './preparation.js';
-import { createAudioInput } from './buffer-copy.js';
+import { copyAudioPlanes, createAudioInput } from './buffer-copy.js';
 import type { NativeAudioSource } from './native-pipeline.js';
 import type { NativeRequest, NativeResponse } from './native-worker.entry.js';
 import { nativeWorkerSource } from './worker-sources.js';
@@ -63,22 +63,15 @@ export async function openAudio<T extends PrepareAudioSettings>(source: AudioSou
 	const worker = takeWorker(filename);
 	const { port1: port, port2 } = new MessageChannel();
 	let closed = false, ended = false, exited = false, expectedClose = false;
-	let workerFailure: { error: unknown } | undefined, sourceFailure: { error: unknown } | undefined;
-	let sourceReader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+	let workerFailure: { error: unknown } | undefined;
+	let upload: ReturnType<typeof claimAudioUpload> | undefined;
 	let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
-	let closing: Promise<void> | undefined, sourceClosing: Promise<void> | undefined;
+	let closing: Promise<void> | undefined;
 	interface Pending { resolve: (value: unknown) => void; reject: (error: unknown) => void }
 	let pending: Pending | undefined;
 	const ready = new Promise<unknown>((resolve, reject) => { pending = { resolve, reject }; });
 	let resolveExit!: () => void;
 	const exit = new Promise<void>(resolve => { resolveExit = resolve; });
-	const closeSource = (reason: unknown = settings.abortSignal?.reason) => sourceClosing ??= (async () => {
-		const ownedReader = sourceReader; sourceReader = undefined;
-		if (ownedReader) {
-			try { await ownedReader.cancel(reason); }
-			finally { ownedReader.releaseLock(); }
-		}
-	})();
 	function fail(error: unknown) {
 		workerFailure = { error };
 		pending?.reject(error); pending = undefined;
@@ -99,7 +92,7 @@ export async function openAudio<T extends PrepareAudioSettings>(source: AudioSou
 				if (message.name) error.name = message.name;
 				if (message.name === 'ValidationError') Object.setPrototypeOf(error, ValidationError.prototype);
 			}
-			error = settings.abortSignal?.aborted ? settings.abortSignal.reason : sourceFailure ? sourceFailure.error : error;
+			error = settings.abortSignal?.aborted ? settings.abortSignal.reason : upload?.failure ? upload.failure.error : error;
 			fail(error);
 		} else {
 			pending?.resolve(message.value); pending = undefined;
@@ -111,7 +104,7 @@ export async function openAudio<T extends PrepareAudioSettings>(source: AudioSou
 		ended = true; worker.ref();
 		settings.abortSignal?.removeEventListener('abort', abort);
 		if (!expectedClose || pending) fail(workerFailure ? workerFailure.error : new Error('Native audio invocation closed unexpectedly.'));
-		await closeSource().catch(() => { /* Native cleanup must finish when source cancellation rejects. */ });
+		await upload?.close(workerFailure?.error).catch(() => { /* Native cleanup must finish when source cancellation rejects. */ });
 		if (closed || settings.abortSignal?.aborted || workerFailure || exited || !keepWorker(worker, filename)) {
 			if (!exited) worker.postMessage(null);
 			await exit;
@@ -137,7 +130,7 @@ export async function openAudio<T extends PrepareAudioSettings>(source: AudioSou
 			if (ended) return finished;
 			closed = true; expectedClose = true;
 			controller?.error(settings.abortSignal?.aborted ? settings.abortSignal.reason : new DOMException('Prepared audio was closed.', 'AbortError'));
-			await closeSource(reason).catch(() => { /* Preserve conversion/cancellation failures. */ });
+			await upload?.close(reason ?? settings.abortSignal?.reason).catch(() => { /* Preserve conversion/cancellation failures. */ });
 			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- The port can close while source cancellation is awaited.
 			if (!ended) { worker.ref(); port.ref(); port.postMessage({ type: 'close' } satisfies NativeRequest); }
 			await finished;
@@ -155,56 +148,41 @@ export async function openAudio<T extends PrepareAudioSettings>(source: AudioSou
 		catch (error) { fail(error); port2.close(); port.close(); }
 		await ready;
 		settings.abortSignal?.throwIfAborted();
-		let input: NativeAudioSource, blobType: string | undefined, transfer: Transferable[] = [];
+		let input: NativeAudioSource | Uint8Array[], blobType: string | undefined, transfer: Transferable[] = [];
+		let rawFormat;
 		if (isWebStream(source)) {
-			claimLiveInput(source);
-			let buffer: Uint8Array = new Uint8Array(0);
-			input = new ReadableStream<Uint8Array>({
-				async pull(target) {
-					if (sourceClosing) return;
-					try {
-						const ownedReader = sourceReader ??= source.getReader();
-						if (!buffer.length) {
-							const item = await ownedReader.read();
-							// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Shutdown can arrive while awaiting input.
-							if (sourceClosing) return;
-							if (item.done) { ownedReader.releaseLock(); sourceReader = undefined; target.close(); return; }
-							if (!isUint8Array(item.value)) throw new ValidationError('Encoded audio streams must contain Uint8Array chunks.');
-							buffer = item.value;
-						}
-						// Transferable streams clone their chunks; bound each crossing even for a huge producer chunk.
-						const part = buffer.subarray(0, 65536);
-						target.enqueue(isArrayBuffer(part.buffer) ? Uint8Array.from(part) : part); buffer = buffer.subarray(65536);
-					} catch (error) {
-						sourceFailure = { error }; target.error(error);
-						await closeSource(error).catch(() => { /* The reader can already be errored. */ });
-					}
-				},
-				cancel: closeSource,
-			}, { highWaterMark: 0 });
+			upload = claimAudioUpload(source);
+			input = upload.stream;
 			transfer = [input as unknown as Transferable];
 		} else if (isWebBlob(source)) {
 			blobType = source.type;
 			const buffer = await source.arrayBuffer();
 			input = new Uint8Array(buffer);
 			transfer = [buffer];
-		} else if (ArrayBuffer.isView(source) || isArrayBuffer(source)) {
-			const preparation = createAudioInput(byteLength => request({ type: 'allocate', byteLength }) as Promise<Uint8Array<ArrayBuffer>>, settings.abortSignal);
-			input = await preparation.copy(ArrayBuffer.isView(source) ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength) : new Uint8Array(source));
-			transfer = preparation.transfer;
 		} else if (typeof source === 'string' || isWebURL(source)) {
 			const resource = typeof source === 'string' ? source : source.href;
 			// node-av treats file:relative as a path literally beginning with "file:".
 			input = /^file:/i.test(resource) ? resource[5] === '/' ? fileURLToPath(resource) : resolve(resource.slice(5)) : resource;
-		} else throw new ValidationError('Audio preparation requires a path, URL, encoded bytes or a byte stream.');
+		} else {
+			const preparation = createAudioInput(byteLength => request({ type: 'allocate', byteLength }) as Promise<Uint8Array<ArrayBuffer>>, settings.abortSignal);
+			if (isAudioBufferSource(source)) {
+				rawFormat = { encoding: 'pcm_f32le', sampleRate: source.sampleRate, channels: source.numberOfChannels };
+				input = await copyAudioPlanes(source, preparation.copy);
+			} else if (ArrayBuffer.isView(source) || isArrayBuffer(source)) {
+				if (isPcmSamples(source)) {
+					if (!settings.sourceFormat) throw new ValidationError('Headerless sample arrays require sourceFormat.sampleRate and sourceFormat.channels.');
+					rawFormat = sampleFormat(settings.sourceFormat, source);
+				}
+				input = await preparation.copy(ArrayBuffer.isView(source) ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength) : new Uint8Array(source));
+			} else throw new ValidationError('Audio preparation requires a path, URL, encoded bytes or a byte stream.');
+			transfer = preparation.transfer;
+		}
 		settings.abortSignal?.throwIfAborted();
 		let sourceFormat = typeof input === 'string' ? undefined : settings.sourceFormat;
 		let mediaSettings = settings.mediaSettings;
-		if (isPcmSamples(source)) {
-			if (!settings.sourceFormat) throw new ValidationError('Headerless sample arrays require sourceFormat.sampleRate and sourceFormat.channels.');
-			const raw = sampleFormat(settings.sourceFormat, source);
-			mediaSettings = { ...mediaSettings, format: raw.encoding.replace('pcm_', ''),
-				options: { ...mediaSettings?.options, sample_rate: raw.sampleRate, ch_layout: `${raw.channels}c` } };
+		if (rawFormat) {
+			mediaSettings = { ...mediaSettings, format: rawFormat.encoding.replace('pcm_', ''),
+				options: { ...mediaSettings?.options, sample_rate: rawFormat.sampleRate, ch_layout: `${rawFormat.channels}c` } };
 			sourceFormat = undefined;
 		}
 		const nativeSettings = { inputAudioFormat: settings.inputAudioFormat, fileAudioTarget: settings.fileAudioTarget,

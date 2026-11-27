@@ -10,6 +10,19 @@ import { dirname, resolve, join } from 'node:path';
 const pkg = dirname(dirname(createRequire(resolve('package.json')).resolve('casai')));
 const internals = process.argv.includes('--dist') ? 'dist' : 'src';
 const internal = name => JSON.stringify(join(pkg, internals, name + (internals === 'dist' ? '.js' : '.ts')));
+for (const [platform, adapter] of [['node', 'native'], ['browser', 'browser'], ['neutral', 'unavailable']]) {
+  const bundle = await build({ stdin: { contents: "export { openAudio } from '#prepared-audio';", resolveDir: pkg },
+    absWorkingDir: pkg, platform, format: 'esm', conditions: internals === 'src' ? ['casai-source'] : [],
+    bundle: true, write: false, metafile: true, external: ['node:*', '@ai-sdk/*'] });
+  assert.ok(Object.hasOwn(bundle.metafile.inputs, `${internals}/audio/${adapter}.${internals === 'src' ? 'ts' : 'js'}`), platform);
+  if (platform === 'neutral') {
+    const { openAudio } = await import('data:text/javascript;base64,' + Buffer.from(bundle.outputFiles[0].contents).toString('base64'));
+    let pulls = 0;
+    const source = new ReadableStream({ pull() { pulls++; } }, { highWaterMark: 0 });
+    await assert.rejects(openAudio(source, { inputAudioFormat: { type: 'audio/pcm', rate: 8000 } }), { name: 'ConfigError' });
+    assert.equal(pulls, 0); assert.equal(source.locked, false);
+  }
+}
 const recorders = {
   'review-safari-aac.mp4': 'audio/mp4',
   'review-ios-safari-aac.mp4': 'audio/mp4',
@@ -20,7 +33,7 @@ const recorders = {
 
 const result = await build({
   stdin: { contents: `
-import { create, ConfigError, z } from 'casai';
+import { create, ConfigError, ValidationError, z } from 'casai';
 import { concatAudio } from ${internal('audio')};
 import { writeWav, readWav, resamplePcm16, preparePcmStream, float32ToPcm16 } from ${internal('audio/pcm')};
 import { experimental_resampleAudio as sdkResample, experimental_decodeRealtimeAudio as decode, experimental_encodeRealtimeAudio as encode } from 'ai';
@@ -163,8 +176,14 @@ const script = create.Script({ script: 'return add(2, 3)', context: { add: (a, b
 if (await script() !== 5) throw new Error('Script');
 const loaded = create.Transcriber.loadsAudio({ model: {}, inputAudioFormat: { type: 'audio/pcm', rate: 24000 } });
 for (const call of [() => loaded(samples), () => loaded(new File([samples], 'audio.wav'))]) {
-  try { await call(); throw new Error('Expected unavailable native audio'); }
-  catch (error) { if (!(error instanceof ConfigError)) throw error; }
+  let failure;
+  try { await call(); } catch (error) { failure = error; }
+  const hasCodec = ${process.env.CASAI_PACKED_RECORDER === '1'};
+  if (hasCodec && globalThis.workerMode === 'blocked') {
+    if (!(failure instanceof Error) || !/worker|content security/i.test(failure.message)) throw failure ?? new Error('Expected worker startup failure');
+  } else if (!(failure instanceof (hasCodec && globalThis.workerMode !== 'unavailable' ? ValidationError : ConfigError))) {
+    throw failure ?? new Error('Expected rejection for undescribed bytes');
+  }
 }
 globalThis.browserAcceptance = true;
 `, resolveDir: process.cwd(), sourcefile: 'browser-consumer.ts', loader: 'ts' },
@@ -267,4 +286,4 @@ try {
     await page.close();
   }
 } finally { server.close(); await browser.close(); }
-console.log('Browser entry, Cascada composition, shared/unshared PCM workers, CSP/cleanup and native-unavailable calls passed in Chromium.');
+console.log('Browser entry, Cascada composition, shared/unshared PCM workers, CSP, cleanup and prepared input errors passed in Chromium.');

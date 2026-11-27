@@ -1,4 +1,7 @@
 import { isArrayBuffer } from '@ai-sdk/provider-utils';
+import type { AudioBufferSource } from '../audio.js';
+import { ValidationError } from '../errors.js';
+import { sampleEncoding, validatePcmLayout } from './pcm-format.js';
 
 /** A task boundary, not a microtask: let timers, I/O and other workflows progress. */
 export function yieldAudioWork(): Promise<void> {
@@ -14,6 +17,21 @@ export function yieldAudioWork(): Promise<void> {
 }
 
 const copyStep = 256 * 1024, turnBytes = 1024 * 1024;
+
+export async function copyAudioPlanes(recording: AudioBufferSource, copy: (bytes: Uint8Array) => Promise<Uint8Array>) {
+	const { length, numberOfChannels: channels, sampleRate } = recording;
+	validatePcmLayout({ channels, sampleRate }, ValidationError);
+	if (!Number.isSafeInteger(length) || length < 0) throw new ValidationError('AudioBuffer length must be a nonnegative integer.');
+	const planes: Uint8Array[] = [];
+	for (let channel = 0; channel < channels; channel++) {
+		const samples = recording.getChannelData(channel);
+		if (sampleEncoding(samples) !== 'pcm_f32le' || samples.length !== length) {
+			throw new ValidationError('Each AudioBuffer channel must contain its declared number of Float32 samples.');
+		}
+		planes.push(await copy(new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength)));
+	}
+	return planes;
+}
 
 /** One preparation owns one copy budget and transfer list, including across small/empty chunks. */
 export function createAudioInput(allocate: (byteLength: number) => Promise<Uint8Array<ArrayBuffer>>, signal?: AbortSignal) {

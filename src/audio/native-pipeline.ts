@@ -2,7 +2,8 @@ import { checkPreparedAudioBytes, defaultPreparedAudioBytes, type AudioSource, t
 import type { NativeAv, NativeInput, NativeIO, NativeDecoder, NativeEncoder, NativeStream, NativePacket, NativeOutput, NativeFrame } from './native-interface.js';
 import { ValidationError } from '../errors.js';
 import { sampleFormat } from './pcm-format.js';
-import { audioContainer, audioMediaType, audioPrefixBytes, checkMimeLayout, encodedAudioType } from './source-evidence.js';
+import { readAudioPrefix } from './upload.js';
+import { audioContainer, audioMediaType, checkMimeLayout, encodedAudioType } from './source-evidence.js';
 import { type MovieHeader, observeMovieHeader, readMovieHeader, selectedMovieEdit, unverifiableMovie } from './movie-header.js';
 import { isMovieResource, openMovieResource } from './movie-resource.js';
 import { cleanVorbisHeaders, copyPauseMessage, oggOpusPackets, oggVorbisPackets, opusTime, webmOpusPackets } from './native-ogg-webm.js';
@@ -233,18 +234,7 @@ export async function* prepareNativeAudio(av: NativeAv, source: NativeAudioSourc
 			let pending: Uint8Array = new Uint8Array(0), readError: unknown;
 			let remainder: Uint8Array = new Uint8Array(0), eof = false;
 			if (settings.sourceFormat && !format) {
-				const prefix = new Uint8Array(audioPrefixBytes);
-				let length = 0;
-				while (length < prefix.length) {
-					const item = await reader.read();
-					settings.abortSignal?.throwIfAborted();
-					if (item.done) { eof = true; break; }
-					const count = Math.min(prefix.length - length, item.value.length);
-					prefix.set(item.value.subarray(0, count), length); length += count;
-					remainder = item.value.subarray(count);
-					if (audioContainer(prefix.subarray(0, length))) break;
-				}
-				pending = prefix.subarray(0, length);
+				({ prefix: pending, remainder, eof } = await readAudioPrefix(reader, settings.abortSignal));
 				if (!audioContainer(pending)) applyRawLayout();
 			}
 			io = av.IOStream.create({

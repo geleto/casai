@@ -196,7 +196,13 @@ describe('Phase 2 generated security invariants (production factories)', functio
 				assert.ok(!JSON.stringify(calls).includes(sentinel));
 				assert.ok(!JSON.stringify(steps.flatMap(step => step.response.messages)).includes(sentinel));
 				assert.ok(!JSON.stringify(chunks).includes(sentinel));
-				if (mode === 'stream') assert.ok(chunks.some(part => fields(part).type === (attack ? 'tool-output-error' : 'tool-output-available')));
+				if (mode === 'stream') {
+					const call = steps[0].toolCalls[0];
+					const expected = !attack ? 'tool-output-available' : call.invalid ? 'tool-input-error' : 'tool-output-error';
+					const terminal = chunks.map(fields).filter(part => part.toolCallId === call.toolCallId &&
+						['tool-output-available', 'tool-input-error', 'tool-output-error'].includes(String(part.type)));
+					assert.deepEqual(terminal.map(part => part.type), [expected], `${key}/${owner}`);
+				}
 			}
 		});
 

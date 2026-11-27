@@ -20,7 +20,7 @@ export const configSourceForms = [
     ['loadsText', 'text-name', 'The receiving component loads its primary input from a text file using loader.'],
     ['loadsTemplate', 'async-template-name', 'The receiving component loads a Cascada Template using loader and renders it using context.'],
     ['loadsScript', 'async-script-name', 'The receiving component loads a Cascada Script using loader and runs it using context.'],
-    ['loadsAudio', 'audio-resource', 'FFmpeg opens a path, URL, File, Blob, supplied bytes or byte stream. It detects the recording format, selects an audio track and prepares it for the model. Requires node-av; no loader setting is used.'],
+    ['loadsAudio', 'audio-resource', 'Prepare audio for the model without a loader setting. On Node.js, node-av handles file paths, URLs and supplied recordings. The browser prepares AudioBuffers and described PCM. Encoded browser preparation is under qualification.'],
   ].map(([modifier, mode, description]) => ({ modifier, mode, ...sourceModes[mode], description,
     explanation: `${description} This explicit selection replaces an inherited source mode. ${mode === 'audio-resource' ? 'The media location and input settings may be supplied by the completed component.' : 'The source value and any required loader may be supplied by the completed component.'}` })),
 ].map(form => ({ ...form, toolSupported: true, applicable: true }));
@@ -36,7 +36,7 @@ export function sourceDocumentation(mode, definition, spec) {
   const descriptions = {
     text: spec.sourceDescriptions?.text ?? `The ${property} value supplied to the component.`,
     'text-name': spec.sourceDescriptions?.['text-name'],
-    'audio-resource': 'A file path, URL string/object, encoded Uint8Array/ArrayBuffer or ReadableStream<Uint8Array> containing media to prepare for the model.',
+    'audio-resource': 'An AudioBuffer, described PCM, File, Blob, bytes or a byte stream to prepare for the model. Node.js also accepts file paths and URLs. Browser encoded recordings and HTTP(S) URLs are under qualification.',
     'async-template': `Cascada Template text whose variables come from the ${context} object.`,
     'async-template-name': `The name of a Cascada Template file rendered using ${context}.`,
     'async-script': spec.coded ? 'Cascada Script code with variables from the context object.' : `Cascada Script code that calculates ${property} using ${context}.`,
@@ -46,7 +46,7 @@ export function sourceDocumentation(mode, definition, spec) {
   const explanations = {
     text: descriptions.text,
     'text-name': `${descriptions['text-name']} ${file}`,
-    'audio-resource': 'The audio value supplies a local/remote media reference or encoded bytes/byte stream, including video with an audio track. FFmpeg/node-av opens it and prepares the selected audio. mediaSettings describes the source; inputAudioFormat describes the raw model target. Encoded-file transcription instead requires a configured file target describing accepted formats and limits. No loader configuration is needed. Relative paths resolve against the process working directory. Each path/URL call opens afresh; finite bytes can be reused, while supplied streams remain single-use. Native preparation and SDK dispatch share one identity check; reusing a handed-off ReadableStream raises ValidationError before another read. The .asTool form requires configured audio, including inheritance, and model arguments cannot replace that source. Declared context fields remain data. Trusted application calls retain explicit source overrides; dynamic native resources use an explicit Function/Script workflow. Native byte inputs deny nested protocol opens by default, with an explicit trusted mediaSettings.options.protocol_whitelist override.',
+    'audio-resource': 'Node.js uses FFmpeg/node-av to open media, selects its audio and resolves relative paths against the process working directory. Node mediaSettings describes the source. The browser prepares AudioBuffers and described PCM. inputAudioFormat describes the raw model target. Completed file transcription instead requires a file target describing accepted formats and limits. Each path or URL opens afresh and finite bytes can be reused. Reusing a handed-off ReadableStream raises ValidationError before another read. The .asTool form requires configured audio, including inheritance, and model arguments cannot replace that source. Declared context fields remain data. Trusted application calls retain explicit source overrides. A Function or Script can select a dynamic resource. On Node.js, supplied byte inputs deny nested protocol opens by default. A trusted mediaSettings.options.protocol_whitelist can override that default.',
     'async-template': `The ${property} value contains Cascada Template text. ${template}${spec.templateNotes ? ' ' + spec.templateNotes : ''}`,
     'async-template-name': `${file} The file contains Cascada Template text. ${template}`,
     'async-script': `The ${property} value is Cascada Script code. Fields of the ${context} object are available as variables. ${scriptResult}`,

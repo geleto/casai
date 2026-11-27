@@ -29,30 +29,95 @@ function textAt(bytes: Uint8Array, offset: number, text: string): boolean {
 	return true;
 }
 
-function movieContainer(bytes: Uint8Array, view: DataView): string | undefined {
-	// Follow box sizes inside the retained prefix. A padding box or media payload alone is weak evidence.
-	for (let offset = 0; offset + 8 <= bytes.length;) {
+type HeaderEvidence = string | number | undefined;
+
+function movieHeaderEvidence(bytes: Uint8Array, view: DataView, offset: number, end: number): HeaderEvidence {
+	const limit = Math.min(bytes.length, end);
+	while (offset + 8 <= end) {
+		if (offset + 8 > limit) return offset + 8;
 		let size = view.getUint32(offset), body = offset + 8;
 		if (size === 1) {
-			if (body + 8 > bytes.length) return undefined;
+			if (body + 8 > end) return undefined;
+			if (body + 8 > limit) return body + 8;
+			size = Number(view.getBigUint64(body));
+			body += 8;
+		} else if (size === 0) size = end - offset;
+		if (!Number.isSafeInteger(size) || size < body - offset || size > end - offset) return undefined;
+		if (textAt(bytes, offset + 4, 'mvhd')) {
+			if (size < body - offset + 100) return undefined;
+			if (body + 1 > limit) return body + 1;
+			const version = bytes[body], timescale = body + (version === 1 ? 20 : 12);
+			if (version > 1 || size < body - offset + (version === 1 ? 112 : 100)) return undefined;
+			if (timescale + 4 > limit) return timescale + 4;
+			return view.getUint32(timescale) > 0 ? 'video/quicktime' : undefined;
+		}
+		offset += size;
+	}
+	return undefined;
+}
+
+function movieEvidence(bytes: Uint8Array, view: DataView): HeaderEvidence {
+	if (bytes.length < 8) return undefined;
+	for (let offset = 0;;) {
+		if (offset + 8 > bytes.length) return offset + 8;
+		const fileType = textAt(bytes, offset + 4, 'ftyp'), movie = textAt(bytes, offset + 4, 'moov');
+		if (!fileType && !movie && !['free', 'skip', 'wide', 'mdat'].some(type => textAt(bytes, offset + 4, type))) return undefined;
+		let size = view.getUint32(offset), body = offset + 8;
+		if (size === 1) {
+			if (body + 8 > bytes.length) return body + 8;
 			size = Number(view.getBigUint64(body));
 			body += 8;
 		}
-		if (textAt(bytes, offset + 4, 'ftyp') && body + 8 <= bytes.length && size >= body - offset + 8 && size % 4 === 0) {
+		if (!Number.isSafeInteger(offset + size + 8) || (size < body - offset && !(movie && size === 0))) return undefined;
+		if (fileType) {
+			if (size < body - offset + 8 || size % 4 !== 0) return undefined;
+			if (body + 8 > bytes.length) return body + 8;
 			if (textAt(bytes, body, 'qt  ')) return 'video/quicktime';
 			if (['isom', 'iso2', 'iso5', 'iso6', 'mp41', 'mp42', 'M4A ', 'M4B '].some(brand => textAt(bytes, body, brand))) return 'audio/mp4';
 			return 'ftyp';
 		}
-		if (textAt(bytes, offset + 4, 'moov') && textAt(bytes, body + 4, 'mvhd')) {
-			const version = bytes[body + 8], headerSize = view.getUint32(body);
-			const timescale = body + (version === 1 ? 28 : 20);
-			if ((version === 0 || version === 1) && timescale + 4 <= bytes.length && headerSize >= (version === 1 ? 120 : 108)
-				&& (size === 0 || body + headerSize <= offset + size) && view.getUint32(timescale)) return 'video/quicktime';
-		}
-		if (size < body - offset || !['free', 'skip', 'wide', 'mdat'].some(type => textAt(bytes, offset + 4, type))) break;
+		if (movie) return movieHeaderEvidence(bytes, view, body, size ? offset + size : Number.MAX_SAFE_INTEGER);
 		offset += size;
 	}
+}
+
+function ebmlEvidence(bytes: Uint8Array, view: DataView): HeaderEvidence {
+	if (bytes.length < 5 || view.getUint32(0) !== 0x1a45dfa3) return undefined;
+	// Walk the EBML header to read DocType and follow padding by its declared width.
+	const vint = (offset: number, id = false): { value: number; end: number } | undefined => {
+		const first = bytes[offset];
+		if (!first) return undefined;
+		const width = Math.clz32(first) - 23;
+		if (width > (id ? 4 : 8) || offset + width > bytes.length) return undefined;
+		let value = id ? first : first & (0xff >> width);
+		for (let i = 1; i < width; i++) value = value * 256 + bytes[offset + i];
+		return Number.isSafeInteger(value) ? { value, end: offset + width } : undefined;
+	};
+	const header = vint(4);
+	if (!header || !Number.isSafeInteger(header.end + header.value)) return undefined;
+	const end = header.end + header.value;
+	for (let offset = header.end; offset < end;) {
+		const id = vint(offset, true), size = id && vint(id.end);
+		if (!id || !size) {
+			const fields = Math.min(end, offset + 12); // A four-byte ID and eight-byte size.
+			return fields > bytes.length ? fields : undefined;
+		}
+		const next = size.end + size.value;
+		if (next > end) return undefined;
+		if (id.value === 0x4282) {
+			if (size.value !== 4 && size.value !== 8) return undefined;
+			if (next > bytes.length) return next;
+			if (size.value === 4 && textAt(bytes, size.end, 'webm')) return 'audio/webm';
+			if (size.value === 8 && textAt(bytes, size.end, 'matroska')) return 'audio/x-matroska';
+		}
+		offset = next;
+	}
 	return undefined;
+}
+
+/** Plausible box headers can request more bytes. Padding alone does not identify the source. */
+export function paddedHeaderEvidence(bytes: Uint8Array, view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)): HeaderEvidence {
+	return movieEvidence(bytes, view) ?? ebmlEvidence(bytes, view);
 }
 
 function transportStream(bytes: Uint8Array, stride: number, offset: number): boolean {
@@ -204,32 +269,8 @@ export function audioContainer(bytes: Uint8Array): string | undefined {
 	if (bytes.length >= 10 && textAt(bytes, 0, 'ID3') && bytes[3] >= 2 && bytes[3] <= 4 && bytes[4] !== 255
 		&& (bytes[5] & (0xff >> (bytes[3] === 2 ? 2 : bytes[3] === 3 ? 3 : 4))) === 0
 		&& bytes.subarray(6, 10).every(value => value < 128)) return 'ID3';
-	const movie = movieContainer(bytes, view);
-	if (movie) return movie;
-	if (bytes.length >= 5 && view.getUint32(0) === 0x1a45dfa3) {
-		// Walk the bounded EBML header to read DocType, rather than calling all EBML WebM.
-		const vint = (offset: number, id = false): { value: number; end: number } | undefined => {
-			const first = bytes[offset];
-			if (!first) return undefined;
-			const width = Math.clz32(first) - 23;
-			if (width > (id ? 4 : 8) || offset + width > bytes.length) return undefined;
-			let value = id ? first : first & (0xff >> width);
-			for (let i = 1; i < width; i++) value = value * 256 + bytes[offset + i];
-			return Number.isSafeInteger(value) ? { value, end: offset + width } : undefined;
-		};
-		const header = vint(4);
-		if (!header || header.end + header.value > bytes.length) return undefined;
-		const end = header.end + header.value;
-		for (let offset = header.end; offset < end;) {
-			const id = vint(offset, true), size = id && vint(id.end);
-			if (!size || size.end + size.value > end) break;
-			if (id.value === 0x4282) {
-				if (size.value === 4 && textAt(bytes, size.end, 'webm')) return 'audio/webm';
-				if (size.value === 8 && textAt(bytes, size.end, 'matroska')) return 'audio/x-matroska';
-			}
-			offset = size.end + size.value;
-		}
-	}
+	const container = paddedHeaderEvidence(bytes, view);
+	if (typeof container === 'string') return container;
 	// MXF permits a run-in before its header partition. A generic four-byte SMPTE label is insufficient.
 	for (let i = bytes.indexOf(0x06); i >= 0 && i + 16 <= bytes.length; i = bytes.indexOf(0x06, i + 1)) {
 		if (textAt(bytes, i, '\x06\x0e\x2b\x34\x02\x05\x01\x01\x0d\x01\x02\x01\x01\x02')

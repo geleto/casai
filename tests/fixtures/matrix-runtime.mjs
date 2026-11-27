@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import AudioBuffer from 'audio-buffer';
 import { writeWav } from '../../src/audio/pcm.ts';
 import { MockLanguageModelV3, MockEmbeddingModelV4, MockRerankingModelV4, MockImageModelV4,
   MockTranscriptionModelV4, MockSpeechModelV4, Experimental_DecisionMockModelV4,
@@ -28,14 +29,8 @@ if (native) await writeFile(nativeUrl, await writeWav(pcm, { sampleRate: 24000, 
 const recording = new Uint8Array(Buffer.from('524946462800000057415645666d74201000000001000100c05d000080bb000002001000646174610400000001000200', 'hex'));
 // One Web Audio channel and its equivalent WAV must deliver the same 24 kHz PCM samples.
 const channel = Float32Array.of(-.5, .75, -.25, .5);
-// The Node matrix fixture supplies the Web Audio interface. The browser suite uses Chromium's real AudioBuffer.
-globalThis.AudioBuffer ??= class AudioBuffer {
-  sampleRate = 48000;
-  numberOfChannels = 2;
-  getChannelData(index) { return [channel, new Float32Array(channel.length)][index]; }
-};
-const decoded = new globalThis.AudioBuffer({ sampleRate: 48000, numberOfChannels: 2, length: channel.length });
-decoded.copyToChannel?.(channel, 0);
+const decoded = new AudioBuffer({ sampleRate: 48000, numberOfChannels: 2, length: channel.length });
+decoded.copyToChannel(channel, 0);
 const wavFile = new globalThis.File([await writeWav(new Uint8Array(channel.buffer), { channels: 1, sampleRate: 48000, encoding: 'pcm_f32le' })], 'delivery-note.wav');
 const converted = new Uint8Array(Int16Array.of(-16384, -8192).buffer);
 const mixed = new Uint8Array(Int16Array.of(-8192, -4096).buffer);

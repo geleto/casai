@@ -1,0 +1,2719 @@
+diff --git a/.changeset/transcription-file-streams.md b/.changeset/transcription-file-streams.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..232cd81756c7540bb728df8dd8653d827882e6e8
+--- /dev/null
++++ b/.changeset/transcription-file-streams.md
+@@ -0,0 +1,10 @@
++---
++'ai': patch
++'@ai-sdk/provider': patch
++'@ai-sdk/provider-utils': patch
++'@ai-sdk/openai': patch
++'@ai-sdk/groq': patch
++'@ai-sdk/deepgram': patch
++---
++
++Support explicitly named recording uploads, OpenAI file transcript events, and live recorder containers on Deepgram Nova and Flux. Preserve the last Flux update on clean input shutdown.
+diff --git a/content/docs/03-ai-sdk-core/36-transcription.mdx b/content/docs/03-ai-sdk-core/36-transcription.mdx
+index 13b78fab8b902ff31552611ac716815b55a61cb1..d5aca3bc7c8d299758cc32da573f68a36b01eb37 100644
+--- a/content/docs/03-ai-sdk-core/36-transcription.mdx
++++ b/content/docs/03-ai-sdk-core/36-transcription.mdx
+@@ -34,6 +34,16 @@ const language = transcript.language; // language of the transcript e.g. "en", i
+ const durationInSeconds = transcript.durationInSeconds; // duration of the transcript in seconds, if available
+ ```
+ 
++## File uploads and recorder input
++
++Use `transcriptionFile(file)` to retain a File's name and MIME type with OpenAI or Groq. Supply `{ mediaType, filename }` to override either label. For a Blob without a type or a byte stream, provide the MIME type. An unnamed byte array can also use an existing byte-only adapter with its explicit MIME. A replayable File supports normal retries. A one-shot byte stream requires a fetch implementation that supports request streaming, and gets one attempt.
++
++OpenAI file models such as `gpt-4o-mini-transcribe` accept a recording and send transcript deltas over HTTP. Pass `audio: transcriptionFile(file)` to `experimental_streamTranscribe` and consume `fullStream` before reading the authoritative `text` from the same result. Diarized `transcript-final` events carry the speaker in provider metadata.
++
++Deepgram Nova and Flux accept ordered WebM/Opus, Ogg/Opus or WAV/linear16 chunks from a single recorder. Pass its byte stream as `audio` and its MIME as `inputAudioFormat.type`. Omit the rate for a container. Set `providerOptions.deepgram.streaming.interimResults` for Nova interim text. Flux revises the current turn until it ends. On normal input shutdown it drains the last update before completing.
++
++One-shot uploads require a fetch transport that streams HTTP request bodies. In a browser without that capability, supply a completed Blob or File. Compatible browser transports can also require HTTPS over HTTP/2 or later. Live recorder transcription uses a WebSocket.
++
+ ## Word and segment timings
+ 
+ Request word timings for highlighting and segment timings for captions with
+@@ -113,7 +123,7 @@ complete.
+ 
+ <Note type="warning">Streaming transcription is an experimental feature.</Note>
+ 
+-Use `experimental_streamTranscribe` when you have live raw audio and need transcript updates before the full audio stream is complete. The function uses transcription models with streaming support; provider options configure provider-specific behavior, but the streaming operation is selected by the function itself.
++Use `experimental_streamTranscribe` to receive early transcript events. Select live recording input with `inputAudioFormat` or file upload with `transcriptionFile`. Supported operations depend on the model.
+ 
+ ```ts
+ import { openai } from '@ai-sdk/openai';
+@@ -165,7 +175,7 @@ const language = await result.language; // language of the transcript, if availa
+ const durationInSeconds = await result.durationInSeconds; // duration in seconds, if available
+ ```
+ 
+-The `audio` stream must contain raw audio chunks. `Uint8Array` chunks are raw bytes; `string` chunks are base64-encoded raw bytes. Always set `inputAudioFormat` to match the chunks you send.
++A live `audio` stream carries ordered bytes from the declared format. String chunks contain base64-encoded bytes. Set `inputAudioFormat` for live input. A submitted `TranscriptionFile` supplies its own MIME.
+ 
+ <Note>
+   String model IDs resolve through the global provider (AI Gateway by
+diff --git a/content/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx b/content/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx
+index ccb69409b9a7bc5fd62534263f6250f779901228..5413d830a3980c5be0dbff23b22da62ff2a22b99 100644
+--- a/content/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx
++++ b/content/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx
+@@ -9,8 +9,7 @@ description: API Reference for experimental_streamTranscribe.
+   `experimental_streamTranscribe` is an experimental feature.
+ </Note>
+ 
+-Streams a transcript from live raw audio using a transcription model with
+-streaming support.
++Streams a transcript from a live audio source or from a completed recording on a model that supports the corresponding operation.
+ 
+ ```ts
+ import { experimental_streamTranscribe as streamTranscribe } from 'ai';
+@@ -48,19 +47,20 @@ console.log(await result.text);
+       name: 'model',
+       type: 'TranscriptionModelV4',
+       description:
+-        "The transcription model to use. The model must support streaming (`doStream`). String model IDs resolve through the global provider (AI Gateway by default), which supports streaming transcription for supported models (e.g. `openai/gpt-realtime-whisper`, `xai/grok-stt`): `experimental_streamTranscribe({ model: 'openai/gpt-realtime-whisper', ... })`.",
++        "The transcription model to use. File input requires doStreamFromFile. Live input requires streaming (`doStream`). String model IDs resolve through the global provider (AI Gateway by default), which supports streaming transcription for supported models (e.g. `openai/gpt-realtime-whisper`, `xai/grok-stt`): `experimental_streamTranscribe({ model: 'openai/gpt-realtime-whisper', ... })`.",
+     },
+     {
+       name: 'audio',
+-      type: 'ReadableStream<Uint8Array | string>',
++      type: 'ReadableStream<Uint8Array | string> | TranscriptionFile',
+       description:
+-        'Raw audio chunks to transcribe. `Uint8Array` chunks contain raw audio bytes; `string` chunks contain base64-encoded raw audio bytes.',
++        'Use transcriptionFile to upload one encoded recording and receive file transcript events. For live transcription, supply ordered chunks from one recording and inputAudioFormat. `Uint8Array` chunks contain audio bytes; `string` chunks contain base64-encoded audio bytes.',
+     },
+     {
+       name: 'inputAudioFormat',
++      isOptional: true,
+       type: '{ type: string; rate?: number }',
+       description:
+-        'The input audio format for the raw audio chunks, e.g. `{ type: "audio/pcm", rate: 24000 }`. Supported types are provider-specific (e.g. `audio/pcm`, `audio/pcmu`, `audio/pcma`).',
++        'Required for live input. Omit it for transcriptionFile. For Deepgram recorder chunks, use audio/webm, audio/ogg or audio/wav without a rate. For raw samples use e.g. `{ type: "audio/pcm", rate: 24000 }`. Supported types are provider-specific (e.g. `audio/pcm`, `audio/pcmu`, `audio/pcma`).',
+     },
+     {
+       name: 'providerOptions',
+diff --git a/content/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx b/content/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx
+index 263d9b960d157e67a910f4171bf6a63ff4e7c76e..06733b67da1a406bfb7a61c9f1ab0fe63739340f 100644
+--- a/content/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx
++++ b/content/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx
+@@ -37,9 +37,9 @@ console.log(transcript);
+     },
+     {
+       name: 'audio',
+-      type: 'DataContent (string | Uint8Array | ArrayBuffer | Buffer) | URL',
++      type: 'DataContent (string | Uint8Array | ArrayBuffer | Buffer) | URL | TranscriptionFile',
+       description:
+-        'The audio file to generate the transcript from. HTTP(S) URLs are sent directly to models with native URL support unless a custom download function is supplied; other models download the audio locally.',
++        'Use transcriptionFile(data, { mediaType, filename }) to send a Blob, File, byte array or one-shot byte stream through a file-capable adapter such as OpenAI or Groq. A Blob or byte array can be retried. A one-shot stream gets a single attempt and requires a fetch transport with streaming request support. HTTP(S) URLs are sent directly to models with native URL support unless a custom download function is supplied; other models download the audio locally.',
+     },
+     {
+       name: 'timestampGranularities',
+diff --git a/content/providers/01-ai-sdk-providers/03-openai.mdx b/content/providers/01-ai-sdk-providers/03-openai.mdx
+index 16c409e190c99821563c6e64e77011396a4a119a..bfb7add9e54501d26626a7d12699232168eab1ab 100644
+--- a/content/providers/01-ai-sdk-providers/03-openai.mdx
++++ b/content/providers/01-ai-sdk-providers/03-openai.mdx
+@@ -4062,6 +4062,8 @@ The API validates model support and language codes. These two options currently
+ apply to REST transcription; the provider reports unsupported-option warnings
+ if they are supplied to `experimental_streamTranscribe`.
+ 
++For a completed recording, pass `audio: transcriptionFile(file)` without a live audio format. File-capable models send transcript deltas from the audio transcriptions HTTP endpoint. The diarization model also sends speaker segments. Consume `fullStream` first and read `text` from the same result for the final transcript. Whisper-1 supports the completed JSON operation.
++
+ To get word and caption timings together, use the shared setting with a
+ model that supports `verbose_json`, such as Whisper:
+ 
+@@ -4155,15 +4157,15 @@ The following provider options are available:
+ 
+ {/* model-capabilities:openai-transcription:start */}
+ 
+-| Model                       | Transcription | Streaming | Duration  | Segments  | Language  |
+-| --------------------------- | ------------- | --------- | --------- | --------- | --------- |
+-| `whisper-1`                 | <Check />     | <Check /> | <Check /> | <Check /> | <Check /> |
+-| `gpt-4o-mini-transcribe`    | <Check />     | <Check /> | <Cross /> | <Cross /> | <Cross /> |
+-| `gpt-4o-transcribe`         | <Check />     | <Check /> | <Cross /> | <Cross /> | <Cross /> |
+-| `gpt-4o-transcribe-diarize` | <Check />     | <Cross /> | <Check /> | <Check /> | <Cross /> |
+-| `gpt-transcribe`            | <Check />     | <Check /> | <Cross /> | <Cross /> | <Check /> |
+-| `gpt-live-transcribe`       | <Cross />     | <Check /> | <Cross /> | <Cross /> | <Cross /> |
+-| `gpt-realtime-whisper`      | <Cross />     | <Check /> | <Cross /> | <Cross /> | <Cross /> |
++| Model                       | Transcription | Live streaming | File streaming | Duration  | Segments  | Language  |
++| --------------------------- | ------------- | -------------- | -------------- | --------- | --------- | --------- |
++| `whisper-1`                 | <Check />     | <Check />      | <Cross />      | <Check /> | <Check /> | <Check /> |
++| `gpt-4o-mini-transcribe`    | <Check />     | <Check />      | <Check />      | <Cross /> | <Cross /> | <Cross /> |
++| `gpt-4o-transcribe`         | <Check />     | <Check />      | <Check />      | <Cross /> | <Cross /> | <Cross /> |
++| `gpt-4o-transcribe-diarize` | <Check />     | <Cross />      | <Check />      | <Check /> | <Check /> | <Cross /> |
++| `gpt-transcribe`            | <Check />     | <Check />      | <Check />      | <Cross /> | <Cross /> | <Check /> |
++| `gpt-live-transcribe`       | <Cross />     | <Check />      | <Cross />      | <Cross /> | <Cross /> | <Cross /> |
++| `gpt-realtime-whisper`      | <Cross />     | <Check />      | <Cross />      | <Cross /> | <Cross /> | <Cross /> |
+ 
+ {/* model-capabilities:openai-transcription:end */}
+ 
+diff --git a/content/providers/01-ai-sdk-providers/110-deepgram.mdx b/content/providers/01-ai-sdk-providers/110-deepgram.mdx
+index 046ddac681ebac86b93a49f1bcbca223a343b9de..efa0e4c8fe7b42bd665c5f74e2b665d3b65233c3 100644
+--- a/content/providers/01-ai-sdk-providers/110-deepgram.mdx
++++ b/content/providers/01-ai-sdk-providers/110-deepgram.mdx
+@@ -391,6 +391,8 @@ The following provider options are available:
+ | `nova-3`                  | <Check />     | <Check /> | <Check /> | <Check /> | Conditional: Returned when automatic language detection is enabled and the API supplies detected_language. |
+ | `nova-3-general`          | <Check />     | <Check /> | <Check /> | <Check /> | Conditional: Returned when automatic language detection is enabled and the API supplies detected_language. |
+ | `nova-3-medical`          | <Check />     | <Check /> | <Check /> | <Check /> | Conditional: Returned when automatic language detection is enabled and the API supplies detected_language. |
++| `flux-general-en`         | <Cross />     | <Check /> | <Check /> | <Check /> | <Cross />                                                                                                  |
++| `flux-general-multi`      | <Cross />     | <Check /> | <Check /> | <Check /> | <Cross />                                                                                                  |
+ 
+ {/* model-capabilities:deepgram-transcription:end */}
+ 
+@@ -426,17 +428,7 @@ console.log(await result.segments);
+ console.log(await result.durationInSeconds);
+ ```
+ 
+-Input chunks contain raw 16-bit little-endian PCM (`audio/pcm`), G.711 μ-law
+-(`audio/pcmu`), or G.711 A-law (`audio/pcma`). Set `rate` to the actual sample
+-rate. Strings contain base64-encoded audio. Closing the audio input flushes the
+-remaining transcript before the result finishes. Idle input connections send
+-keepalive messages, and cancellation closes the socket and cancels the audio
+-source.
+-
+-The provider authenticates with WebSocket subprotocols when using a Deepgram API
+-key, so native WebSockets work without custom headers. Keep long-lived API keys
+-on the server. Flux models use a separate `/v2/listen` protocol and are not
+-supported by this implementation.
++Pass ordered WebM/Opus, Ogg/Opus or WAV/linear16 chunks from one recording with its container MIME and omit the rate. For raw PCM16, G.711 mu-law and A-law, supply the actual sample rate. Nova uses the v1 socket, supports interim results and sends keepalives during silence. Flux uses the v2 socket and issues revisable turn updates. Closing input drains the last update into the final transcript. Cancelling the call closes the socket and releases its input. Browser WebSockets authenticate through subprotocols. Keep long-lived keys on the server.
+ 
+ To authenticate with a short-lived token, use the Bearer scheme:
+ 
+diff --git a/examples/ai-functions/src/stream-transcribe/openai/recorded-file.ts b/examples/ai-functions/src/stream-transcribe/openai/recorded-file.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..340be4661ecf5e7ca55baa51b86eecc0ebc689f7
+--- /dev/null
++++ b/examples/ai-functions/src/stream-transcribe/openai/recorded-file.ts
+@@ -0,0 +1,17 @@
++import { openAsBlob } from 'node:fs';
++import { openai } from '@ai-sdk/openai';
++import {
++  experimental_streamTranscribe as streamTranscribe,
++  transcriptionFile,
++} from 'ai';
++
++const recording = await openAsBlob(process.argv[2], { type: 'audio/mp4' });
++const result = streamTranscribe({
++  model: openai.transcription('gpt-4o-mini-transcribe'),
++  audio: transcriptionFile(recording, { filename: 'interview.m4a' }),
++});
++
++for await (const part of result.fullStream) {
++  if (part.type === 'transcript-delta') process.stdout.write(part.delta);
++}
++console.log(await result.text);
+diff --git a/packages/ai/src/test/mock-transcription-model-v4.ts b/packages/ai/src/test/mock-transcription-model-v4.ts
+index 1df235d21acaa030c1309ec70a72cee2fdcdf77a..8d017cef608d41f9be5fccb2a9ad84940be7a69b 100644
+--- a/packages/ai/src/test/mock-transcription-model-v4.ts
++++ b/packages/ai/src/test/mock-transcription-model-v4.ts
+@@ -8,6 +8,8 @@ export class MockTranscriptionModelV4 implements TranscriptionModelV4 {
+ 
+   doGenerate: TranscriptionModelV4['doGenerate'];
+   doStream: TranscriptionModelV4['doStream'];
++  doGenerateFromFile: TranscriptionModelV4['doGenerateFromFile'];
++  doStreamFromFile: TranscriptionModelV4['doStreamFromFile'];
+   doGenerateFromUrl: TranscriptionModelV4['doGenerateFromUrl'];
+ 
+   constructor({
+@@ -15,18 +17,24 @@ export class MockTranscriptionModelV4 implements TranscriptionModelV4 {
+     modelId = 'mock-model-id',
+     doGenerate = notImplemented,
+     doStream,
++    doGenerateFromFile,
++    doStreamFromFile,
+     doGenerateFromUrl,
+   }: {
+     provider?: TranscriptionModelV4['provider'];
+     modelId?: TranscriptionModelV4['modelId'];
+     doGenerate?: TranscriptionModelV4['doGenerate'];
+     doStream?: TranscriptionModelV4['doStream'];
++    doGenerateFromFile?: TranscriptionModelV4['doGenerateFromFile'];
++    doStreamFromFile?: TranscriptionModelV4['doStreamFromFile'];
+     doGenerateFromUrl?: TranscriptionModelV4['doGenerateFromUrl'];
+   } = {}) {
+     this.provider = provider;
+     this.modelId = modelId;
+     this.doGenerate = doGenerate;
+     this.doStream = doStream;
++    this.doGenerateFromFile = doGenerateFromFile;
++    this.doStreamFromFile = doStreamFromFile;
+     this.doGenerateFromUrl = doGenerateFromUrl;
+   }
+ }
+diff --git a/packages/ai/src/transcribe/index.ts b/packages/ai/src/transcribe/index.ts
+index b5c1e99d97620f24184a57c16be772246d703a92..e75a246b942366dec9b991b60bf5fb30bd8fa645 100644
+--- a/packages/ai/src/transcribe/index.ts
++++ b/packages/ai/src/transcribe/index.ts
+@@ -2,6 +2,8 @@ import type { TranscriptionResult } from './transcribe-result';
+ import { transcribe } from './transcribe';
+ import { logWarnings } from '../logger/log-warnings';
+ 
++export { transcriptionFile } from './transcription-file';
++export type { TranscriptionModelV4File as TranscriptionFile } from '@ai-sdk/provider';
+ export { transcribe } from './transcribe';
+ export { streamTranscribe as experimental_streamTranscribe } from './stream-transcribe';
+ export type {
+diff --git a/packages/ai/src/transcribe/stream-transcribe.ts b/packages/ai/src/transcribe/stream-transcribe.ts
+index a6724601b38b23990e08d23169a5cb56b9681396..82730dd8341c57acf640393088fb34f5f853a36b 100644
+--- a/packages/ai/src/transcribe/stream-transcribe.ts
++++ b/packages/ai/src/transcribe/stream-transcribe.ts
+@@ -2,6 +2,7 @@ import {
+   UnsupportedFunctionalityError,
+   type Experimental_TranscriptionModelV4StreamPart,
+   type JSONObject,
++  type TranscriptionModelV4File,
+   type SharedV4AudioFormat,
+ } from '@ai-sdk/provider';
+ import {
+@@ -10,6 +11,12 @@ import {
+   withUserAgentSuffix,
+   type ProviderOptions,
+ } from '@ai-sdk/provider-utils';
++import {
++  openTranscriptionFile,
++  fileByteLength,
++  isTranscriptionFile,
++  transcriptionFile,
++} from './transcription-file';
+ import { NoTranscriptGeneratedError } from '../error/no-transcript-generated-error';
+ import { logWarnings } from '../logger/log-warnings';
+ import { resolveTranscriptionModel } from '../model/resolve-model';
+@@ -46,8 +53,8 @@ const originalGenerateCallId = createIdGenerator({
+  * Streams transcripts using a transcription model.
+  *
+  * @param model - The transcription model to use.
+- * @param audio - Raw audio chunks to transcribe.
+- * @param inputAudioFormat - The input audio format for the raw audio chunks.
++ * @param audio - Ordered live chunks, or one encoded recording described with transcriptionFile.
++ * @param inputAudioFormat - Format of live audio chunks. Omit it for file input.
+  * @param providerOptions - Additional provider-specific options.
+  * @param abortSignal - An optional abort signal that can be used to cancel the call.
+  * @param headers - Additional HTTP/WebSocket headers to send when supported by the provider.
+@@ -74,16 +81,6 @@ export function streamTranscribe({
+    */
+   model: TranscriptionModel;
+ 
+-  /**
+-   * Raw audio chunks to transcribe.
+-   */
+-  audio: ReadableStream<Uint8Array | string>;
+-
+-  /**
+-   * The input audio format for the raw audio chunks.
+-   */
+-  inputAudioFormat: SharedV4AudioFormat;
+-
+   /**
+    * Additional provider-specific options.
+    */
+@@ -116,14 +113,32 @@ export function streamTranscribe({
+     currentDate?: () => Date;
+     generateCallId?: () => string;
+   };
+-}): StreamTranscriptionResult {
++} & (
++  | {
++      audio: ReadableStream<Uint8Array | string>;
++      inputAudioFormat: SharedV4AudioFormat;
++    }
++  | { audio: TranscriptionModelV4File; inputAudioFormat?: never }
++)): StreamTranscriptionResult {
+   const resolvedModel = resolveTranscriptionModel(model);
+   if (!resolvedModel) {
+     throw new Error('Model could not be resolved');
+   }
+ 
+-  const doStream = resolvedModel.doStream?.bind(resolvedModel);
+-  if (doStream == null) {
++  const file = isTranscriptionFile(audio)
++    ? transcriptionFile(audio.data, audio)
++    : undefined;
++  if (file != null && inputAudioFormat != null) {
++    throw new TypeError(
++      'A transcription file and inputAudioFormat select different operations.',
++    );
++  }
++  if (file != null && resolvedModel.doStreamFromFile == null) {
++    throw new UnsupportedFunctionalityError({
++      functionality: 'streaming transcription from a file',
++    });
++  }
++  if (file == null && resolvedModel.doStream == null) {
+     throw new UnsupportedFunctionalityError({
+       functionality: 'streaming transcription',
+       message:
+@@ -137,6 +152,10 @@ export function streamTranscribe({
+     });
+   }
+ 
++  if (file != null) {
++    abortSignal?.throwIfAborted();
++  }
++
+   const headersWithUserAgent = withUserAgentSuffix(
+     headers ?? {},
+     `ai/${VERSION}`,
+@@ -148,21 +167,30 @@ export function streamTranscribe({
+     telemetryDispatcher.runInTracingChannelSpan ??
+     (async <T>({ execute }: { execute: () => PromiseLike<T> }) =>
+       await execute());
+-  let audioByteLength = 0;
++  let audioByteLength = file == null ? 0 : (fileByteLength(file) ?? 0);
++  const mediaType = file?.mediaType ?? inputAudioFormat!.type;
++  const count = (size: number) => {
++    audioByteLength += size;
++  };
++  const measure =
++    telemetryDispatcher.experimental_onStreamTranscriptionEnd != null;
++  const liveAudio = isTranscriptionFile(audio) ? undefined : audio;
+   const countedAudio =
+-    telemetryDispatcher.experimental_onStreamTranscriptionEnd != null
+-      ? createByteCountingStream(audio, byteLength => {
+-          audioByteLength += byteLength;
+-        })
+-      : audio;
++    liveAudio != null && measure
++      ? createByteCountingStream(liveAudio, count)
++      : liveAudio;
++  const openedFile =
++    file != null
++      ? openTranscriptionFile(file, measure ? count : undefined)
++      : undefined;
+   const startEvent: StreamTranscriptionStartEvent = {
+     callId,
+     operationId: 'ai.streamTranscribe',
+     provider: resolvedModel.provider,
+     modelId: resolvedModel.modelId,
+     audio: {
+-      byteLength: undefined,
+-      mediaType: inputAudioFormat.type,
++      byteLength: file != null ? fileByteLength(file) : undefined,
++      mediaType,
+     },
+     inputAudioFormat,
+     maxRetries: undefined,
+@@ -221,12 +249,10 @@ export function streamTranscribe({
+   // spurious unhandled rejection on Node.js 26 when the transform drops chunks.
+   const pipeAbortController = new AbortController();
+ 
+-  // `Transformer.cancel` is part of the Streams spec (and supported at runtime),
+-  // but not yet reflected in the ambient `Transformer` type, so widen it here.
+   const transformer: Transformer<
+     Experimental_TranscriptionModelV4StreamPart,
+     TranscriptionStreamPart
+-  > & { cancel?: (reason?: unknown) => void } = {
++  > = {
+     async transform(value, controller) {
+       switch (value.type) {
+         case 'stream-start': {
+@@ -253,6 +279,7 @@ export function streamTranscribe({
+         }
+ 
+         case 'finish': {
++          await openedFile?.close?.().catch(() => {});
+           if (!warningsPromise.isResolved()) {
+             resolveWarnings([]);
+           }
+@@ -281,7 +308,7 @@ export function streamTranscribe({
+               modelId: resolvedModel.modelId,
+               audio: {
+                 byteLength: audioByteLength,
+-                mediaType: inputAudioFormat.type,
++                mediaType,
+               },
+               text: value.text,
+               segments: value.segments,
+@@ -312,12 +339,6 @@ export function streamTranscribe({
+         });
+       }
+     },
+-
+-    cancel(reason) {
+-      pipeAbortController.abort(
+-        reason ?? new Error('Transcription stream was cancelled.'),
+-      );
+-    },
+   };
+ 
+   const transform = new TransformStream<
+@@ -338,15 +359,24 @@ export function streamTranscribe({
+         ],
+       });
+ 
+-      const result = await doStream({
+-        audio: countedAudio,
+-        inputAudioFormat,
++      const callOptions = {
+         providerOptions,
+         // merged so cancelling fullStream also aborts a still-pending doStream
+         abortSignal: mergeAbortSignals(abortSignal, pipeAbortController.signal),
+         headers: headersWithUserAgent,
+         includeRawChunks,
+-      });
++      };
++      const result =
++        file != null
++          ? await resolvedModel.doStreamFromFile!({
++              ...callOptions,
++              audio: openedFile!.file,
++            })
++          : await resolvedModel.doStream!({
++              ...callOptions,
++              audio: countedAudio!,
++              inputAudioFormat: inputAudioFormat!,
++            });
+ 
+       response = {
+         timestamp: result.response?.timestamp ?? startedAt,
+@@ -370,7 +400,8 @@ export function streamTranscribe({
+     // header resolution failure), nothing has taken ownership of `countedAudio`
+     // yet, so cancel it directly. When the model did take a reader, the cancel
+     // rejects and the model's cleanup owns it.
+-    countedAudio.cancel(reason).catch(() => {});
++    void countedAudio?.cancel(reason).catch(() => {});
++    void openedFile?.close?.(reason).catch(() => {});
+     transform.writable.abort(reason).catch(() => {
+       // the writable is already errored when the model stream failed mid-pipe
+     });
+@@ -407,9 +438,41 @@ export function streamTranscribe({
+       );
+     }
+     streamOwner = 'full-stream';
+-    // Direct ownership preserves backpressure and cancellation: cancelling
+-    // this stream reaches Transformer.cancel and aborts the model pipe.
+-    return asAsyncIterableStream(transform.readable);
++    // ReadableStream.cancel runs even before a provider has returned response headers.
++    const reader = transform.readable.getReader();
++    return asAsyncIterableStream(
++      new ReadableStream<TranscriptionStreamPart>(
++        {
++          async pull(controller) {
++            try {
++              const item = await reader.read();
++              if (pipeAbortController.signal.aborted) return;
++              if (item.done) {
++                reader.releaseLock();
++                controller.close();
++              } else controller.enqueue(item.value);
++            } catch (error) {
++              if (pipeAbortController.signal.aborted) return;
++              reader.releaseLock();
++              controller.error(error);
++            }
++          },
++          async cancel(reason) {
++            const error =
++              reason ?? new Error('Transcription stream was cancelled.');
++            pipeAbortController.abort(error);
++            rejectPendingPromises(error);
++            void openedFile?.close?.(error).catch(() => {});
++            try {
++              await reader.cancel(error);
++            } finally {
++              reader.releaseLock();
++            }
++          },
++        },
++        { highWaterMark: 0 },
++      ),
++    );
+   }
+ 
+   return {
+@@ -447,17 +510,18 @@ export function streamTranscribe({
+   };
+ }
+ 
+-function createByteCountingStream(
+-  audio: ReadableStream<Uint8Array | string>,
++function createByteCountingStream<T extends Uint8Array | string>(
++  audio: ReadableStream<T>,
+   onChunk: (byteLength: number) => void,
+-): ReadableStream<Uint8Array | string> {
+-  let audioReader: ReadableStreamDefaultReader<Uint8Array | string> | undefined;
++): ReadableStream<T> {
++  let audioReader: ReadableStreamDefaultReader<T> | undefined;
+ 
+-  return new ReadableStream<Uint8Array | string>({
++  return new ReadableStream<T>({
+     async pull(controller) {
+       audioReader ??= audio.getReader();
+       const { done, value } = await audioReader.read();
+       if (done) {
++        audioReader.releaseLock();
+         controller.close();
+         return;
+       }
+@@ -471,7 +535,11 @@ function createByteCountingStream(
+     },
+     async cancel(reason) {
+       if (audioReader != null) {
+-        await audioReader.cancel(reason);
++        try {
++          await audioReader.cancel(reason);
++        } finally {
++          audioReader.releaseLock();
++        }
+       } else {
+         await audio.cancel(reason);
+       }
+diff --git a/packages/ai/src/transcribe/transcribe.ts b/packages/ai/src/transcribe/transcribe.ts
+index 83ef6f99d9fdde43a848222b06bbaee0a23bba47..464a6acc0498c848716b8df1102b517bb5a6b12c 100644
+--- a/packages/ai/src/transcribe/transcribe.ts
++++ b/packages/ai/src/transcribe/transcribe.ts
+@@ -1,15 +1,25 @@
+-import type {
+-  JSONObject,
+-  TranscriptionModelV4TimestampGranularity,
++import {
++  InvalidArgumentError,
++  UnsupportedFunctionalityError,
++  type JSONObject,
++  type TranscriptionModelV4File,
++  type TranscriptionModelV4TimestampGranularity,
+ } from '@ai-sdk/provider';
+ import {
+   createIdGenerator,
+   detectMediaType,
+   getTopLevelMediaType,
+   isFullMediaType,
++  isUint8Array,
+   withUserAgentSuffix,
+   type ProviderOptions,
+ } from '@ai-sdk/provider-utils';
++import {
++  openTranscriptionFile,
++  fileByteLength,
++  isTranscriptionFile,
++  transcriptionFile,
++} from './transcription-file';
+ import { NoTranscriptGeneratedError } from '../error/no-transcript-generated-error';
+ import { logWarnings } from '../logger/log-warnings';
+ import { resolveTranscriptionModel } from '../model/resolve-model';
+@@ -38,7 +48,7 @@ const originalGenerateCallId = createIdGenerator({
+  * Generates transcripts using a transcription model.
+  *
+  * @param model - The transcription model to use.
+- * @param audio - The audio data to transcribe as DataContent (string | Uint8Array | ArrayBuffer | Buffer) or a URL.
++ * @param audio - The audio data to transcribe as DataContent (string | Uint8Array | ArrayBuffer | Buffer) or a URL, or an encoded recording described with transcriptionFile.
+  * @param providerOptions - Additional provider-specific options that are passed through to the provider
+  * as body parameters.
+  * @param maxRetries - Maximum number of retries. Set to 0 to disable retries. Default: 2.
+@@ -70,7 +80,7 @@ export async function transcribe({
+   /**
+    * The audio data to transcribe.
+    */
+-  audio: DataContent | URL;
++  audio: DataContent | URL | TranscriptionModelV4File;
+ 
+   /**
+    * Additional provider-specific options that are passed through to the provider
+@@ -146,10 +156,24 @@ export async function transcribe({
+     throw new Error('Model could not be resolved');
+   }
+ 
++  const source =
++    isTranscriptionFile(audio) &&
++    audio.data != null &&
++    typeof audio.data === 'object' &&
++    'getReader' in audio.data
++      ? audio.data
++      : undefined;
+   const { maxRetries, retry } = prepareRetries({
+-    maxRetries: maxRetriesArg,
++    maxRetries: maxRetriesArg ?? (source != null ? 0 : undefined),
+     abortSignal,
+   });
++  if (source != null && maxRetries > 0) {
++    throw new InvalidArgumentError({
++      argument: 'maxRetries',
++      message:
++        'A one-shot transcription file cannot be replayed. Use a Blob or set maxRetries to 0.',
++    });
++  }
+ 
+   const headersWithUserAgent = withUserAgentSuffix(
+     headers ?? {},
+@@ -207,11 +231,26 @@ export async function transcribe({
+ 
+   let preparationError: unknown;
+   let preparationFailed = false;
+-  let audioData: Uint8Array | URL;
++  let audioData: Uint8Array | URL | TranscriptionModelV4File;
+   let downloadedMediaType: string | undefined;
++  let closeFile: ((reason?: unknown) => Promise<void>) | undefined;
+ 
+   try {
+-    if (audio instanceof URL) {
++    if (isTranscriptionFile(audio)) {
++      if (
++        resolvedModel.doGenerateFromFile == null &&
++        (audio.filename != null || !isUint8Array(audio.data))
++      ) {
++        throw new UnsupportedFunctionalityError({
++          functionality: 'explicit transcription file upload',
++        });
++      }
++      audioData = transcriptionFile(audio.data, audio);
++      abortSignal?.throwIfAborted();
++      const opened = openTranscriptionFile(audioData);
++      audioData = opened.file;
++      closeFile = opened.close;
++    } else if (audio instanceof URL) {
+       if (
+         resolvedModel.doGenerateFromUrl != null &&
+         downloadFn === defaultDownload &&
+@@ -251,8 +290,9 @@ export async function transcribe({
+     }
+   }
+ 
+-  let mediaType =
+-    audioData instanceof URL
++  let mediaType = isTranscriptionFile(audioData)
++    ? audioData.mediaType
++    : audioData instanceof URL
+       ? undefined
+       : (getAudioMediaType(downloadedMediaType) ??
+         detectMediaType({
+@@ -260,7 +300,11 @@ export async function transcribe({
+           topLevelType: 'audio',
+         }) ??
+         'audio/wav');
+-  let byteLength = audioData instanceof URL ? undefined : audioData.byteLength;
++  let byteLength = isTranscriptionFile(audioData)
++    ? fileByteLength(audioData)
++    : audioData instanceof URL
++      ? undefined
++      : audioData.byteLength;
+   const startEvent = createStartEvent({
+     byteLength,
+     mediaType,
+@@ -279,6 +323,20 @@ export async function transcribe({
+               ? { timestampGranularities }
+               : {}),
+           };
++          if (isTranscriptionFile(audioData)) {
++            if (resolvedModel.doGenerateFromFile != null) {
++              return resolvedModel.doGenerateFromFile({
++                ...callOptions,
++                audio: audioData,
++              });
++            }
++            // Byte-only models already accept an explicit MIME. Preflight excluded named files and streams.
++            return resolvedModel.doGenerate({
++              ...callOptions,
++              audio: audioData.data as Uint8Array,
++              mediaType: audioData.mediaType,
++            });
++          }
+           if (audioData instanceof URL) {
+             const nativeResult = await resolvedModel.doGenerateFromUrl?.({
+               ...callOptions,
+@@ -356,8 +414,11 @@ export async function transcribe({
+       },
+     });
+   } catch (error) {
++    await closeFile?.(error).catch(() => {});
+     await telemetryDispatcher.onError?.({ callId, error });
+     throw error;
++  } finally {
++    await closeFile?.().catch(() => {});
+   }
+ }
+ 
+diff --git a/packages/ai/src/transcribe/transcription-file.test.ts b/packages/ai/src/transcribe/transcription-file.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0a0eadcf9518d9dc7d5c13ba5b635e824335fd5d
+--- /dev/null
++++ b/packages/ai/src/transcribe/transcription-file.test.ts
+@@ -0,0 +1,189 @@
++import { APICallError } from '@ai-sdk/provider';
++import { convertArrayToReadableStream } from '@ai-sdk/provider-utils/test';
++import { describe, expect, it, vi } from 'vitest';
++import { MockTranscriptionModelV4 } from '../test/mock-transcription-model-v4';
++import { transcribe } from './transcribe';
++import { streamTranscribe } from './stream-transcribe';
++import { transcriptionFile } from './transcription-file';
++
++const success = {
++  text: 'done',
++  segments: [],
++  language: undefined,
++  durationInSeconds: undefined,
++  warnings: [],
++  response: { timestamp: new Date(), modelId: 'test' },
++};
++const retryable = () =>
++  new APICallError({
++    message: 'retry',
++    url: 'https://example.test',
++    requestBodyValues: {},
++    statusCode: 503,
++    isRetryable: true,
++  });
++
++describe('transcriptionFile', () => {
++  it('retains a replayable File and retries with the same name and explicit MIME', async () => {
++    const data = new File(['payload'], 'meeting.xyz', { type: 'audio/mpeg' });
++    const audio = transcriptionFile(data, { mediaType: 'audio/mp4' });
++    const doGenerateFromFile = vi
++      .fn()
++      .mockRejectedValueOnce(retryable())
++      .mockResolvedValue(success);
++    const model = new MockTranscriptionModelV4({ doGenerateFromFile });
++    expect((await transcribe({ model, audio, maxRetries: 1 })).text).toBe(
++      'done',
++    );
++    expect(doGenerateFromFile).toHaveBeenCalledTimes(2);
++    for (const [call] of doGenerateFromFile.mock.calls) {
++      expect(call.audio.data).toBe(data);
++      expect(call.audio.mediaType).toBe('audio/mp4');
++    }
++  });
++
++  it('keeps one-shot input available after an invalid retry request, and never replays a failed upload', async () => {
++    const cancel = vi.fn();
++    const pull = vi.fn();
++    const audio = transcriptionFile(
++      new ReadableStream({ pull, cancel }, { highWaterMark: 0 }),
++      { mediaType: 'audio/ogg' },
++    );
++    const doGenerateFromFile = vi.fn().mockRejectedValue(retryable());
++    const model = new MockTranscriptionModelV4({ doGenerateFromFile });
++    for (const [maxRetries, message] of [
++      [-1, 'must be >= 0'],
++      [NaN, 'must be an integer'],
++      [0.5, 'must be an integer'],
++    ] as const) {
++      await expect(transcribe({ model, audio, maxRetries })).rejects.toThrow(
++        message,
++      );
++    }
++    await expect(transcribe({ model, audio, maxRetries: 2 })).rejects.toThrow(
++      'cannot be replayed',
++    );
++    expect(pull).not.toHaveBeenCalled();
++    expect(cancel).not.toHaveBeenCalled();
++    await expect(transcribe({ model, audio })).rejects.toThrow('retry');
++    expect(doGenerateFromFile).toHaveBeenCalledOnce();
++    expect(cancel).toHaveBeenCalledOnce();
++  });
++
++  it('reports missing adapter support before reading or locking the input', async () => {
++    const pull = vi.fn();
++    const audio = transcriptionFile(
++      new ReadableStream({ pull }, { highWaterMark: 0 }),
++      { mediaType: 'audio/mpeg' },
++    );
++    const model = new MockTranscriptionModelV4();
++    await expect(transcribe({ model, audio })).rejects.toThrow('file upload');
++    expect(() => streamTranscribe({ model, audio })).toThrow('from a file');
++    expect(pull).not.toHaveBeenCalled();
++  });
++
++  it('sends file streams through one native execution and reports actual input size to telemetry', async () => {
++    const onEnd = vi.fn();
++    const model = new MockTranscriptionModelV4({
++      doStreamFromFile: async ({ audio }) => {
++        expect(audio.filename).toBe('intro.container');
++        await new Response(
++          audio.data as ReadableStream<Uint8Array<ArrayBuffer>>,
++        ).arrayBuffer();
++        return {
++          stream: convertArrayToReadableStream([
++            { type: 'transcript-delta', delta: 'd' },
++            { type: 'finish', text: 'done', segments: [] },
++          ]),
++        };
++      },
++    });
++    const audio = transcriptionFile(
++      convertArrayToReadableStream([new Uint8Array(4), new Uint8Array(3)]),
++      { mediaType: 'audio/ogg', filename: 'intro.container' },
++    );
++    const result = streamTranscribe({
++      model,
++      audio,
++      telemetry: {
++        integrations: { experimental_onStreamTranscriptionEnd: onEnd },
++      },
++    });
++    const reader = result.fullStream.getReader();
++    expect((await reader.read()).value).toMatchObject({ delta: 'd' });
++    expect((await reader.read()).done).toBe(true);
++    expect(await result.text).toBe('done');
++    expect(onEnd.mock.calls[0][0].audio).toEqual({
++      byteLength: 7,
++      mediaType: 'audio/ogg',
++    });
++  });
++  it.each(['complete', 'stream'])(
++    'releases a source with a pending read on early %s success',
++    async delivery => {
++      const cancel = vi.fn();
++      const data = new ReadableStream<Uint8Array>(
++        { cancel },
++        { highWaterMark: 0 },
++      );
++      const audio = transcriptionFile(data, { mediaType: 'audio/ogg' });
++      const takeReader = (source: typeof audio) => {
++        const reader = (source.data as ReadableStream<Uint8Array>).getReader();
++        return reader.read().finally(() => reader.releaseLock());
++      };
++      let read: Promise<ReadableStreamReadResult<Uint8Array>> | undefined;
++      const model = new MockTranscriptionModelV4({
++        doGenerateFromFile: async ({ audio }) => {
++          read = takeReader(audio);
++          return success;
++        },
++        doStreamFromFile: async ({ audio }) => {
++          read = takeReader(audio);
++          return {
++            stream: convertArrayToReadableStream([
++              { type: 'finish', text: 'done', segments: [] },
++            ]),
++          };
++        },
++      });
++      const result =
++        delivery === 'complete'
++          ? await transcribe({ model, audio })
++          : streamTranscribe({ model, audio });
++      expect(await result.text).toBe('done');
++      await expect(read).resolves.toMatchObject({ done: true });
++      expect(cancel).toHaveBeenCalledOnce();
++      expect(data.locked).toBe(false);
++      await expect(transcribe({ model, audio })).rejects.toThrow(
++        'already been handed off',
++      );
++    },
++  );
++
++  it('rejects missing MIME and header controls before dispatch', () => {
++    expect(() => transcriptionFile(new Blob([]))).toThrow('MIME');
++    expect(() =>
++      transcriptionFile(new Uint8Array(), {
++        mediaType: 'audio/ogg\r\nX-Header: bad',
++      }),
++    ).toThrow('MIME');
++    expect(() =>
++      transcriptionFile(new Blob([], { type: 'audio/wav' }), {
++        filename: 'bad\nname',
++      }),
++    ).toThrow('filename');
++  });
++  it('uses the existing byte/MIME contract only when every supplied field can reach that adapter', async () => {
++    const payload = new Uint8Array([0, 4, 9, 0]).subarray(1, 3);
++    const doGenerate = vi.fn().mockResolvedValue(success);
++    const model = new MockTranscriptionModelV4({ doGenerate });
++    const audio = transcriptionFile(payload, { mediaType: 'video/quicktime' });
++    expect((await transcribe({ model, audio })).text).toBe('done');
++    expect(doGenerate.mock.calls[0][0].audio).toBe(payload);
++    expect(doGenerate.mock.calls[0][0].mediaType).toBe('video/quicktime');
++    await expect(
++      transcribe({ model, audio: { ...audio, filename: 'take.mov' } }),
++    ).rejects.toThrow('file upload');
++    expect(doGenerate).toHaveBeenCalledOnce();
++  });
++});
+diff --git a/packages/ai/src/transcribe/transcription-file.ts b/packages/ai/src/transcribe/transcription-file.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0b2c36bc66ebd1ab3f87858b682975c9b05d21c
+--- /dev/null
++++ b/packages/ai/src/transcribe/transcription-file.ts
+@@ -0,0 +1,152 @@
++import {
++  InvalidArgumentError,
++  type TranscriptionModelV4File,
++} from '@ai-sdk/provider';
++import { isUint8Array } from '@ai-sdk/provider-utils';
++
++/** Describe one encoded recording. File/Blob metadata is the default and explicit metadata wins. */
++export function transcriptionFile(
++  data: Blob,
++  options?: { mediaType?: string; filename?: string },
++): TranscriptionModelV4File;
++export function transcriptionFile(
++  data: TranscriptionModelV4File['data'],
++  options: { mediaType: string; filename?: string },
++): TranscriptionModelV4File;
++export function transcriptionFile(
++  data: TranscriptionModelV4File['data'],
++  {
++    mediaType: suppliedType,
++    filename,
++  }: { mediaType?: string; filename?: string } = {},
++): TranscriptionModelV4File {
++  if (
++    data == null ||
++    typeof data !== 'object' ||
++    !(
++      isUint8Array(data) ||
++      ('getReader' in data && typeof data.getReader === 'function') ||
++      ('slice' in data &&
++        'stream' in data &&
++        typeof data.slice === 'function' &&
++        typeof data.stream === 'function')
++    )
++  ) {
++    throw new InvalidArgumentError({
++      argument: 'audio',
++      message: 'Supply a Blob, Uint8Array or ReadableStream for the recording.',
++    });
++  }
++  const mediaType = suppliedType ?? ('type' in data ? data.type : '');
++  if (
++    !/^[\w!#$%&'*+.^|~-]+\/[\w!#$%&'*+.^|~-]+(?:\s*;[^\r\n]*)?$/.test(
++      mediaType,
++    ) ||
++    /[^\x20-\x7e]/.test(mediaType)
++  ) {
++    throw new InvalidArgumentError({
++      argument: 'mediaType',
++      message: 'Supply a complete MIME type for the recording.',
++    });
++  }
++  if (
++    filename != null &&
++    (typeof filename !== 'string' ||
++      filename.length === 0 ||
++      Array.from(filename).some(
++        char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127,
++      ))
++  ) {
++    throw new InvalidArgumentError({
++      argument: 'filename',
++      message: 'Supply a nonempty filename without control characters.',
++    });
++  }
++  return {
++    type: 'file',
++    data,
++    mediaType,
++    ...(filename != null && { filename }),
++  };
++}
++
++export function isTranscriptionFile(
++  value: unknown,
++): value is TranscriptionModelV4File {
++  return (
++    typeof value === 'object' &&
++    value !== null &&
++    'type' in value &&
++    value.type === 'file' &&
++    'data' in value
++  );
++}
++
++const handedOff = new WeakSet<ReadableStream<Uint8Array>>();
++
++/** The execution can release a pending producer even if fetch still owns its request reader. */
++export function openTranscriptionFile(
++  file: TranscriptionModelV4File,
++  onBytes?: (size: number) => void,
++) {
++  const source = file.data;
++  if (!('getReader' in source)) return { file, close: undefined };
++  if (source.locked || handedOff.has(source)) {
++    throw new InvalidArgumentError({
++      argument: 'audio',
++      message: 'The recording stream is locked or has already been handed off.',
++    });
++  }
++  handedOff.add(source);
++  const reader = source.getReader();
++  let released = false;
++  const close = async (reason?: unknown) => {
++    if (released) return;
++    released = true;
++    try {
++      await reader.cancel(reason);
++    } finally {
++      reader.releaseLock();
++    }
++  };
++  const data = new ReadableStream<Uint8Array>(
++    {
++      async pull(controller) {
++        if (released) {
++          controller.close();
++          return;
++        }
++        try {
++          const item = await reader.read();
++          if (item.done || released) {
++            if (!released) {
++              released = true;
++              reader.releaseLock();
++            }
++            controller.close();
++          } else {
++            onBytes?.(item.value.byteLength);
++            controller.enqueue(item.value);
++          }
++        } catch (error) {
++          if (!released) {
++            released = true;
++            reader.releaseLock();
++          }
++          controller.error(error);
++        }
++      },
++      cancel: close,
++    },
++    { highWaterMark: 0 },
++  );
++  return { file: { ...file, data }, close };
++}
++
++export function fileByteLength(file: TranscriptionModelV4File) {
++  return isUint8Array(file.data)
++    ? file.data.byteLength
++    : 'size' in file.data
++      ? file.data.size
++      : undefined;
++}
+diff --git a/packages/deepgram/src/deepgram-flux-turn.ts b/packages/deepgram/src/deepgram-flux-turn.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..82c40a366490d3767bbc421f80f0c1233e877e9a
+--- /dev/null
++++ b/packages/deepgram/src/deepgram-flux-turn.ts
+@@ -0,0 +1,66 @@
++import type { Experimental_TranscriptionModelV4StreamPart as StreamPart } from '@ai-sdk/provider';
++import {
++  lazySchema,
++  validateTypes,
++  zodSchema,
++  type InferSchema,
++} from '@ai-sdk/provider-utils';
++import { z } from 'zod/v4';
++
++const fluxTurnSchema = lazySchema(() =>
++  zodSchema(
++    z.object({
++      event: z.enum([
++        'StartOfTurn',
++        'Update',
++        'EagerEndOfTurn',
++        'TurnResumed',
++        'EndOfTurn',
++      ]),
++      turn_index: z.number().int().nonnegative(),
++      audio_window_start: z.number(),
++      audio_window_end: z.number(),
++      transcript: z.string(),
++      words: z
++        .array(
++          z.object({
++            word: z.string(),
++            start: z.number().nullish(),
++            end: z.number().nullish(),
++          }),
++        )
++        .nullish(),
++    }),
++  ),
++);
++export type FluxTurn = InferSchema<typeof fluxTurnSchema>;
++export const readFluxTurn = (value: unknown) =>
++  validateTypes({ value, schema: fluxTurnSchema });
++
++export function reportFluxTurn(
++  controller: ReadableStreamDefaultController<StreamPart>,
++  turn: FluxTurn,
++  final: boolean,
++) {
++  const shared = {
++    id: String(turn.turn_index),
++    text: turn.transcript,
++    startSecond: turn.audio_window_start,
++    providerMetadata: {
++      deepgram: { event: turn.event, turnIndex: turn.turn_index },
++    },
++  };
++  controller.enqueue(
++    final
++      ? {
++          type: 'transcript-final',
++          ...shared,
++          endSecond: turn.audio_window_end,
++        }
++      : {
++          type: 'transcript-partial',
++          ...shared,
++          durationInSeconds: turn.audio_window_end - turn.audio_window_start,
++        },
++  );
++}
+diff --git a/packages/deepgram/src/deepgram-model-catalog.ts b/packages/deepgram/src/deepgram-model-catalog.ts
+index d73d01786c0da15a4064151dd5207e979552cb32..7f61e9cff6af95a4252aa5c06ccd90159e661a65 100644
+--- a/packages/deepgram/src/deepgram-model-catalog.ts
++++ b/packages/deepgram/src/deepgram-model-catalog.ts
+@@ -138,6 +138,8 @@ export const deepgramTranscriptionModelIds = [
+   'nova-3',
+   'nova-3-general',
+   'nova-3-medical',
++  'flux-general-en',
++  'flux-general-multi',
+ ] as const;
+ 
+ export function getDeepgramSpeechModelEntry(modelId: string) {
+@@ -160,45 +162,53 @@ export function getDeepgramSpeechModelEntry(modelId: string) {
+ }
+ export function getDeepgramTranscriptionModelEntry(modelId: string) {
+   const known = deepgramTranscriptionModelIds.some(id => id === modelId);
+-  const streaming = !modelId.startsWith('flux');
++  const flux = modelId.startsWith('flux-');
+   return {
+     capabilities: {
+       transcription: {
+-        transcription: true,
+-        streaming,
++        transcription: !flux,
++        streaming: true,
+         duration: true,
+         segments: true,
+-        language: {
+-          condition:
+-            'Returned when automatic language detection is enabled and the API supplies detected_language.',
+-        },
++        language: flux
++          ? false
++          : {
++              condition:
++                'Returned when automatic language detection is enabled and the API supplies detected_language.',
++            },
+       },
+     },
+     providerOptions: {
+       transcription: {
+         ...Object.fromEntries(
+           Object.keys(deepgramProviderOptions.transcription).map(
+-            key => [key, known ? true : 'unknown'] as const,
++            key =>
++              [
++                key,
++                flux ? key === 'keyterm' : known ? true : 'unknown',
++              ] as const,
+           ),
+         ),
+-        streaming: streaming
+-          ? {
+-              condition:
+-                'Streaming transcription only; Flux /v2/listen is not supported.',
+-            }
+-          : false,
+-        detectLanguage: { condition: 'Batch transcription only.' },
+-        paragraphs: { condition: 'Batch transcription only.' },
+-        summarize: { condition: 'Batch transcription only.' },
+-        topics: { condition: 'Batch transcription only.' },
+-        intents: { condition: 'Batch transcription only.' },
+-        sentiment: { condition: 'Batch transcription only.' },
+-        detectEntities: { condition: 'Batch transcription only.' },
+-        utterances: { condition: 'Batch transcription only.' },
+-        uttSplit: { condition: 'Batch transcription only.' },
++        streaming: flux
++          ? false
++          : { condition: 'Nova live transcription options.' },
++        detectLanguage: flux
++          ? false
++          : { condition: 'Batch transcription only.' },
++        paragraphs: flux ? false : { condition: 'Batch transcription only.' },
++        summarize: flux ? false : { condition: 'Batch transcription only.' },
++        topics: flux ? false : { condition: 'Batch transcription only.' },
++        intents: flux ? false : { condition: 'Batch transcription only.' },
++        sentiment: flux ? false : { condition: 'Batch transcription only.' },
++        detectEntities: flux
++          ? false
++          : { condition: 'Batch transcription only.' },
++        utterances: flux ? false : { condition: 'Batch transcription only.' },
++        uttSplit: flux ? false : { condition: 'Batch transcription only.' },
+       },
+     },
+-  } as const satisfies ModelEntry;
++    requestConfig: { transcription: { flux } },
++  } as const satisfies ModelEntry<{ transcription: { flux: boolean } }>;
+ }
+ 
+ export const deepgramModelCatalog: Record<
+diff --git a/packages/deepgram/src/deepgram-streaming-transcription.test.ts b/packages/deepgram/src/deepgram-streaming-transcription.test.ts
+index 6a0fa735f74d04668824a7f659634526af5b473e..a4d8e59544e2771d6702dacebabd8b666d65f519 100644
+--- a/packages/deepgram/src/deepgram-streaming-transcription.test.ts
++++ b/packages/deepgram/src/deepgram-streaming-transcription.test.ts
+@@ -394,16 +394,141 @@ describe('Deepgram streaming transcription', () => {
+     expect(MockWebSocket.instances).toHaveLength(0);
+   });
+ 
+-  it('rejects Flux models which use a distinct protocol', async () => {
+-    await expect(
+-      createDeepgram({
+-        apiKey: 'test-key',
++  it.each(['nova-3', 'flux-general-en'])(
++    'sends ordered WebM on %s while the source is open',
++    async modelId => {
++      let producer!: ReadableStreamDefaultController<Uint8Array>;
++      const audio = new ReadableStream<Uint8Array>({
++        start(c) {
++          producer = c;
++        },
++      });
++      const result = await createDeepgram({
++        apiKey: 'key',
+         webSocket: MockWebSocket,
+-      }).transcription('flux-general-en').doStream!({
+-        audio: audio(),
+-        inputAudioFormat,
+-      }),
+-    ).rejects.toThrow('Flux');
++      }).transcription(modelId).doStream!({
++        audio,
++        inputAudioFormat: { type: 'audio/webm;codecs=opus' },
++      });
++      const socket = MockWebSocket.instances[0];
++      expect(new URL(socket.url).pathname).toBe(
++        modelId === 'nova-3' ? '/v1/listen' : '/v2/listen',
++      );
++      expect([...new URL(socket.url).searchParams.keys()]).toEqual(['model']);
++      const reader = result.stream.getReader();
++      socket.open();
++      await reader.read();
++      const first = new Uint8Array([0x1a, 0x45]);
++      producer.enqueue(first);
++      await flush();
++      expect(socket.send).toHaveBeenCalledWith(first);
++      const turn = (event: string, transcript: string, index = 0) => ({
++        type: 'TurnInfo',
++        event,
++        turn_index: index,
++        transcript,
++        audio_window_start: index,
++        audio_window_end: index + 1,
++        words: [{ word: transcript, start: index, end: index + 1 }],
++      });
++      socket.message(
++        modelId === 'nova-3'
++          ? results('draft', false)
++          : turn('Update', 'draft'),
++      );
++      expect((await reader.read()).value).toMatchObject({
++        type: 'transcript-partial',
++        text: 'draft',
++      });
++      if (modelId !== 'nova-3') {
++        socket.message(turn('EagerEndOfTurn', 'draft two'));
++        socket.message(turn('TurnResumed', 'draft revised'));
++        expect((await reader.read()).value).toMatchObject({
++          type: 'transcript-partial',
++          id: '0',
++        });
++        expect((await reader.read()).value).toMatchObject({
++          type: 'transcript-partial',
++          id: '0',
++        });
++      }
++      socket.message(
++        modelId === 'nova-3' ? results('first') : turn('EndOfTurn', 'first'),
++      );
++      expect((await reader.read()).value).toMatchObject({
++        type: 'transcript-final',
++        text: 'first',
++      });
++      producer.enqueue(new Uint8Array([0xdf, 0xa3]));
++      producer.close();
++      await flush();
++      expect(
++        socket.send.mock.calls.map(call => (call as unknown[])[0]),
++      ).toEqual([
++        first,
++        new Uint8Array([0xdf, 0xa3]),
++        JSON.stringify({ type: 'CloseStream' }),
++      ]);
++      if (modelId === 'nova-3')
++        socket.message({ type: 'Metadata', duration: 2 });
++      else {
++        socket.message(turn('EndOfTurn', 'first'));
++        socket.message(turn('Update', 'last phrase', 1));
++      }
++      socket.serverClose(modelId === 'nova-3' ? 1000 : 1005);
++      const remaining = [];
++      for (
++        let part = await reader.read();
++        !part.done;
++        part = await reader.read()
++      )
++        remaining.push(part.value);
++      expect(remaining.at(-1)).toMatchObject({
++        type: 'finish',
++        text: modelId === 'nova-3' ? 'first' : 'first last phrase',
++      });
++      if (modelId !== 'nova-3')
++        expect(remaining.map(part => part.type)).toEqual([
++          'transcript-partial',
++          'transcript-final',
++          'finish',
++        ]);
++    },
++  );
++
++  it('rejects invalid Flux layouts before opening the socket', async () => {
++    const flux = createDeepgram({
++      apiKey: 'key',
++      webSocket: MockWebSocket,
++    }).transcription('flux-general-multi');
++    for (const format of [
++      { type: 'audio/ogg;codecs=vorbis' },
++      { type: 'audio/pcm', rate: 22050 },
++      { type: 'audio/webm', rate: 48000 },
++    ]) {
++      await expect(
++        flux.doStream!({ audio: audio(), inputAudioFormat: format }),
++      ).rejects.toThrow('Deepgram streaming requires');
++    }
++    expect(MockWebSocket.instances).toHaveLength(0);
++  });
++
++  it('fails on a status-less Flux close while recording and releases input', async () => {
++    const cancel = vi.fn();
++    const flux = createDeepgram({
++      apiKey: 'key',
++      webSocket: MockWebSocket,
++    }).transcription('flux-general-en');
++    const result = await flux.doStream!({
++      audio: new ReadableStream({ cancel }),
++      inputAudioFormat: { type: 'audio/ogg' },
++    });
++    const parts = convertReadableStreamToArray(result.stream);
++    const socket = MockWebSocket.instances[0];
++    socket.open();
++    socket.serverClose(1005);
++    await expect(parts).rejects.toThrow('unexpectedly');
++    expect(cancel).toHaveBeenCalledOnce();
+   });
+ 
+   it('warns about batch-only options', async () => {
+diff --git a/packages/deepgram/src/deepgram-streaming-transcription.ts b/packages/deepgram/src/deepgram-streaming-transcription.ts
+index e8294f24e55c56f4d69105592d25ee491b7c936b..dc63e004fe017a834ece697bad6bb19fc44a8465 100644
+--- a/packages/deepgram/src/deepgram-streaming-transcription.ts
++++ b/packages/deepgram/src/deepgram-streaming-transcription.ts
+@@ -1,7 +1,6 @@
+ import { getDeepgramTranscriptionModelEntry } from './deepgram-model-catalog';
+ import {
+   InvalidArgumentError,
+-  UnsupportedFunctionalityError,
+   type Experimental_TranscriptionModelV4StreamPart as TranscriptionModelV4StreamPart,
+   type SharedV4Warning,
+   type TranscriptionModelV4,
+@@ -25,6 +24,12 @@ import { z } from 'zod/v4';
+ import type { DeepgramConfig } from './deepgram-config';
+ import { deepgramTranscriptionModelOptionsSchema } from './deepgram-transcription-model-options';
+ 
++import {
++  readFluxTurn,
++  reportFluxTurn,
++  type FluxTurn,
++} from './deepgram-flux-turn';
++
+ type StreamOptions = Parameters<
+   NonNullable<TranscriptionModelV4['doStream']>
+ >[0];
+@@ -34,32 +39,45 @@ export async function streamDeepgramTranscription(
+   config: DeepgramConfig & { _internal?: { currentDate?: () => Date } },
+   options: StreamOptions,
+ ): Promise<Awaited<ReturnType<NonNullable<TranscriptionModelV4['doStream']>>>> {
+-  if (
+-    !getDeepgramTranscriptionModelEntry(modelId).capabilities.transcription
+-      .streaming
+-  ) {
+-    throw new UnsupportedFunctionalityError({
+-      functionality: 'Deepgram Flux streaming transcription (/v2/listen)',
+-    });
+-  }
+-
+-  const encodings = new Map([
+-    ['audio/pcm', 'linear16'],
+-    ['audio/pcmu', 'mulaw'],
+-    ['audio/pcma', 'alaw'],
+-  ]);
+-  const encoding = encodings.get(options.inputAudioFormat.type);
++  const { flux } =
++    getDeepgramTranscriptionModelEntry(modelId).requestConfig.transcription;
++  const [mediaType, ...parameters] = options.inputAudioFormat.type
++    .toLowerCase()
++    .split(';')
++    .map(part => part.trim());
++  const encodings: Record<string, string> = {
++    'audio/pcm': 'linear16',
++    'audio/pcmu': 'mulaw',
++    'audio/pcma': 'alaw',
++  };
++  const encoding = Object.hasOwn(encodings, mediaType)
++    ? encodings[mediaType]
++    : undefined;
+   const rate = options.inputAudioFormat.rate;
++  const container = ['audio/webm', 'audio/ogg', 'audio/wav'].includes(
++    mediaType,
++  );
++  const codec = parameters
++    .find(part => /^codecs\s*=/.test(part))
++    ?.split('=')[1]
++    ?.trim()
++    .replace(/^"|"$/g, '');
+   if (
+-    encoding == null ||
+-    rate == null ||
+-    !Number.isInteger(rate) ||
+-    rate <= 0
++    container
++      ? rate != null ||
++        (flux &&
++          codec != null &&
++          codec !== (mediaType === 'audio/wav' ? '1' : 'opus'))
++      : encoding == null ||
++        rate == null ||
++        !Number.isInteger(rate) ||
++        rate <= 0 ||
++        (flux && ![8000, 16000, 24000, 44100, 48000].includes(rate))
+   ) {
+     throw new InvalidArgumentError({
+       argument: 'inputAudioFormat',
+       message:
+-        'Deepgram streaming requires audio/pcm (16-bit little-endian), audio/pcmu, or audio/pcma and a positive integer sample rate.',
++        'Deepgram streaming requires a supported raw encoding and sample rate, or a WebM, Ogg or WAV container without a sample rate. Flux accepts containerized Opus or WAV linear16.',
+     });
+   }
+ 
+@@ -69,10 +87,14 @@ export async function streamDeepgramTranscription(
+     schema: deepgramTranscriptionModelOptionsSchema,
+   });
+   const warnings: SharedV4Warning[] = [];
+-  const url = toWebSocketUrl(config.url({ path: '/v1/listen', modelId }));
++  const url = toWebSocketUrl(
++    config.url({ path: flux ? '/v2/listen' : '/v1/listen', modelId }),
++  );
+   url.searchParams.set('model', modelId);
+-  url.searchParams.set('encoding', encoding);
+-  url.searchParams.set('sample_rate', String(rate));
++  if (encoding != null) {
++    url.searchParams.set('encoding', encoding);
++    url.searchParams.set('sample_rate', String(rate));
++  }
+ 
+   const mappings = {
+     language: 'language',
+@@ -88,7 +110,7 @@ export async function streamDeepgramTranscription(
+   for (const [key, value] of Object.entries(providerOptions ?? {})) {
+     if (value == null || key === 'streaming') continue;
+     const parameter = mappings[key as keyof typeof mappings];
+-    if (parameter == null) {
++    if (parameter == null || (flux && key !== 'keyterm')) {
+       if (value === false) continue;
+       warnings.push({
+         type: 'unsupported',
+@@ -112,7 +134,14 @@ export async function streamDeepgramTranscription(
+     utteranceEndMs: 'utterance_end_ms',
+   } as const;
+   for (const [key, value] of Object.entries(streaming ?? {})) {
+-    if (value != null)
++    if (value == null) continue;
++    if (flux) {
++      warnings.push({
++        type: 'unsupported',
++        feature: 'providerOptions.deepgram.streaming.' + key,
++        details: 'This live option is specific to Nova.',
++      });
++    } else
+       url.searchParams.set(
+         streamingMappings[key as keyof typeof streamingMappings],
+         String(value),
+@@ -144,7 +173,7 @@ export async function streamDeepgramTranscription(
+       : undefined;
+   const timestamp = config._internal?.currentDate?.() ?? new Date();
+   let finished = false;
+-  let cleanup: () => void = () => {};
++  let cleanup: (reason?: unknown) => void = () => {};
+ 
+   return {
+     request: { body: url.toString() },
+@@ -157,9 +186,13 @@ export async function streamDeepgramTranscription(
+           | undefined;
+         let keepAlive: ReturnType<typeof setInterval> | undefined;
+         let inputEnded = false;
++        let currentTurn: FluxTurn | undefined;
++        let lastFinalTurn = -1;
+         let duration: number | undefined;
+         let reportedDuration: number | undefined;
+-        let language = providerOptions?.language ?? undefined;
++        let language = flux
++          ? undefined
++          : (providerOptions?.language ?? undefined);
+         const finalTexts: {
+           text: string;
+           startSecond: number;
+@@ -171,10 +204,12 @@ export async function streamDeepgramTranscription(
+           endSecond: number;
+         }[] = [];
+ 
+-        cleanup = () => {
++        cleanup = reason => {
+           clearInterval(keepAlive);
+           void (
+-            reader != null ? reader.cancel() : options.audio.cancel()
++            reader != null
++              ? reader.cancel(reason)
++              : options.audio.cancel(reason)
+           ).catch(() => {});
+           connection?.close(1000);
+         };
+@@ -182,10 +217,45 @@ export async function streamDeepgramTranscription(
+           if (finished) return;
+           finished = true;
+           controller.error(error);
+-          cleanup();
++          cleanup(error);
++        };
++        const finalizeTurn = (turn: FluxTurn) => {
++          reportFluxTurn(controller, turn, true);
++          if (turn.transcript) {
++            finalTexts.push({
++              text: turn.transcript,
++              startSecond: turn.audio_window_start,
++              channelIndex: 0,
++            });
++            const words = (turn.words ?? []).flatMap(word =>
++              word.start != null && word.end != null
++                ? [
++                    {
++                      text: word.word,
++                      startSecond: word.start,
++                      endSecond: word.end,
++                    },
++                  ]
++                : [],
++            );
++            segments.push(
++              ...(words.length
++                ? words
++                : [
++                    {
++                      text: turn.transcript,
++                      startSecond: turn.audio_window_start,
++                      endSecond: turn.audio_window_end,
++                    },
++                  ]),
++            );
++          }
++          lastFinalTurn = turn.turn_index;
++          currentTurn = undefined;
+         };
+         const finish = () => {
+           if (finished) return;
++          if (currentTurn != null) finalizeTurn(currentTurn);
+           finished = true;
+           controller.enqueue({
+             type: 'finish',
+@@ -247,14 +317,15 @@ export async function streamDeepgramTranscription(
+             controller.enqueue({ type: 'stream-start', warnings });
+             // Deepgram closes idle connections after ten seconds. Keep an open
+             // microphone alive even while its producer has no audio to send.
+-            keepAlive = setInterval(() => {
+-              if (finished || socket.readyState !== 1) return;
+-              try {
+-                socket.send(JSON.stringify({ type: 'KeepAlive' }));
+-              } catch (error) {
+-                fail(error);
+-              }
+-            }, 4000);
++            if (!flux)
++              keepAlive = setInterval(() => {
++                if (finished || socket.readyState !== 1) return;
++                try {
++                  socket.send(JSON.stringify({ type: 'KeepAlive' }));
++                } catch (error) {
++                  fail(error);
++                }
++              }, 4000);
+             void sendAudio(socket).catch(fail);
+           },
+           async onMessageText(text) {
+@@ -283,7 +354,23 @@ export async function streamDeepgramTranscription(
+                     'Deepgram streaming transcription failed.',
+                 ),
+               );
+-            } else if (parsed.value.type === 'Metadata') {
++            } else if (flux && parsed.value.type === 'TurnInfo') {
++              const turn = await readFluxTurn(parsed.rawValue);
++              if (finished || turn.turn_index <= lastFinalTurn) return;
++              duration = Math.max(duration ?? 0, turn.audio_window_end);
++              if (turn.event === 'EndOfTurn') finalizeTurn(turn);
++              else {
++                currentTurn = turn;
++                reportFluxTurn(controller, turn, false);
++              }
++            } else if (flux && parsed.value.type === 'Connected') {
++              controller.enqueue({
++                type: 'response-metadata',
++                timestamp,
++                modelId,
++                body: parsed.rawValue,
++              });
++            } else if (!flux && parsed.value.type === 'Metadata') {
+               const event = await validateTypes({
+                 value: parsed.rawValue,
+                 schema: streamingMetadataSchema,
+@@ -297,7 +384,7 @@ export async function streamDeepgramTranscription(
+                 body: parsed.rawValue,
+               });
+               if (inputEnded) finish();
+-            } else if (parsed.value.type === 'Results') {
++            } else if (!flux && parsed.value.type === 'Results') {
+               const event = await validateTypes({
+                 value: parsed.rawValue,
+                 schema: streamingResultSchema,
+@@ -353,7 +440,10 @@ export async function streamDeepgramTranscription(
+             fail(new Error('Deepgram streaming WebSocket error.')),
+           onClose({ code, reason }) {
+             if (finished) return;
+-            if (!inputEnded || (code != null && code !== 1000)) {
++            if (
++              !inputEnded ||
++              (code != null && code !== 1000 && !(flux && code === 1005))
++            ) {
+               fail(
+                 new Error(
+                   `Deepgram streaming connection closed unexpectedly${code != null ? ` (${code})` : ''}${reason ? `: ${reason}` : '.'}`,
+@@ -363,10 +453,10 @@ export async function streamDeepgramTranscription(
+           },
+         });
+       },
+-      cancel() {
++      cancel(reason) {
+         if (finished) return;
+         finished = true;
+-        cleanup();
++        cleanup(reason);
+       },
+     }),
+   };
+diff --git a/packages/deepgram/src/deepgram-transcription-model.ts b/packages/deepgram/src/deepgram-transcription-model.ts
+index 72e473df8a10f5a1ffcf0dc95eaa47835dd78a11..7e8abc615db2c095ae7214e4f10e54ae37cc5aee 100644
+--- a/packages/deepgram/src/deepgram-transcription-model.ts
++++ b/packages/deepgram/src/deepgram-transcription-model.ts
+@@ -1,4 +1,8 @@
+-import type { SharedV4Warning, TranscriptionModelV4 } from '@ai-sdk/provider';
++import {
++  UnsupportedFunctionalityError,
++  type SharedV4Warning,
++  type TranscriptionModelV4,
++} from '@ai-sdk/provider';
+ import {
+   resolve,
+   lazySchema,
+@@ -17,6 +21,7 @@ import type { DeepgramConfig } from './deepgram-config';
+ import { deepgramFailedResponseHandler } from './deepgram-error';
+ import { deepgramTranscriptionModelOptionsSchema } from './deepgram-transcription-model-options';
+ import type { DeepgramTranscriptionModelId } from './deepgram-transcription-options';
++import { getDeepgramTranscriptionModelEntry } from './deepgram-model-catalog';
+ import { streamDeepgramTranscription } from './deepgram-streaming-transcription';
+ 
+ interface DeepgramTranscriptionModelConfig extends DeepgramConfig {
+@@ -123,6 +128,14 @@ export class DeepgramTranscriptionModel implements TranscriptionModelV4 {
+   async doGenerate(
+     options: Parameters<TranscriptionModelV4['doGenerate']>[0],
+   ): Promise<Awaited<ReturnType<TranscriptionModelV4['doGenerate']>>> {
++    if (
++      !getDeepgramTranscriptionModelEntry(this.modelId).capabilities
++        .transcription.transcription
++    ) {
++      throw new UnsupportedFunctionalityError({
++        functionality: 'prerecorded transcription with Deepgram Flux',
++      });
++    }
+     const currentDate = this.config._internal?.currentDate?.() ?? new Date();
+     const { queryParams, warnings } = await this.getArgs(options);
+ 
+diff --git a/packages/groq/src/groq-transcription-model.ts b/packages/groq/src/groq-transcription-model.ts
+index e961bfa8b81c810f6bc8490ccd8a90fe56ebf09e..e1c2a3bbdce3dce7cecbb4ea2eadec5bb21222bd 100644
+--- a/packages/groq/src/groq-transcription-model.ts
++++ b/packages/groq/src/groq-transcription-model.ts
+@@ -10,7 +10,7 @@ import {
+   convertBase64ToUint8Array,
+   createBinaryResponseHandler,
+   createJsonResponseHandler,
+-  mediaTypeToExtension,
++  postTranscriptionFileToApi,
+   parseProviderOptions,
+   postFormDataToApi,
+   serializeModelOptions,
+@@ -28,7 +28,7 @@ import {
+ import type { GroqTranscriptionAPITypes } from './groq-api-types';
+ 
+ type GroqTranscriptionCallOptions =
+-  | Parameters<TranscriptionModelV4['doGenerate']>[0]
++  | Parameters<NonNullable<TranscriptionModelV4['doGenerateFromFile']>>[0]
+   | (Parameters<NonNullable<TranscriptionModelV4['doGenerateFromUrl']>>[0] & {
+       mediaType?: undefined;
+     });
+@@ -67,7 +67,6 @@ export class GroqTranscriptionModel implements TranscriptionModelV4 {
+ 
+   private async getArgs({
+     audio,
+-    mediaType,
+     providerOptions,
+   }: GroqTranscriptionCallOptions) {
+     const warnings: SharedV4Warning[] = [];
+@@ -99,18 +98,6 @@ export class GroqTranscriptionModel implements TranscriptionModelV4 {
+       const audioUrl = new URL(audio.href);
+       audioUrl.hash = '';
+       formData.append('url', audioUrl.href);
+-    } else {
+-      const blob =
+-        audio instanceof Uint8Array
+-          ? new Blob([audio as Uint8Array<ArrayBuffer>])
+-          : new Blob([convertBase64ToUint8Array(audio)]);
+-      const audioMediaType = mediaType ?? 'audio/wav';
+-      const fileExtension = mediaTypeToExtension(audioMediaType);
+-      formData.append(
+-        'file',
+-        new File([blob], 'audio', { type: audioMediaType }),
+-        `audio.${fileExtension}`,
+-      );
+     }
+ 
+     // Add provider-specific options
+@@ -154,6 +141,24 @@ export class GroqTranscriptionModel implements TranscriptionModelV4 {
+   async doGenerate(
+     options: Parameters<TranscriptionModelV4['doGenerate']>[0],
+   ): Promise<Awaited<ReturnType<TranscriptionModelV4['doGenerate']>>> {
++    return this.doGenerateFromFile({
++      ...options,
++      audio: {
++        type: 'file',
++        mediaType: options.mediaType,
++        data:
++          typeof options.audio === 'string'
++            ? convertBase64ToUint8Array(options.audio)
++            : options.audio,
++      },
++    });
++  }
++
++  async doGenerateFromFile(
++    options: Parameters<
++      NonNullable<TranscriptionModelV4['doGenerateFromFile']>
++    >[0],
++  ) {
+     return this.generate(options);
+   }
+ 
+@@ -190,11 +195,7 @@ export class GroqTranscriptionModel implements TranscriptionModelV4 {
+         ? groqTextTranscriptionResponseHandler
+         : createJsonResponseHandler(groqTranscriptionResponseSchema);
+ 
+-    const {
+-      value: response,
+-      responseHeaders,
+-      rawValue: rawResponse,
+-    } = await postFormDataToApi({
++    const request = {
+       url: this.config.url({
+         path: '/audio/transcriptions',
+         modelId: this.modelId,
+@@ -208,7 +209,14 @@ export class GroqTranscriptionModel implements TranscriptionModelV4 {
+       successfulResponseHandler,
+       abortSignal: options.abortSignal,
+       fetch: this.config.fetch,
+-    });
++    };
++    const {
++      value: response,
++      responseHeaders,
++      rawValue: rawResponse,
++    } = options.audio instanceof URL
++      ? await postFormDataToApi(request)
++      : await postTranscriptionFileToApi({ ...request, file: options.audio });
+ 
+     return {
+       text: response.text,
+diff --git a/packages/openai/src/openai-model-catalog.ts b/packages/openai/src/openai-model-catalog.ts
+index 2c6584d7016edeacfb8b8a25d779b57ecb2713d7..acbb8bff8e040ae674f9035bea6a0d51cabd92bf 100644
+--- a/packages/openai/src/openai-model-catalog.ts
++++ b/packages/openai/src/openai-model-catalog.ts
+@@ -2139,6 +2139,7 @@ const openaiTranscriptionModelEntries = {
+       transcription: {
+         transcription: true,
+         streaming: true,
++        fileStreaming: false,
+         streamingDelay: false,
+         duration: true,
+         segments: true,
+@@ -2157,6 +2158,7 @@ const openaiTranscriptionModelEntries = {
+       transcription: {
+         transcription: true,
+         streaming: true,
++        fileStreaming: true,
+         streamingDelay: false,
+         duration: false,
+         segments: false,
+@@ -2170,6 +2172,7 @@ const openaiTranscriptionModelEntries = {
+       transcription: {
+         transcription: true,
+         streaming: true,
++        fileStreaming: true,
+         streamingDelay: false,
+         duration: false,
+         segments: false,
+@@ -2183,6 +2186,7 @@ const openaiTranscriptionModelEntries = {
+       transcription: {
+         transcription: true,
+         streaming: false,
++        fileStreaming: true,
+         streamingDelay: false,
+         duration: true,
+         segments: true,
+@@ -2202,6 +2206,7 @@ const openaiTranscriptionModelEntries = {
+       transcription: {
+         transcription: true,
+         streaming: true,
++        fileStreaming: true,
+         streamingDelay: false,
+         duration: false,
+         segments: false,
+@@ -2215,6 +2220,7 @@ const openaiTranscriptionModelEntries = {
+       transcription: {
+         transcription: false,
+         streaming: true,
++        fileStreaming: false,
+         streamingDelay: true,
+         duration: false,
+         segments: false,
+@@ -2228,6 +2234,7 @@ const openaiTranscriptionModelEntries = {
+       transcription: {
+         transcription: false,
+         streaming: true,
++        fileStreaming: false,
+         streamingDelay: true,
+         duration: false,
+         segments: false,
+@@ -2272,6 +2279,7 @@ function resolveOpenAITranscriptionModelEntry(
+       transcription: {
+         transcription: 'unknown',
+         streaming: 'unknown',
++        fileStreaming: 'unknown',
+         streamingDelay: 'unknown',
+         duration: 'unknown',
+         segments: 'unknown',
+diff --git a/packages/openai/src/transcription/openai-file-transcript-stream.test.ts b/packages/openai/src/transcription/openai-file-transcript-stream.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..fef29d25ab34937aa82fecd504a988ccf4a538f5
+--- /dev/null
++++ b/packages/openai/src/transcription/openai-file-transcript-stream.test.ts
+@@ -0,0 +1,146 @@
++import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
++import { describe, expect, it, vi } from 'vitest';
++import { createOpenAI } from '../openai-provider';
++
++const data = new File(['recording'], 'interview.original', {
++  type: 'audio/mp4',
++});
++const audio = { type: 'file' as const, data, mediaType: 'audio/mp4' };
++const encoder = new TextEncoder();
++const sse = (value: unknown) =>
++  encoder.encode('data: ' + JSON.stringify(value) + '\n\n');
++
++describe('OpenAI file transcript SSE', () => {
++  it('publishes deltas before done, preserves speakers, and treats done text as authoritative', async () => {
++    let source!: ReadableStreamDefaultController<Uint8Array>;
++    const cancel = vi.fn();
++    const fetch = vi.fn<typeof globalThis.fetch>(async (url, init) => {
++      expect(String(url)).toMatch(/\/audio\/transcriptions$/);
++      const form = init!.body as FormData;
++      expect(form.get('stream')).toBe('true');
++      expect(form.get('response_format')).toBe('diarized_json');
++      const file = form.get('file') as File;
++      expect([file.name, file.type, await file.text()]).toEqual([
++        'interview.original',
++        'audio/mp4',
++        'recording',
++      ]);
++      return new Response(
++        new ReadableStream({
++          start(c) {
++            source = c;
++          },
++          cancel,
++        }),
++      );
++    });
++    const result = await createOpenAI({ apiKey: 'test', fetch }).transcription(
++      'gpt-4o-transcribe-diarize',
++    ).doStreamFromFile!({ audio });
++    const reader = result.stream.getReader();
++    expect((await reader.read()).value).toMatchObject({ type: 'stream-start' });
++    source.enqueue(
++      sse({ type: 'transcript.text.delta', delta: 'hel', segment_id: 's1' }),
++    );
++    expect((await reader.read()).value).toEqual({
++      type: 'transcript-delta',
++      delta: 'hel',
++      id: 's1',
++    });
++    source.enqueue(
++      sse({
++        type: 'transcript.text.segment',
++        text: 'Hello',
++        start: 0,
++        end: 1,
++        id: 's1',
++        speaker: 'A',
++      }),
++    );
++    expect((await reader.read()).value).toMatchObject({
++      type: 'transcript-final',
++      text: 'Hello',
++      providerMetadata: { openai: { speaker: 'A' } },
++    });
++    source.enqueue(
++      sse({
++        type: 'transcript.text.done',
++        text: 'Hello!',
++        languages: [{ code: 'en' }],
++        usage: { type: 'duration', seconds: 1 },
++      }),
++    );
++    expect((await reader.read()).value).toMatchObject({
++      type: 'finish',
++      text: 'Hello!',
++      language: 'en',
++      durationInSeconds: 1,
++      segments: [{ text: 'Hello', startSecond: 0, endSecond: 1 }],
++    });
++    expect((await reader.read()).done).toBe(true);
++    await vi.waitFor(() => expect(cancel).toHaveBeenCalledOnce());
++    expect(fetch).toHaveBeenCalledOnce();
++  });
++
++  it.each([
++    [
++      'data: {"type":"transcript.text.delta","delta":"heard"}\n\n',
++      'before transcript.text.done',
++    ],
++    ['data: {"type":"error","error":{"message":"bad audio"}}\n\n', 'bad audio'],
++    [
++      'data: {"type":"transcript.text.delta"}\n\n',
++      'Missing OpenAI transcript delta',
++    ],
++    ['data: broken\n\n', 'JSON'],
++  ])('rejects a failed or incomplete SSE response', async (body, message) => {
++    const model = createOpenAI({
++      apiKey: 'test',
++      fetch: async () => new Response(body),
++    }).transcription('gpt-4o-mini-transcribe');
++    const { stream } = await model.doStreamFromFile!({ audio });
++    await expect(convertReadableStreamToArray(stream)).rejects.toThrow(message);
++  });
++
++  it.each(['whisper-1', 'gpt-live-transcribe', 'gpt-realtime-whisper'])(
++    'rejects unsupported file SSE on %s before fetching',
++    async id => {
++      const fetch = vi.fn();
++      const model = createOpenAI({ apiKey: 'test', fetch }).transcription(id);
++      await expect(model.doStreamFromFile!({ audio })).rejects.toThrow(
++        'streaming file transcription',
++      );
++      expect(fetch).not.toHaveBeenCalled();
++    },
++  );
++  it.skipIf(typeof SharedArrayBuffer === 'undefined')(
++    'uploads only the selected shared byte view and defaults QuickTime to .mov',
++    async () => {
++      const bytes = new Uint8Array(new SharedArrayBuffer(4));
++      bytes.set([0, 7, 3, 0]);
++      const model = createOpenAI({
++        apiKey: 'local',
++        fetch: async (_url, init) => {
++          const uploaded = (init!.body as FormData).get('file') as File;
++          expect(uploaded.name).toBe('audio.mov');
++          expect(uploaded.type).toBe('video/quicktime');
++          expect([...new Uint8Array(await uploaded.arrayBuffer())]).toEqual([
++            7, 3,
++          ]);
++          return Response.json({ text: 'done' });
++        },
++      }).transcription('gpt-4o-transcribe');
++      expect(
++        (
++          await model.doGenerateFromFile!({
++            audio: {
++              type: 'file',
++              data: bytes.subarray(1, 3),
++              mediaType: 'video/quicktime',
++            },
++          })
++        ).text,
++      ).toBe('done');
++    },
++  );
++});
+diff --git a/packages/openai/src/transcription/openai-file-transcript-stream.ts b/packages/openai/src/transcription/openai-file-transcript-stream.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..82167bb1d05fae64cb5fed2d19743737e6a35130
+--- /dev/null
++++ b/packages/openai/src/transcription/openai-file-transcript-stream.ts
+@@ -0,0 +1,142 @@
++import type {
++  Experimental_TranscriptionModelV4StreamPart as StreamPart,
++  SharedV4Warning,
++} from '@ai-sdk/provider';
++import {
++  createEventSourceResponseHandler,
++  lazySchema,
++  zodSchema,
++  type InferSchema,
++  type ParseResult,
++} from '@ai-sdk/provider-utils';
++import { z } from 'zod/v4';
++
++const eventSchema = lazySchema(() =>
++  zodSchema(
++    z.object({
++      type: z.string(),
++      delta: z.string().nullish(),
++      text: z.string().nullish(),
++      segment_id: z.string().nullish(),
++      id: z.string().nullish(),
++      start: z.number().nullish(),
++      end: z.number().nullish(),
++      speaker: z.string().nullish(),
++      languages: z.array(z.object({ code: z.string() })).nullish(),
++      usage: z.record(z.string(), z.json()).nullish(),
++      error: z.object({ message: z.string() }).nullish(),
++      message: z.string().nullish(),
++    }),
++  ),
++);
++export const fileTranscriptResponseHandler =
++  createEventSourceResponseHandler(eventSchema);
++
++export function fileTranscriptStream(
++  events: ReadableStream<ParseResult<InferSchema<typeof eventSchema>>>,
++  warnings: SharedV4Warning[],
++  raw = false,
++) {
++  const segments: {
++    text: string;
++    startSecond: number;
++    endSecond: number;
++    speaker: string;
++  }[] = [];
++  return events.pipeThrough(
++    new TransformStream<
++      ParseResult<InferSchema<typeof eventSchema>>,
++      StreamPart
++    >({
++      start(controller) {
++        controller.enqueue({ type: 'stream-start', warnings });
++      },
++      transform(parsed, controller) {
++        if (!parsed.success) throw parsed.error;
++        const event = parsed.value;
++        if (raw) controller.enqueue({ type: 'raw', rawValue: parsed.rawValue });
++        switch (event.type) {
++          case 'transcript.text.delta':
++            if (event.delta == null)
++              throw new Error('Missing OpenAI transcript delta.');
++            controller.enqueue({
++              type: 'transcript-delta',
++              delta: event.delta,
++              id: event.segment_id ?? undefined,
++            });
++            break;
++          case 'transcript.text.segment': {
++            if (
++              event.text == null ||
++              event.start == null ||
++              event.end == null ||
++              event.id == null ||
++              event.speaker == null
++            ) {
++              throw new Error('Incomplete OpenAI diarized transcript segment.');
++            }
++            const segment = {
++              text: event.text,
++              startSecond: event.start,
++              endSecond: event.end,
++            };
++            segments.push({ ...segment, speaker: event.speaker });
++            controller.enqueue({
++              type: 'transcript-final',
++              id: event.id,
++              ...segment,
++              providerMetadata: { openai: { speaker: event.speaker } },
++            });
++            break;
++          }
++          case 'transcript.text.done': {
++            if (event.text == null)
++              throw new Error('Missing OpenAI final transcript.');
++            const usage = event.usage ?? undefined;
++            controller.enqueue({
++              type: 'finish',
++              text: event.text,
++              segments: segments.map(({ text, startSecond, endSecond }) => ({
++                text,
++                startSecond,
++                endSecond,
++              })),
++              language:
++                event.languages?.length === 1
++                  ? event.languages[0].code
++                  : undefined,
++              durationInSeconds:
++                usage?.type === 'duration' && typeof usage.seconds === 'number'
++                  ? usage.seconds
++                  : undefined,
++              usage,
++              ...((segments.length > 0 || event.languages != null) && {
++                providerMetadata: {
++                  openai: {
++                    ...(segments.length > 0 && { segments }),
++                    ...(event.languages != null && {
++                      languages: event.languages,
++                    }),
++                  },
++                },
++              }),
++            });
++            controller.terminate();
++            break;
++          }
++          case 'error':
++            throw new Error(
++              event.error?.message ??
++                event.message ??
++                'OpenAI file transcription failed.',
++            );
++        }
++      },
++      flush() {
++        throw new Error(
++          'OpenAI file transcription ended before transcript.text.done.',
++        );
++      },
++    }),
++  );
++}
+diff --git a/packages/openai/src/transcription/openai-transcription-model.ts b/packages/openai/src/transcription/openai-transcription-model.ts
+index 0990c15a506f2a14ff85131b7d0bce8e5300ac75..bc4c12b3c06c3f727e61685876ae92511a27af82 100644
+--- a/packages/openai/src/transcription/openai-transcription-model.ts
++++ b/packages/openai/src/transcription/openai-transcription-model.ts
+@@ -1,6 +1,7 @@
+ import {
+   UnsupportedFunctionalityError,
+   type Experimental_TranscriptionModelV4StreamOptions as TranscriptionModelV4StreamOptions,
++  type TranscriptionModelV4File,
+   type SharedV4Warning,
+   type TranscriptionModelV4,
+   type TranscriptionModelV4CallOptions,
+@@ -12,9 +13,9 @@ import {
+   convertToBase64,
+   createJsonResponseHandler,
+   connectToWebSocket,
+-  mediaTypeToExtension,
+   parseProviderOptions,
+-  postFormDataToApi,
++  postTranscriptionFileToApi,
++  type ResponseHandler,
+   safeParseJSON,
+   serializeModelOptions,
+   toWebSocketUrl,
+@@ -27,6 +28,10 @@ import {
+ import type { OpenAIConfig } from '../openai-config';
+ import { openaiFailedResponseHandler } from '../openai-error';
+ import { getOpenAITranscriptionModelEntry } from '../openai-model-catalog';
++import {
++  fileTranscriptResponseHandler,
++  fileTranscriptStream,
++} from './openai-file-transcript-stream';
+ import { openaiTranscriptionResponseSchema } from './openai-transcription-api';
+ import {
+   openAITranscriptionModelOptions,
+@@ -159,11 +164,12 @@ export class OpenAITranscriptionModel implements TranscriptionModelV4 {
+   ) {}
+ 
+   private async getArgs({
+-    audio,
+-    mediaType,
+     providerOptions,
+     timestampGranularities: requestedTimestampGranularities,
+-  }: OpenAITranscriptionCallOptions) {
++  }: Pick<
++    OpenAITranscriptionCallOptions,
++    'providerOptions' | 'timestampGranularities'
++  >) {
+     const warnings: SharedV4Warning[] = [];
+ 
+     // Parse provider options
+@@ -175,18 +181,7 @@ export class OpenAITranscriptionModel implements TranscriptionModelV4 {
+ 
+     // Create form data with base fields
+     const formData = new FormData();
+-    const blob =
+-      audio instanceof Uint8Array
+-        ? new Blob([audio as Uint8Array<ArrayBuffer>])
+-        : new Blob([convertBase64ToUint8Array(audio)]);
+-
+     formData.append('model', this.modelId);
+-    const fileExtension = mediaTypeToExtension(mediaType);
+-    formData.append(
+-      'file',
+-      new File([blob], 'audio', { type: mediaType }),
+-      `audio.${fileExtension}`,
+-    );
+ 
+     const { transcription: requestConfig } = getOpenAITranscriptionModelEntry(
+       this.modelId,
+@@ -284,8 +279,57 @@ export class OpenAITranscriptionModel implements TranscriptionModelV4 {
+     };
+   }
+ 
+-  async doGenerate(
+-    options: OpenAITranscriptionCallOptions,
++  async doGenerate(options: OpenAITranscriptionCallOptions) {
++    return this.doGenerateFromFile({
++      ...options,
++      audio: {
++        type: 'file',
++        mediaType: options.mediaType,
++        data:
++          typeof options.audio === 'string'
++            ? convertBase64ToUint8Array(options.audio)
++            : options.audio,
++      },
++    });
++  }
++
++  private async postRecording<T>(
++    options: Omit<OpenAITranscriptionCallOptions, 'mediaType' | 'audio'> & {
++      audio: TranscriptionModelV4File;
++    },
++    successfulResponseHandler: ResponseHandler<T>,
++    stream = false,
++  ) {
++    const { formData, warnings } = await this.getArgs(options);
++    if (stream) formData.append('stream', 'true');
++    const request = {
++      url: this.config.url({
++        path: '/audio/transcriptions',
++        modelId: this.modelId,
++      }),
++      headers: combineHeaders(
++        await resolve(this.config.headers),
++        options.headers,
++      ),
++      failedResponseHandler: openaiFailedResponseHandler,
++      successfulResponseHandler,
++      abortSignal: options.abortSignal,
++      fetch: this.config.fetch,
++    };
++    return {
++      ...(await postTranscriptionFileToApi({
++        ...request,
++        formData,
++        file: options.audio,
++      })),
++      warnings,
++    };
++  }
++
++  async doGenerateFromFile(
++    options: Omit<OpenAITranscriptionCallOptions, 'mediaType' | 'audio'> & {
++      audio: TranscriptionModelV4File;
++    },
+   ): Promise<Awaited<ReturnType<TranscriptionModelV4['doGenerate']>>> {
+     if (
+       getOpenAITranscriptionModelEntry(this.modelId).capabilities.transcription
+@@ -297,29 +341,15 @@ export class OpenAITranscriptionModel implements TranscriptionModelV4 {
+     }
+ 
+     const currentDate = this.config._internal?.currentDate?.() ?? new Date();
+-    const { formData, warnings } = await this.getArgs(options);
+-
+     const {
+       value: response,
+       responseHeaders,
+       rawValue: rawResponse,
+-    } = await postFormDataToApi({
+-      url: this.config.url({
+-        path: '/audio/transcriptions',
+-        modelId: this.modelId,
+-      }),
+-      headers: combineHeaders(
+-        await resolve(this.config.headers),
+-        options.headers,
+-      ),
+-      formData,
+-      failedResponseHandler: openaiFailedResponseHandler,
+-      successfulResponseHandler: createJsonResponseHandler(
+-        openaiTranscriptionResponseSchema,
+-      ),
+-      abortSignal: options.abortSignal,
+-      fetch: this.config.fetch,
+-    });
++      warnings,
++    } = await this.postRecording(
++      options,
++      createJsonResponseHandler(openaiTranscriptionResponseSchema),
++    );
+ 
+     const language =
+       (isLanguageCode(response.language)
+@@ -396,6 +426,37 @@ export class OpenAITranscriptionModel implements TranscriptionModelV4 {
+     };
+   }
+ 
++  async doStreamFromFile(
++    options: Parameters<
++      NonNullable<TranscriptionModelV4['doStreamFromFile']>
++    >[0],
++  ): Promise<
++    Awaited<ReturnType<NonNullable<TranscriptionModelV4['doStreamFromFile']>>>
++  > {
++    const entry = getOpenAITranscriptionModelEntry(this.modelId);
++    if (
++      entry.capabilities.transcription.transcription === false ||
++      entry.capabilities.transcription.fileStreaming === false
++    ) {
++      throw new UnsupportedFunctionalityError({
++        functionality: `streaming file transcription with ${this.modelId}`,
++      });
++    }
++    const { value, responseHeaders, warnings } = await this.postRecording(
++      options,
++      fileTranscriptResponseHandler,
++      true,
++    );
++    return {
++      response: {
++        timestamp: this.config._internal?.currentDate?.() ?? new Date(),
++        modelId: this.modelId,
++        headers: responseHeaders,
++      },
++      stream: fileTranscriptStream(value, warnings, options.includeRawChunks),
++    };
++  }
++
+   async doStream(
+     options: OpenAITranscriptionStreamOptions,
+   ): Promise<
+diff --git a/packages/provider-utils/src/index.ts b/packages/provider-utils/src/index.ts
+index 0613cd8b105d3865d19e6c5db42725e9dffea957..e29e99530f8c2a4105e57961cb0179b42cab6051 100644
+--- a/packages/provider-utils/src/index.ts
++++ b/packages/provider-utils/src/index.ts
+@@ -82,6 +82,7 @@ export {
+   type ProviderOptionsResolution,
+ } from './resolve-provider-options';
+ export * from './post-multipart-stream-to-api';
++export * from './post-transcription-file-to-api';
+ export * from './post-to-api';
+ export {
+   createProviderDefinedToolFactory,
+diff --git a/packages/provider-utils/src/media-type-to-extension.test.ts b/packages/provider-utils/src/media-type-to-extension.test.ts
+index 530c26d453091a6bcee421e98e7f9157ac3ae74c..a78a6f1f85625e193f57dcc2358dd03f8c502ba0 100644
+--- a/packages/provider-utils/src/media-type-to-extension.test.ts
++++ b/packages/provider-utils/src/media-type-to-extension.test.ts
+@@ -12,6 +12,7 @@ describe('mediaTypeToExtension()', () => {
+     ['audio/ogg', 'ogg'],
+     ['audio/opus', 'ogg'],
+     ['audio/mp4', 'm4a'],
++    ['video/quicktime', 'mov'],
+     ['audio/x-m4a', 'm4a'],
+     ['audio/flac', 'flac'],
+     ['audio/aac', 'aac'],
+diff --git a/packages/provider-utils/src/media-type-to-extension.ts b/packages/provider-utils/src/media-type-to-extension.ts
+index 40b475390b4a4bea233cdf9e5a479cb4c903dcaf..cd4404c72ad533b0016568f04a07829e063f5554 100644
+--- a/packages/provider-utils/src/media-type-to-extension.ts
++++ b/packages/provider-utils/src/media-type-to-extension.ts
+@@ -16,6 +16,7 @@ export function mediaTypeToExtension(mediaType: string) {
+       'x-wav': 'wav',
+       opus: 'ogg',
+       mp4: 'm4a',
++      quicktime: 'mov',
+       'x-m4a': 'm4a',
+     }[subtype] ?? subtype
+   );
+diff --git a/packages/provider-utils/src/post-multipart-stream-to-api.test.ts b/packages/provider-utils/src/post-multipart-stream-to-api.test.ts
+index 823d0d062d4ee385644e67fbcf5fa2421389528f..34aa6542ca4676c52eb59168773bb176c1d72387 100644
+--- a/packages/provider-utils/src/post-multipart-stream-to-api.test.ts
++++ b/packages/provider-utils/src/post-multipart-stream-to-api.test.ts
+@@ -31,6 +31,59 @@ async function parseCapturedFormData(init: {
+ }
+ 
+ describe('postMultipartStreamToApi', () => {
++  it('rejects native fetch that stringifies request streams, and allows a capable injected transport', async () => {
++    const fallback = vi.fn();
++    vi.stubGlobal('fetch', fallback);
++    vi.stubGlobal(
++      'Request',
++      class {
++        headers = new Headers({ 'content-type': 'text/plain;charset=UTF-8' });
++      },
++    );
++    const cancel = vi.fn();
++    const options = {
++      url: 'https://example.test/files',
++      successfulResponseHandler: createJsonResponseHandler(responseSchema),
++      failedResponseHandler: createStatusCodeErrorResponseHandler(),
++    };
++    try {
++      const source = new ReadableStream<Uint8Array>(
++        { cancel },
++        { highWaterMark: 0 },
++      );
++      await expect(
++        postMultipartStreamToApi({
++          ...options,
++          parts: [{ type: 'file', name: 'file', content: source }],
++        }),
++      ).rejects.toThrow('cannot stream HTTP request bodies');
++      expect(fallback).not.toHaveBeenCalled();
++      expect(cancel).toHaveBeenCalledOnce();
++      expect(source.locked).toBe(false);
++
++      const result = await postMultipartStreamToApi({
++        ...options,
++        parts: [
++          {
++            type: 'file',
++            name: 'file',
++            content: streamFromChunks(['recording']),
++          },
++        ],
++        fetch: async (_url, init) => {
++          const form = await new Response(init?.body, {
++            headers: init?.headers,
++          }).formData();
++          expect(await (form.get('file') as File).text()).toBe('recording');
++          return Response.json({ id: 'uploaded' });
++        },
++      });
++      expect(result.value.id).toBe('uploaded');
++    } finally {
++      vi.unstubAllGlobals();
++    }
++  });
++
+   it('sends a parseable multipart body with parts in array order', async () => {
+     const mockFetch = vi.fn().mockResolvedValue(
+       new Response(JSON.stringify({ id: 'file-123' }), {
+diff --git a/packages/provider-utils/src/post-multipart-stream-to-api.ts b/packages/provider-utils/src/post-multipart-stream-to-api.ts
+index cd379fd87e5dacf25083ddce84ffe494d0227a8e..e8807257bb23cb41eafb0841fa94dc0b3d6b9712 100644
+--- a/packages/provider-utils/src/post-multipart-stream-to-api.ts
++++ b/packages/provider-utils/src/post-multipart-stream-to-api.ts
+@@ -1,4 +1,4 @@
+-import { APICallError } from '@ai-sdk/provider';
++import { APICallError, UnsupportedFunctionalityError } from '@ai-sdk/provider';
+ import { convertAsyncIteratorToReadableStream } from './convert-async-iterator-to-readable-stream';
+ import { extractResponseHeaders } from './extract-response-headers';
+ import type { FetchFunction } from './fetch-function';
+@@ -37,6 +37,20 @@ function escapeMultipartHeaderValue(value: string): string {
+     .replace(/"/g, '\\"');
+ }
+ 
++// Some browsers accept a stream as BodyInit by converting it to text.
++function supportsNativeRequestStreams(): boolean {
++  const init = {
++    method: 'POST',
++    body: new ReadableStream({ start: controller => controller.close() }),
++    duplex: 'half',
++  };
++  try {
++    return !new Request('https://localhost/', init).headers.has('content-type');
++  } catch {
++    return false;
++  }
++}
++
+ interface MultipartBody {
+   stream: ReadableStream<Uint8Array>;
+   /**
+@@ -188,6 +202,13 @@ export const postMultipartStreamToApi = async <T>({
+   const body = createMultipartBody(parts, boundary);
+ 
+   try {
++    if (fetch === globalThis.fetch && !supportsNativeRequestStreams()) {
++      throw new UnsupportedFunctionalityError({
++        functionality: 'streaming HTTP request bodies',
++        message:
++          'This fetch implementation cannot stream HTTP request bodies. Supply a Blob or File, or use a fetch transport with request streaming support.',
++      });
++    }
+     const requestInit: RequestInit & { duplex: 'half' } = {
+       method: 'POST',
+       headers: withUserAgentSuffix(
+diff --git a/packages/provider-utils/src/post-transcription-file-to-api.ts b/packages/provider-utils/src/post-transcription-file-to-api.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0a48984a88a0fef12b1de9cdb83c349d427a8201
+--- /dev/null
++++ b/packages/provider-utils/src/post-transcription-file-to-api.ts
+@@ -0,0 +1,52 @@
++import type { TranscriptionModelV4File } from '@ai-sdk/provider';
++import { isArrayBuffer, isUint8Array } from './uint8-utils';
++import { mediaTypeToExtension } from './media-type-to-extension';
++import {
++  postMultipartStreamToApi,
++  type MultipartStreamPart,
++} from './post-multipart-stream-to-api';
++import { postFormDataToApi } from './post-to-api';
++
++/** Append an encoded recording to the provider's scalar multipart fields. */
++export function postTranscriptionFileToApi<T>({
++  file,
++  formData,
++  ...request
++}: Parameters<typeof postFormDataToApi<T>>[0] & {
++  file: TranscriptionModelV4File;
++}) {
++  const { data, mediaType } = file;
++  const filename =
++    file.filename ??
++    ('name' in data && typeof data.name === 'string' && data.name.length > 0
++      ? data.name
++      : `audio.${mediaTypeToExtension(mediaType.split(';')[0])}`);
++  if ('getReader' in data) {
++    const parts: MultipartStreamPart[] = [];
++    formData.forEach((value, name) =>
++      parts.push({ type: 'field', name, value: String(value) }),
++    );
++    parts.push({
++      type: 'file',
++      name: 'file',
++      filename,
++      mediaType,
++      content: data,
++    });
++    return postMultipartStreamToApi({ ...request, parts });
++  }
++  const blob = isUint8Array(data)
++    ? new Blob(
++        [
++          isArrayBuffer(data.buffer)
++            ? (data as Uint8Array<ArrayBuffer>)
++            : new Uint8Array(data),
++        ],
++        { type: mediaType },
++      )
++    : data.type === mediaType
++      ? data
++      : data.slice(0, data.size, mediaType);
++  formData.append('file', blob, filename);
++  return postFormDataToApi({ ...request, formData });
++}
+diff --git a/packages/provider/src/model-capabilities.ts b/packages/provider/src/model-capabilities.ts
+index cc2758ca1f9e3c23da6642a6823781c69bfb960e..fe866dbf7e26fda1f9b9b55c9b74186089f3837d 100644
+--- a/packages/provider/src/model-capabilities.ts
++++ b/packages/provider/src/model-capabilities.ts
+@@ -102,6 +102,8 @@ export type ModelCapabilities = {
+     readonly duration: ModelCapability;
+     readonly segments: ModelCapability;
+     readonly language: ModelCapability;
++    /** Incremental transcript output from a submitted recording, independently of live streaming. */
++    readonly fileStreaming?: ModelCapability;
+     readonly streamingDelay?: ModelCapability;
+   };
+   readonly speechTranslation?: {
+diff --git a/packages/provider/src/transcription-model/v4/index.ts b/packages/provider/src/transcription-model/v4/index.ts
+index de50cd9ff26dac8c7a448bccd2482ff8c0e17194..d4ec6fcd8d2e4cc125af72829ba42c52a87364f8 100644
+--- a/packages/provider/src/transcription-model/v4/index.ts
++++ b/packages/provider/src/transcription-model/v4/index.ts
+@@ -1,3 +1,4 @@
++export type { TranscriptionModelV4File } from './transcription-model-v4-file';
+ export type { TranscriptionModelV4 } from './transcription-model-v4';
+ export type {
+   TranscriptionModelV4CallOptions,
+diff --git a/packages/provider/src/transcription-model/v4/transcription-model-v4-file.ts b/packages/provider/src/transcription-model/v4/transcription-model-v4-file.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..256af816c1bca646c303fffa711ea2849cb8594d
+--- /dev/null
++++ b/packages/provider/src/transcription-model/v4/transcription-model-v4-file.ts
+@@ -0,0 +1,9 @@
++/** A single encoded recording. A stream is consumed once, in file order. */
++export type TranscriptionModelV4File = {
++  type: 'file';
++  data: Blob | Uint8Array | ReadableStream<Uint8Array>;
++  /** MIME type of the multipart file, independently of its name. */
++  mediaType: string;
++  /** Defaults to the File name, or a name derived from the MIME type. */
++  filename?: string;
++};
+diff --git a/packages/provider/src/transcription-model/v4/transcription-model-v4-stream-options.ts b/packages/provider/src/transcription-model/v4/transcription-model-v4-stream-options.ts
+index 89e9bbc6f12cae4fed3a5705734d02c462540de7..ed43da9aa9284639a0040cdd4e6648d1d074c96b 100644
+--- a/packages/provider/src/transcription-model/v4/transcription-model-v4-stream-options.ts
++++ b/packages/provider/src/transcription-model/v4/transcription-model-v4-stream-options.ts
+@@ -5,15 +5,15 @@ type TranscriptionModelV4ProviderOptions = Record<string, JSONObject>;
+ 
+ export type TranscriptionModelV4StreamOptions = {
+   /**
+-   * Audio chunks to transcribe.
++   * Ordered chunks from a single live recording.
+    *
+-   * `Uint8Array` chunks contain raw audio bytes. `string` chunks contain
+-   * base64-encoded raw audio bytes.
++   * `Uint8Array` chunks contain audio bytes (raw samples or a supported encoded container). `string` chunks contain
++   * base64-encoded audio bytes (raw samples or a supported encoded container).
+    */
+   audio: ReadableStream<Uint8Array | string>;
+ 
+   /**
+-   * The input audio format for the raw audio chunks.
++   * For a supported self-describing container, supply its MIME type and omit the sample rate.
+    */
+   inputAudioFormat: SharedV4AudioFormat;
+ 
+diff --git a/packages/provider/src/transcription-model/v4/transcription-model-v4.ts b/packages/provider/src/transcription-model/v4/transcription-model-v4.ts
+index 27dd99d332388f66bb32ec02f897fba9fe9b31cb..13e665ffa4ca4628cadf00bca99f6cacdafb0e3a 100644
+--- a/packages/provider/src/transcription-model/v4/transcription-model-v4.ts
++++ b/packages/provider/src/transcription-model/v4/transcription-model-v4.ts
+@@ -1,4 +1,5 @@
+ import type { TranscriptionModelV4CallOptions } from './transcription-model-v4-call-options';
++import type { TranscriptionModelV4File } from './transcription-model-v4-file';
+ import type { TranscriptionModelV4Result } from './transcription-model-v4-result';
+ import type { TranscriptionModelV4StreamOptions } from './transcription-model-v4-stream-options';
+ import type { TranscriptionModelV4StreamResult } from './transcription-model-v4-stream-result';
+@@ -33,6 +34,23 @@ export type TranscriptionModelV4 = {
+     options: TranscriptionModelV4CallOptions,
+   ): PromiseLike<TranscriptionModelV4Result>;
+ 
++  /** Upload an explicitly described recording without collecting a byte stream. */
++  doGenerateFromFile?(
++    options: Omit<TranscriptionModelV4CallOptions, 'audio' | 'mediaType'> & {
++      audio: TranscriptionModelV4File;
++    },
++  ): PromiseLike<TranscriptionModelV4Result>;
++
++  /** Upload a recording and receive incremental transcript events from the file endpoint. */
++  doStreamFromFile?(
++    options: Omit<
++      TranscriptionModelV4StreamOptions,
++      'audio' | 'inputAudioFormat'
++    > & {
++      audio: TranscriptionModelV4File;
++    },
++  ): PromiseLike<TranscriptionModelV4StreamResult>;
++
+   /**
+    * Optional native URL transcription. Its presence signals that HTTP(S)
+    * audio URLs can be sent to the provider without downloading them locally.
+diff --git a/tools/model-capabilities-docs/providers.mjs b/tools/model-capabilities-docs/providers.mjs
+index e442318fb502597f8930946d1aade0b7981a1167..4fdf9067d170d8080971362cba622bc448df0afb 100644
+--- a/tools/model-capabilities-docs/providers.mjs
++++ b/tools/model-capabilities-docs/providers.mjs
+@@ -285,7 +285,8 @@ export const providers = [
+         capability: 'transcription',
+         columns: [
+           ['Transcription', 'transcription'],
+-          ['Streaming', 'streaming'],
++          ['Live streaming', 'streaming'],
++          ['File streaming', 'fileStreaming'],
+           ['Duration', 'duration'],
+           ['Segments', 'segments'],
+           ['Language', 'language'],

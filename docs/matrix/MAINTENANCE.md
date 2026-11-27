@@ -46,7 +46,7 @@ All modes are selected only with factory/Config modifiers. `promptType`, `stream
 
 Phase 6 A/B correctness corrections now have maintained runtime, type, request-boundary and native/browser regressions. The selected C/D follow-ups keep scoped notices; their new input/browser conveniences remain planned. Remove each notice only after its implementation and relevant acceptance, not after a documentation review. Later-phase notices remain separate.
 
-**Configured loaded-audio tools (2026-11-15):** finished `.loadsAudio.asTool` requires configured audio, possibly inherited, using the same source-required rule as other loaded tools. Config fragments stay incomplete. The model cannot supply a resource override; declared context remains data. Examples configure the source privately and use a closed empty schema when no public data is needed. Ordinary Transcriber URL tools retain their SDK downloader; dynamic native preparation uses an explicit Function/Script workflow. Keep construction-required metadata and renderer configuration aligned with this distinction.
+**Configured loaded-audio tools (2026-11-15):** finished `.loadsAudio.asTool` requires configured audio, possibly inherited, using the same source-required rule as other loaded tools. Config fragments stay incomplete. The model cannot supply a resource override; declared context remains data. Examples configure the source privately and use a closed empty schema when no public data is needed. For an ordinary Transcriber URL tool, configure the SDK download hook when local URL checks and limits matter. Dynamic native preparation uses an explicit Function/Script workflow. Keep construction-required metadata and renderer configuration aligned with this distinction.
 
 **Phase 6 signature clarification (2026-11-15):** describe the selected preservation/target policy now, and finalize exact new helper/file-target signatures with their implementation. Extract those declarations and compile their examples before clearing the corresponding marker. Do not invent callable placeholders or require a separate pre-implementation signature approval to fill the reference. Existing selected modifier, operation and source contracts remain synchronized throughout.
 
@@ -103,7 +103,7 @@ Reuse upstream wording for detailed API documentation whenever it accurately des
 
 The installed `ai` package contains its reference pages under `node_modules/ai/docs/07-reference/01-ai-sdk-core/`. `npm run docs:matrix` extracts their opening paragraphs, selected missing result descriptions and native JSDoc from the installed public declarations. It follows exported aliases and reuses builder parameter documentation for nested options. This pins the content to the same version as the code. Online pages are useful for reading and comparison, but can describe a newer release. Generation is offline and does not evaluate MDX or import the SDK runtime.
 
-### Component descriptions: checked against ai@7.0.162
+### Checking component descriptions against the installed AI SDK
 
 Use the matching SDK operation to check each component summary. Adapt the summary for a concise homepage listing while retaining important capabilities and distinctions. Full descriptions explain model-specific limits, input and output details. Keep streaming-form summaries specific to live delivery.
 

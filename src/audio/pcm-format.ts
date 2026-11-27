@@ -3,7 +3,7 @@ import type { PcmFormat, PcmSamples, PcmSourceFormat } from './pcm.js';
 
 // Use the intrinsic typed-array brand just as the SDK does for Uint8Array.
 const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object;
-function sampleEncoding(samples: unknown): PcmFormat['encoding'] | undefined {
+export function sampleEncoding(samples: unknown): PcmFormat['encoding'] | undefined {
 	if (!ArrayBuffer.isView(samples)) return undefined;
 	switch (Reflect.get(typedArrayPrototype, Symbol.toStringTag, samples)) {
 		case 'Float32Array': return 'pcm_f32le';

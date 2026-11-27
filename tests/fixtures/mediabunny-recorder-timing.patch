@@ -1,0 +1,2868 @@
+diff --git a/src/codec-data.ts b/src/codec-data.ts
+index aad8f44..06a8074 100644
+--- a/src/codec-data.ts
++++ b/src/codec-data.ts
+@@ -6,7 +6,7 @@
+  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+  */
+ 
+-import { AudioCodec, AVC_LEVEL_TABLE, DtsFourCc, VideoCodec, VP9_LEVEL_TABLE } from './codec';
++import { AudioCodec, AVC_LEVEL_TABLE, DtsFourCc, OPUS_SAMPLE_RATE, VideoCodec, VP9_LEVEL_TABLE } from './codec';
+ import {
+ 	assert,
+ 	assertNever,
+@@ -2434,6 +2434,26 @@ export const parseOpusTocByte = (packet: Uint8Array) => {
+ 	};
+ };
+ 
++/** Place Opus packets on a coarse container clock using their intrinsic coded duration. */
++export class OpusPacketClock {
++	end: number | null = null;
++	private early = false;
++	constructor(private resolution: number) {}
++
++	advance(timestamp: number, data: Uint8Array, nextTimestamp?: number) {
++		const duration = parseOpusTocByte(data).durationInSamples / OPUS_SAMPLE_RATE;
++		const expected = this.end ?? timestamp;
++		const tick = (time: number) => Math.round(time * this.resolution);
++		const delta = tick(timestamp) - tick(expected);
++		const recovered = delta === 1 && (nextTimestamp === undefined ? this.early
++			: nextTimestamp >= timestamp && tick(nextTimestamp) <= tick(expected + duration));
++		const start = expected + (recovered ? 0 : Math.max(0, delta) / this.resolution);
++		this.early = delta < 0;
++		this.end = start + duration;
++		return { start, duration };
++	}
++}
++
+ // Based on vorbis_parser.c from FFmpeg.
+ export const parseModesFromVorbisSetupPacket = (setupHeader: Uint8Array) => {
+ 	// Verify that this is a Setup header.
+diff --git a/src/codec.ts b/src/codec.ts
+index 0290eaf..3fc9afc 100644
+--- a/src/codec.ts
++++ b/src/codec.ts
+@@ -891,6 +891,14 @@ export const guessDescriptionForAudio = (decoderConfig: AudioDecoderConfig): Uin
+ 	}
+ };
+ 
++/** AAC access-unit length at the core sample rate for LC and its SBR/PS extensions. */
++export const getAacLcFrameLayout = (decoderConfig: AudioDecoderConfig) => {
++	if (!decoderConfig.description) return null;
++	const { coreObjectType, coreSampleRate, frameLength }
++		= parseAacAudioSpecificConfig(toUint8Array(decoderConfig.description));
++	return coreObjectType === 2 && coreSampleRate ? { sampleRate: coreSampleRate, frameLength } : null;
++};
++
+ export const getAudioPreRollDuration = (codec: AudioCodec, decoderConfig: AudioDecoderConfig) => {
+ 	switch (codec) {
+ 		case 'aac': {
+diff --git a/src/flac/flac-demuxer.ts b/src/flac/flac-demuxer.ts
+index 45b1599..fb87a1c 100644
+--- a/src/flac/flac-demuxer.ts
++++ b/src/flac/flac-demuxer.ts
+@@ -67,6 +67,16 @@ type NextFlacFrameResult = {
+ 	isLastFrame: boolean;
+ };
+ 
++// RFC 9639 section 9.3. A complete frame, including its stored footer, has a zero remainder.
++const hasFrameFooter = (bytes: Uint8Array) => {
++	let crc = 0;
++	for (const byte of bytes) {
++		crc ^= byte << 8;
++		for (let bit = 0; bit < 8; bit++) crc = ((crc << 1) ^ (crc & 0x8000 ? 0x8005 : 0)) & 0xffff;
++	}
++	return crc === 0;
++};
++
+ export class FlacDemuxer extends Demuxer {
+ 	reader: Reader;
+ 
+@@ -106,6 +116,7 @@ export class FlacDemuxer extends Demuxer {
+ 
+ 	async readMetadata() {
+ 		return (this.metadataPromise ??= (async () => {
++			const skipTags = this.input._formatOptions.flac?.skipMetadataTags;
+ 			// Read all ID3v2 tags at the start of the file
+ 			let currentPos = 0;
+ 			while (true) {
+@@ -121,11 +132,13 @@ export class FlacDemuxer extends Demuxer {
+ 					break;
+ 				}
+ 
+-				let contentSlice = this.reader.requestSlice(headerSlice.filePos, id3V2Header.size);
+-				if (isThenable(contentSlice)) contentSlice = await contentSlice;
+-				assert(contentSlice);
++				if (!skipTags) {
++					let contentSlice = this.reader.requestSlice(headerSlice.filePos, id3V2Header.size);
++					if (isThenable(contentSlice)) contentSlice = await contentSlice;
++					assert(contentSlice);
+ 
+-				parseId3V2Tag(contentSlice, id3V2Header, this.metadataTags);
++					parseId3V2Tag(contentSlice, id3V2Header, this.metadataTags);
++				}
+ 
+ 				currentPos = headerSlice.filePos + id3V2Header.size;
+ 			}
+@@ -221,6 +234,7 @@ export class FlacDemuxer extends Demuxer {
+ 						break;
+ 					}
+ 					case FlacBlockType.VORBIS_COMMENT: {
++						if (skipTags) break;
+ 						// Parse vorbis comment block
+ 						// https://www.rfc-editor.org/rfc/rfc9639.html#name-vorbis-comment
+ 						let vorbisCommentBlock = this.reader.requestSlice(
+@@ -243,6 +257,7 @@ export class FlacDemuxer extends Demuxer {
+ 						break;
+ 					}
+ 					case FlacBlockType.PICTURE: {
++						if (skipTags) break;
+ 						// Parse picture block
+ 						// https://www.rfc-editor.org/rfc/rfc9639.html#name-picture
+ 						let pictureBlock = this.reader.requestSlice(
+@@ -416,19 +431,16 @@ export class FlacDemuxer extends Demuxer {
+ 				// https://github.com/Vanilagy/mediabunny/issues/194
+ 				// Concatenated files that restart their numbering therefore end at the join, which is intended.
+ 
+-				if (this.blockingBit === 0) {
+-					// Case A: If the stream is fixed block size, this is the frame number, which increments by 1
+-					if (nextFrameHeader.num - frameHeader.num !== 1) {
+-						slice.filePos = positionBeforeReading;
+-						continue;
+-					}
+-				} else {
+-					// Case B: If the stream is variable block size, this is the sample number, which increments by
+-					// amount of samples in a frame.
+-					if (nextFrameHeader.num - frameHeader.num !== frameHeader.blockSize) {
+-						slice.filePos = positionBeforeReading;
+-						continue;
++				const step = this.blockingBit === 0 ? 1 : frameHeader.blockSize;
++				if (nextFrameHeader.num !== frameHeader.num + step) {
++					if (this.input._formatOptions.flac?.requireCompleteData) {
++						const frame = slice.slice(startPos, lengthIfNextFlacFrameHeaderIsLegit);
++						if (hasFrameFooter(readBytes(frame, lengthIfNextFlacFrameHeaderIsLegit))) {
++							throw new Error('FLAC frame numbering is discontinuous.');
++						}
+ 					}
++					slice.filePos = positionBeforeReading;
++					continue;
+ 				}
+ 
+ 				return {
+@@ -546,6 +558,16 @@ export class FlacDemuxer extends Demuxer {
+ 		assert(this.audioInfo);
+ 		const startPos = this.lastLoadedPos;
+ 		const frame = await this.readNextFlacFrame(startPos);
++		const lastSample = this.loadedSamples[this.loadedSamples.length - 1];
++		const blockOffset = lastSample ? lastSample.blockOffset + lastSample.blockSize : 0;
++		const total = this.audioInfo.totalSamples;
++		if (this.input._formatOptions.flac?.requireCompleteData) {
++			if (frame && !lastSample && frame.num !== 0) throw new Error('FLAC frame numbering is discontinuous.');
++			const end = blockOffset + (frame?.blockSize ?? 0);
++			if (total && (end > total || ((!frame || frame.isLastFrame) && end !== total))) {
++				throw new Error('FLAC frames do not match the declared sample count.');
++			}
++		}
+ 
+ 		if (!frame) {
+ 			// Unexpected case, failed to read next FLAC frame
+@@ -554,11 +576,6 @@ export class FlacDemuxer extends Demuxer {
+ 			return;
+ 		}
+ 
+-		const lastSample = this.loadedSamples[this.loadedSamples.length - 1];
+-		const blockOffset = lastSample
+-			? lastSample.blockOffset + lastSample.blockSize
+-			: 0;
+-
+ 		const sample: Sample = {
+ 			blockOffset,
+ 			blockSize: frame.blockSize,
+diff --git a/src/input-format.ts b/src/input-format.ts
+index 0374cc5..6296ac7 100644
+--- a/src/input-format.ts
++++ b/src/input-format.ts
+@@ -733,6 +733,28 @@ export const HLS_FORMATS: InputFormat[] = [HLS, MP4, QTFF, MP3, ADTS, MPEG_TS];
+  * @public
+  */
+ export type InputFormatOptions = {
++	flac?: {
++		/** Require consecutive standalone frames and agreement with a nonzero STREAMINFO sample count. */
++		requireCompleteData?: boolean;
++		/** Skip descriptive ID3, Vorbis comments and picture blocks. */
++		skipMetadataTags?: boolean;
++	};
++	matroska?: {
++		/** Skip leading descriptive tags and attachments during track inspection. */
++		skipMetadataTags?: boolean;
++	};
++	ogg?: {
++		/** Reject a later logical link when the selected stream ends. */
++		requireSingleLink?: boolean;
++		/** Require consecutive pages and an intact end of stream for the selected track. */
++		requireCompleteData?: boolean;
++	};
++	wave?: {
++		/** Require each data chunk to contain whole sample frames and match its finalized size. */
++		requireCompleteData?: boolean;
++		/** Skip descriptive LIST and ID3 tags. */
++		skipMetadataTags?: boolean;
++	};
+ 	/** ISOBMFF-specific configuration. */
+ 	isobmff?: IsobmffInputFormatOptions;
+ 	/** HLS-specific configuration. */
+@@ -745,6 +767,9 @@ export type InputFormatOptions = {
+  * @public
+  */
+ export type IsobmffInputFormatOptions = {
++	/** Read movie structure incrementally and omit descriptive tags. Playback timing metadata is retained. */
++	skipMetadataTags?: boolean;
++
+ 	/**
+ 	 * A callback that gets invoked for each key ID required for sample content decryption. The key ID is provided as a
+ 	 * 32-character lowercase hexadecimal string.
+@@ -789,10 +814,29 @@ export const validateInputFormatOptions = (options: InputFormatOptions, prefix:
+ 	if (!options || typeof options !== 'object') {
+ 		throw new TypeError(`${prefix}, when provided, must be an object.`);
+ 	}
++	for (const format of ['flac', 'ogg', 'wave'] as const) {
++		const settings = options[format];
++		if (settings !== undefined && (!settings || typeof settings !== 'object' || (
++			settings.requireCompleteData !== undefined && typeof settings.requireCompleteData !== 'boolean'
++		))) throw new TypeError(`${prefix}.${format} must be an object with an optional boolean requireCompleteData.`);
++	}
++	if (options.ogg?.requireSingleLink !== undefined && typeof options.ogg.requireSingleLink !== 'boolean') {
++		throw new TypeError(`${prefix}.ogg.requireSingleLink must be a boolean.`);
++	}
++	for (const format of ['flac', 'wave'] as const) {
++		const value = options[format]?.skipMetadataTags;
++		if (value !== undefined && typeof value !== 'boolean') throw new TypeError(`${prefix}.${format}.skipMetadataTags must be a boolean.`);
++	}
++	if (options.matroska !== undefined && (!options.matroska || typeof options.matroska !== 'object' || (
++		options.matroska.skipMetadataTags !== undefined && typeof options.matroska.skipMetadataTags !== 'boolean'
++	))) throw new TypeError(`${prefix}.matroska must be an object with an optional boolean skipMetadataTags.`);
+ 	if (options.isobmff !== undefined) {
+ 		if (!options.isobmff || typeof options.isobmff !== 'object') {
+ 			throw new TypeError(`${prefix}.isobmff, when provided, must be an object.`);
+ 		}
++		if (options.isobmff.skipMetadataTags !== undefined && typeof options.isobmff.skipMetadataTags !== 'boolean') {
++			throw new TypeError(`${prefix}.isobmff.skipMetadataTags, when provided, must be a boolean.`);
++		}
+ 		if (options.isobmff.resolveKeyId !== undefined && typeof options.isobmff.resolveKeyId !== 'function') {
+ 			throw new TypeError(`${prefix}.isobmff.resolveKeyId, when provided, must be a function.`);
+ 		}
+diff --git a/src/input-track.ts b/src/input-track.ts
+index 26dc60d..c6e98b3 100644
+--- a/src/input-track.ts
++++ b/src/input-track.ts
+@@ -9,12 +9,13 @@
+ import {
+ 	AUDIO_CODECS_WITH_DELTA_PACKETS,
+ 	AudioCodec,
++	getAacLcFrameLayout,
+ 	getAudioPreRollDuration,
+ 	MediaCodec,
+ 	PCM_AUDIO_CODECS,
+ 	VideoCodec,
+ } from './codec';
+-import { determineAudioPacketType, determineVideoPacketType } from './codec-data';
++import { determineAudioPacketType, determineVideoPacketType, OpusPacketClock } from './codec-data';
+ import { customAudioDecoders, customVideoDecoders } from './custom-coder';
+ import { Input } from './input';
+ import { Logging } from './logging';
+@@ -1108,6 +1109,52 @@ export interface InputAudioTrackBacking extends InputTrackBacking {
+  * @public
+  */
+ export class InputAudioTrack extends InputTrack {
++	/** The decoded frames per AAC access unit at the track's sample rate, or null for an unknown layout. */
++	async getAacPacketFrameCount(): Promise<number | null> {
++		if (await this.getCodec() !== 'aac') return null;
++		const config = await this.getDecoderConfig();
++		const layout = config && getAacLcFrameLayout(config);
++		if (!layout) return null;
++		const frames = layout.frameLength * await this.getSampleRate() / layout.sampleRate;
++		return Number.isSafeInteger(frames) && frames > 0 ? frames : null;
++	}
++
++	/**
++	 * Returns true if packet timing and codec padding establish playback within the limit in seconds.
++	 * May read the entire track.
++	 */
++	async fitsPlaybackDuration(limit: number): Promise<boolean> {
++		const sink = new EncodedPacketSink(this);
++		const codec = await this.getCodec();
++		const rate = await this.getSampleRate();
++		const within = (end: number) => Math.round(end * rate) / rate <= limit;
++		if (codec === 'aac') {
++			const frames = await this.getAacPacketFrameCount();
++			if (frames === null) return false;
++			let decodedEnd = 0;
++			for await (const packet of sink.packets(undefined, undefined, { metadataOnly: true })) {
++				// A player can keep every coded sample, even when packet clocks overlap or the last duration is short.
++				decodedEnd = Math.max(decodedEnd, Math.round(packet.timestamp * rate)) + frames;
++				if (decodedEnd / rate > limit || !within(packet.timestamp + packet.duration)) return false;
++			}
++			return true;
++		}
++		if (codec !== 'opus') {
++			if (!PCM_AUDIO_CODECS.some(pcm => pcm === codec)) return false;
++			const last = await sink.getPacket(Infinity, { metadataOnly: true });
++			return last !== null && last.duration > 0 && within(last.timestamp + last.duration);
++		}
++		const clock = new OpusPacketClock(await this.getTimeResolution());
++		let previous: EncodedPacket | undefined;
++		for await (const packet of sink.packets()) {
++			if (previous) clock.advance(previous.timestamp, previous.data, packet.timestamp);
++			previous = packet;
++		}
++		if (previous?.sideData.audioEndTimestamp !== undefined) return within(previous.sideData.audioEndTimestamp);
++		if (previous) clock.advance(previous.timestamp, previous.data);
++		return within(clock.end ?? 0);
++	}
++
+ 	/** @internal */
+ 	declare _backing: InputAudioTrackBacking;
+ 
+diff --git a/src/isobmff/isobmff-demuxer.ts b/src/isobmff/isobmff-demuxer.ts
+index 8e35c21..e15c350 100644
+--- a/src/isobmff/isobmff-demuxer.ts
++++ b/src/isobmff/isobmff-demuxer.ts
+@@ -125,6 +125,7 @@ import { AC3_SAMPLE_RATES } from '../../shared/ac3-misc';
+ import { Bitstream } from '../../shared/bitstream';
+ import { Aes128CbcContext } from '../aes';
+ import { Logging } from '../logging';
++import { ReadableStreamSource, UrlSource } from '../source';
+ 
+ const TRUEHD_CHANNEL_ASSIGNMENT_COUNTS = [2, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 1, 1];
+ 
+@@ -337,6 +338,175 @@ type SampleEncryptionAuxInfo = {
+ 
+ // Anything beyond this is malicious
+ const MAX_BOX_NESTING_DEPTH = 64;
++const MOVIE_READ_BYTES = 32 * 1024;
++const SAMPLE_TABLE_BOXES = new Set(['stts', 'ctts', 'stsz', 'stz2', 'stss', 'stsc', 'stco', 'co64']);
++const MOVIE_LEAF_BOXES = new Set([
++	'mvhd', 'tkhd', 'mdhd', 'hdlr', 'mehd', 'trex', 'pssh', 'saiz', 'saio',
++	'frma', 'schm', 'tenc', 'avcC', 'hvcC', 'vpcC', 'av1C', 'colr', 'pasp', 'btrt',
++	'esds', 'enda', 'pcmC', 'srat', 'dOps', 'dfLa', 'dac3', 'dec3', 'ddts', 'dmlp',
++]);
++const MOVIE_LEAF_PREFIX_LENGTHS: Record<string, number> = { mvhd: 84, tkhd: 96, mdhd: 36, hdlr: 12, mehd: 12, trex: 24 };
++
++type MovieReadRequest = { position: number; length: number } | { children: { start: number; end: number } };
++type MovieRead<T> = Generator<MovieReadRequest, T, FileSlice | undefined>;
++type MovieBox = NonNullable<ReturnType<typeof readBoxHeader>> & { start: number; contentStart: number; end: number };
++
++const createSampleTable = (): SampleTable => ({
++	sampleTimingEntries: [],
++	sampleCompositionTimeOffsets: [],
++	sampleSizes: [],
++	sampleCount: 0,
++	cumulativeSampleSizes: null,
++	keySampleIndices: null,
++	chunkOffsets: [],
++	sampleToChunk: [],
++	sortedCompositionTimeOffsets: null,
++});
++
++function* readMoviePrefix(position: number, end: number, length: number): MovieRead<FileSlice> {
++	if (length > end - position) throw new Error('Incomplete ISOBMFF box fields.');
++	const slice = yield { position, length };
++	assert(slice);
++	return slice;
++}
++
++function* readMovieRows(
++	position: number,
++	end: number,
++	count: number,
++	width: number,
++	readRow: (slice: FileSlice) => void | false,
++): MovieRead<void> {
++	if (count * width > end - position) throw new Error('Incomplete ISOBMFF table entries.');
++	const rowsPerRead = Math.floor(MOVIE_READ_BYTES / width);
++	for (let remaining = count; remaining > 0;) {
++		const rows = Math.min(remaining, rowsPerRead);
++		const length = rows * width;
++		const slice = yield* readMoviePrefix(position, end, length);
++		for (let i = 0; i < rows; i++) if (readRow(slice) === false) return;
++		position += length;
++		remaining -= rows;
++	}
++}
++
++function* readEditList(track: InternalTrack, position: number, end: number): MovieRead<void> {
++	const header = yield* readMoviePrefix(position, end, 8);
++	const wide = readU8(header) === 1;
++	header.skip(3); // Flags
++	const entryCount = readU32Be(header);
++	let found = false;
++	let previousSegmentDurations = 0;
++	yield* readMovieRows(header.filePos, end, entryCount, wide ? 20 : 12, slice => {
++		const segmentDuration = wide ? readU64Be(slice) : readU32Be(slice);
++		const mediaTime = wide ? readI64Be(slice) : readI32Be(slice);
++		const mediaRate = readFixed_16_16(slice);
++		if (found) {
++			Logging._warn('Unsupported edit list: multiple edits are not currently supported. Only using first edit.');
++			return false;
++		}
++		if (mediaTime === -1) {
++			previousSegmentDurations += segmentDuration;
++			return;
++		}
++		if (mediaRate !== 1) {
++			Logging._warn('Unsupported edit list entry: media rate must be 1.');
++			return false;
++		}
++		track.editListPreviousSegmentDurations = previousSegmentDurations;
++		track.timestampOffset = mediaTime;
++		found = true;
++	});
++}
++
++function* readSampleTableBox(table: SampleTable, name: string, position: number, end: number): MovieRead<void> {
++	const header = yield* readMoviePrefix(position, end, name === 'stsz' || name === 'stz2' ? 12 : 8);
++	header.skip(4); // Version and flags
++	if (name === 'stsz') {
++		const defaultSize = readU32Be(header);
++		const count = readU32Be(header);
++		if (defaultSize !== 0) table.sampleSizes.push(defaultSize);
++		else yield* readMovieRows(header.filePos, end, count, 4, slice => { table.sampleSizes.push(readU32Be(slice)); });
++		table.sampleCount = count;
++		return;
++	}
++	if (name === 'stz2') {
++		header.skip(3); // Reserved
++		const fieldSize = readU8(header);
++		const count = readU32Be(header);
++		if (fieldSize !== 4 && fieldSize !== 8 && fieldSize !== 16) {
++			throw new Error(`Invalid stz2 box: unsupported field size ${fieldSize}.`);
++		}
++		const packed = fieldSize === 4;
++		let remaining = count;
++		yield* readMovieRows(header.filePos, end, packed ? Math.ceil(count / 2) : count, fieldSize === 16 ? 2 : 1, slice => {
++			const value = fieldSize === 16 ? readU16Be(slice) : readU8(slice);
++			if (packed) {
++				table.sampleSizes.push(value >>> 4);
++				if (--remaining > 0) { table.sampleSizes.push(value & 15); remaining--; }
++			} else table.sampleSizes.push(value);
++		});
++		table.sampleCount = count;
++		return;
++	}
++
++	const count = readU32Be(header);
++	switch (name) {
++		case 'stts': {
++			let currentIndex = 0;
++			let currentTimestamp = 0;
++			yield* readMovieRows(header.filePos, end, count, 8, slice => {
++				const sampleCount = readU32Be(slice);
++				const delta = readU32Be(slice);
++				table.sampleTimingEntries.push({ startIndex: currentIndex, startDecodeTimestamp: currentTimestamp, count: sampleCount, delta });
++				currentIndex += sampleCount;
++				currentTimestamp += sampleCount * delta;
++			});
++		}; break;
++		case 'ctts': {
++			let sampleIndex = 0;
++			yield* readMovieRows(header.filePos, end, count, 8, slice => {
++				const sampleCount = readU32Be(slice);
++				const offset = readI32Be(slice);
++				table.sampleCompositionTimeOffsets.push({
++					startIndex: sampleIndex, count: sampleCount, offset, startTimestamp: -1, lastTimestamp: -1, maxLastTimestamp: -1,
++				});
++				sampleIndex += sampleCount;
++			});
++		}; break;
++		case 'stss': {
++			const indices: number[] = [];
++			yield* readMovieRows(header.filePos, end, count, 4, slice => { indices.push(readU32Be(slice) - 1); });
++			indices.sort((a, b) => a - b);
++			// Some files omit the first key sample.
++			if (indices[0] !== 0) indices.unshift(0);
++			table.keySampleIndices = indices;
++		}; break;
++		case 'stsc': {
++			let skippedEntryCount = 0;
++			yield* readMovieRows(header.filePos, end, count, 12, slice => {
++				const startChunkIndex = readU32Be(slice) - 1;
++				const samplesPerChunk = readU32Be(slice);
++				const sampleDescriptionIndex = readU32Be(slice);
++				const previous = last(table.sampleToChunk);
++				if (previous && startChunkIndex <= previous.startChunkIndex) { skippedEntryCount++; return; }
++				const startSampleIndex = previous
++					? previous.startSampleIndex + (startChunkIndex - previous.startChunkIndex) * previous.samplesPerChunk
++					: 0;
++				table.sampleToChunk.push({ startSampleIndex, startChunkIndex, samplesPerChunk, sampleDescriptionIndex });
++			});
++			if (skippedEntryCount > 0) {
++				Logging._warn(`Skipped ${skippedEntryCount} invalid stsc entries whose chunk indices weren't strictly increasing.`);
++			}
++		}; break;
++		case 'stco':
++		case 'co64': {
++			const wide = name === 'co64';
++			yield* readMovieRows(header.filePos, end, count, wide ? 8 : 4, slice => {
++				table.chunkOffsets.push(wide ? readU64Be(slice) : readU32Be(slice));
++			});
++		}; break;
++	}
++}
+ 
+ export class IsobmffDemuxer extends Demuxer {
+ 	reader: Reader;
+@@ -354,6 +524,7 @@ export class IsobmffDemuxer extends Demuxer {
+ 	currentMetadataKeys: Map<number, string> | null = null;
+ 
+ 	isFragmented = false;
++	fragmentScanStart = 0;
+ 	fragmentTrackDefaults = new Map<number, FragmentTrackDefaults>();
+ 	psshBoxes: PsshBox[] = [];
+ 	currentFragment: Fragment | null = null;
+@@ -428,12 +599,24 @@ export class IsobmffDemuxer extends Demuxer {
+ 				} else if (boxInfo.name === 'moov') {
+ 					// Found moov, load it
+ 
+-					let moovSlice = this.reader.requestSlice(slice.filePos, boxInfo.contentSize);
+-					if (isThenable(moovSlice)) moovSlice = await moovSlice;
+-					if (!moovSlice) break;
++					if (this.input._formatOptions.isobmff?.skipMetadataTags) {
++						const end = startPos + boxInfo.totalSize;
++						if (!Number.isSafeInteger(end) || this.reader.fileSize !== null && end > this.reader.fileSize) {
++							throw new Error('Invalid or incomplete moov box.');
++						}
++						await this.readMovieBoxes(slice.filePos, end, 0);
++						// A forward-only source must have the declared bytes even if the last box was skipped.
++						const available = this.reader.fileSize;
++						if (available === null && boxInfo.contentSize > 0) await this.readMovieSpan(end - 1, 1);
++						else if (available !== null && end > available) throw new Error('Invalid or incomplete moov box.');
++					} else {
++						let moovSlice = this.reader.requestSlice(slice.filePos, boxInfo.contentSize);
++						if (isThenable(moovSlice)) moovSlice = await moovSlice;
++						if (!moovSlice) break;
+ 
+-					this.moovSlice = moovSlice;
+-					this.readContiguousBoxes(this.moovSlice);
++						this.moovSlice = moovSlice;
++						this.readContiguousBoxes(this.moovSlice);
++					}
+ 
+ 					if (this.movieTimescale === -1) {
+ 						throw new Error('Invalid moov box: missing mvhd box.');
+@@ -463,9 +646,17 @@ export class IsobmffDemuxer extends Demuxer {
+ 						track.timestampOffset -= Math.round(previousSegmentDurationsInSeconds * track.timescale);
+ 					}
+ 
++					const source = this.reader.source;
++					const forwardOnly = source instanceof ReadableStreamSource
++						|| source instanceof UrlSource && source._sequentialBacking !== null;
++					// A size from HTTP does not make a sequential response seekable. Looking for an index at EOF
++					// would evict the first fragments before the caller can read them.
+ 					lookForMfraBox = this.isFragmented
++						&& !(this.input._formatOptions.isobmff?.skipMetadataTags && forwardOnly)
+ 						&& this.reader.fileSize !== null
+ 						&& this.reader.fileSize > startPos + boxInfo.totalSize; // There's more after the moov box
++					// The metadata scan already ruled out earlier fragments. A forward-only source may have evicted those boxes.
++					this.fragmentScanStart = startPos + boxInfo.totalSize;
+ 					foundMovieBoxes = true;
+ 
+ 					break;
+@@ -523,11 +714,13 @@ export class IsobmffDemuxer extends Demuxer {
+ 
+ 						if (boxInfo && boxInfo.name === 'mfra') {
+ 							// We found the mfra box, allowing for much better random access. Let's parse it.
+-							let mfraSlice = this.reader.requestSlice(mfraHeaderSlice.filePos, boxInfo.contentSize);
+-							if (isThenable(mfraSlice)) mfraSlice = await mfraSlice;
+-
+-							if (mfraSlice) {
+-								this.readContiguousBoxes(mfraSlice);
++							if (this.input._formatOptions.isobmff?.skipMetadataTags) {
++								const end = potentialMfraPos + boxInfo.totalSize;
++								if (end <= this.reader.fileSize) await this.readMovieBoxes(mfraHeaderSlice.filePos, end, 0);
++							} else {
++								let mfraSlice = this.reader.requestSlice(mfraHeaderSlice.filePos, boxInfo.contentSize);
++								if (isThenable(mfraSlice)) mfraSlice = await mfraSlice;
++								if (mfraSlice) this.readContiguousBoxes(mfraSlice);
+ 							}
+ 						}
+ 					}
+@@ -550,6 +743,523 @@ export class IsobmffDemuxer extends Demuxer {
+ 		})();
+ 	}
+ 
++	private async readMovieSpan(position: number, length: number) {
++		const slice = await this.reader.requestSlice(position, length, position + length + MOVIE_READ_BYTES);
++		if (!slice) throw new Error('Incomplete ISOBMFF movie metadata.');
++		return slice;
++	}
++
++	private async *movieBoxes(start: number, end: number): AsyncGenerator<MovieBox> {
++		for (let position = start; position <= end - MIN_BOX_HEADER_SIZE;) {
++			const slice = await this.readMovieSpan(position, Math.min(MAX_BOX_HEADER_SIZE, end - position));
++			const box = readBoxHeader(slice);
++			if (!box || box.totalSize > end - position) throw new Error('Invalid ISOBMFF movie metadata box.');
++			const boxEnd = position + box.totalSize;
++			yield { ...box, start: position, contentStart: slice.filePos, end: boxEnd };
++			position = boxEnd;
++		}
++	}
++
++	private async readMovieLeaf(box: MovieBox) {
++		const length = Math.min(box.totalSize, (MOVIE_LEAF_PREFIX_LENGTHS[box.name] ?? box.contentSize) + box.headerSize);
++		if (length <= MOVIE_READ_BYTES) return this.readMovieSpan(box.start, length);
++
++		// Codec descriptions and encryption configuration can require the whole leaf. Unlike padding, their bytes
++		// are part of the decoded track's structural state. The indexed sample tables are parsed in blocks below.
++		const bytes = new Uint8Array(length);
++		for (let offset = 0; offset < length; offset += MOVIE_READ_BYTES) {
++			const count = Math.min(MOVIE_READ_BYTES, length - offset);
++			bytes.set(readBytes(await this.readMovieSpan(box.start + offset, count), count), offset);
++		}
++		return new FileSlice(bytes, toDataView(bytes), box.start, box.start, box.start + length);
++	}
++
++	private async runMovieRead<T>(parser: MovieRead<T>, depth: number) {
++		let step = parser.next();
++		while (!step.done) {
++			const read = step.value;
++			if ('children' in read) {
++				await this.readMovieBoxes(read.children.start, read.children.end, depth + 1);
++				step = parser.next();
++			} else {
++				step = parser.next(await this.readMovieSpan(read.position, read.length));
++			}
++		}
++		return step.value;
++	}
++
++	private runMovieInSlice<T>(parser: MovieRead<T>, input: FileSlice) {
++		let step = parser.next();
++		while (!step.done) {
++			const read = step.value;
++			if ('children' in read) {
++				this.readContiguousBoxes(input.slice(read.children.start, read.children.end - read.children.start));
++				step = parser.next();
++			} else {
++				step = parser.next(input.slice(read.position, read.length));
++			}
++		}
++		return step.value;
++	}
++
++	private async readMovieBoxes(start: number, end: number, depth: number, table?: SampleTable): Promise<void> {
++		if (depth === MAX_BOX_NESTING_DEPTH) throw new Error('Invalid file: boxes are nested too deeply.');
++		for await (const box of this.movieBoxes(start, end)) {
++			switch (box.name) {
++				case 'mdia':
++				case 'minf':
++				case 'dinf':
++				case 'edts':
++				case 'sinf':
++				case 'schi':
++				case 'wave':
++				case 'mvex': {
++					if (box.name === 'mvex') this.isFragmented = true;
++					await this.readMovieBoxes(box.contentStart, box.end, depth + 1, table);
++				}; break;
++				case 'trak': {
++					if (this.currentTrack) break;
++					const track = this.currentTrack = this.createTrack();
++					try {
++						await this.readMovieBoxes(box.contentStart, box.end, depth + 1);
++						if (track.sampleTable && track.info) this.finishSampleTable(track, track.sampleTable);
++						this.appendTrack(track);
++					} finally {
++						this.currentTrack = null;
++					}
++				}; break;
++				case 'stbl': {
++					const track = this.currentTrack;
++					if (!track) break;
++					track.sampleTableByteOffset = box.start;
++					track.sampleTable = null;
++					const parsed = createSampleTable();
++					await this.readMovieBoxes(box.contentStart, box.end, depth + 1, parsed);
++					track.sampleTable = parsed;
++				}; break;
++				case 'elst': {
++					if (this.currentTrack) await this.runMovieRead(readEditList(this.currentTrack, box.contentStart, box.end), depth);
++				}; break;
++				case 'stsd': {
++					await this.runMovieRead(this.readSampleDescriptions(box.contentStart, box.end), depth);
++				}; break;
++				case 'tfra': {
++					await this.runMovieRead(this.readTrackFragmentIndex(box.contentStart, box.end), depth);
++				}; break;
++				case 'udta': {
++					if (this.currentTrack) break;
++					for await (const child of this.movieBoxes(box.contentStart, box.end)) {
++						if (child.name === 'meta') await this.readPrimingMetadata(child);
++					}
++				}; break;
++				case 'meta': {
++					if (!this.currentTrack) await this.readPrimingMetadata(box);
++				}; break;
++				default: {
++					if (table && SAMPLE_TABLE_BOXES.has(box.name)) {
++						await this.runMovieRead(readSampleTableBox(table, box.name, box.contentStart, box.end), depth);
++					} else if (MOVIE_LEAF_BOXES.has(box.name)) {
++						this.traverseBox(await this.readMovieLeaf(box));
++					}
++				}; break;
++			}
++		}
++	}
++
++	private *readTrackFragmentIndex(start: number, end: number): MovieRead<void> {
++		const header = yield* readMoviePrefix(start, end, 8);
++		const wide = readU8(header) === 1;
++		header.skip(3); // Flags
++		const track = this.idToTrack.get(readU32Be(header));
++		if (!track) return;
++
++		const fields = yield* readMoviePrefix(header.filePos, end, 8);
++		const lengths = readU32Be(fields);
++		const trafWidth = ((lengths >>> 4) & 3) + 1;
++		const trunWidth = ((lengths >>> 2) & 3) + 1;
++		const sampleWidth = (lengths & 3) + 1;
++		const count = readU32Be(fields);
++		const readUnsigned = [readU8, readU16Be, readU24Be, readU32Be];
++		const readTrunNumber = readUnsigned[trunWidth - 1]!;
++		const readSampleNumber = readUnsigned[sampleWidth - 1]!;
++		const width = (wide ? 16 : 8) + trafWidth + trunWidth + sampleWidth;
++		yield* readMovieRows(fields.filePos, end, count, width, slice => {
++			const timestamp = wide ? readU64Be(slice) : readU32Be(slice);
++			const moofOffset = wide ? readU64Be(slice) : readU32Be(slice);
++			slice.skip(trafWidth); // Track fragment number is not used.
++			const trunNumber = readTrunNumber(slice);
++			const sampleNumber = readSampleNumber(slice);
++			if (trunNumber >= 1 && sampleNumber >= 1) {
++				track.fragmentLookupTable.push({ timestamp, moofOffset, trunNumber, sampleNumber });
++			}
++		});
++		// The table gets sorted and deduplicated once all metadata has been read.
++	}
++
++	private *readSampleDescriptions(start: number, end: number): MovieRead<void> {
++		const track = this.currentTrack;
++		if (!track?.info || track.sampleTable) return;
++
++		const header = yield* readMoviePrefix(start, end, 8);
++		const stsdVersion = readU8(header);
++		header.skip(3); // Flags
++		const entries = readU32Be(header);
++		let position = header.filePos;
++		for (let i = 0; i < entries && position <= end - MIN_BOX_HEADER_SIZE; i++) {
++			const sampleHeader = yield* readMoviePrefix(position, end, Math.min(MAX_BOX_HEADER_SIZE, end - position));
++			const sampleBoxInfo = readBoxHeader(sampleHeader);
++			if (!sampleBoxInfo || sampleBoxInfo.totalSize > end - position) throw new Error('Invalid ISOBMFF sample description.');
++			const sampleBoxEnd = position + sampleBoxInfo.totalSize;
++			const fixedFields = track.info.type === 'video' ? 78 : 64;
++			const slice = yield* readMoviePrefix(sampleHeader.filePos, sampleBoxEnd, Math.min(fixedFields, sampleBoxInfo.contentSize));
++			track.internalCodecId = sampleBoxInfo.name;
++			const lowercaseBoxName = sampleBoxInfo.name.toLowerCase();
++
++			if (track.info.type === 'video') {
++				slice.skip(6 * 1 + 2 + 2 + 2 + 3 * 4);
++
++				track.info.width = readU16Be(slice);
++				track.info.height = readU16Be(slice);
++				track.info.squarePixelWidth = track.info.width;
++				track.info.squarePixelHeight = track.info.height;
++
++				slice.skip(4 + 4 + 4 + 2 + 32 + 2 + 2);
++
++				track.frmaCodecString = null;
++				if (slice.filePos > sampleBoxEnd) throw new Error('Incomplete ISOBMFF sample description.');
++				yield { children: { start: slice.filePos, end: sampleBoxEnd } };
++
++				const codecName = lowercaseBoxName === 'encv'
++					? track.frmaCodecString
++					: lowercaseBoxName;
++				track.frmaCodecString = null;
++
++				if (codecName === 'avc1' || codecName === 'avc3') {
++					track.info.codec = 'avc';
++					track.info.avcType = codecName === 'avc1' ? 1 : 3;
++				} else if (codecName === 'hvc1' || codecName === 'hev1') {
++					track.info.codec = 'hevc';
++					track.info.hevcType = codecName;
++				} else if (codecName === 'vp08') {
++					track.info.codec = 'vp8';
++				} else if (codecName === 'vp09') {
++					track.info.codec = 'vp9';
++				} else if (codecName === 'av01') {
++					track.info.codec = 'av1';
++				} else if ((PRORES_FOURCCS as readonly string[]).includes(lowercaseBoxName)) {
++					track.info.codec = 'prores';
++					track.info.proresFormat = lowercaseBoxName as ProresFourCc;
++				} else if (codecName === null) {
++					Logging._warn(`Unknown encrypted video codec due to missing frma box.`);
++				} else {
++					Logging._warn(`Unsupported video codec (sample entry type '${sampleBoxInfo.name}').`);
++				}
++			} else {
++				slice.skip(6 * 1 + 2);
++
++				const version = readU16Be(slice);
++				slice.skip(3 * 2);
++
++				let channelCount = readU16Be(slice);
++				let sampleSize = readU16Be(slice);
++
++				slice.skip(2 * 2);
++
++				// Can't use fixed16_16 as that's signed
++				let sampleRate = readU32Be(slice) / 0x10000;
++				let lpcmFlags: number | null = null;
++
++				if (stsdVersion === 0 && version > 0) {
++					// Additional QuickTime fields
++					if (version === 1) {
++						slice.skip(4);
++						sampleSize = 8 * readU32Be(slice);
++						slice.skip(2 * 4);
++					} else if (version === 2) {
++						slice.skip(4);
++						sampleRate = readF64Be(slice);
++						channelCount = readU32Be(slice);
++						slice.skip(4); // Always 0x7f000000
++
++						sampleSize = readU32Be(slice);
++
++						lpcmFlags = readU32Be(slice);
++
++						slice.skip(2 * 4);
++					}
++				}
++
++				track.info.numberOfChannels = channelCount;
++				// A sample rate that doesn't fit is written as 0, making the media timescale our best guess
++				track.info.sampleRate = sampleRate || track.timescale;
++
++				track.frmaCodecString = null;
++				if (slice.filePos > sampleBoxEnd) throw new Error('Incomplete ISOBMFF sample description.');
++				yield { children: { start: slice.filePos, end: sampleBoxEnd } };
++
++				const codecName = lowercaseBoxName === 'enca'
++					? track.frmaCodecString
++					: lowercaseBoxName;
++				track.frmaCodecString = null;
++
++				// developer.apple.com/documentation/quicktime-file-format/sound_sample_descriptions/
++				if (codecName === 'mp4a') {
++					// The codec is set by the esds box
++				} else if (codecName === '.mp3') {
++					track.info.codec = 'mp3';
++				} else if (codecName === 'opus') {
++					track.info.codec = 'opus';
++					track.info.sampleRate = OPUS_SAMPLE_RATE; // Always the same
++				} else if (codecName === 'flac') {
++					track.info.codec = 'flac';
++				} else if (codecName === 'ulaw') {
++					track.info.codec = 'ulaw';
++				} else if (codecName === 'alaw') {
++					track.info.codec = 'alaw';
++				} else if (codecName === 'ac-3') {
++					track.info.codec = 'ac3';
++				} else if (codecName === 'ec-3') {
++					track.info.codec = 'eac3';
++				} else if ((DTS_FOURCCS as readonly string[]).includes(codecName!)) {
++					track.info.codec = 'dts';
++					track.info.dtsFormat = codecName as DtsFourCc;
++				} else if (codecName === 'mlpa') {
++					track.info.codec = 'truehd';
++				} else if (codecName === 'twos') {
++					if (sampleSize === 8) {
++						track.info.codec = 'pcm-s8';
++					} else if (sampleSize === 16) {
++						track.info.codec = track.info.pcmLittleEndian ? 'pcm-s16' : 'pcm-s16be';
++					} else {
++						Logging._warn(`Unsupported sample size ${sampleSize} for codec 'twos'.`);
++						track.info.codec = null;
++					}
++				} else if (codecName === 'sowt') {
++					if (sampleSize === 8) {
++						track.info.codec = 'pcm-s8';
++					} else if (sampleSize === 16) {
++						track.info.codec = 'pcm-s16';
++					} else {
++						Logging._warn(`Unsupported sample size ${sampleSize} for codec 'sowt'.`);
++						track.info.codec = null;
++					}
++				} else if (codecName === 'raw ') {
++					track.info.codec = 'pcm-u8';
++				} else if (codecName === 'in24') {
++					track.info.codec = track.info.pcmLittleEndian ? 'pcm-s24' : 'pcm-s24be';
++				} else if (codecName === 'in32') {
++					track.info.codec = track.info.pcmLittleEndian ? 'pcm-s32' : 'pcm-s32be';
++				} else if (codecName === 'fl32') {
++					track.info.codec = track.info.pcmLittleEndian ? 'pcm-f32' : 'pcm-f32be';
++				} else if (codecName === 'fl64') {
++					track.info.codec = track.info.pcmLittleEndian ? 'pcm-f64' : 'pcm-f64be';
++				} else if (codecName === 'ipcm') {
++					const pcmSampleSize = track.info.pcmSampleSize;
++
++					if (track.info.pcmLittleEndian) {
++						if (pcmSampleSize === 16) {
++							track.info.codec = 'pcm-s16';
++						} else if (pcmSampleSize === 24) {
++							track.info.codec = 'pcm-s24';
++						} else if (pcmSampleSize === 32) {
++							track.info.codec = 'pcm-s32';
++						} else {
++							Logging._warn(`Invalid ipcm sample size ${pcmSampleSize}.`);
++							track.info.codec = null;
++						}
++					} else {
++						if (pcmSampleSize === 16) {
++							track.info.codec = 'pcm-s16be';
++						} else if (pcmSampleSize === 24) {
++							track.info.codec = 'pcm-s24be';
++						} else if (pcmSampleSize === 32) {
++							track.info.codec = 'pcm-s32be';
++						} else {
++							Logging._warn(`Invalid ipcm sample size ${pcmSampleSize}.`);
++							track.info.codec = null;
++						}
++					}
++				} else if (codecName === 'fpcm') {
++					const pcmSampleSize = track.info.pcmSampleSize;
++
++					if (track.info.pcmLittleEndian) {
++						if (pcmSampleSize === 32) {
++							track.info.codec = 'pcm-f32';
++						} else if (pcmSampleSize === 64) {
++							track.info.codec = 'pcm-f64';
++						} else {
++							Logging._warn(`Invalid fpcm sample size ${pcmSampleSize}.`);
++							track.info.codec = null;
++						}
++					} else {
++						if (pcmSampleSize === 32) {
++							track.info.codec = 'pcm-f32be';
++						} else if (pcmSampleSize === 64) {
++							track.info.codec = 'pcm-f64be';
++						} else {
++							Logging._warn(`Invalid fpcm sample size ${pcmSampleSize}.`);
++							track.info.codec = null;
++						}
++					}
++				} else if (codecName === 'lpcm' && lpcmFlags !== null) {
++					const bytesPerSample = (sampleSize + 7) >> 3;
++					const isFloat = Boolean(lpcmFlags & 1);
++					const isBigEndian = Boolean(lpcmFlags & 2);
++					const sFlags = lpcmFlags & 4 ? -1 : 0; // I guess it means "signed flags" or something?
++
++					if (sampleSize > 0 && sampleSize <= 64) {
++						if (isFloat) {
++							if (sampleSize === 32) {
++								track.info.codec = isBigEndian ? 'pcm-f32be' : 'pcm-f32';
++							} else if (sampleSize === 64) {
++								track.info.codec = isBigEndian ? 'pcm-f64be' : 'pcm-f64';
++							}
++						} else {
++							if (sFlags & (1 << (bytesPerSample - 1))) {
++								if (bytesPerSample === 1) {
++									track.info.codec = 'pcm-s8';
++								} else if (bytesPerSample === 2) {
++									track.info.codec = isBigEndian ? 'pcm-s16be' : 'pcm-s16';
++								} else if (bytesPerSample === 3) {
++									track.info.codec = isBigEndian ? 'pcm-s24be' : 'pcm-s24';
++								} else if (bytesPerSample === 4) {
++									track.info.codec = isBigEndian ? 'pcm-s32be' : 'pcm-s32';
++								}
++							} else {
++								if (bytesPerSample === 1) {
++									track.info.codec = 'pcm-u8';
++								}
++							}
++						}
++					}
++
++					if (track.info.codec === null) {
++						Logging._warn('Unsupported PCM format.');
++					}
++				} else if (codecName === null) {
++					Logging._warn(`Unknown encrypted audio codec due to missing frma box.`);
++				} else {
++					Logging._warn(`Unsupported audio codec (sample entry type '${sampleBoxInfo.name}').`);
++				}
++			}
++
++			position = sampleBoxEnd;
++		}
++	}
++
++	private async readPrimingMetadata(box: MovieBox) {
++		if (box.contentSize < 4) throw new Error('Invalid ISOBMFF meta box.');
++		const fullBox = readU32Be(await this.readMovieSpan(box.contentStart, 4)) === 0;
++		const appleKey = 'iTunSMPB';
++		const primingKeys = new Set<string>();
++		for await (const child of this.movieBoxes(box.contentStart + (fullBox ? 4 : 0), box.end)) {
++			if (child.name === 'keys') {
++				if (child.contentSize < 8) throw new Error('Invalid ISOBMFF keys box.');
++				const count = readU32Be(await this.readMovieSpan(child.contentStart + 4, 4));
++				let position = child.contentStart + 8;
++				for (let index = 1; index <= count; index++) {
++					if (position > child.end - 8) throw new Error('Invalid ISOBMFF metadata key.');
++					const size = readU32Be(await this.readMovieSpan(position, 4));
++					if (size < 8 || size > child.end - position) throw new Error('Invalid ISOBMFF metadata key.');
++					if (size === 8 + appleKey.length
++						&& readAscii(await this.readMovieSpan(position + 8, appleKey.length), appleKey.length) === appleKey) {
++						primingKeys.add(String.fromCharCode(index >>> 24, index >>> 16 & 255, index >>> 8 & 255, index & 255));
++					}
++					position += size;
++				}
++			} else if (child.name === 'ilst') {
++				for await (const tag of this.movieBoxes(child.contentStart, child.end)) {
++					const named = primingKeys.has(tag.name);
++					if (!named && tag.name !== '----') continue;
++					let primingTag = named;
++					let foundName = false;
++					let data: string | null | false | undefined;
++					for await (const field of this.movieBoxes(tag.contentStart, tag.end)) {
++						if (!named && field.name === 'name' && !foundName) {
++							foundName = true;
++							primingTag = field.contentSize === 4 + appleKey.length
++								&& readAscii(await this.readMovieSpan(field.contentStart + 4, appleKey.length), appleKey.length) === appleKey;
++							if (!primingTag) break;
++						} else if (field.name === 'data' && data === undefined) {
++							data = await this.readPrimingData(field);
++						}
++					}
++					if (primingTag) {
++						if (data === undefined) continue;
++						if (data === false) throw new Error('Cannot verify iTunSMPB timing metadata.');
++						this.metadataTags.raw ??= {};
++						this.metadataTags.raw[appleKey] ??= data;
++					}
++				}
++			}
++		}
++	}
++
++	private async readPrimingData(box: MovieBox) {
++		if (box.contentSize < 8) return null;
++		const size = Math.min(256, box.contentSize - 8);
++		const slice = await this.readMovieSpan(box.contentStart, 8 + size);
++		const type = readU32Be(slice);
++		slice.skip(4); // Locale
++		if (type !== 1 && type !== 2) return null;
++		const bytes = readBytes(slice, size);
++		const text = (type === 1 ? textDecoder : new TextDecoder('utf-16be')).decode(bytes);
++		// Playback only uses the first two whitespace-delimited words. Only keep complete words when we read a prefix.
++		return size === box.contentSize - 8 ? text : /^\s*\S+\s+\S+(?=\s)/.exec(text)?.[0] ?? false;
++	}
++
++	private createTrack(): InternalTrack {
++		return {
++			id: -1,
++			demuxer: this,
++			trackBacking: null,
++			disposition: {
++				...DEFAULT_TRACK_DISPOSITION,
++				primary: false,
++			},
++			info: null,
++			timescale: -1,
++			durationInMovieTimescale: -1,
++			durationInMediaTimescale: -1,
++			matrix: IDENTITY_MATRIX,
++			internalCodecId: null,
++			name: null,
++			languageCode: UNDETERMINED_LANGUAGE,
++			sampleTableByteOffset: -1,
++			sampleTable: null,
++			fragmentLookupTable: [],
++			fragmentPositionCache: [],
++			editListPreviousSegmentDurations: 0,
++			timestampOffset: 0,
++			encryptionInfo: null,
++			encryptionAuxInfo: null,
++			frmaCodecString: null,
++			maxBitrate: null,
++			avgBitrate: null,
++		};
++	}
++
++	private appendTrack(track: InternalTrack) {
++		if (
++			track.id !== -1
++			&& track.timescale !== -1
++			&& track.info !== null
++			&& track.sampleTableByteOffset !== -1
++		) {
++			if (track.info.type === 'video' && track.info.width !== -1) {
++				const videoTrack = track as InternalVideoTrack;
++				track.trackBacking = new IsobmffVideoTrackBacking(videoTrack);
++				this.tracks.push(track);
++				this.idToTrack.set(track.id, track);
++			} else if (track.info.type === 'audio' && track.info.numberOfChannels !== -1) {
++				const audioTrack = track as InternalAudioTrack;
++				track.trackBacking = new IsobmffAudioTrackBacking(audioTrack);
++				this.tracks.push(track);
++				this.idToTrack.set(track.id, track);
++			}
++		}
++	}
++
+ 	private async copyMetadataFromInitInput(initInput: Input) {
+ 		const initDemuxer = (await initInput._getDemuxer()) as IsobmffDemuxer;
+ 		if (initDemuxer.constructor !== IsobmffDemuxer) {
+@@ -619,17 +1329,7 @@ export class IsobmffDemuxer extends Demuxer {
+ 			return internalTrack.sampleTable;
+ 		}
+ 
+-		const sampleTable: SampleTable = {
+-			sampleTimingEntries: [],
+-			sampleCompositionTimeOffsets: [],
+-			sampleSizes: [],
+-			sampleCount: 0,
+-			cumulativeSampleSizes: null,
+-			keySampleIndices: null,
+-			chunkOffsets: [],
+-			sampleToChunk: [],
+-			sortedCompositionTimeOffsets: null,
+-		};
++		const sampleTable = createSampleTable();
+ 		internalTrack.sampleTable = sampleTable;
+ 
+ 		if (internalTrack.sampleTableByteOffset === null) {
+@@ -651,6 +1351,11 @@ export class IsobmffDemuxer extends Demuxer {
+ 			this.currentTrack = null;
+ 		}
+ 
++		this.finishSampleTable(internalTrack, sampleTable);
++		return sampleTable;
++	}
++
++	private finishSampleTable(internalTrack: InternalTrack, sampleTable: SampleTable) {
+ 		const lastTimingEntry = last(sampleTable.sampleTimingEntries);
+ 		const lastChunkEntryIndex = binarySearchLessOrEqual(
+ 			sampleTable.sampleToChunk,
+@@ -824,7 +1529,6 @@ export class IsobmffDemuxer extends Demuxer {
+ 			}
+ 		}
+ 
+-		return sampleTable;
+ 	}
+ 
+ 	readFragment(startPos: number) {
+@@ -1065,62 +1769,14 @@ export class IsobmffDemuxer extends Demuxer {
+ 			}; break;
+ 
+ 			case 'trak': {
+-				if (this.currentFragment || this.currentTrack) {
+-					break; // Misplaced
+-				}
+-
+-				const track = {
+-					id: -1,
+-					demuxer: this,
+-					trackBacking: null,
+-					disposition: {
+-						...DEFAULT_TRACK_DISPOSITION,
+-						primary: false,
+-					},
+-					info: null,
+-					timescale: -1,
+-					durationInMovieTimescale: -1,
+-					durationInMediaTimescale: -1,
+-					matrix: IDENTITY_MATRIX,
+-					internalCodecId: null,
+-					name: null,
+-					languageCode: UNDETERMINED_LANGUAGE,
+-					sampleTableByteOffset: -1,
+-					sampleTable: null,
+-					fragmentLookupTable: [],
+-					fragmentPositionCache: [],
+-					editListPreviousSegmentDurations: 0,
+-					timestampOffset: 0,
+-					encryptionInfo: null,
+-					encryptionAuxInfo: null,
+-					frmaCodecString: null,
+-					maxBitrate: null,
+-					avgBitrate: null,
+-				} satisfies InternalTrack as InternalTrack;
+-				this.currentTrack = track;
+-
+-				this.readContiguousBoxes(slice.slice(contentStartPos, boxInfo.contentSize));
+-
+-				if (
+-					track.id !== -1
+-					&& track.timescale !== -1
+-					&& track.info !== null
+-					&& track.sampleTableByteOffset !== -1
+-				) {
+-					if (track.info.type === 'video' && track.info.width !== -1) {
+-						const videoTrack = track as InternalVideoTrack;
+-						track.trackBacking = new IsobmffVideoTrackBacking(videoTrack);
+-						this.tracks.push(track);
+-						this.idToTrack.set(track.id, track);
+-					} else if (track.info.type === 'audio' && track.info.numberOfChannels !== -1) {
+-						const audioTrack = track as InternalAudioTrack;
+-						track.trackBacking = new IsobmffAudioTrackBacking(audioTrack);
+-						this.tracks.push(track);
+-						this.idToTrack.set(track.id, track);
+-					}
++				if (this.currentFragment || this.currentTrack) break; // Misplaced
++				const track = this.currentTrack = this.createTrack();
++				try {
++					this.readContiguousBoxes(slice.slice(contentStartPos, boxInfo.contentSize));
++					this.appendTrack(track);
++				} finally {
++					this.currentTrack = null;
+ 				}
+-
+-				this.currentTrack = null;
+ 			}; break;
+ 
+ 			case 'tkhd': {
+@@ -1160,48 +1816,7 @@ export class IsobmffDemuxer extends Demuxer {
+ 			}; break;
+ 
+ 			case 'elst': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				const version = readU8(slice);
+-				slice.skip(3); // Flags
+-
+-				let relevantEntryFound = false;
+-				let previousSegmentDurations = 0;
+-
+-				const entryCount = readU32Be(slice);
+-				for (let i = 0; i < entryCount; i++) {
+-					const segmentDuration = version === 1
+-						? readU64Be(slice)
+-						: readU32Be(slice);
+-					const mediaTime = version === 1
+-						? readI64Be(slice)
+-						: readI32Be(slice);
+-					const mediaRate = readFixed_16_16(slice);
+-
+-					if (relevantEntryFound) {
+-						Logging._warn(
+-							'Unsupported edit list: multiple edits are not currently supported. Only using first edit.',
+-						);
+-						break;
+-					}
+-
+-					if (mediaTime === -1) {
+-						previousSegmentDurations += segmentDuration;
+-						continue;
+-					}
+-
+-					if (mediaRate !== 1) {
+-						Logging._warn('Unsupported edit list entry: media rate must be 1.');
+-						break;
+-					}
+-
+-					track.editListPreviousSegmentDurations = previousSegmentDurations;
+-					track.timestampOffset = mediaTime;
+-					relevantEntryFound = true;
+-				}
++				if (this.currentTrack) this.runMovieInSlice(readEditList(this.currentTrack, contentStartPos, boxEndPos), slice);
+ 			}; break;
+ 
+ 			case 'mdhd': {
+@@ -1304,268 +1919,7 @@ export class IsobmffDemuxer extends Demuxer {
+ 			}; break;
+ 
+ 			case 'stsd': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (track.info === null || track.sampleTable) {
+-					break;
+-				}
+-
+-				const stsdVersion = readU8(slice);
+-				slice.skip(3); // Flags
+-
+-				const entries = readU32Be(slice);
+-
+-				for (let i = 0; i < entries; i++) {
+-					const sampleBoxStartPos = slice.filePos;
+-					const sampleBoxInfo = readBoxHeader(slice);
+-					if (!sampleBoxInfo) {
+-						break;
+-					}
+-
+-					track.internalCodecId = sampleBoxInfo.name;
+-					const lowercaseBoxName = sampleBoxInfo.name.toLowerCase();
+-
+-					if (track.info.type === 'video') {
+-						slice.skip(6 * 1 + 2 + 2 + 2 + 3 * 4);
+-
+-						track.info.width = readU16Be(slice);
+-						track.info.height = readU16Be(slice);
+-						track.info.squarePixelWidth = track.info.width;
+-						track.info.squarePixelHeight = track.info.height;
+-
+-						slice.skip(4 + 4 + 4 + 2 + 32 + 2 + 2);
+-
+-						track.frmaCodecString = null;
+-						this.readContiguousBoxes(
+-							slice.slice(
+-								slice.filePos,
+-								(sampleBoxStartPos + sampleBoxInfo.totalSize) - slice.filePos,
+-							),
+-						);
+-
+-						const codecName = lowercaseBoxName === 'encv'
+-							? track.frmaCodecString
+-							: lowercaseBoxName;
+-						track.frmaCodecString = null;
+-
+-						if (codecName === 'avc1' || codecName === 'avc3') {
+-							track.info.codec = 'avc';
+-							track.info.avcType = codecName === 'avc1' ? 1 : 3;
+-						} else if (codecName === 'hvc1' || codecName === 'hev1') {
+-							track.info.codec = 'hevc';
+-							track.info.hevcType = codecName;
+-						} else if (codecName === 'vp08') {
+-							track.info.codec = 'vp8';
+-						} else if (codecName === 'vp09') {
+-							track.info.codec = 'vp9';
+-						} else if (codecName === 'av01') {
+-							track.info.codec = 'av1';
+-						} else if ((PRORES_FOURCCS as readonly string[]).includes(lowercaseBoxName)) {
+-							track.info.codec = 'prores';
+-							track.info.proresFormat = lowercaseBoxName as ProresFourCc;
+-						} else if (codecName === null) {
+-							Logging._warn(`Unknown encrypted video codec due to missing frma box.`);
+-						} else {
+-							Logging._warn(`Unsupported video codec (sample entry type '${sampleBoxInfo.name}').`);
+-						}
+-					} else {
+-						slice.skip(6 * 1 + 2);
+-
+-						const version = readU16Be(slice);
+-						slice.skip(3 * 2);
+-
+-						let channelCount = readU16Be(slice);
+-						let sampleSize = readU16Be(slice);
+-
+-						slice.skip(2 * 2);
+-
+-						// Can't use fixed16_16 as that's signed
+-						let sampleRate = readU32Be(slice) / 0x10000;
+-						let lpcmFlags: number | null = null;
+-
+-						if (stsdVersion === 0 && version > 0) {
+-							// Additional QuickTime fields
+-							if (version === 1) {
+-								slice.skip(4);
+-								sampleSize = 8 * readU32Be(slice);
+-								slice.skip(2 * 4);
+-							} else if (version === 2) {
+-								slice.skip(4);
+-								sampleRate = readF64Be(slice);
+-								channelCount = readU32Be(slice);
+-								slice.skip(4); // Always 0x7f000000
+-
+-								sampleSize = readU32Be(slice);
+-
+-								lpcmFlags = readU32Be(slice);
+-
+-								slice.skip(2 * 4);
+-							}
+-						}
+-
+-						track.info.numberOfChannels = channelCount;
+-						// A sample rate that doesn't fit is written as 0, making the media timescale our best guess
+-						track.info.sampleRate = sampleRate || track.timescale;
+-
+-						track.frmaCodecString = null;
+-						this.readContiguousBoxes(
+-							slice.slice(
+-								slice.filePos,
+-								(sampleBoxStartPos + sampleBoxInfo.totalSize) - slice.filePos,
+-							),
+-						);
+-
+-						const codecName = lowercaseBoxName === 'enca'
+-							? track.frmaCodecString
+-							: lowercaseBoxName;
+-						track.frmaCodecString = null;
+-
+-						// developer.apple.com/documentation/quicktime-file-format/sound_sample_descriptions/
+-						if (codecName === 'mp4a') {
+-							// The codec is set by the esds box
+-						} else if (codecName === '.mp3') {
+-							track.info.codec = 'mp3';
+-						} else if (codecName === 'opus') {
+-							track.info.codec = 'opus';
+-							track.info.sampleRate = OPUS_SAMPLE_RATE; // Always the same
+-						} else if (codecName === 'flac') {
+-							track.info.codec = 'flac';
+-						} else if (codecName === 'ulaw') {
+-							track.info.codec = 'ulaw';
+-						} else if (codecName === 'alaw') {
+-							track.info.codec = 'alaw';
+-						} else if (codecName === 'ac-3') {
+-							track.info.codec = 'ac3';
+-						} else if (codecName === 'ec-3') {
+-							track.info.codec = 'eac3';
+-						} else if ((DTS_FOURCCS as readonly string[]).includes(codecName!)) {
+-							track.info.codec = 'dts';
+-							track.info.dtsFormat = codecName as DtsFourCc;
+-						} else if (codecName === 'mlpa') {
+-							track.info.codec = 'truehd';
+-						} else if (codecName === 'twos') {
+-							if (sampleSize === 8) {
+-								track.info.codec = 'pcm-s8';
+-							} else if (sampleSize === 16) {
+-								track.info.codec = track.info.pcmLittleEndian ? 'pcm-s16' : 'pcm-s16be';
+-							} else {
+-								Logging._warn(`Unsupported sample size ${sampleSize} for codec 'twos'.`);
+-								track.info.codec = null;
+-							}
+-						} else if (codecName === 'sowt') {
+-							if (sampleSize === 8) {
+-								track.info.codec = 'pcm-s8';
+-							} else if (sampleSize === 16) {
+-								track.info.codec = 'pcm-s16';
+-							} else {
+-								Logging._warn(`Unsupported sample size ${sampleSize} for codec 'sowt'.`);
+-								track.info.codec = null;
+-							}
+-						} else if (codecName === 'raw ') {
+-							track.info.codec = 'pcm-u8';
+-						} else if (codecName === 'in24') {
+-							track.info.codec = track.info.pcmLittleEndian ? 'pcm-s24' : 'pcm-s24be';
+-						} else if (codecName === 'in32') {
+-							track.info.codec = track.info.pcmLittleEndian ? 'pcm-s32' : 'pcm-s32be';
+-						} else if (codecName === 'fl32') {
+-							track.info.codec = track.info.pcmLittleEndian ? 'pcm-f32' : 'pcm-f32be';
+-						} else if (codecName === 'fl64') {
+-							track.info.codec = track.info.pcmLittleEndian ? 'pcm-f64' : 'pcm-f64be';
+-						} else if (codecName === 'ipcm') {
+-							const pcmSampleSize = track.info.pcmSampleSize;
+-
+-							if (track.info.pcmLittleEndian) {
+-								if (pcmSampleSize === 16) {
+-									track.info.codec = 'pcm-s16';
+-								} else if (pcmSampleSize === 24) {
+-									track.info.codec = 'pcm-s24';
+-								} else if (pcmSampleSize === 32) {
+-									track.info.codec = 'pcm-s32';
+-								} else {
+-									Logging._warn(`Invalid ipcm sample size ${pcmSampleSize}.`);
+-									track.info.codec = null;
+-								}
+-							} else {
+-								if (pcmSampleSize === 16) {
+-									track.info.codec = 'pcm-s16be';
+-								} else if (pcmSampleSize === 24) {
+-									track.info.codec = 'pcm-s24be';
+-								} else if (pcmSampleSize === 32) {
+-									track.info.codec = 'pcm-s32be';
+-								} else {
+-									Logging._warn(`Invalid ipcm sample size ${pcmSampleSize}.`);
+-									track.info.codec = null;
+-								}
+-							}
+-						} else if (codecName === 'fpcm') {
+-							const pcmSampleSize = track.info.pcmSampleSize;
+-
+-							if (track.info.pcmLittleEndian) {
+-								if (pcmSampleSize === 32) {
+-									track.info.codec = 'pcm-f32';
+-								} else if (pcmSampleSize === 64) {
+-									track.info.codec = 'pcm-f64';
+-								} else {
+-									Logging._warn(`Invalid fpcm sample size ${pcmSampleSize}.`);
+-									track.info.codec = null;
+-								}
+-							} else {
+-								if (pcmSampleSize === 32) {
+-									track.info.codec = 'pcm-f32be';
+-								} else if (pcmSampleSize === 64) {
+-									track.info.codec = 'pcm-f64be';
+-								} else {
+-									Logging._warn(`Invalid fpcm sample size ${pcmSampleSize}.`);
+-									track.info.codec = null;
+-								}
+-							}
+-						} else if (codecName === 'lpcm' && lpcmFlags !== null) {
+-							const bytesPerSample = (sampleSize + 7) >> 3;
+-							const isFloat = Boolean(lpcmFlags & 1);
+-							const isBigEndian = Boolean(lpcmFlags & 2);
+-							const sFlags = lpcmFlags & 4 ? -1 : 0; // I guess it means "signed flags" or something?
+-
+-							if (sampleSize > 0 && sampleSize <= 64) {
+-								if (isFloat) {
+-									if (sampleSize === 32) {
+-										track.info.codec = isBigEndian ? 'pcm-f32be' : 'pcm-f32';
+-									} else if (sampleSize === 64) {
+-										track.info.codec = isBigEndian ? 'pcm-f64be' : 'pcm-f64';
+-									}
+-								} else {
+-									if (sFlags & (1 << (bytesPerSample - 1))) {
+-										if (bytesPerSample === 1) {
+-											track.info.codec = 'pcm-s8';
+-										} else if (bytesPerSample === 2) {
+-											track.info.codec = isBigEndian ? 'pcm-s16be' : 'pcm-s16';
+-										} else if (bytesPerSample === 3) {
+-											track.info.codec = isBigEndian ? 'pcm-s24be' : 'pcm-s24';
+-										} else if (bytesPerSample === 4) {
+-											track.info.codec = isBigEndian ? 'pcm-s32be' : 'pcm-s32';
+-										}
+-									} else {
+-										if (bytesPerSample === 1) {
+-											track.info.codec = 'pcm-u8';
+-										}
+-									}
+-								}
+-							}
+-
+-							if (track.info.codec === null) {
+-								Logging._warn('Unsupported PCM format.');
+-							}
+-						} else if (codecName === null) {
+-							Logging._warn(`Unknown encrypted audio codec due to missing frma box.`);
+-						} else {
+-							Logging._warn(`Unsupported audio codec (sample entry type '${sampleBoxInfo.name}').`);
+-						}
+-					}
+-
+-					slice.filePos = sampleBoxStartPos + sampleBoxInfo.totalSize;
+-				}
++				this.runMovieInSlice(this.readSampleDescriptions(contentStartPos, boxEndPos), slice);
+ 			}; break;
+ 
+ 			case 'frma': {
+@@ -2097,252 +2451,16 @@ export class IsobmffDemuxer extends Demuxer {
+ 				track.info.numberOfChannels = numberOfChannels;
+ 			}; break;
+ 
+-			case 'stts': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(4); // Version + flags
+-
+-				const entryCount = readU32Be(slice);
+-
+-				let currentIndex = 0;
+-				let currentTimestamp = 0;
+-
+-				for (let i = 0; i < entryCount; i++) {
+-					const sampleCount = readU32Be(slice);
+-					const sampleDelta = readU32Be(slice);
+-
+-					track.sampleTable.sampleTimingEntries.push({
+-						startIndex: currentIndex,
+-						startDecodeTimestamp: currentTimestamp,
+-						count: sampleCount,
+-						delta: sampleDelta,
+-					});
+-
+-					currentIndex += sampleCount;
+-					currentTimestamp += sampleCount * sampleDelta;
+-				}
+-			}; break;
+-
+-			case 'ctts': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(1 + 3); // Version + flags
+-
+-				const entryCount = readU32Be(slice);
+-
+-				let sampleIndex = 0;
+-				for (let i = 0; i < entryCount; i++) {
+-					const sampleCount = readU32Be(slice);
+-					const sampleOffset = readI32Be(slice);
+-
+-					track.sampleTable.sampleCompositionTimeOffsets.push({
+-						startIndex: sampleIndex,
+-						count: sampleCount,
+-						offset: sampleOffset,
+-						startTimestamp: -1,
+-						lastTimestamp: -1,
+-						maxLastTimestamp: -1,
+-					});
+-
+-					sampleIndex += sampleCount;
+-				}
+-			}; break;
+-
+-			case 'stsz': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(4); // Version + flags
+-
+-				const sampleSize = readU32Be(slice);
+-				const sampleCount = readU32Be(slice);
+-
+-				if (sampleSize === 0) {
+-					for (let i = 0; i < sampleCount; i++) {
+-						const sampleSize = readU32Be(slice);
+-						track.sampleTable.sampleSizes.push(sampleSize);
+-					}
+-				} else {
+-					track.sampleTable.sampleSizes.push(sampleSize);
+-				}
+-
+-				track.sampleTable.sampleCount = sampleCount;
+-			}; break;
+-
+-			case 'stz2': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(4); // Version + flags
+-				slice.skip(3); // Reserved
+-
+-				const fieldSize = readU8(slice); // in bits
+-				const sampleCount = readU32Be(slice);
+-
+-				if (fieldSize !== 4 && fieldSize !== 8 && fieldSize !== 16) {
+-					throw new Error(`Invalid stz2 box: unsupported field size ${fieldSize}.`);
+-				}
+-
+-				const bytes = readBytes(slice, Math.ceil(sampleCount * fieldSize / 8));
+-				const bitstream = new Bitstream(bytes);
+-
+-				for (let i = 0; i < sampleCount; i++) {
+-					const sampleSize = bitstream.readBits(fieldSize);
+-					track.sampleTable.sampleSizes.push(sampleSize);
+-				}
+-
+-				track.sampleTable.sampleCount = sampleCount;
+-			}; break;
+-
+-			case 'stss': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(4); // Version + flags
+-
+-				track.sampleTable.keySampleIndices = [];
+-
+-				const entryCount = readU32Be(slice);
+-				for (let i = 0; i < entryCount; i++) {
+-					const sampleIndex = readU32Be(slice) - 1; // Convert to 0-indexed
+-					track.sampleTable.keySampleIndices.push(sampleIndex);
+-				}
+-
+-				// We binary search this list, so it must be sorted
+-				track.sampleTable.keySampleIndices.sort((a, b) => a - b);
+-
+-				if (track.sampleTable.keySampleIndices[0] !== 0) {
+-					// Some files don't mark the first sample a key sample, which is basically almost always incorrect.
+-					// Here, we correct for that mistake:
+-					track.sampleTable.keySampleIndices.unshift(0);
+-				}
+-			}; break;
+-
+-			case 'stsc': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(4);
+-
+-				const entryCount = readU32Be(slice);
+-				let skippedEntryCount = 0;
+-
+-				for (let i = 0; i < entryCount; i++) {
+-					const startChunkIndex = readU32Be(slice) - 1; // Convert to 0-indexed
+-					const samplesPerChunk = readU32Be(slice);
+-					const sampleDescriptionIndex = readU32Be(slice);
+-
+-					const lastEntry = last(track.sampleTable.sampleToChunk);
+-					if (lastEntry && startChunkIndex <= lastEntry.startChunkIndex) {
+-						// Keeping it would mess up the sample-to-chunk mapping and make chunk iteration blow up
+-						skippedEntryCount++;
+-						continue;
+-					}
+-
+-					track.sampleTable.sampleToChunk.push({
+-						startSampleIndex: -1,
+-						startChunkIndex,
+-						samplesPerChunk,
+-						sampleDescriptionIndex,
+-					});
+-				}
+-
+-				if (skippedEntryCount > 0) {
+-					Logging._warn(
+-						`Skipped ${skippedEntryCount} invalid stsc entries whose chunk indices weren't strictly`
+-						+ ' increasing.',
+-					);
+-				}
+-
+-				let startSampleIndex = 0;
+-				for (let i = 0; i < track.sampleTable.sampleToChunk.length; i++) {
+-					track.sampleTable.sampleToChunk[i]!.startSampleIndex = startSampleIndex;
+-
+-					if (i < track.sampleTable.sampleToChunk.length - 1) {
+-						const nextChunk = track.sampleTable.sampleToChunk[i + 1]!;
+-						const chunkCount = nextChunk.startChunkIndex
+-							- track.sampleTable.sampleToChunk[i]!.startChunkIndex;
+-						startSampleIndex += chunkCount * track.sampleTable.sampleToChunk[i]!.samplesPerChunk;
+-					}
+-				}
+-			}; break;
+-
+-			case 'stco': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(4); // Version + flags
+-
+-				const entryCount = readU32Be(slice);
+-
+-				for (let i = 0; i < entryCount; i++) {
+-					const chunkOffset = readU32Be(slice);
+-					track.sampleTable.chunkOffsets.push(chunkOffset);
+-				}
+-			}; break;
+-
++			case 'stts':
++			case 'ctts':
++			case 'stsz':
++			case 'stz2':
++			case 'stss':
++			case 'stsc':
++			case 'stco':
+ 			case 'co64': {
+-				const track = this.currentTrack;
+-				if (!track) {
+-					break;
+-				}
+-
+-				if (!track.sampleTable) {
+-					break;
+-				}
+-
+-				slice.skip(4); // Version + flags
+-
+-				const entryCount = readU32Be(slice);
+-
+-				for (let i = 0; i < entryCount; i++) {
+-					const chunkOffset = readU64Be(slice);
+-					track.sampleTable.chunkOffsets.push(chunkOffset);
+-				}
++				const table = this.currentTrack?.sampleTable;
++				if (table) this.runMovieInSlice(readSampleTableBox(table, boxInfo.name, contentStartPos, boxEndPos), slice);
+ 			}; break;
+ 
+ 			case 'mvex': {
+@@ -2378,49 +2496,7 @@ export class IsobmffDemuxer extends Demuxer {
+ 			}; break;
+ 
+ 			case 'tfra': {
+-				const version = readU8(slice);
+-				slice.skip(3); // Flags
+-
+-				const trackId = readU32Be(slice);
+-				const track = this.idToTrack.get(trackId);
+-				if (!track) {
+-					break;
+-				}
+-
+-				const word = readU32Be(slice);
+-
+-				const lengthSizeOfTrafNum = (word & 0b110000) >> 4;
+-				const lengthSizeOfTrunNum = (word & 0b001100) >> 2;
+-				const lengthSizeOfSampleNum = word & 0b000011;
+-
+-				const functions = [readU8, readU16Be, readU24Be, readU32Be];
+-
+-				const readTrafNum = functions[lengthSizeOfTrafNum]!;
+-				const readTrunNum = functions[lengthSizeOfTrunNum]!;
+-				const readSampleNum = functions[lengthSizeOfSampleNum]!;
+-
+-				const numberOfEntries = readU32Be(slice);
+-				for (let i = 0; i < numberOfEntries; i++) {
+-					const time = version === 1 ? readU64Be(slice) : readU32Be(slice);
+-					const moofOffset = version === 1 ? readU64Be(slice) : readU32Be(slice);
+-
+-					readTrafNum(slice); // Not used
+-					const trunNumber = readTrunNum(slice);
+-					const sampleNumber = readSampleNum(slice);
+-
+-					if (trunNumber >= 1 && sampleNumber >= 1) {
+-						track.fragmentLookupTable.push({
+-							timestamp: time,
+-							moofOffset,
+-							trunNumber,
+-							sampleNumber,
+-						});
+-					} else {
+-						// Invalid
+-					}
+-				}
+-
+-				// The table gets sorted and deduplicated once all metadata has been read
++				this.runMovieInSlice(this.readTrackFragmentIndex(contentStartPos, boxEndPos), slice);
+ 			}; break;
+ 
+ 			case 'moof': {
+@@ -3785,7 +3861,7 @@ abstract class IsobmffTrackBacking implements InputTrackBacking {
+ 			let currentFragment: Fragment | null = null;
+ 
+ 			if (!startFragment) {
+-				currentPos = lookupEntryPosition ?? 0;
++				currentPos = lookupEntryPosition ?? demuxer.fragmentScanStart;
+ 			} else {
+ 				if (lookupEntryPosition === null || startFragment.moofOffset >= lookupEntryPosition) {
+ 					currentPos = startFragment.moofOffset + startFragment.moofSize;
+diff --git a/src/matroska/ebml.ts b/src/matroska/ebml.ts
+index 6c3cab0..117778b 100644
+--- a/src/matroska/ebml.ts
++++ b/src/matroska/ebml.ts
+@@ -125,6 +125,7 @@ export enum EBMLId {
+ 	BlockAdditional = 0xa5,
+ 	BlockAddID = 0xee,
+ 	BlockDuration = 0x9b,
++	DiscardPadding = 0x75a2,
+ 	ReferenceBlock = 0xfb,
+ 	Cluster = 0x1f43b675,
+ 	Timestamp = 0xe7,
+diff --git a/src/matroska/matroska-demuxer.ts b/src/matroska/matroska-demuxer.ts
+index 932df9d..a345f45 100644
+--- a/src/matroska/matroska-demuxer.ts
++++ b/src/matroska/matroska-demuxer.ts
+@@ -70,6 +70,7 @@ import {
+ 	assertDefinedSize,
+ 	CODEC_STRING_MAP,
+ 	EBMLId,
++	readSignedInt,
+ 	LEVEL_0_AND_1_EBML_IDS,
+ 	LEVEL_0_EBML_IDS,
+ 	LEVEL_1_EBML_IDS,
+@@ -161,6 +162,7 @@ enum BlockLacing {
+ }
+ 
+ type ClusterBlock = {
++	discardPadding?: number;
+ 	timestamp: number;
+ 	duration: number;
+ 	isKeyFrame: boolean;
+@@ -286,6 +288,7 @@ export class MatroskaDemuxer extends Demuxer {
+ 	currentTrack: InternalTrack | null = null;
+ 	currentCluster: Cluster | null = null;
+ 	currentBlock: ClusterBlock | null = null;
++	currentDiscardPadding = 0;
+ 	currentBlockAdditional: {
+ 		addId: number;
+ 		data: Uint8Array | null;
+@@ -526,7 +529,7 @@ export class MatroskaDemuxer extends Demuxer {
+ 				if (slice) {
+ 					this.readContiguousElements(slice);
+ 				}
+-			} else if (id === EBMLId.Tags || id === EBMLId.Attachments) {
++			} else if (!this.input._formatOptions.matroska?.skipMetadataTags && (id === EBMLId.Tags || id === EBMLId.Attachments)) {
+ 				// Metadata found at the beginning of the segment, great, let's parse it
+ 				if (id === EBMLId.Tags) {
+ 					this.currentSegment.tagsSeen = true;
+@@ -999,6 +1002,7 @@ export class MatroskaDemuxer extends Demuxer {
+ 					decoded: originalBlock.decoded,
+ 					postProcessed: false,
+ 					mainAdditional: originalBlock.mainAdditional,
++					discardPadding: originalBlock.discardPadding,
+ 				});
+ 			}
+ 		}
+@@ -1836,11 +1840,17 @@ export class MatroskaDemuxer extends Demuxer {
+ 			case EBMLId.BlockGroup: {
+ 				if (!this.currentCluster) break;
+ 
++				this.currentDiscardPadding = 0;
+ 				this.readContiguousElements(slice.slice(dataStartPos, size));
+ 
++				if (this.currentBlock && this.currentDiscardPadding) this.currentBlock.discardPadding = this.currentDiscardPadding;
+ 				this.currentBlock = null;
+ 			}; break;
+ 
++			case EBMLId.DiscardPadding: {
++				this.currentDiscardPadding = readSignedInt(slice, size);
++			}; break;
++
+ 			case EBMLId.Block: {
+ 				if (!this.currentCluster) break;
+ 
+@@ -2577,6 +2587,7 @@ abstract class MatroskaTrackBacking implements InputTrackBacking {
+ 		const duration = block.duration / segment.timestampFactor;
+ 
+ 		const sideData: EncodedPacketSideData = {};
++		if (block.discardPadding) Logging._warn('Matroska DiscardPadding cannot be preserved.');
+ 		if (block.mainAdditional && this.internalTrack.info?.type === 'video' && this.internalTrack.info.alphaMode) {
+ 			sideData.alpha = options.metadataOnly ? PLACEHOLDER_DATA : block.mainAdditional;
+ 			sideData.alphaByteLength = block.mainAdditional.byteLength;
+diff --git a/src/media-sink.ts b/src/media-sink.ts
+index 91f5b43..374d7da 100644
+--- a/src/media-sink.ts
++++ b/src/media-sink.ts
+@@ -6,7 +6,9 @@
+  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+  */
+ 
+-import { parsePcmCodec, PCM_AUDIO_CODECS, PcmAudioCodec, VideoCodec, AudioCodec, OPUS_SAMPLE_RATE } from './codec';
++import {
++	getAacLcFrameLayout, parsePcmCodec, PCM_AUDIO_CODECS, PcmAudioCodec, VideoCodec, AudioCodec, OPUS_SAMPLE_RATE,
++} from './codec';
+ import {
+ 	addAvcBitstreamRestriction,
+ 	AvcNalUnitType,
+@@ -21,6 +23,7 @@ import {
+ 	iterateHevcNalUnits,
+ 	parseAvcSps,
+ 	parseOpusIdentificationHeader,
++	OpusPacketClock,
+ 	sanitizeHevcPacketForChromium,
+ 	serializeAvcDecoderConfigurationRecord,
+ } from './codec-data';
+@@ -465,7 +468,7 @@ abstract class DecoderWrapper<
+ 
+ 	abstract getDecodeQueueSize(): number;
+ 	abstract decode(packet: EncodedPacket): void;
+-	abstract flush(): Promise<void>;
++	abstract flush(atEnd?: boolean): Promise<void>;
+ 	abstract close(): void;
+ }
+ 
+@@ -630,7 +633,7 @@ export abstract class BaseMediaSampleSink<
+ 			await packets.return();
+ 
+ 			if (!terminated && !this._track.input._disposed) {
+-				await decoder.flush();
++				await decoder.flush(!ended);
+ 			}
+ 
+ 			if (!firstSampleQueued && lastSample) {
+@@ -2403,6 +2406,17 @@ export class CanvasSink {
+ 
+ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 	decoder: AudioDecoder | null = null;
++	audioEndTimestamp = Infinity;
++	// Some WebCodecs decoders flatten timestamp gaps. Anchor coded sample
++	// positions to actual discontinuities, retaining one packet for lookahead.
++	aacFrameDuration = 0;
++	opusPreSkip = 0;
++	pendingPacket: EncodedPacket | null = null;
++	codedTime = 0;
++	decodedTime = 0;
++	nextPacketTime: number | null = null;
++	timeOffset = 0;
++	anchors: { position: number; timestamp: number }[] = [];
+ 
+ 	customDecoder: CustomAudioDecoder | null = null;
+ 	customDecoderCallSerializer = new CallSerializer();
+@@ -2424,6 +2438,7 @@ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 		onError: (error: unknown) => unknown,
+ 		codec: AudioCodec,
+ 		decoderConfig: AudioDecoderConfig,
++		private opusClock: OpusPacketClock | null,
+ 	) {
+ 		super(onSample, onError);
+ 
+@@ -2434,6 +2449,10 @@ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 		const opusPreSkip = codec === 'opus' && decoderConfig.description
+ 			? parseOpusIdentificationHeader(toUint8Array(decoderConfig.description)).preSkip / OPUS_SAMPLE_RATE
+ 			: 0;
++		this.opusPreSkip = opusPreSkip;
++
++		const aac = codec === 'aac' && getAacLcFrameLayout(decoderConfig);
++		if (aac) this.aacFrameDuration = aac.frameLength / aac.sampleRate;
+ 
+ 		const sampleHandler = (sample: AudioSample) => {
+ 			if (sample.numberOfFrames === 0) {
+@@ -2466,6 +2485,43 @@ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 			const sampleRate = decoderConfig.sampleRate;
+ 			sample.setTimestamp(Math.round(preciseTimestamp * sampleRate) / sampleRate);
+ 
++			if ((this.aacFrameDuration || this.opusClock) && !this.customDecoder) {
++				const start = this.decodedTime;
++				this.decodedTime += sample.duration;
++				let from = 0;
++				while (this.anchors.length) {
++					const anchor = this.anchors[0]!;
++					const frame = Math.round((anchor.position - start) * sample.sampleRate);
++					if (frame >= sample.numberOfFrames) break;
++					if (frame > from) {
++						const part = sample.trim(from, frame);
++						part.setTimestamp(start + from / sample.sampleRate + this.timeOffset);
++						onSample(part);
++						from = frame;
++					}
++					this.timeOffset = anchor.timestamp - anchor.position;
++					this.anchors.shift();
++				}
++				if (from) {
++					const original = sample;
++					try { sample = original.trim(from); } finally { original.close(); }
++				}
++				sample.setTimestamp(start + from / sample.sampleRate + this.timeOffset);
++			}
++
++			const keep = Math.round((this.audioEndTimestamp - sample.timestamp) * sample.sampleRate);
++			if (keep <= 0) {
++				sample.close();
++				return;
++			}
++			if (keep < sample.numberOfFrames) {
++				const original = sample;
++				try {
++					sample = original.trim(0, keep);
++				} finally {
++					original.close();
++				}
++			}
+ 			onSample(sample);
+ 		};
+ 
+@@ -2526,6 +2582,19 @@ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 	}
+ 
+ 	decode(packet: EncodedPacket) {
++		if ((this.aacFrameDuration || this.opusClock) && !this.customDecoder) {
++			const previous = this.pendingPacket;
++			this.pendingPacket = packet;
++			if (!previous) return;
++			packet = previous;
++		}
++		this.submitPacket(packet);
++	}
++
++	private submitPacket(packet: EncodedPacket) {
++		if (packet.sideData.audioEndTimestamp !== undefined) {
++			this.audioEndTimestamp = packet.sideData.audioEndTimestamp;
++		}
+ 		if (this.customDecoder) {
+ 			this.customDecoderQueueSize++;
+ 			void this.customDecoderCallSerializer
+@@ -2538,6 +2607,23 @@ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 		} else {
+ 			assert(this.decoder);
+ 
++			if (this.aacFrameDuration || this.opusClock) {
++				const opus = this.opusClock?.advance(packet.timestamp, packet.data, this.pendingPacket?.timestamp);
++				const duration = opus?.duration ?? this.aacFrameDuration;
++				if (this.nextPacketTime === null) {
++					this.decodedTime = this.opusPreSkip;
++					this.nextPacketTime = packet.timestamp;
++					this.anchors.push({ position: 0, timestamp: packet.timestamp });
++				} else {
++					const gap = (opus?.start ?? packet.timestamp) - this.nextPacketTime;
++					if (gap > 1e-8) {
++						this.nextPacketTime += gap;
++						this.anchors.push({ position: this.codedTime, timestamp: this.nextPacketTime });
++					}
++				}
++				this.nextPacketTime += duration;
++				this.codedTime += duration;
++			}
+ 			if (this.packetsSinceFlush === 0) {
+ 				this.inputTimestampShift = -packet.timestamp;
+ 			}
+@@ -2554,7 +2640,13 @@ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 		}
+ 	}
+ 
+-	async flush() {
++	async flush(atEnd = false) {
++		if (this.pendingPacket) {
++			const packet = this.pendingPacket;
++			this.pendingPacket = null;
++			if (atEnd && this.aacFrameDuration && packet.duration > 0) this.audioEndTimestamp = packet.timestamp + packet.duration;
++			this.submitPacket(packet);
++		}
+ 		if (this.customDecoder) {
+ 			await this.customDecoderCallSerializer.call(() => this.customDecoder!.flush());
+ 		} else {
+@@ -2563,6 +2655,11 @@ class AudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 		}
+ 
+ 		this.currentTimestamp = null;
++		this.audioEndTimestamp = Infinity;
++		this.anchors.length = 0;
++		this.codedTime = this.decodedTime = this.timeOffset = 0;
++		this.nextPacketTime = null;
++		if (this.opusClock) this.opusClock.end = null;
+ 		this.expectedFirstTimestamp = null;
+ 		this.packetsSinceFlush = 0;
+ 		this.inputTimestampShift = 0;
+@@ -2595,14 +2692,13 @@ class PcmAudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 	outputFormat: 'u8' | 's16' | 's32' | 'f32';
+ 	writeOutputValue: (view: DataView, byteOffset: number, value: number) => void;
+ 
+-	// Internal state to accumulate a precise current timestamp based on audio durations, not the (potentially
+-	// inaccurate) packet timestamps.
+-	currentTimestamp: number | null = null;
++	nextFrame: number | null = null;
+ 
+ 	constructor(
+ 		onSample: (sample: AudioSample) => unknown,
+ 		onError: (error: unknown) => unknown,
+ 		public decoderConfig: AudioDecoderConfig,
++		private timeResolution: number,
+ 	) {
+ 		super(onSample, onError);
+ 
+@@ -2745,23 +2841,21 @@ class PcmAudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 			this.writeOutputValue(outputView, outputIndex, value);
+ 		}
+ 
+-		const preciseDuration = numberOfFrames / this.decoderConfig.sampleRate;
+-		if (this.currentTimestamp === null || Math.abs(packet.timestamp - this.currentTimestamp) >= preciseDuration) {
+-			// We need to sync with the packet timestamp again
+-			this.currentTimestamp = packet.timestamp;
+-		}
+-
+-		const preciseTimestamp = this.currentTimestamp;
+-		this.currentTimestamp += preciseDuration;
+-
+ 		const sampleRate = this.decoderConfig.sampleRate;
++		const tick = Math.round(packet.timestamp * this.timeResolution);
++		// Compare integer frames with the container tick. Either rounding at exactly half a tick is continuous.
++		if (this.nextFrame === null || Math.abs(this.nextFrame * this.timeResolution - tick * sampleRate) > sampleRate / 2) {
++			this.nextFrame = Math.round(packet.timestamp * sampleRate);
++		}
++		const timestamp = this.nextFrame / sampleRate;
++		this.nextFrame += numberOfFrames;
+ 		const audioSample = new AudioSample({
+ 			format: this.outputFormat,
+ 			data: outputBuffer,
+ 			numberOfChannels: this.decoderConfig.numberOfChannels,
+ 			sampleRate,
+ 			numberOfFrames,
+-			timestamp: roundToDivisor(preciseTimestamp, sampleRate),
++			timestamp,
+ 			_doNotCopy: true,
+ 		});
+ 
+@@ -2769,7 +2863,7 @@ class PcmAudioDecoderWrapper extends DecoderWrapper<AudioSample> {
+ 	}
+ 
+ 	async flush() {
+-		this.currentTimestamp = null;
++		this.nextFrame = null;
+ 	}
+ 
+ 	close() {
+@@ -2818,9 +2912,11 @@ export class AudioSampleSink extends BaseMediaSampleSink<AudioSample> {
+ 		assert(codec && decoderConfig);
+ 
+ 		if ((PCM_AUDIO_CODECS as readonly string[]).includes(decoderConfig.codec)) {
+-			return new PcmAudioDecoderWrapper(onSample, onError, decoderConfig);
++			return new PcmAudioDecoderWrapper(onSample, onError, decoderConfig, await this._track.getTimeResolution());
+ 		} else {
+-			return new AudioDecoderWrapper(onSample, onError, codec, decoderConfig);
++			const clock = codec === 'opus' ? await this._track.getTimeResolution() : 0;
++			return new AudioDecoderWrapper(onSample, onError, codec, decoderConfig,
++				clock && clock < OPUS_SAMPLE_RATE ? new OpusPacketClock(clock) : null);
+ 		}
+ 	}
+ 
+diff --git a/src/ogg/ogg-demuxer.ts b/src/ogg/ogg-demuxer.ts
+index 57abb6b..2a5e162 100644
+--- a/src/ogg/ogg-demuxer.ts
++++ b/src/ogg/ogg-demuxer.ts
+@@ -272,6 +272,17 @@ export class OggDemuxer extends Demuxer {
+ 		readVorbisComments(secondPacket.data.subarray(8), this.metadataTags); // Skip 'OpusTags'
+ 	}
+ 
++	private incompletePage() {
++		if (this.input._formatOptions.ogg?.requireCompleteData) throw new Error('Cannot verify a complete Ogg recording.');
++		return null;
++	}
++
++	private verifyPageSequence(previous: Page, next: Page) {
++		if (this.input._formatOptions.ogg?.requireCompleteData && next.sequenceNumber !== ((previous.sequenceNumber + 1) >>> 0)) {
++			throw new Error('Ogg page sequence is discontinuous.');
++		}
++	}
++
+ 	async readPacket(startPage: Page, startSegmentIndex: number): Promise<Packet | null> {
+ 		assert(startSegmentIndex < startPage.lacingValues.length);
+ 
+@@ -292,7 +303,7 @@ export class OggDemuxer extends Demuxer {
+ 			let pageSlice = this.reader.requestSlice(currentPage.dataStartPos, currentPage.dataSize);
+ 			if (isThenable(pageSlice)) pageSlice = await pageSlice;
+ 			if (!pageSlice) {
+-				return null; // The page is cut off
++				return this.incompletePage();
+ 			}
+ 
+ 			const pageData = readBytes(pageSlice, currentPage.dataSize);
+@@ -320,19 +331,20 @@ export class OggDemuxer extends Demuxer {
+ 				let headerSlice = this.reader.requestSliceRange(currentPos, MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE);
+ 				if (isThenable(headerSlice)) headerSlice = await headerSlice;
+ 				if (!headerSlice) {
+-					return null;
++					return this.incompletePage();
+ 				}
+ 
+ 				const nextPage = readPageHeader(headerSlice);
+ 				if (!nextPage) {
+-					return null;
++					return this.incompletePage();
+ 				}
+ 
+-				currentPage = nextPage;
+-				if (currentPage.serialNumber === startPage.serialNumber) {
++				if (nextPage.serialNumber === startPage.serialNumber) {
++					this.verifyPageSequence(currentPage, nextPage);
++					currentPage = nextPage;
+ 					break;
+ 				}
+-				currentPos = currentPage.headerStartPos + currentPage.totalSize;
++				currentPos = nextPage.headerStartPos + nextPage.totalSize;
+ 			}
+ 
+ 			startDataOffset = 0;
+@@ -361,6 +373,20 @@ export class OggDemuxer extends Demuxer {
+ 		};
+ 	}
+ 
++	async verifyEndOfLink(page: Page) {
++		if (!this.input._formatOptions.ogg?.requireSingleLink) return;
++		let offset = page.headerStartPos + page.totalSize;
++		while (true) {
++			let slice = this.reader.requestSliceRange(offset, MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE);
++			if (isThenable(slice)) slice = await slice;
++			if (!slice) return;
++			const next = readPageHeader(slice);
++			if (!next) throw new Error('Invalid Ogg page following end of stream.');
++			if (next.headerType & 0x02) throw new Error('Chained Ogg input is unsupported.');
++			offset += next.totalSize;
++		}
++	}
++
+ 	async findNextPacketStart(lastPacket: Packet) {
+ 		let startPage = lastPacket.endPage;
+ 		let startSegmentIndex = lastPacket.endSegmentIndex + 1;
+@@ -368,6 +394,7 @@ export class OggDemuxer extends Demuxer {
+ 		if (startSegmentIndex === startPage.lacingValues.length) {
+ 			const isEos = !!(startPage.headerType & 0x04);
+ 			if (isEos) {
++				await this.verifyEndOfLink(startPage);
+ 				// The page is marked as the last page of the logical bitstream, so we won't find anything beyond it
+ 				return null;
+ 			}
+@@ -378,15 +405,16 @@ export class OggDemuxer extends Demuxer {
+ 				let slice = this.reader.requestSliceRange(currentPos, MIN_PAGE_HEADER_SIZE, MAX_PAGE_HEADER_SIZE);
+ 				if (isThenable(slice)) slice = await slice;
+ 				if (!slice) {
+-					return null;
++					return this.incompletePage();
+ 				}
+ 
+ 				const nextPage = readPageHeader(slice);
+ 				if (!nextPage) {
+-					return null;
++					return this.incompletePage();
+ 				}
+ 
+ 				if (nextPage.serialNumber === startPage.serialNumber) {
++					this.verifyPageSequence(startPage, nextPage);
+ 					startPage = nextPage;
+ 					startSegmentIndex = 0;
+ 					break;
+@@ -401,6 +429,7 @@ export class OggDemuxer extends Demuxer {
+ 			&& startSegmentIndex === startPage.lacingValues.length - 1
+ 			&& startPage.lacingValues[startSegmentIndex] === 0;
+ 		if (isFinalEmptyPacket) {
++			await this.verifyEndOfLink(startPage);
+ 			return null;
+ 		}
+ 
+@@ -584,13 +613,20 @@ class OggAudioTrackBacking implements InputAudioTrackBacking {
+ 			additional.vorbisLastBlocksize,
+ 		);
+ 
++		// RFC 7845 §4.4: the granule on the final page can discard part or all of the
++		// packets finishing on that page. Packet iteration still advances by coded duration.
++		const end = (packet.endPage.headerType & 0x04) && packet.endPage.granulePosition >= 0
++			? this.granulePositionToTimestampInSamples(packet.endPage.granulePosition)
++			: null;
++		const start = additional.timestampInSamples;
+ 		const encodedPacket = new EncodedPacket(
+ 			options.metadataOnly ? PLACEHOLDER_DATA : packet.data,
+ 			'key',
+-			additional.timestampInSamples / this.internalSampleRate,
+-			durationInSamples / this.internalSampleRate,
++			Math.min(start, end ?? Infinity) / this.internalSampleRate,
++			Math.min(durationInSamples, Math.max(0, (end ?? Infinity) - start)) / this.internalSampleRate,
+ 			packet.endPage.headerStartPos + packet.endSegmentIndex,
+ 			packet.data.byteLength,
++			end === null ? undefined : { audioEndTimestamp: end / this.internalSampleRate },
+ 		);
+ 
+ 		this.encodedPacketToMetadata.set(encodedPacket, {
+diff --git a/src/packet.ts b/src/packet.ts
+index aa961bc..b8649a4 100644
+--- a/src/packet.ts
++++ b/src/packet.ts
+@@ -24,6 +24,8 @@ export type PacketType = 'key' | 'delta';
+  * @public
+  */
+ export type EncodedPacketSideData = {
++	/** The declared end of the playable audio timeline in seconds, when supplied by the container. */
++	audioEndTimestamp?: number;
+ 	/**
+ 	 * An encoded alpha frame, encoded with the same codec as the packet. Typically used for transparent videos, where
+ 	 * the alpha information is stored separately from the color information.
+diff --git a/src/reader.ts b/src/reader.ts
+index bb8402a..9d486fa 100644
+--- a/src/reader.ts
++++ b/src/reader.ts
+@@ -26,7 +26,7 @@ export class Reader {
+ 		return this.source._getFileSize() ?? null;
+ 	}
+ 
+-	requestSlice(start: number, length: number): MaybePromise<FileSlice | null> {
++	requestSlice(start: number, length: number, maxReadPosition = DEFAULT_MAX_READ_POSITION): MaybePromise<FileSlice | null> {
+ 		if (this.source._disposed) {
+ 			throw new InputDisposedError();
+ 		}
+@@ -45,7 +45,7 @@ export class Reader {
+ 		}
+ 
+ 		const end = start + length;
+-		const result = this.source._read(start, end, DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION);
++		const result = this.source._read(start, end, DEFAULT_MIN_READ_POSITION, maxReadPosition);
+ 
+ 		if (isThenable(result)) {
+ 			return result.then((x) => {
+diff --git a/src/source.ts b/src/source.ts
+index 2782651..007af8c 100644
+--- a/src/source.ts
++++ b/src/source.ts
+@@ -153,6 +153,19 @@ export abstract class Source extends EventEmitter<SourceEvents> {
+ 		return result;
+ 	}
+ 
++	/** Reads a bounded range from this source's existing cache and I/O owner. Returns null at EOF. */
++	async readBytes(start: number, length: number): Promise<Uint8Array | null> {
++		if (this._disposed) throw new InputDisposedError();
++		if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(length)
++			|| length < 0 || !Number.isSafeInteger(start + length)) throw new RangeError('Invalid source byte range.');
++		if (!length) return new Uint8Array(0);
++		const result = await this._read(start, start + length, DEFAULT_MIN_READ_POSITION, DEFAULT_MAX_READ_POSITION);
++		if (!result) return null;
++		const offset = start - result.offset;
++		if (offset < 0 || offset + length > result.bytes.length) return null;
++		return result.bytes.slice(offset, offset + length);
++	}
++
+ 	/**
+ 	 * Returns a new {@link RangedSource} that maps data onto this source using the given offset and length. If a length
+ 	 * is not provided, the ranged source spans until the end of this source's data.
+diff --git a/src/wave/wave-demuxer.ts b/src/wave/wave-demuxer.ts
+index 32edb8f..8f56488 100644
+--- a/src/wave/wave-demuxer.ts
++++ b/src/wave/wave-demuxer.ts
+@@ -14,6 +14,7 @@ import { PacketRetrievalOptions } from '../media-sink';
+ import { DEFAULT_TRACK_DISPOSITION, MetadataTags } from '../metadata';
+ import {
+ 	assert,
++	binarySearchLessOrEqual,
+ 	createUtcDate,
+ 	floorToMultiple,
+ 	isThenable,
+@@ -34,14 +35,16 @@ export enum WaveFormat {
+ 	EXTENSIBLE = 0xFFFE,
+ }
+ 
++type WaveDataChunk = { start: number; offset: number; size: number; open: boolean };
++
+ export class WaveDemuxer extends Demuxer {
+ 	reader: Reader;
+ 
+ 	metadataPromise: Promise<void> | null = null;
+-	dataStart = -1;
+-	dataSize = -1;
+-	dataSizeCapped = false;
+-	dataSizeIsPlaceholder = false;
++	private dataChunks: WaveDataChunk[] = [];
++	private headers = this.readChunks();
++	private advancing: Promise<void> | null = null;
++	headersDone = false;
+ 	audioInfo: {
+ 		format: number;
+ 		numberOfChannels: number;
+@@ -61,114 +64,114 @@ export class WaveDemuxer extends Demuxer {
+ 
+ 	async readMetadata() {
+ 		return this.metadataPromise ??= (async () => {
+-			let slice = this.reader.requestSlice(0, 12);
+-			if (isThenable(slice)) slice = await slice;
+-			assert(slice);
++			do {
++				await this.advanceChunks();
++			} while (!this.headersDone && (this.reader.fileSize !== null || !this.audioInfo));
++			if (!this.audioInfo || !this.dataChunks.length) {
++				throw new Error('Invalid WAVE file - missing "fmt " or "data" chunk');
++			}
++			this.trackBackings.push(new WaveAudioTrackBacking(this));
++		})();
++	}
+ 
+-			const riffType = readAscii(slice, 4);
+-			const littleEndian = riffType !== 'RIFX';
++	private advanceChunks() {
++		return this.advancing ??= this.headers.next().then(({ done }) => {
++			if (done) this.headersDone = true;
++		}).finally(() => { this.advancing = null; });
++	}
+ 
+-			const isRf64 = riffType === 'RF64';
++	private async *readChunks() {
++		let slice = this.reader.requestSlice(0, 12);
++		if (isThenable(slice)) slice = await slice;
++		assert(slice);
+ 
+-			const outerChunkSize = readU32(slice, littleEndian);
++		const riffType = readAscii(slice, 4);
++		const littleEndian = riffType !== 'RIFX';
+ 
+-			// A RIFF size of 0 means the file was probably never finalized
+-			let sizesUnfinalized = !isRf64 && outerChunkSize === 0;
++		const isRf64 = riffType === 'RF64';
+ 
+-			let totalFileSize = isRf64 || sizesUnfinalized || outerChunkSize === 0xffffffff
+-				? this.reader.fileSize
+-				: Math.min(outerChunkSize + 8, this.reader.fileSize ?? Infinity);
+-			const format = readAscii(slice, 4);
++		const outerChunkSize = readU32(slice, littleEndian);
+ 
+-			if (format !== 'WAVE') {
+-				throw new Error('Invalid WAVE file - wrong format');
+-			}
++		// Streaming writers use zero or all ones for a RIFF size they cannot backpatch.
++		let sizesUnfinalized = !isRf64 && (outerChunkSize === 0 || outerChunkSize === 0xffffffff);
+ 
+-			let chunksRead = 0;
+-			let dataChunkSize: number | null = null;
+-			let currentPos = slice.filePos;
++		let totalFileSize = isRf64 || sizesUnfinalized
++			? this.reader.fileSize
++			: outerChunkSize + 8;
++		const format = readAscii(slice, 4);
+ 
+-			while (totalFileSize === null || currentPos < totalFileSize) {
+-				let slice = this.reader.requestSlice(currentPos, 8);
+-				if (isThenable(slice)) slice = await slice;
+-				if (!slice) break;
++		if (format !== 'WAVE') {
++			throw new Error('Invalid WAVE file - wrong format');
++		}
+ 
+-				const chunkId = readAscii(slice, 4);
+-				let chunkSize = readU32(slice, littleEndian);
+-				const startPos = slice.filePos;
++		let chunksRead = 0;
++		let rf64DataSize: number | null = null;
++		let currentPos = slice.filePos;
++		const skipTags = this.input._formatOptions.wave?.skipMetadataTags;
+ 
+-				if (isRf64 && chunksRead === 0 && chunkId !== 'ds64') {
+-					throw new Error('Invalid RF64 file: First chunk must be "ds64".');
++		while (totalFileSize === null || currentPos < totalFileSize) {
++			let slice = this.reader.requestSlice(currentPos, 8);
++			if (isThenable(slice)) slice = await slice;
++			if (!slice) {
++				if (totalFileSize !== null && this.input._formatOptions.wave?.requireCompleteData) {
++					throw new Error('Incomplete WAVE chunk header.');
+ 				}
++				break;
++			}
+ 
+-				if (chunkId === 'fmt ') {
+-					await this.parseFmtChunk(startPos, chunkSize, littleEndian);
+-				} else if (chunkId === 'data') {
+-					dataChunkSize ??= chunkSize;
+-					if (
+-						(sizesUnfinalized && dataChunkSize === 0)
+-						|| (!isRf64 && dataChunkSize === 0xffffffff)
+-					) {
+-						// The data goes until the end of the file
+-						dataChunkSize = Number.MAX_SAFE_INTEGER;
+-						chunkSize = dataChunkSize;
+-					}
+-
+-					this.dataSizeIsPlaceholder = dataChunkSize === Number.MAX_SAFE_INTEGER;
+-					if (isRf64) {
+-						// The chunk's own size field is only a placeholder, so make sure to skip over the actual data
+-						chunkSize = dataChunkSize;
+-					}
+-
+-					this.dataStart = slice.filePos;
+-					this.dataSize = Math.max(Math.min(dataChunkSize, (totalFileSize ?? Infinity) - this.dataStart), 0);
+-
+-					if (this.reader.fileSize === null) {
+-						break; // Stop once we hit the data chunk
+-					}
+-				} else if (chunkId === 'ds64') {
+-					// File and data chunk sizes are defined in here instead
+-
+-					let ds64Slice = this.reader.requestSlice(startPos, chunkSize);
+-					if (isThenable(ds64Slice)) ds64Slice = await ds64Slice;
+-					if (!ds64Slice) break;
++			const chunkId = readAscii(slice, 4);
++			let chunkSize = readU32(slice, littleEndian);
++			const startPos = slice.filePos;
+ 
+-					if (chunkSize < 16) {
+-						throw new Error('Invalid RF64 file: "ds64" chunk is too small.');
+-					}
++			if (isRf64 && chunksRead === 0 && chunkId !== 'ds64') {
++				throw new Error('Invalid RF64 file: First chunk must be "ds64".');
++			}
+ 
+-					// Sizes past what a JS number can address exactly can't be real, they're just placeholders. We need
+-					// to cap here to make sure the downstream math still works correctly
+-					const riffChunkSize = Math.min(readU64(ds64Slice, littleEndian), Number.MAX_SAFE_INTEGER);
+-					dataChunkSize = Math.min(readU64(ds64Slice, littleEndian), Number.MAX_SAFE_INTEGER);
+-
+-					sizesUnfinalized = riffChunkSize === 0;
+-					totalFileSize = sizesUnfinalized
+-						? this.reader.fileSize
+-						: Math.min(riffChunkSize + 8, this.reader.fileSize ?? Infinity);
+-				} else if (chunkId === 'LIST') {
+-					await this.parseListChunk(startPos, chunkSize, littleEndian);
+-				} else if (chunkId === 'ID3 ' || chunkId === 'id3 ') {
+-					await this.parseId3Chunk(startPos, chunkSize);
++			if (chunkId === 'fmt ') {
++				if (this.audioInfo && this.input._formatOptions.wave?.requireCompleteData) {
++					throw new Error('Unsupported WAVE sample layout.');
++				}
++				await this.parseFmtChunk(startPos, chunkSize, littleEndian);
++			} else if (chunkId === 'data') {
++				chunkSize = rf64DataSize ?? chunkSize;
++				rf64DataSize = null;
++				const open = (sizesUnfinalized && chunkSize === 0)
++					|| (!isRf64 && chunkSize === 0xffffffff) || chunkSize === Number.MAX_SAFE_INTEGER;
++				const chunk = { start: startPos, offset: this.dataSize, size: open ? Number.MAX_SAFE_INTEGER : chunkSize, open };
++				this.capDataSize(chunk, totalFileSize);
++				this.dataChunks.push(chunk);
++				this.headersDone = open || startPos + chunkSize + (chunkSize & 1) >= (totalFileSize ?? Infinity);
++				yield;
++				if (this.headersDone) return;
++			} else if (chunkId === 'ds64') {
++				// File and data chunk sizes are defined in here instead
++
++				let ds64Slice = this.reader.requestSlice(startPos, chunkSize);
++				if (isThenable(ds64Slice)) ds64Slice = await ds64Slice;
++				if (!ds64Slice) break;
++
++				if (chunkSize < 16) {
++					throw new Error('Invalid RF64 file: "ds64" chunk is too small.');
+ 				}
+ 
+-				currentPos = startPos + chunkSize + (chunkSize & 1); // Handle padding
+-				chunksRead++;
+-			}
+-
+-			if (!this.audioInfo) {
+-				throw new Error('Invalid WAVE file - missing "fmt " chunk');
+-			}
+-			if (this.dataStart === -1) {
+-				throw new Error('Invalid WAVE file - missing "data" chunk');
++				// Sizes past what a JS number can address exactly can't be real, they're just placeholders. We need
++				// to cap here to make sure the downstream math still works correctly
++				const riffChunkSize = Math.min(readU64(ds64Slice, littleEndian), Number.MAX_SAFE_INTEGER);
++				rf64DataSize = Math.min(readU64(ds64Slice, littleEndian), Number.MAX_SAFE_INTEGER);
++
++				sizesUnfinalized = riffChunkSize === 0;
++				totalFileSize = sizesUnfinalized
++					? this.reader.fileSize
++					: riffChunkSize + 8;
++			} else if (!skipTags && chunkId === 'LIST') {
++				await this.parseListChunk(startPos, chunkSize, littleEndian);
++			} else if (!skipTags && (chunkId === 'ID3 ' || chunkId === 'id3 ')) {
++				await this.parseId3Chunk(startPos, chunkSize);
+ 			}
+ 
+-			const blockSize = this.audioInfo.blockSizeInBytes;
+-			this.dataSize = Math.floor(this.dataSize / blockSize) * blockSize;
+-			this.maybeCapDataSize();
+-
+-			this.trackBackings.push(new WaveAudioTrackBacking(this));
+-		})();
++			currentPos = startPos + chunkSize + (chunkSize & 1); // Handle padding
++			chunksRead++;
++		}
+ 	}
+ 
+ 	private async parseFmtChunk(startPos: number, size: number, littleEndian: boolean) {
+@@ -183,7 +186,9 @@ export class WaveDemuxer extends Demuxer {
+ 		let formatTag = readU16(slice, littleEndian);
+ 		const numChannels = readU16(slice, littleEndian);
+ 		const sampleRate = readU32(slice, littleEndian);
+-		slice.skip(4 + 2); // Bytes per second, block align
++		slice.skip(4); // Bytes per second
++		const blockAlign = readU16(slice, littleEndian);
++		const strict = this.input._formatOptions.wave?.requireCompleteData;
+ 
+ 		if (numChannels === 0 || sampleRate === 0) {
+ 			throw new Error('Invalid WAVE file - channel count and sample rate must be positive');
+@@ -205,11 +210,17 @@ export class WaveDemuxer extends Demuxer {
+ 
+ 			if (extensionSize >= 22 && formatTag === WaveFormat.EXTENSIBLE) {
+ 				// Parse WAVEFORMATEXTENSIBLE
+-				slice.skip(2 + 4);
++				const precision = readU16(slice, littleEndian);
++				slice.skip(4); // Channel mask
+ 				const subFormat = readBytes(slice, 16);
+ 
+ 				// Get actual format from subFormat GUID
+ 				formatTag = subFormat[0]! | (subFormat[1]! << 8);
++				if (strict && (!precision || precision > bitsPerSample
++					|| (formatTag === WaveFormat.IEEE_FLOAT && precision !== bitsPerSample)
++					|| ![0, 0, 0, 0, 16, 0, 128, 0, 0, 170, 0, 56, 155, 113].every((v, i) => subFormat[i + 2] === v))) {
++					throw new Error('Unsupported WAVE sample layout.');
++				}
+ 			}
+ 		}
+ 
+@@ -240,6 +251,7 @@ export class WaveDemuxer extends Demuxer {
+ 		}
+ 
+ 		const sampleSizeInBytes = Math.ceil(bitsPerSample / 8);
++		if (strict && blockAlign !== numChannels * sampleSizeInBytes) throw new Error('Unsupported WAVE sample layout.');
+ 		this.audioInfo = {
+ 			format: formatTag,
+ 			numberOfChannels: numChannels,
+@@ -410,23 +422,34 @@ export class WaveDemuxer extends Demuxer {
+ 		assert(false);
+ 	}
+ 
+-	maybeCapDataSize() {
+-		assert(this.audioInfo);
+-
+-		if (this.dataSizeCapped) {
+-			return;
++	private capDataSize(chunk: WaveDataChunk, fileEnd = this.reader.fileSize) {
++		const end = Math.min(fileEnd ?? Infinity, this.reader.fileSize ?? Infinity);
++		const remaining = Math.min(chunk.size, Math.max(0, end - chunk.start));
++		const size = this.audioInfo ? floorToMultiple(remaining, this.audioInfo.blockSizeInBytes) : remaining;
++		const incomplete = chunk.open ? Number.isFinite(end) && size < remaining : size < chunk.size;
++		if (incomplete && this.input._formatOptions.wave?.requireCompleteData) {
++			throw new Error('Incomplete WAVE data chunk.');
+ 		}
++		chunk.size = size;
++	}
+ 
+-		// With unsized sources, we may only get to know the file size after the init logic, so this may only happen
+-		// later on
+-		const fileSize = this.reader.fileSize;
+-		if (fileSize !== null) {
+-			this.dataSize = Math.min(
+-				this.dataSize,
+-				floorToMultiple(fileSize - this.dataStart, this.audioInfo.blockSizeInBytes),
+-			);
+-			this.dataSizeCapped = true;
+-		}
++	get dataSize() {
++		const last = this.dataChunks.at(-1);
++		if (!last) return 0;
++		this.capDataSize(last);
++		return last.offset + last.size;
++	}
++
++	get sizeKnown() {
++		return this.headersDone && (!this.dataChunks.at(-1)?.open || this.reader.fileSize !== null);
++	}
++
++	async chunkAt(offset: number, clamp: boolean) {
++		while (offset >= this.dataSize && !this.headersDone) await this.advanceChunks();
++		const end = this.dataSize;
++		if (offset < 0 || !end || (!clamp && offset >= end)) return;
++		const index = binarySearchLessOrEqual(this.dataChunks, Math.min(offset, end - 1), chunk => chunk.offset);
++		return this.dataChunks[index];
+ 	}
+ 
+ 	async getMimeType() {
+@@ -516,13 +539,7 @@ class WaveAudioTrackBacking implements InputAudioTrackBacking {
+ 	}
+ 
+ 	async getDurationFromMetadata() {
+-		assert(this.demuxer.dataSize !== -1);
+-
+-		this.demuxer.maybeCapDataSize();
+-		if (this.demuxer.dataSizeIsPlaceholder && !this.demuxer.dataSizeCapped) {
+-			return null;
+-		}
+-
++		if (!this.demuxer.sizeKnown) return null;
+ 		return this.demuxer.dataSize / this.demuxer.audioInfo!.blockSizeInBytes / this.demuxer.audioInfo!.sampleRate;
+ 	}
+ 
+@@ -544,94 +561,46 @@ class WaveAudioTrackBacking implements InputAudioTrackBacking {
+ 		};
+ 	}
+ 
+-	private async getPacketAtIndex(
+-		packetIndex: number,
+-		options: PacketRetrievalOptions,
+-	): Promise<EncodedPacket | null> {
+-		assert(packetIndex >= 0);
+-
+-		assert(this.demuxer.audioInfo);
+-		const blockSize = this.demuxer.audioInfo.blockSizeInBytes;
+-
+-		this.demuxer.maybeCapDataSize();
+-		const fileSize = this.demuxer.reader.fileSize;
+-
+-		const startOffset = packetIndex * PACKET_SIZE_IN_FRAMES * blockSize;
+-		if (startOffset >= this.demuxer.dataSize) {
+-			return null;
+-		}
+-
+-		const sizeInBytes = Math.min(PACKET_SIZE_IN_FRAMES * blockSize, this.demuxer.dataSize - startOffset);
+-
+-		if (fileSize === null) {
+-			// If the file size is unknown, we weren't able to cap the dataSize in the init logic and we instead have to
+-			// rely on the headers telling us how large the file is. But, these might be wrong, so let's check if the
+-			// requested slice actually exists.
+-
+-			let slice = this.demuxer.reader.requestSlice(this.demuxer.dataStart + startOffset, sizeInBytes);
++	private async packetAtFrame(frame: number, options: PacketRetrievalOptions, clamp = false): Promise<EncodedPacket | null> {
++		const { audioInfo, reader } = this.demuxer;
++		assert(audioInfo);
++		const block = audioInfo.blockSizeInBytes;
++		const chunk = await this.demuxer.chunkAt(frame * block, clamp);
++		if (!chunk) return null;
++
++		// Packets end at a data chunk boundary. Metadata and RIFF padding never enter the sample timeline.
++		const within = Math.min(frame * block - chunk.offset, chunk.size - 1);
++		const offset = floorToMultiple(within, PACKET_SIZE_IN_FRAMES * block);
++		const length = Math.min(PACKET_SIZE_IN_FRAMES * block, chunk.size - offset);
++		let data: Uint8Array = PLACEHOLDER_DATA;
++		if (!options.metadataOnly || reader.fileSize === null) {
++			let slice = reader.requestSlice(chunk.start + offset, length);
+ 			if (isThenable(slice)) slice = await slice;
+-
+ 			if (!slice) {
+-				// It doesn't, but the failed read has told us the file size, so let's try again with a capped dataSize
+-				assert(this.demuxer.reader.fileSize !== null);
+-				return this.getPacketAtIndex(packetIndex, options);
++				// A failed read on an unsized source reveals its physical end.
++				assert(reader.fileSize !== null);
++				return this.packetAtFrame(frame, options, clamp);
+ 			}
++			if (!options.metadataOnly) data = readBytes(slice, length);
+ 		}
+-
+-		let data: Uint8Array;
+-		if (options.metadataOnly) {
+-			data = PLACEHOLDER_DATA;
+-		} else {
+-			let slice = this.demuxer.reader.requestSlice(this.demuxer.dataStart + startOffset, sizeInBytes);
+-			if (isThenable(slice)) slice = await slice;
+-			assert(slice);
+-
+-			data = readBytes(slice, sizeInBytes);
+-		}
+-
+-		const timestamp = packetIndex * PACKET_SIZE_IN_FRAMES / this.demuxer.audioInfo.sampleRate;
+-		const duration = sizeInBytes / blockSize / this.demuxer.audioInfo.sampleRate;
+-
+-		return new EncodedPacket(
+-			data,
+-			'key',
+-			timestamp,
+-			duration,
+-			packetIndex,
+-			sizeInBytes,
+-		);
++		const startFrame = (chunk.offset + offset) / block;
++		return new EncodedPacket(data, 'key', startFrame / audioInfo.sampleRate,
++			length / block / audioInfo.sampleRate, startFrame, length);
+ 	}
+ 
+ 	getFirstPacket(options: PacketRetrievalOptions) {
+-		return this.getPacketAtIndex(0, options);
++		return this.packetAtFrame(0, options);
+ 	}
+ 
+-	async getPacket(timestamp: number, options: PacketRetrievalOptions): Promise<EncodedPacket | null> {
++	getPacket(timestamp: number, options: PacketRetrievalOptions) {
+ 		assert(this.demuxer.audioInfo);
+-
+-		const packetIndex = Math.floor(Math.min(
+-			roundIfAlmostInteger(timestamp * this.demuxer.audioInfo.sampleRate) / PACKET_SIZE_IN_FRAMES,
+-			(this.demuxer.dataSize - 1) / (PACKET_SIZE_IN_FRAMES * this.demuxer.audioInfo.blockSizeInBytes),
+-		));
+-		if (packetIndex < 0) {
+-			return null;
+-		}
+-
+-		const packet = await this.getPacketAtIndex(packetIndex, options);
+-		if (packet) {
+-			return packet;
+-		}
+-
+-		// The file is shorter than we thought, meaning the packet we were looking for doesn't exist. But by now, the
+-		// dataSize has been capped to the actual data, so let's try again.
+-		return this.getPacket(timestamp, options);
++		return this.packetAtFrame(Math.floor(roundIfAlmostInteger(timestamp * this.demuxer.audioInfo.sampleRate)), options, true);
+ 	}
+ 
+ 	getNextPacket(packet: EncodedPacket, options: PacketRetrievalOptions) {
+ 		assert(this.demuxer.audioInfo);
+-		const packetIndex = Math.round(packet.timestamp * this.demuxer.audioInfo.sampleRate / PACKET_SIZE_IN_FRAMES);
+-
+-		return this.getPacketAtIndex(packetIndex + 1, options);
++		const next = packet.sequenceNumber + packet.byteLength / this.demuxer.audioInfo.blockSizeInBytes;
++		return this.packetAtFrame(next, options);
+ 	}
+ 
+ 	getKeyPacket(timestamp: number, options: PacketRetrievalOptions) {

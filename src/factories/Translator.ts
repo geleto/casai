@@ -5,7 +5,7 @@ import { audioBase64, concatAudio, type AudioCallFormat, type CheckPcmLayout, ty
 import { ConfigError, ValidationError } from '../errors.js';
 import { createComponentFactory, audioInputModifiers, audioInputModes, type SourceFactory } from './component-factory.js';
 import { createComponentRuntime, type RuntimeComponentConfig } from '../runtime/component-call.js';
-import { releaseOnAudioFinish, validateAudioSettings, withAudioInput } from '../audio/input.js';
+import { isAudioArgument, releaseOnAudioFinish, validateAudioSettings, withAudioInput } from '../audio/input.js';
 import { isPlainObject } from '../schema.js';
 import type { ToolInvocation } from '../types/execution.js';
 import type { Fields, OptionalUndefined } from '../types/utils.js';
@@ -82,7 +82,8 @@ function create(config: RuntimeComponentConfig) {
 		});
 	}
 	return runtime.callable(invoke, args => {
-		const call = runtime.arguments(args, { literal: first => !isPlainObject(first) && (config[sourceMode] === 'audio-resource' || typeof first !== 'string') });
+		const call = runtime.arguments(args, { literal: first => isAudioArgument(first, config)
+			&& (config[sourceMode] === 'audio-resource' || typeof first !== 'string') });
 		call.take('inputAudioFormat', isPlainObject);
 		call.take('targetLanguage', value => typeof value === 'string');
 		return call.done();

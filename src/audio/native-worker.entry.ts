@@ -1,9 +1,10 @@
 import { prepareNativeAudio, type NativeAudioSource } from './native-pipeline.js';
+import { interleaveChannels } from './pcm-operations.js';
 import type { NativeAv } from './native-interface.js';
 import type { PrepareAudioSettings } from './preparation.js';
 import type { MessagePort } from 'node:worker_threads';
 
-export type NativeRequest = { type: 'open'; source: NativeAudioSource; settings: Omit<PrepareAudioSettings, 'abortSignal'>; blobType?: string | undefined }
+export type NativeRequest = { type: 'open'; source: NativeAudioSource | Uint8Array[]; settings: Omit<PrepareAudioSettings, 'abortSignal'>; blobType?: string | undefined }
 	| { type: 'allocate'; byteLength: number } | { type: 'read' } | { type: 'close' };
 export type NativeResponse = { value: unknown } | { error: unknown; name?: string | undefined; properties?: Record<string, unknown> | undefined };
 
@@ -38,7 +39,10 @@ async function serve(port: MessagePort, filename: string) {
 						const value = new Uint8Array(request.byteLength);
 						reply(value, [value.buffer]);
 					} else {
-						if (request.type === 'open') pipeline = prepareNativeAudio(av, request.source, { ...request.settings, abortSignal: abort.signal } as PrepareAudioSettings, request.blobType);
+						if (request.type === 'open') {
+							const source = Array.isArray(request.source) ? interleaveChannels(request.source) : request.source;
+							pipeline = prepareNativeAudio(av, source, { ...request.settings, abortSignal: abort.signal } as PrepareAudioSettings, request.blobType);
+						}
 						const step = await pipeline!.next();
 						const bytes = step.done ? step.value?.audio : step.value instanceof Uint8Array ? step.value : undefined;
 						reply(step.value, bytes ? [bytes.buffer] : []);

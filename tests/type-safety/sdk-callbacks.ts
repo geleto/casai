@@ -235,7 +235,7 @@ type CallbackKeys<T> = { [K in keyof T]-?: Extract<NonNullable<T[K]>, Callback |
 type TextSDK = Parameters<typeof streamText<typeof tools, typeof runtimeContext, typeof output>>[0];
 type TextEvent<K extends keyof TextSDK> = Parameters<Extract<NonNullable<TextSDK[K]>, Callback>>[0];
 type TextCallbackNames = 'toolApproval' | 'stopWhen' | 'prepareStep' | 'repairToolCall' | 'experimental_repairToolCall'
-	| 'experimental_transform' | 'experimental_download' | 'onChunk' | 'onError' | 'onEnd' | 'onFinish' | 'onAbort'
+	| 'experimental_transform' | 'experimental_download' | 'onChunk' | 'onError' | 'onEnd' | 'onFinish' | 'onAbort' | 'onWarning'
 	| 'onStepEnd' | 'onStepError' | 'onStepFinish' | 'onStart' | 'experimental_onStart' | 'onStepStart' | 'experimental_onStepStart'
 	| 'onLanguageModelCallStart' | 'experimental_onLanguageModelCallStart' | 'onLanguageModelCallEnd' | 'experimental_onLanguageModelCallEnd'
 	| 'onToolExecutionStart' | 'onToolExecutionEnd' | 'experimental_onToolCallStart' | 'experimental_onToolCallFinish';
@@ -249,13 +249,14 @@ create.LLMAgent.asStream({
 	onLanguageModelCallEnd: _event => { expectEqual<typeof _event, TextEvent<'onLanguageModelCallEnd'>>(); },
 	onToolExecutionStart: _event => { expectEqual<typeof _event, TextEvent<'onToolExecutionStart'>>(); },
 	onToolExecutionEnd: _event => { expectEqual<typeof _event, TextEvent<'onToolExecutionEnd'>>(); },
+	onWarning: _event => { expectEqual<typeof _event, TextEvent<'onWarning'>>(); },
 	onError: _event => { expectEqual<typeof _event.error, unknown>(); return { retry: true }; },
 	repairToolCall: async _options => {
 		expectEqual<typeof _options, TextEvent<'repairToolCall'>>();
 		return _options.toolCall;
 	},
 	experimental_download: async requests => {
-		expectEqual<typeof requests, { url: URL, isUrlSupportedByModel: boolean }[]>();
+		expectEqual<typeof requests, { url: URL, isUrlSupportedByModel: boolean, abortSignal?: AbortSignal }[]>();
 		return requests.map(() => ({ data: new Uint8Array(), mediaType: 'text/plain' }));
 	},
 	toolApproval: _options => {

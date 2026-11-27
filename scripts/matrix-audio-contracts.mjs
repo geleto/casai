@@ -14,6 +14,8 @@ export function audioContracts(aliases, details) {
       aliases[`${name}_inputs`] = `{ direct: ${input}; prepared: ${input}; template: ${owner === 'SpeechGenerator' ? 'string' : 'never'} }`;
     }
   }
+  // A submitted file has no live input format. Keep the native live field and its documentation independently.
+  aliases.TranscriberLive_native = "Extract<Parameters<typeof import('ai').experimental_streamTranscribe>[0], { inputAudioFormat: { type: string } }>";
   aliases.TranscriberFile_settings = `Extract<${family('Transcriber')}['selectedSettings'], { inputAudioFormat?: undefined }>`;
   aliases.TranscriberRaw_settings = `Exclude<${family('Transcriber')}['selectedSettings'], { inputAudioFormat?: undefined }>`;
   aliases.TranscriberRaw_config = `Exclude<${config('Transcriber')}, { inputAudioFormat?: undefined }>`;

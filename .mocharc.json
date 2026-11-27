@@ -32,6 +32,7 @@
 		"tests/LoaderComposition.unit.test.ts",
 		"tests/MessageHistory.test.ts",
 		"tests/InputComposition.unit.test.mjs",
+		"tests/MediaHandoff.unit.test.mjs",
 		"tests/NativeSchemaBehavior.unit.test.ts",
 		"tests/NativeMCPHistory.unit.test.ts",
 		"tests/NativeProviderApprovals.unit.test.ts",

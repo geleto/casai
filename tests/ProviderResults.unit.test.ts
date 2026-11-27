@@ -277,15 +277,15 @@ describe('Provider HTTP result contracts', () => {
 		});
 
 		for (const refusal of [false, true]) {
-			it(`${mode}: OpenAI chat ${refusal ? 'refusal' : 'intentional empty output'} is native empty stop text`, async () => {
+			it(`${mode}: OpenAI chat preserves ${refusal ? 'refusal text and a content-filter finish' : 'intentional empty text and a stop finish'}`, async () => {
 				const replay = openAIChatReplay(refusal);
 				const component = streaming ? create.LLMAgent.asStream({ model: replay.model }) : create.LLMAgent({ model: replay.model });
 				const call: (prompt: string) => ReturnType<typeof component> = component;
 				const result = await call('question');
-				assert.equal(await result.finishReason, 'stop');
-				assert.equal(await result.output, '');
-
-				assert.equal(JSON.stringify(await result.messageHistory).includes('I cannot help'), false);
+				assert.equal(await result.finishReason, refusal ? 'content-filter' : 'stop');
+				assert.equal(await result.rawFinishReason, 'stop');
+				assert.equal(await result.output, refusal ? 'I cannot help with that.' : '');
+				assert.equal(JSON.stringify(await result.messageHistory).includes('I cannot help with that.'), refusal);
 				assert.equal(replay.requests.length, 1);
 			});
 

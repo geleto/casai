@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { sdkPcm } from './pcm-reference.js';
 import { asMonoPcm16, float32ToPcm16, resamplePcm16, preparePcmStream, readWav, writeWav, type PcmFormat } from '../src/audio/pcm.js';
-import { ValidationError } from '../src/index.js';
+import { ConfigError, ValidationError } from '../src/index.js';
 import { concatAudio } from '../src/audio.js';
 
 async function collect(stream: ReadableStream<Uint8Array>) {
@@ -17,16 +17,30 @@ function chunks(bytes: Uint8Array, size: number) {
 	} }, { highWaterMark: 0 });
 }
 describe('Explicit PCM and WAV preparation', () => {
-	it('imports native helpers lazily and rejects unavailable browser execution before reading media', async () => {
+	it('checks browser capabilities and effective settings before reading media', async () => {
 		const native = await import('../src/audio/native.js');
 		assert.equal(typeof native.prepareAudio, 'function');
-		const browser = await import('../src/audio/native-unavailable.js');
+		const { openAudio } = await import('../src/audio/browser.js');
 		let reads = 0;
 		const audio = new ReadableStream<Uint8Array>({ pull() { reads++; } }, { highWaterMark: 0 });
-		await assert.rejects(browser.prepareAudio(audio, { inputAudioFormat: { type: 'audio/pcm', rate: 24000 } }), {
+		const inputAudioFormat = { type: 'audio/pcm', rate: 24000 };
+		const neutral = await import('../src/audio/unavailable.js');
+		await assert.rejects(neutral.openAudio(audio, { inputAudioFormat }), ConfigError);
+		await assert.rejects(openAudio(audio, { inputAudioFormat }), {
 			name: 'ConfigError',
-			message: /Node\.js.*node-av.*PCM.*WAV.*Transcriber.*\.loadsAudio/,
+			message: /PCM samples.*\.loadsAudio on Node\.js/,
 		});
+		for (const supplied of [undefined, { fileAudioTarget: {}, mediaSettings: {} }]) {
+			const ErrorClass = supplied ? ValidationError : ConfigError;
+			await assert.rejects(openAudio(audio, { fileAudioTarget: { format: 'flac', codec: 'flac' }, supplied }), ErrorClass);
+			for (const [format, codec] of [['webm', 'libopus'], ['ipod', 'aac'], ['mp4', 'aac']]) {
+				await assert.rejects(openAudio(audio, { fileAudioTarget: { format, codec, sampleFormat: 'flt' }, supplied }), ErrorClass);
+			}
+			await assert.rejects(openAudio(audio, { inputAudioFormat, mediaSettings: { options: { sample_rate: 8000 } }, supplied }), ErrorClass);
+		}
+		await assert.rejects(openAudio('./clip', { inputAudioFormat }), ValidationError);
+		await assert.rejects(openAudio(new URL('https://example.com/clip#t=1'), { inputAudioFormat, sourceFormat: { channels: 1, sampleRate: 24000 } }), ConfigError);
+		await assert.rejects(openAudio(new Int16Array([1]), { inputAudioFormat, sourceFormat: { channels: 1, sampleRate: 24000 } }), /dedicated worker/);
 		assert.equal(reads, 0);
 	});
 	it('converts unaligned bounded byte views and clips PCM16 samples', async () => {

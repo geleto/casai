@@ -165,3 +165,15 @@ Typed worker entrypoints are bundled ahead of time with the existing development
 The maintained responsiveness fixture processes 32 MiB of PCM after warming the finite worker, checks timer progress during each operation and executes a separate Cascada script. One diagnostic run on this desktop recorded maximum timer gaps of 53 ms for finite resampling and 16–17 ms for sample conversion, WAV operations and streamed resampling, with 33–494 timer callbacks per operation. These include desktop scheduling and allocation/copy costs, not just computation; they are not latency guarantees or portable performance thresholds. Native integration separately verifies two simultaneous worker-owned pipelines, independent Cascada/timer progress and graceful cleanup, at most one retained idle worker, and automatic expiry.
 
 Verification and maintained regressions are consolidated in the [acceptance record](phase6-implementation.md#verification).
+
+## Browser recording worker under a single-core load
+
+On November 25, 2026, the installed 6C candidate ran pairs of simultaneous public `Transcriber.loadsAudio` calls in Chrome 158.0.8127.88 on Windows. Windows process affinity restricted the browser and all of its observed child processes to one logical processor. The page ran a one-millisecond timer during each pair. Working sets and private committed bytes below are the highest sampled sums across those Chrome processes, relative to the sample immediately before dispatch. They include decoding, conversion, source staging, output storage and browser overhead.
+
+| Two simultaneous preparations | Provider file bytes per call | Elapsed | Page timer ticks | Working set increase | Private bytes increase |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 8 MiB of stereo PCM per call to mono 24 kHz WAV | 2,097,196 | 815 ms | 173 | 44.5 MiB | 42.5 MiB |
+| Spoken FLAC to mono 24 kHz WAV | 197,968 | 1,019 ms | 190 | 20.1 MiB | 21.1 MiB |
+| Chrome WebM/Opus copy | 15,746 | 724 ms | 159 | 13.2 MiB | 14.2 MiB |
+
+The three pairs ran in that order in one browser session. The sampler obtained 7, 11 and 7 in-operation observations. These measurements describe the tested recordings and cache state. Large seekable and sequential recordings, each admitted muxer and the mobile platforms still need peak-memory measurements. The application-worker regression separately checks the delivered samples, input ownership and timer progress when the caller is itself a worker. [Provider and worker tests](../tests/fixtures/browser-media-contracts.test.mjs)

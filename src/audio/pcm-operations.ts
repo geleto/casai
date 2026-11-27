@@ -117,19 +117,28 @@ export function readWav(audio: AudioBytes): { audio: Uint8Array; format: PcmForm
 	return { audio: data.length === 1 ? data[0] : concatAudio(data), format };
 }
 
-/** Wrap known PCM samples in a WAV container. No conversion or inferred format. */
-export function writeWav(audio: AudioBytes, format: PcmFormat): Uint8Array<ArrayBuffer> {
-	const bytes = bytesOf(audio), size = frameSize(format);
-	if (bytes.length % size) throw new ValidationError('PCM ends with an incomplete audio frame.');
-	const padding = bytes.length & 1;
-	if (bytes.length + padding > 0xffffffff - 36 || size > 65535 || format.channels > 65535 || format.sampleRate * size > 0xffffffff) throw new ValidationError('Audio exceeds the WAV container limits.');
-	const output = new Uint8Array(44 + bytes.length + padding), view = new DataView(output.buffer);
+export function wavHeader(byteLength: number, format: PcmFormat): Uint8Array<ArrayBuffer> {
+	const size = frameSize(format);
+	if (byteLength % size) throw new ValidationError('PCM ends with an incomplete audio frame.');
+	const padding = byteLength & 1;
+	if (byteLength + padding > 0xffffffff - 36 || size > 65535 || format.channels > 65535 || format.sampleRate * size > 0xffffffff) throw new ValidationError('Audio exceeds the WAV container limits.');
+	const output = new Uint8Array(44), view = new DataView(output.buffer);
 	const tag = (offset: number, value: string) => { for (let i = 0; i < value.length; i++) output[offset + i] = value.charCodeAt(i); };
-	tag(0, 'RIFF'); view.setUint32(4, output.length - 8, true); tag(8, 'WAVE');
+	tag(0, 'RIFF'); view.setUint32(4, 36 + byteLength + padding, true); tag(8, 'WAVE');
 	tag(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, format.encoding.startsWith('pcm_f') ? 3 : 1, true);
 	view.setUint16(22, format.channels, true); view.setUint32(24, format.sampleRate, true); view.setUint32(28, format.sampleRate * size, true);
 	view.setUint16(32, size, true); view.setUint16(34, sampleBytes[format.encoding] * 8, true);
-	tag(36, 'data'); view.setUint32(40, bytes.length, true); output.set(bytes, 44);
+	tag(36, 'data'); view.setUint32(40, byteLength, true);
+	return output;
+}
+
+/** Wrap known PCM samples in a WAV container. No conversion or inferred format. */
+export function writeWav(audio: AudioBytes, format: PcmFormat): Uint8Array<ArrayBuffer> {
+	const bytes = bytesOf(audio);
+	const header = wavHeader(bytes.length, format);
+	const output = new Uint8Array(44 + bytes.length + (bytes.length & 1));
+	output.set(header);
+	output.set(bytes, 44);
 	return output;
 }
 

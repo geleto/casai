@@ -6,7 +6,7 @@ Concurrent AI orchestration for JavaScript and TypeScript. The [component refere
 
 ## Build your first workflow.
 
-Use Node.js 24 or later, AI SDK 7.x (7.0.162+) and Zod 4.x (4.6.5+). Install the latest releases within these supported major versions:
+Use Node.js 24 or later, AI SDK 7.x (7.0.183+) and Zod 4.x (4.6.5+). Install the latest releases within these supported major versions:
 
 ```bash
 npm install casai ai@7 zod@4
@@ -315,7 +315,7 @@ Use schema descriptions and the output specification's supported `name` and `des
 
 After `const result = await agent(prompt)`, pass `result.output` to the next workflow step. With `.asStream`, you can display `result.textStream` as text arrives and then await `result.output` for the final parsed value from the same run. Each form’s **Return** tab lists its fields and types. [Generation return](https://casai.run/documentation/reference/llmagent/?view=return#return) · [Streaming return](https://casai.run/documentation/reference/llmagent_asstream/?view=return#return)
 
-When the next step depends on a tool having finished, also inspect the finish reasons and outstanding tool or approval events. A provider can return schema-valid text while work is pending. For example, Anthropic’s raw `pause_turn` can appear as a normalized `stop`, and an OpenAI Chat refusal can appear as empty `stop` text. Save `messageHistory` if the workflow needs to continue. Once the required input is available, call `agent.resume(history, options)` with the original application context, relevant per-call settings and any provider state the next request requires, such as an Anthropic container ID. [Approvals and continuation](#guide-tool-approvals-and-continuation)
+When the next step depends on a tool having finished, inspect the finish reasons and outstanding tool or approval events. A provider can return schema-valid text while work is pending. For example, Anthropic’s raw `pause_turn` can appear as a normalized `stop`. With the tested OpenAI Chat adapter, a refusal preserves its text and yields `content-filter` even when the raw finish reason was `stop`. An intentionally empty reply still yields `stop`. Save `messageHistory` if the workflow needs to continue. Once the required input is available, call `agent.resume(history, options)` with the original application context, relevant per-call settings and any provider state the next request requires, such as an Anthropic container ID. [Approvals and continuation](#guide-tool-approvals-and-continuation)
 
 When an outer agent invokes an `LLMAgent.asTool`, it receives the inner agent’s completed application value. A pause or an unfinished tool call reaches the outer agent as a tool error. Use a directly called agent when your workflow needs to retain and resume the inner conversation. [Tool return and completion rules](https://casai.run/documentation/reference/llmagent_astool/?view=return#return)
 
@@ -657,11 +657,11 @@ Modifiers are properties of the factory, applied before creating the component: 
 - [`.loadsText`](#guide-text-and-template-modifiers): Load literal text from a named resource through the configured loader.
 - [`.loadsTemplate`](#guide-text-and-template-modifiers): Load a named Cascada template through the configured loader, then render it with context.
 - [`.loadsScript`](#guide-script-and-function-modifiers): Load a named Cascada script through the configured loader, then execute it to prepare input.
-- [`.loadsAudio`](#guide-recorded-audio-and-optional-codecs): Prepare the selected audio from a path/URL, encoded bytes or a byte stream through the required native backend.
+- [`.loadsAudio`](#guide-recorded-audio-and-optional-codecs): Prepare audio using the runtime's audio backend. Node.js can open media paths and URLs. Browser preparation accepts decoded `AudioBuffer` values and described PCM, with encoded recordings under qualification.
 - [`.asStream`](#guide-streaming): Make an LLMAgent, Template, Transcriber, SpeechGenerator or Translator stream: its calls return a live stream result.
 - [`.asTool`](#guide-tools): Expose the component as a tool a language model can invoke, while keeping it directly callable.
 
-A modifier changes the type of the [main property](#guide-creating-and-calling-components), not its name, so an LLMAgent's input is always `prompt`. With `.loadsText`, `.loadsTemplate` or `.loadsScript`, that value is a resource name resolved by the configured [loader](#guide-loader). With `.loadsAudio`, it is a media path/URL or supplied encoded bytes/byte stream handled by the native preparation backend.
+A modifier changes the type of the [main property](#guide-creating-and-calling-components), not its name, so an LLMAgent's input is always `prompt`. With `.loadsText`, `.loadsTemplate` or `.loadsScript`, that value is a resource name resolved by the configured [loader](#guide-loader). With `.loadsAudio`, `audio` supplies the recording or media reference directly to the runtime's audio backend.
 
 <a id="guide-text-and-template-modifiers" name="guide-text-and-template-modifiers"></a>
 
@@ -1120,7 +1120,7 @@ Media content types alone do not establish working delivery to a model. The foll
 | `@ai-sdk/anthropic@4.0.96` | Retains inline images/PDFs; warns and drops inline audio/video file parts | Inline audio/video delivery is unsupported |
 | `@ai-sdk/openai@4.0.108`, Chat | Stringifies tool content, including base64 | Native media delivery is unsupported on this path |
 | `@ai-sdk/openai@4.0.108`, Responses | Maps images to `input_image` and other files to `input_file` | Tested `gpt-6-luna` route rejects `audio/mpeg` tool output with HTTP 400 |
-| `@ai-sdk/google@4.0.111`, Interactions | Retains images; warns and drops audio/video tool files despite [API support](https://aistudio.google.com/docs/function-calling#multimodal) | These audio/video routes require an adapter correction |
+| `@ai-sdk/google@4.0.128`, Interactions | Sends inline audio with its MIME and bytes as a top-level `function_result` | Request verified locally. Hosted recognition on this route and video reception still need separate checks. |
 | `@ai-sdk/google@4.0.111`, generateContent | Retains inline audio/video in function responses on native model paths supporting response parts | Both `gemini-3.1-flash-lite` and `gemini-3.8-flash` identified the spoken color and number in two different MP3 (`audio/mpeg`) tool results without receiving transcripts |
 
 The table records inspected behavior; it is not a promise to certify every adapter version or repair unsupported routes. Choose an adapter/model route verified for the actual media format. A custom formatter can deliberately return text or an application reference instead. Schema metadata does not grant media transport, and no generic Casai preflight can promise an error for an adapter that silently discards content.
@@ -1129,7 +1129,7 @@ The table records inspected behavior; it is not a promise to certify every adapt
 
 ##### Tool operation arguments
 
-Model arguments supply operation input or preparation data, rather than an SDK settings envelope. A plain specialized tool's schema declares only its documented operation input fields, such as `prompt`, `audio`, `query`, or Embedder's `input`. The parsed field must supply the native input, or the component must configure a fallback source. For example, optional `{ input }` needs a configured Embedder `input` or a schema default; an ImageGenerator can use configured images without a prompt. A transform that removes the field needs a fallback too. Field-value transforms remain available, such as trimming `prompt` or converting a plain Transcriber tool's URL string into a native `URL`. That route retains the SDK `download` hook and its protections; `.loadsAudio` uses separate native media loading. Custom argument names use an explicit preparer:
+Model arguments supply operation input or preparation data, rather than an SDK settings envelope. A plain specialized tool's schema declares only its documented operation input fields, such as `prompt`, `audio`, `query`, or Embedder's `input`. The parsed field must supply the native input, or the component must configure a fallback source. For example, optional `{ input }` needs a configured Embedder `input` or a schema default; an ImageGenerator can use configured images without a prompt. A transform that removes the field needs a fallback too. Field-value transforms remain available, such as trimming `prompt` or converting a plain Transcriber tool's URL string into a native `URL`. Set `download: createDownload({ maxBytes })` to apply the SDK's address checks and local byte limit on that route. `.loadsAudio` uses separate media loading. Custom argument names use an explicit preparer:
 
 <!-- typecheck: image-tool-preparer -->
 ```typescript
@@ -1460,6 +1460,8 @@ A tool may execute before the SDK discovers another missing result or protocol e
 JSON storage must preserve the approved parsed input as well as recorded raw input. For example, a parsed `Date` becomes a string through JSON: unsigned revalidation then returns an input-error result without executing, while signed continuation rejects the changed signature. Prefer JSON-compatible parsed arguments such as ISO strings, converting inside `execute`, or a verified application-owned type-preserving format. Rich values have different serialization/signing limits; Casai adds no serializer or schema ban.
 
 Inspect `responseMessages`/`messageHistory` for incoming approval outcomes. These tools run before the first model step, so step-derived `content`, `toolResults` and `steps` omit their successes, denials and input-revalidation errors. Streaming also exposes full-stream events. A successful native `output` does not prove the approved operation executed; the model can answer after a handled tool error.
+
+The SDK UI stream reports an invalid tool argument once as `tool-input-error`. The model-facing step still contains the corresponding tool error. A tool that accepts its arguments and then fails during execution reports `tool-output-error` to the UI.
 
 Streaming can repeat `tool-output-denied` for an already-settled call whose negative response and `execution-denied` result remain in the final tool message, for example an automatic denial alongside another pending approval. This native event does not mean another execution or a new result. UI/full-stream consumers should reconcile it with existing state by tool-call ID; Casai does not suppress it.
 
@@ -1957,7 +1959,26 @@ console.log(description.output);
 
 Replace the example URL with your own image. File parts and other supported message content also remain structured through Casai preparation. Script/function prompts can return these message arrays directly.
 
-An attachment URL follows the SDK's download policy. If a model calls a tool and takes a second step, a URL such as `https://example.com/reports/latest.pdf` can supply a different revision of the report. Pass inline bytes or use a URL pinned to an immutable revision when every step and a later `resume()` must see the same file.
+An attachment URL follows the SDK's download policy. If a model calls a tool and takes a second step, a URL such as `https://example.com/reports/latest.pdf` can supply a different revision of the report. Pass inline bytes or use a URL pinned to an immutable revision when every step and a later `resume()` must see the same file. For duplicate application-owned downloads within one invocation, pass an `experimental_download` hook on that call. Create its Map for that invocation, key it by the authorized URL and store the download promise before awaiting it. Forward the request's `abortSignal`, remove a failed entry so a retry can fetch again, and preserve the SDK's request order when returning results. Return `null` for a URL that the provider should fetch directly. A fresh invocation can then fetch a newer revision.
+
+For a large PDF that the same provider will read again, stream it once to the provider's file store and put its reference in the conversation. The OpenAI Files adapter begins uploading while the producer is open. The file ID becomes available when the upload finishes. Later calls that reuse the conversation need access to the same provider file for as long as the application retains the history.
+
+<!-- typecheck: streamed-pdf-reference -->
+```typescript
+import { openai } from '@ai-sdk/openai';
+import { uploadFile } from 'ai';
+
+const { providerReference } = await uploadFile({
+  api: openai, data: { type: 'stream', stream: pdfStream },
+  filename: 'evidence.pdf', mediaType: 'application/pdf',
+  providerOptions: { openai: { purpose: 'user_data' } },
+});
+const review = create.LLMAgent({ model: openai.responses('gpt-4.1') });
+const answer = await review([{ role: 'user', content: [
+  { type: 'file', mediaType: 'application/pdf', data: { type: 'reference', reference: providerReference } },
+  { type: 'text', text: 'Summarize the evidence.' },
+] }]);
+```
 
 **Planned for 6D.** LLMAgent and Decision will also accept a File, Blob or generated file inside a tagged inline file part. Casai will read it once before hooks. LLMAgent will retain the native file part in history for later steps and resume. An explicit filename or MIME takes precedence when Casai prepares the part. The SDK can still detect the image format from its bytes when it sends the request. Bare provider references keep their native meaning.
 
@@ -1966,6 +1987,24 @@ The model and provider determine supported media and formats. Generated files an
 <a id="guide-imagegenerator" name="guide-imagegenerator"></a>
 
 ### ImageGenerator
+
+For a UI that shows an image as it is generated, use a language model with a native image-generation tool. With OpenAI Responses, a preliminary tool result contains the current preview. Replace it on the next update. The completed `toolResults` contains the final image for storage. The SDK stream and provider upload examples here are type-checked. Their request and result behavior is also exercised with local provider responses. [Media handoff tests](../../tests/MediaHandoff.unit.test.mjs)
+
+<!-- typecheck: native-image-previews -->
+```typescript
+import { openai } from '@ai-sdk/openai';
+
+const draw = create.LLMAgent.asStream({
+  model: openai.responses('gpt-4.1'),
+  tools: { draw: openai.tools.imageGeneration({ partialImages: 1 }) },
+});
+const drawing = await draw('Draw a floor plan.');
+for await (const part of drawing.fullStream) {
+  if (part.type === 'tool-result' && part.toolName === 'draw' && !part.dynamic) {
+    console.log(part.preliminary ? 'Preview' : 'Final image', part.output.result);
+  }
+}
+```
 
 **Work in progress:** image and mask inputs will accept selected generated files, File/Blob and HTTP(S) URL objects directly. The examples below use currently supported inputs.
 
@@ -2076,11 +2115,11 @@ console.log(transcript.text);
 console.log(transcript.segments);
 ```
 
-Use this ordinary call when the provider already accepts the recording. In Node.js, `readFile` supplies the bytes. In a browser, pass the selected `File` directly. Both use the AI SDK file operation without `node-av`. To have FFmpeg open a recording, select a track or convert its format, use `.loadsAudio` on the server. [Audio with and without node-av](#guide-recorded-audio-and-optional-codecs)
+Use this ordinary call for an entire finished recording in a format the provider accepts. OpenAI file transcription, for example, accepts the original AAC in an iPhone MP4/M4A. Uploading the original also sends every stored track, take and tag. Select `.loadsAudio` when a particular track, playback edit, metadata removal or format conversion matters. In Node.js, `readFile` supplies the bytes. In a browser, pass the selected `File` directly. Both use the AI SDK file operation without `node-av`. To have FFmpeg open a recording, select a track or convert its format, use `.loadsAudio` on the server. [Audio with and without node-av](#guide-recorded-audio-and-optional-codecs)
 
 For a meeting transcript with speaker labels, choose a transcription model that supports diarization. With the OpenAI diarization model, request `providerOptions: { openai: { responseFormat: 'diarized_json' } }` and read the `speaker` field on entries in `transcript.providerMetadata.openai.segments`. The ElevenLabs file adapter exposes `speaker_id` on entries in `transcript.providerMetadata.elevenlabs.words` when supplied. The common `transcript.segments` carry text and timing. Word-confidence scores depend on the provider and response format. If a model needs speaker labels from a tool, a Function tool can call ordinary Transcriber and return the speaker and text for each segment.
 
-`recordedAudio` contains encoded audio bytes (`Uint8Array`, Buffer or `ArrayBuffer`) or base64 data. A native `URL` instead uses the SDK downloader, including its address checks and byte limit. The installed SDK default is 2 GiB; for model-selected URLs, always set an application-appropriate limit with `download: createDownload({ maxBytes })`. Strings remain encoded data. Outside `.loadsAudio`, a native `URL` cannot be combined with `inputAudioFormat`: URLs use encoded-file execution, while that format selects supplied raw audio. The `download` setting is available only on the encoded-file path. Use `.loadsAudio` for FFmpeg preparation of paths/URLs. The selected provider determines supported formats. The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) retains text, segments, language information, and other available SDK fields.
+`recordedAudio` contains encoded audio bytes (`Uint8Array`, Buffer or `ArrayBuffer`) or base64 data. With a native HTTP(S) `URL`, the SDK offers the address to an adapter that supports URL transcription. On an ordinary application call, that provider receives the address, including its signed query. Transcription tool execution uses a local SDK download for URL inputs by default. Other adapters and declined URLs use the SDK downloader. To apply local address checks and a byte limit, set `download: createDownload({ maxBytes })`. This selects local downloading even for a URL-capable adapter. If the response has a generic content type, the SDK inspects the bytes. Strings remain encoded data. Outside `.loadsAudio`, a native `URL` cannot be combined with `inputAudioFormat`: URLs use encoded-file execution, while that format selects supplied raw audio. The `download` setting is available only on the encoded-file path. Use `.loadsAudio` for FFmpeg preparation of paths/URLs. The selected provider determines supported formats. The [result](https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe#returns) retains text, segments, language information, and other available SDK fields.
 
 Use `.withScript`, `.withFunction`, or `.loadsScript` to obtain audio before transcription, and `.asTool` to expose the completed operation. Text/template modifiers do not apply to audio payloads. See [SDK transcription](https://ai-sdk.dev/docs/ai-sdk-core/transcription).
 
@@ -2099,21 +2138,23 @@ const transcribeRecording = create.Transcriber.loadsAudio.asTool({
 
 Install the desired node-av build; no loader setting is required. This example uses a streaming-capable model accepting 24 kHz mono PCM16 and returns a completed transcript. The model invokes the tool with no resource argument. Trusted application calls can override the recording with a path, URL, encoded bytes or a byte stream: `transcribeRecording(uploadedStream)` and `transcribeRecording.run({ audio: uploadedStream })` both select the supplied stream. Your application authorizes the configured resource, including redirects and playlist children. To let a model select a recording for native preparation, expose a Function/Script workflow that resolves an authorized recording ID and calls an ordinary `.loadsAudio` component through `.run({ audio, mediaSettings })`. Source credentials and native options stay in trusted settings. See [media loading](#guide-recorded-audio-and-optional-codecs).
 
-For a tool that accepts a public recording URL from the model, pass a validated URL to ordinary Transcriber. The SDK checks the target, redirects and resolved addresses. Configure the download size limit on the component.
+For a tool that accepts a public recording URL from the model, transform the string to a URL. Tool execution uses local downloading even on URL-capable models. By default Node checks resolved addresses with a guarded transport. The browser uses SDK URL and redirect checks and its platform transport. To set a smaller limit on Node, add `guarded-fetch` to the application's dependencies and give the custom downloader its own guarded transport. This example caps the file at 20 MiB.
 
 <!-- typecheck: protected-url-transcription -->
 ```typescript
 import { createDownload } from 'ai';
+import { createGuardedFetch } from 'guarded-fetch';
 
+const transport = createGuardedFetch();
 const transcribePublicUrl = create.Transcriber.asTool({
   model: transcriptionModel,
   description: 'Transcribe an audio recording at a public URL.',
   inputSchema: z.object({ audio: z.url().transform(value => new URL(value)) }),
-  download: createDownload({ maxBytes: 20 * 1024 * 1024 }),
+  download: createDownload({ maxBytes: 20 * 1024 * 1024, fetch: transport }),
 });
 ```
 
-The model supplies `{ audio: "https://example.com/recording" }`. The SDK downloads it once, forwards cancellation and uses the response media type when available. When FFmpeg opens a URL through `.loadsAudio`, the application authorizes that resource and its redirects and children separately.
+The model supplies `{ audio: "https://example.com/recording" }`. The tool downloads it locally and forwards cancellation. Close the example's transport with `await transport.close()` at application shutdown. When FFmpeg opens a URL through `.loadsAudio`, the application authorizes that resource and its redirects and children separately.
 
 <a id="guide-streaming-transcription" name="guide-streaming-transcription"></a>
 
@@ -2121,7 +2162,9 @@ The model supplies `{ audio: "https://example.com/recording" }`. The SDK downloa
 
 `Transcriber.asStream` produces transcript events while receiving live audio. It requires a streaming-capable transcription model and audio in the declared format. It uses the AI SDK's experimental `experimental_streamTranscribe` API.
 
-Finite raw bytes are also accepted, but completion follows the provider's streaming session rules. The current OpenAI adapter commits once after input ends and finishes on the first transcription-completed event. This does not establish support for arbitrary long recordings or multiple completed items; use ordinary Transcriber for whole files.
+For an adapter that accepts live WebM/Opus, use one ordered stream with `inputAudioFormat: { type: 'audio/webm' }`. Include the recorder's first chunk and keep the same call through the last chunk. Each `dataavailable` Blob can depend on the original container header. The browser preparation candidate can decode growing Chrome WebM/Opus and AAC/MP4, and Firefox Ogg/Opus, to PCM for a PCM-only model. For browser record-and-send, skip empty blobs, preserve `recorder.mimeType`, collect through the `stop` event, and stop the microphone tracks your application acquired. [Browser recording qualification](../phase6-implementation.md#browser-worker-implementation)
+
+Finite raw bytes are also accepted, but completion follows the provider's streaming session rules. OpenAI file transcription returns a completed result with the installed adapter. Its separate realtime adapter commits once after input ends and finishes on the first transcription-completed event. This does not establish support for arbitrary long recordings or multiple completed items; use ordinary Transcriber for whole files.
 
 <!-- typecheck: streaming-transcriber -->
 ```typescript
@@ -2144,6 +2187,10 @@ console.log(await transcriptStream.text);
 For live captions, read `fullStream` first so your application sees each event. After the loop, await `text` for the transcript to pass to the next step. A workflow that only needs the final transcript can await `text` directly. To show captions in a Template or Script, select the text from the events you consume. [Streaming transcription return fields and errors](https://casai.run/documentation/reference/transcriber_asstream/?view=return#return)
 
 Use `(audio, inputAudioFormat)` or `.run({ audio, inputAudioFormat })`. Configure `inputAudioFormat` to shorten this to `transcriberStream(audioStream)`; both entry paths require an unconfigured format. Ordinary Transcriber tools using raw audio require a configured format because their model-facing arguments are input/preparation data; `Transcriber.asStream` has no tool form.
+
+**Native SDK candidate.** On OpenAI file models such as `gpt-4o-mini-transcribe`, call `Transcriber.asStream({ model })(file)` for transcript deltas from a completed recording. The same delivery works with a configured `Transcriber.loadsAudio.asStream` file target after preparation finishes. Read `fullStream` first and then `text` from that result. For OpenAI or Groq uploads with independent labels, pass `{ type: 'file', data, mediaType: 'audio/mp4', filename: 'interview.m4a' }` as the audio value. A File or Blob can be retried. A byte stream is consumed once and requires a transport that supports streaming request bodies. A one-shot HTTP upload needs browser support for streaming request bodies. Use a completed Blob or File when the browser lacks it.
+
+For live Deepgram captions, pass the ordered byte stream from one recorder to `Transcriber.asStream` with `inputAudioFormat: { type: 'audio/webm;codecs=opus' }`. Ogg/Opus and WAV with 16-bit PCM are also supported. For Nova, set `providerOptions.deepgram.streaming.interimResults` to receive interim text. Flux revises each turn under the same ID. An orderly stop preserves the final pending phrase. The checked-in SDK patch supplies these capabilities while its upstream release is pending. [Candidate and qualification](../phase6-implementation.md#native-file-and-recorder-sdk-candidate)
 
 A request-specific component can configure its one-shot audio and be called without arguments:
 
@@ -2297,11 +2344,13 @@ Consume the single `fullStream` before final text/metadata promises when both ar
 
 **Work in progress — browser recordings.** Browser `.loadsAudio` preparation with Mediabunny/WebCodecs is planned for supported encoded files, bytes, streams and HTTP(S) resources. Its first release requires ordinary Safari and Chrome MP4 recordings to preserve edits and pauses and Firefox Ogg/Opus to end at the recorded sample. Converting MP3 to raw audio or WAV can follow separately. When the browser adapter cannot verify an MP3's declared ending, it will reject the conversion before sending audio to the provider. For transcription, a provider that already accepts MP3 can receive the original file through ordinary `Transcriber`. Split uploads will require transferable streams, available in Safari and iOS Safari from 27. On earlier browsers, a finished recorder session can supply all its chunks together as one Blob where the needed codecs are available.
 
-For a provider that already accepts the recorded file, use ordinary `Transcriber`. For conversion, the planned browser `.loadsAudio` will take the same target settings as Node. A sole WebM/Opus target can copy the tested Chrome WebM recording. On the audited library, copying Firefox's Ogg/Opus to WebM loses its recorded ending, and copying Safari AAC to M4A exposes priming. These inputs must fail before file dispatch with that incompatible sole target. WAV conversion also needs a verified playback interval. For example, an editor can trim the final Opus packet of a WebM or join two successive sections in one Ogg file. The first browser release may reject either file when it cannot preserve the trim or both sections. [Recorder results](../phase6-implementation.md#claude-code-follow-up-on-browser-recordings) · [Edited WebM and chained Ogg](../phase6-implementation.md#independent-recorder-readiness-review)
+For a provider that already accepts the recorded file, use ordinary `Transcriber`. The browser recording candidate uses the same target fields as Node, with WAV preparation and copy-only WebM/Opus and M4A/AAC targets. A sole WebM/Opus target can copy the tested Chrome WebM recording. Copying Firefox's Ogg/Opus to WebM or Safari's AAC to M4A can expose trimmed samples. The candidate rejects those incompatible sole targets before file dispatch. WAV conversion also needs a verified playback interval. An editor can trim the final Opus packet of a WebM or join two successive sections in one Ogg file. The first browser release may reject either file when it cannot preserve the trim or both sections. [Recorder results](../phase6-implementation.md#claude-code-follow-up-on-browser-recordings) · [Edited WebM and chained Ogg](../phase6-implementation.md#independent-recorder-readiness-review)
 
 If the provider also accepts WAV, you can configure a WAV primary with compressed copy alternatives. Casai uses WAV when inspection rules out all the copies. If copying starts and a later packet reveals a pause or trim that the copy cannot preserve, the call rejects before sending a file. Retrying a one-shot upload requires a fresh source. This is the current Node behavior and the planned browser behavior. An optional format supported only on Node can stay in a shared profile. [File-target selection](../streaming-modifiers-plan.md#raw-samples-completed-files-and-timing) · [Recorded example](../phase6-implementation.md#browser-copy-and-source-handoff-review)
 
-Codec support will depend on the browser. Initial support excludes explicit browser track selection, playlists and native FFmpeg settings. Combined HTTP ranges require readable, consistent strong ETags and range metadata. For servers that do not provide them, supply bytes or a single response stream. Today `.loadsAudio` uses node-av on Node.js. Ordinary PCM/WAV calls also run in the browser.
+For browser M4A copies under qualification, `fileAudioTarget.maxDurationSeconds` includes pauses and all the padding a decoder may play. For example, a 48 kHz Chrome recording ended at frame 63,469, but its AAC packets could play through frame 63,488. A sole M4A target accepts a cap of `63488 / 48000` seconds. At `63469 / 48000`, a WAV primary delivers exactly 63,469 frames and a sole M4A target rejects before sending a file. A fragmented one-shot upload can also select WAV when checking the AAC alternative would require replaying the upload. [Playback measurements](../phase6-implementation.md#browser-recorder-copy-limits-and-metadata)
+
+Codec support will depend on the browser. Initial support excludes explicit browser track selection, playlists and native FFmpeg settings. Combined HTTP ranges require readable, consistent strong ETags and range metadata. For servers that do not provide them, supply bytes or a single response stream. Node.js `.loadsAudio` uses node-av. The browser build already prepares decoded `AudioBuffer` and described headerless PCM. Ordinary PCM/WAV calls also run in the browser.
 
 For a single-track recording at an extensionless URL, a Node component can force the MOV demuxer. A browser child can inherit the same WAV target and let the planned adapter inspect the source. On a multitrack file, clearing an explicit track also selects the runtime's default microphone, which can differ between Node and the browser.
 
@@ -2318,7 +2367,7 @@ const browserTranscriber = create.Transcriber({
 }, recordingSettings);
 ```
 
-The planned browser PCM conversion uses linear interpolation without a low-pass filter. When reducing 48 kHz to 24 kHz, a 16 kHz tone can appear at 8 kHz. Node's native FFmpeg decode path filters before downsampling. Ordinary component-owned PCM conversion on either runtime uses the shared linear resampler.
+Browser PCM conversion uses the shared linear resampler. When reducing 48 kHz to 24 kHz, a 16 kHz tone can appear at 8 kHz. Node's native FFmpeg decode path filters before downsampling.
 
 **Prepared URLs use the whole recording.** For a three-second recording, passing `https://example.com/meeting.wav#t=1,2` to `.loadsAudio` sends all three seconds to the provider. Node and the planned browser adapter ignore playback selectors in the fragment. The selected track's own playback edits still apply. To send just the interval from 1 s to 2 s, export that clip and pass it as the source.
 
@@ -2326,15 +2375,19 @@ Node `.loadsAudio` removes descriptive source metadata from prepared files. The 
 
 If the sections change the Opus playback gain or the decoder cannot verify the join, export a flattened recording. Joined Ogg/Vorbis recordings need this step because the native decoder carries sound from the previous section into the next one. An Ogg/FLAC copy can preserve the encoded audio across a title change and remove both titles. [Verified examples](../phase6-implementation.md#6b-addendum-implementation)
 
-Planned `.loadsAudio` support for Web Audio `AudioBuffer` on both runtimes will let one component accept either a recorder Blob or decoded audio. The buffer supplies its own sample rate and channels. In the planned browser adapter, decoded mono PCM16 WAV will contain the same samples as raw output at the same rate. On Node, FFmpeg's raw and file routes can mix stereo to mono at different levels. [Preparation decisions](../streaming-modifiers-plan.md#contract-decisions-november-25) · [Measured mono outputs](../phase6-implementation.md#browser-copy-and-source-handoff-review)
+`.loadsAudio` accepts a Web Audio `AudioBuffer` on Node and in the browser. Its own rate and channels take precedence over a configured headerless layout. Each channel supplies one Float32 plane with the buffer's declared number of samples. On Node, a locally imported Web Audio buffer works in `transcribe(buffer)` and `transcribe.run({ audio: buffer })` without installing a global constructor. For a tool, use `tool.run({ audio: buffer })` to replace its recording. A positional `tool(context)` call keeps its application context.
 
-**Work in progress — input composition:** receiving components will accept selected generated audio and compatible async-iterable/binary Node streams internally. Encoded streams use `.loadsAudio`; ordinary raw streams retain their raw contract.
+In the browser you can also supply headerless PCM as a numeric sample array, finite bytes, a Blob or a transferable byte stream with `sourceFormat`. Specify `encoding` for bytes, Blobs and streams. Choose a WAV target matching the source to preserve its channels and stored precision. For mono PCM16, a WAV file and raw delivery at the same rate contain identical samples. Node uses its optional node-av peer and also accepts an encoded recorder Blob on the same component. Browser encoded recordings remain under qualification. For the browser WebM/Opus and M4A/AAC copy targets, omit `sampleFormat`. [Current supported inputs](../phase6-implementation.md#browser-worker-implementation)
 
-Self-describing recordings supply their layout. With a reusable raw layout configured, `.loadsAudio` classifies supplied bytes and streams using a retained prefix of at most 4 KiB; it reads stream prefixes only after claiming the source. Node paths/URLs use native opening without `sourceFormat`. Headerless paths/URLs use explicit native demuxer/sample settings, which take precedence for non-array inputs. A declared encoded File/Blob MIME selects encoded handling even without a recognizable header; it does not certify the codec. Empty or generic MIME follows the bytes. Ordinary raw streams remain unsniffed. Headerless MP3/ADTS can resemble PCM, so use `.loadsAudio` for encoded resources rather than relying on weak frame prefixes.
+The browser recording candidate can resample stereo Opus to a stereo PCM16 WAV at the requested rate. It plays successive WAV data chunks in order and requires whole sample frames, including in WAVs with streaming headers. It checks standalone FLAC against its declared sample count when available and rejects a discontinuous or incomplete Ogg stream. An incomplete recording can fail during a raw read or before a completed file reaches the provider. Release any reader you hold on an upload before handing it to the component. For incremental delivery, cancelling `fullStream` or its reader releases the component-owned upload. Pass an `AbortSignal` to stop a call you abandon before selecting a result view.
+
+**Work in progress — input composition:** receiving components will accept selected generated audio and compatible async-iterable/binary Node streams internally. Encoded streams requiring decoding use `.loadsAudio`. An ordinary live byte stream can carry a format the selected adapter accepts directly.
+
+Self-describing recordings supply their layout. With a reusable raw layout configured, `.loadsAudio` starts classification with up to 4 KiB of the supplied bytes and reads stream prefixes only after claiming the source. In the browser, plausible QuickTime, MP4 or EBML headers can extend that prefix up to 64 KiB. If the prefix remains inconclusive, pass a Blob with the recording's MIME type or use a component without `sourceFormat`. For actual raw samples with a similar prefix, use numeric PCM samples or an `audio/pcm` Blob with the matching layout. A declared encoded MIME selects recording handling even without a recognizable header. Node paths and URLs use native opening. Headerless paths and URLs use explicit native demuxer and sample settings. Ordinary raw streams remain unsniffed. Headerless MP3 and ADTS can resemble PCM, so use `.loadsAudio` with an identified recording.
 
 Ordinary file transcription already forwards the tested Safari MediaRecorder MP4 unchanged as `audio/mp4`. You can pass its bytes or a Blob assembled from the recording's chunks, even when the Blob has an empty or incorrect MIME type. This path needs a transcription provider that accepts the encoded file. Translation and raw-model transcription require decoded audio.
 
-For ordinary file transcription, a reusable `sourceFormat` applies to headerless samples. The same component accepts an SDK URL object or a base64 recording with an identifiable container, such as WAV. With this layout configured, base64 starting with only an MP3 or ADTS frame prefix is ambiguous and the call fails. For headerless PCM, decode the string to bytes and pass those bytes with the layout. For an encoded recording without a recognizable header, pass encoded bytes to `.loadsAudio` with an appropriate declared MIME or demuxer. The SDK downloader handles URL objects and their returned MIME. Casai checks the SDK's file label and rejects known mismatches such as Matroska labeled as WebM. Use `.loadsAudio` with a WAV or FLAC target for those recordings. It can also decode AIFF and Sun AU for raw model input. A headerless PCM Blob's declared rate and channel count must agree with the layout used for conversion. Ordinary direct PCM, PCMU and PCMA delivery checks those declarations against the model target.
+For ordinary file transcription, a reusable `sourceFormat` applies to headerless samples. The same component accepts an SDK URL object or a base64 recording with an identifiable container, such as WAV. With this layout configured, base64 starting with only an MP3 or ADTS frame prefix is ambiguous and the call fails. For headerless PCM, decode the string to bytes and pass those bytes with the layout. For an encoded recording without a recognizable header, pass encoded bytes to `.loadsAudio` with an appropriate declared MIME or demuxer. For URL objects the SDK can use the adapter's URL operation. On a download it uses an audio response MIME or identifies the bytes. Casai checks the SDK's file label and rejects known mismatches such as Matroska labeled as WebM. Use `.loadsAudio` with a WAV or FLAC target for those recordings. It can also decode AIFF and Sun AU for raw model input. A headerless PCM Blob's declared rate and channel count must agree with the layout used for conversion. Ordinary direct PCM, PCMU and PCMA delivery checks those declarations against the model target.
 
 The installed SDK looks past up to 128 KiB of leading ID3 metadata to identify MP3 audio. Embedded artwork can exceed that limit. A declared `audio/mpeg` MIME cannot override the SDK's byte detector. Use `.loadsAudio` with WAV or FLAC output when the SDK cannot identify the file.
 
@@ -2385,9 +2438,9 @@ Choose **WAV file**, **Web Audio AudioBuffer** or **Headerless PCM** under **Rec
 
 Direct WAV conversion supports little-endian RIFF/WAVE containing integer PCM or IEEE floating-point audio. Use `.loadsAudio` for compressed WAV, WebM/Opus or other containers that need decoding. For a model that accepts a different raw encoding, such as G.711, supply chunks already in that encoding.
 
-For byte input, Casai accepts `pcm_u8`, `pcm_s16le`, `pcm_s24le`, `pcm_s32le`, `pcm_f32le` and `pcm_f64le`. The browser and Node.js use workers for PCM conversion. In a browser, allow `blob:` workers in the Content Security Policy. The verified browser pairing uses `cascada-engine` version 0.7.0. Casai's published dependency range still requires a coordinated update.
+For byte input, Casai accepts `pcm_u8`, `pcm_s16le`, `pcm_s24le`, `pcm_s32le`, `pcm_f32le` and `pcm_f64le`. The browser and Node.js use workers for PCM conversion. In a browser, allow `blob:` workers in the Content Security Policy. Casai requires `cascada-engine@^0.7.0` for its browser exports and stream composition.
 
-A direct `ReadableStream` supplies raw model chunks, optionally with `sourceFormat` for conversion. For a WAV, pass the `File` or `Blob` itself. If a finite encoded recording arrives only as a stream in the browser, `await new Response(stream).blob()` gives Casai the whole recording with its header. On Node.js, `.loadsAudio` accepts an encoded byte stream directly. Keep supplied samples unchanged until consumption finishes and supply a fresh stream for each call.
+A direct `ReadableStream` supplies chunks in the model's wire format. Use `sourceFormat` for headerless PCM conversion. For a WAV, pass the `File` or `Blob` itself. For a completed-file operation in the browser, `await new Response(stream).blob()` collects a finite recording with its header. For live captions, hand the ordered stream to a compatible adapter or use qualified incremental PCM preparation. On Node.js, `.loadsAudio` accepts an encoded byte stream directly. Keep supplied samples unchanged until consumption finishes and supply a fresh stream for each call.
 
 An application can pass a recording from a same-origin iframe through the same positional calls and `.run()`. For example, a file picker in the iframe can supply a `File` directly. AVI, Core Audio Format (CAF) and Sony Wave64 carry recognizable container headers. Use `.loadsAudio` on Node to decode their audio tracks.
 
@@ -2486,11 +2539,13 @@ On an unedited movie track, recorder timestamps can catch up at fragment boundar
 
 An MXF header partition within the classification prefix selects encoded handling even with a reusable PCM layout. A short SMPTE label alone can occur in genuine raw samples.
 
-`.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber separately accepts supplied encoded/raw audio or a native URL through the SDK `download` hook. Use an explicit preparer for application-owned downloads or fresh streams. FFmpeg can feed the raw-audio SDK stream while reading the resource, after required probing; the encoded-file SDK operation needs complete prepared bytes. Provider limits and first-result timing still apply. Completed audio results retain their output audio in memory.
+`.loadsAudio` uses one media-preparation path to open the resource, select the native best audio track or explicit index, and prepare that audio for the model. It does not hand the resource to a second SDK downloader. Ordinary Transcriber accepts supplied audio or a native URL through the SDK's URL or download operation. Use an explicit preparer for application-owned downloads or fresh streams. FFmpeg can feed the raw-audio SDK stream while reading the resource, after required probing; the encoded-file SDK operation needs complete prepared bytes. Provider limits and first-result timing still apply. Completed audio results retain their output audio in memory.
 
 The native media path does not inherit the SDK downloader's URL protections or byte limits. Applications exposing media tools must authorize the resources models can select, including local files, redirects and playlist children. A closed input schema alone does not establish that authority. Server-resolved recording identifiers and application-controlled preparation are useful where arbitrary resource access is inappropriate.
 
-A `.loadsAudio.asTool` component requires configured `audio`, possibly inherited. SDK tool execution and injected tool calls use that source; model arguments cannot replace it. Declared context fields may still serve callbacks, but even a field named `audio` is application data rather than a resource override. Use a closed empty schema when no public data is needed. Ordinary application calls and `.run({ audio, ... })` retain explicit trusted source overrides. Dynamic model-selected native resources belong in an explicit Function/Script workflow that resolves and authorizes the recording before invoking `.loadsAudio.run()`. Ordinary Transcriber tools still accept native SDK URL input with downloader protections. FFmpeg protocol options do not provide a general destination/redirect/playlist authorization mechanism.
+A completed `.loadsAudio` file target rejects `providerOptions.elevenlabs.sourceUrl` at construction or invocation before reading the recording. ElevenLabs would transcribe that URL in place of the prepared file. Use ordinary Transcriber for an intentional provider-owned URL. Other provider settings, including diarization, remain available.
+
+A `.loadsAudio.asTool` component requires configured `audio`, possibly inherited. SDK tool execution and injected tool calls use that source; model arguments cannot replace it. Declared context fields may still serve callbacks, but even a field named `audio` is application data rather than a resource override. Use a closed empty schema when no public data is needed. Ordinary application calls and `.run({ audio, ... })` retain explicit trusted source overrides. Dynamic model-selected native resources belong in an explicit Function/Script workflow that resolves and authorizes the recording before invoking `.loadsAudio.run()`. On ordinary Transcriber tools, configure `download: createDownload({ maxBytes })` to apply the SDK's downloader protections. FFmpeg protocol options do not provide a general destination/redirect/playlist authorization mechanism.
 
 `.loadsAudio` closes its resources on preparation failure, cancellation and early dispatch failure. On `.asStream`, choose `fullStream` to read events or await a native result promise to collect them. Once you choose, Casai observes native completion and releases any unfinished converter or upload, including when a provider finishes after reading one chunk. Pass a per-invocation abort signal if you may abandon the result before it finishes.
 
@@ -2523,6 +2578,8 @@ When an agent invokes `Translator.asTool`, the application receives the audio an
 ### Browser voice sessions
 
 Use the AI SDK’s experimental realtime client in the browser and `VoiceAgentBackend` on your server. For a token-based session in React, pass a browser-compatible realtime model and `api: { token: '/api/voice/setup' }` to `experimental_useRealtime` from `@ai-sdk/react`. Call `connect()` when the user starts the conversation and `close()` when it ends. For a model that supports Live WebRTC, point `api.session` at your server’s WebRTC route instead. [AI SDK browser example](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime)
+
+When a realtime model supplies its own browser transport, pass `api: { provider: '/api/voice/setup' }` and implement the setup route expected by that model. The native session forwards the route, optional capture stream and cancellation signal to the transport. For an application-owned WebSocket relay, use `api.websocket` and optional `api.protocols`.
 
 <a id="guide-voiceagentbackend" name="guide-voiceagentbackend"></a>
 
@@ -2706,7 +2763,7 @@ const workflow = create.Script({
 const video = await workflow();
 ```
 
-Calls return native `video`, `videos`, warnings, responses and provider metadata. File values expose bytes, base64 and media type. Supported frame/reference inputs, dimensions, duration, audio and other settings depend on the provider. The SDK owns direct or asynchronous generation, including polling, webhook completion, retries and downloads; the component stores no job state.
+If a UI needs progress for a detached job today, use the SDK’s `experimental_startVideo` and `experimental_getVideoStatus`. Keep the returned `operation` in application state, pass it with the same model to each status check, and present the completed media when available. If a provider delivers the generated video directly to your storage, the SDK reports `uploadedVideos`. An upload-only result has an empty `videos` array. Use the application's storage reference for playback. Read `video` when the result contains a local file. File values expose bytes, base64 and media type. Supported frame/reference inputs, dimensions, duration, audio and other settings depend on the provider. The SDK owns direct or asynchronous generation, including polling, webhook completion, retries and downloads; the component stores no job state.
 
 Use text/template/script/function preparation and compatible `.asTool` forms as with other generators. Templates render only an object prompt's text; supplied media remain native input. There is no `.asStream` form. Tools return file payloads; their default model output requires a calling model that accepts video files, or an explicit `toModelOutput` mapping. Native output files can be rendered by any UI; Casai supplies no player or framework-specific component. See the [AI SDK video reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video) and the [matrix](https://casai.run/documentation/reference/) for individual settings.
 
@@ -3113,7 +3170,7 @@ const observed = create.LLMAgent({
 });
 ```
 
-Streaming completion callbacks require the stream to progress to completion. `onChunk`, `onError`, and `onAbort` apply to streaming execution. Lifecycle observers passed to `.run()` run alongside the configured observers; both are awaited, their failures are ignored as in the SDK, and completion order is not guaranteed. `onChunk` still pauses stream processing until its observers settle. Control hooks use replacement semantics: a supplied `onError` replaces the configured handler and preserves its retry decision; supplied preparation/repair hooks and transform lists likewise replace configured values. See [SDK lifecycle callbacks](https://ai-sdk.dev/docs/ai-sdk-core/generating-text#lifecycle-callbacks-experimental).
+Streaming completion callbacks require the stream to progress to completion. `onChunk`, `onError`, and `onAbort` apply to streaming execution. Lifecycle observers passed to `.run()` run alongside the configured observers; both are awaited, their failures are ignored as in the SDK, and completion order is not guaranteed. `onChunk` still pauses stream processing until its observers settle. The SDK delivers `onWarning` to configured and call observers without waiting for them. Control hooks use replacement semantics: a supplied `onError` replaces the configured handler and preserves its retry decision; supplied preparation/repair hooks and transform lists likewise replace configured values. See [SDK lifecycle callbacks](https://ai-sdk.dev/docs/ai-sdk-core/generating-text#lifecycle-callbacks-experimental).
 
 Each LLMAgent reports its own usage through these callbacks and the SDK's `usage` fields. These do not add up every model call inside a Script or Template; aggregate the calls your application owns for workflow-wide reporting.
 

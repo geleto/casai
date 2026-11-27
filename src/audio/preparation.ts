@@ -1,12 +1,13 @@
-import type { AudioBytes, AudioFormat } from '../audio.js';
-import type { PcmSourceFormat, PcmSamples } from './pcm.js';
+import type { AudioFormat, SuppliedAudio } from '../audio.js';
+import type { PcmSourceFormat } from './pcm.js';
 import { type ConfigError, ValidationError } from '../errors.js';
 import type { ConfigValue } from '../types/config.js';
 import { preparedAudioTypes } from './source-evidence.js';
 import { validatePcmLayout } from './pcm-format.js';
 
-export type AudioSource = string | URL | Blob | AudioBytes | PcmSamples | ReadableStream<Uint8Array>;
+export type AudioSource = string | URL | SuppliedAudio | ReadableStream<Uint8Array>;
 export const defaultPreparedAudioBytes = 32 * 1024 * 1024;
+export const recordingUnavailable = 'Browser encoded recording preparation requires a qualified codec worker. Supply decoded PCM samples or open the recording with .loadsAudio on Node.js.';
 export function validatePreparedAudioLimit(value: unknown, ErrorClass: typeof ConfigError | typeof ValidationError): void {
 	if (value !== undefined && (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0)) throw new ErrorClass('maxPreparedAudioBytes must be a positive integer.');
 }
@@ -74,11 +75,18 @@ export function validatePreparationSettings(settings: Partial<Pick<PrepareAudioS
 	if (settings.inputAudioFormat !== undefined && settings.fileAudioTarget !== undefined) throw new ErrorClass('Choose inputAudioFormat or fileAudioTarget, not both.');
 	const raw = settings.inputAudioFormat;
 	if (raw !== undefined && (raw.type !== 'audio/pcm' || !Number.isSafeInteger(raw.rate) || raw.rate! <= 0)) throw new ErrorClass('Native raw preparation requires { type: "audio/pcm", rate: positiveInteger } and produces mono PCM16 little-endian.');
-	if (settings.fileAudioTarget) for (const target of [settings.fileAudioTarget, ...settings.fileAudioTarget.alternatives ?? []]) {
-		if (!target.format || !target.codec) throw new ErrorClass('fileAudioTarget requires native format and codec names.');
-		if (!Object.hasOwn(preparedAudioTypes, target.format)) throw new ErrorClass('The AI SDK cannot accurately label this fileAudioTarget container. Choose a supported output such as wav, flac or webm.');
-		for (const key of ['rate', 'channels'] as const) {
-			if (target[key] !== undefined && (!Number.isSafeInteger(target[key]) || target[key] <= 0)) throw new ErrorClass(`fileAudioTarget.${key} must be a positive integer.`);
+	const file = settings.fileAudioTarget as FileAudioTarget | null | undefined;
+	if (file !== undefined) {
+		const alternatives = file?.alternatives;
+		if (alternatives !== undefined && !Array.isArray(alternatives)) throw new ErrorClass('fileAudioTarget.alternatives must be an array of file profiles.');
+		const profiles = alternatives as readonly FileAudioFormat[] | undefined;
+		for (const target of [file, ...profiles ?? []]) {
+			if (typeof target?.format !== 'string' || !target.format || typeof target.codec !== 'string' || !target.codec) throw new ErrorClass('fileAudioTarget requires native format and codec names.');
+			if (!Object.hasOwn(preparedAudioTypes, target.format)) throw new ErrorClass('The AI SDK cannot accurately label this fileAudioTarget container. Choose a supported output such as wav, flac or webm.');
+			if (target.sampleFormat !== undefined && (typeof target.sampleFormat !== 'string' || !target.sampleFormat)) throw new ErrorClass('fileAudioTarget.sampleFormat must be a native sample format name.');
+			for (const key of ['rate', 'channels'] as const) {
+				if (target[key] !== undefined && (!Number.isSafeInteger(target[key]) || target[key] <= 0)) throw new ErrorClass(`fileAudioTarget.${key} must be a positive integer.`);
+			}
 		}
 	}
 	for (const key of ['maxBytes', 'maxDurationSeconds'] as const) {

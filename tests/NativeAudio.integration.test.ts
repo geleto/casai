@@ -9,6 +9,7 @@ import { runInNewContext } from 'node:vm';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { MockTranscriptionModelV4, Experimental_MockSpeechTranslationModelV4, convertArrayToReadableStream } from 'ai/test';
+import { createElevenLabs } from '@ai-sdk/elevenlabs';
 import { Config, create, Transcriber, Translator, ValidationError, ConfigError, z } from '../src/index.js';
 import { writeWav, readWav, float32ToPcm16 } from '../src/audio/pcm.js';
 import { prepareAudio } from '../src/audio/native.js';
@@ -66,6 +67,60 @@ describe('Native audio preparation (LGPL integration)', function () {
 		filename = resolve(directory, 'recording.wav'); await writeFile(filename, wav);
 	});
 	after(async () => { await rm(directory, { recursive: true, force: true }); });
+	it('uploads the prepared WAV with ordinary ElevenLabs options after a rejected source override', async () => {
+		const uploads: File[] = [];
+		const model = createElevenLabs({ apiKey: 'fixture', fetch: async (_url, init) => {
+			const form = init?.body as FormData;
+			assert.equal(form.get('source_url'), null);
+			assert.equal(form.get('diarize'), 'true');
+			const file = form.get('file');
+			assert.ok(file instanceof File);
+			uploads.push(file);
+			return Response.json({ language_code: 'eng', language_probability: 1, text: 'heard', words: [] });
+		} }).transcription('scribe_v2');
+		const source = bytesStream(wav);
+		const prepared = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_s16le' },
+			providerOptions: { elevenlabs: { diarize: true, sourceUrl: null } } });
+		const overridden: NonNullable<Parameters<typeof import('ai').transcribe>[0]['providerOptions']> =
+			{ elevenlabs: { sourceUrl: 'https://media.example/another-recording' } };
+		await assert.rejects(prepared.run({ audio: source, providerOptions: overridden }), ValidationError);
+		assert.equal((await prepared(source)).text, 'heard');
+		assert.equal(uploads.length, 1);
+		assert.equal(uploads[0].name, 'audio.wav');
+		assert.equal(uploads[0].type, 'audio/wav');
+		assert.deepEqual((await readWav(new Uint8Array(await uploads[0].arrayBuffer()))).audio, pcm);
+	});
+	it('prepares Web Audio planes at their own rate and channel count on file and raw calls', async () => {
+		const left = Float32Array.of(0.5, -0.25, 1, 0), right = Float32Array.of(0, 0.75, -0.5, -1);
+		const { default: LocalBuffer } = await import(import.meta.resolve('audio-buffer')) as { default: typeof AudioBuffer };
+		const source = new LocalBuffer({ numberOfChannels: 2, sampleRate: 24000, length: left.length });
+		source.copyToChannel(left, 0); source.copyToChannel(right, 1);
+		assert.notEqual(globalThis.AudioBuffer, LocalBuffer);
+		const { model, files, raw } = captureTranscription();
+		const defaults = Config({ sourceFormat: { sampleRate: 8000, channels: 1, encoding: 'pcm_u8' } });
+		const file = Transcriber.loadsAudio({ model, fileAudioTarget: { format: 'wav', codec: 'pcm_f32le' } }, defaults);
+		const ordinary = Transcriber({ model });
+		await file(source); await file.run({ audio: source });
+		await ordinary(source); await ordinary.run({ audio: source });
+		for (const { audio } of files) {
+			const saved = await readWav(audio);
+			assert.deepEqual(saved.format, { sampleRate: 24000, channels: 2, encoding: 'pcm_f32le' });
+			assert.deepEqual(new Float32Array(saved.audio.buffer, saved.audio.byteOffset, 8), Float32Array.of(0.5, 0, -0.25, 0.75, 1, -0.5, 0, -1));
+		}
+		const transcribe = Transcriber.loadsAudio({ model, inputAudioFormat: target }, defaults);
+		await transcribe.run({ audio: source });
+		await transcribe(new Blob([Uint8Array.from(files[0].audio)]));
+		assert.equal(raw[0].length, left.length * 2);
+		assert.ok(raw[0].some(Boolean));
+		assert.deepEqual(raw[0], raw[1]);
+		assert.deepEqual(source.getChannelData(0), left);
+		assert.deepEqual(source.getChannelData(1), right);
+		const tool = Transcriber.asTool({ model, inputSchema: z.object({}), audio: wav });
+		await tool(source);
+		assert.deepEqual(files.at(-1)!.audio, wav);
+		await tool.run({ audio: source });
+		assert.deepEqual(files.at(-1)!.audio, files[2].audio);
+	});
 	it('decodes AMR, SPHERE and untagged frames before applying a reusable PCM layout', async () => {
 		const { model, raw } = captureTranscription();
 		const sourceFormat = { encoding: 'pcm_s16le', sampleRate: 16000, channels: 2 } as const;

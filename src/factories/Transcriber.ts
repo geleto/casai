@@ -1,11 +1,12 @@
 import { transcribe, experimental_streamTranscribe as streamTranscribe } from 'ai';
 import type { TranscriptionResult, StreamTranscriptionResult } from 'ai';
-import { sourceMode, streamMode } from '../config/modifiers.js';
+import { sourceMode, streamMode, toolMode } from '../config/modifiers.js';
 import { ConfigError, ValidationError } from '../errors.js';
-import type { AudioCallFormat, AudioFormat, CheckPcmLayout, PcmInputSettings, RawAudio, SuppliedAudio } from '../audio.js';
-import { releaseOnAudioFinish, validateAudioSettings, withAudioInput } from '../audio/input.js';
+import type { AudioCallFormat, AudioFormat, CheckPcmLayout, PcmInputSettings, RawAudio, SuppliedAudio, TranscriptionFile } from '../audio.js';
+import { isAudioArgument, releaseOnAudioFinish, validateAudioSettings, withAudioInput } from '../audio/input.js';
 import { createComponentRuntime, type RuntimeComponentConfig } from '../runtime/component-call.js';
 import { isPlainObject } from '../schema.js';
+import { isTranscriptionFile, recordingSdk } from '../audio/transcription-file.js';
 import { isWebStream } from '../runtime/web-input.js';
 import { createComponentFactory, audioInputModifiers, audioInputModes, type SourceFactory } from './component-factory.js';
 import type { PromptType } from '../types/prompt.js';
@@ -17,18 +18,26 @@ import type { AudioFormatArguments, BaseRunSettings, CallableComponent, SourceAr
 import type { AudioSource, CheckLoadedFormat, LoadedPcmFormat, MediaSettings, FileAudioTarget } from '../audio/preparation.js';
 
 type NativeFile = Parameters<typeof transcribe>[0];
-type FileSettings = Omit<NativeFile, '_internal' | 'audio'> & PcmInputSettings & { audio: NativeFile['audio'] | SuppliedAudio; inputAudioFormat?: undefined };
-type RawSettings = Omit<Parameters<typeof streamTranscribe>[0], '_internal' | 'audio'> & PcmInputSettings & { audio: RawAudio };
+type FileSettings = Omit<NativeFile, '_internal' | 'audio'> & PcmInputSettings & { audio: NativeFile['audio'] | SuppliedAudio | TranscriptionFile; inputAudioFormat?: undefined };
+type NativeLive = Extract<Parameters<typeof streamTranscribe>[0], { inputAudioFormat: AudioFormat }>;
+type RawSettings = Omit<NativeLive, '_internal' | 'audio'> & PcmInputSettings & { audio: RawAudio };
+type FileStreamSettings = Omit<RawSettings, 'audio' | 'inputAudioFormat' | 'sourceFormat'> & { audio: TranscriptionFile | Blob; inputAudioFormat?: undefined; sourceFormat?: undefined };
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- Inline this shape in exported consumer declarations.
 type NoMedia = { mediaSettings?: undefined; fileAudioTarget?: undefined };
 type LoadedRaw = Omit<RawSettings, 'audio' | 'inputAudioFormat'> & { audio: AudioSource; inputAudioFormat: LoadedPcmFormat; mediaSettings?: MediaSettings; fileAudioTarget?: undefined; download?: undefined };
-type LoadedFile = Omit<FileSettings, 'audio' | 'download'> & { audio: AudioSource; mediaSettings?: MediaSettings; fileAudioTarget: FileAudioTarget; download?: undefined };
-type Settings = (FileSettings | RawSettings) & NoMedia | LoadedRaw | LoadedFile;
+type FileProviderOptions = NonNullable<FileSettings['providerOptions']>;
+type LoadedFile = Omit<FileSettings, 'audio' | 'download' | 'providerOptions'> & {
+	audio: AudioSource; mediaSettings?: MediaSettings; fileAudioTarget: FileAudioTarget; download?: undefined;
+	/** The prepared file supplies the recording. An ElevenLabs source URL would replace it. */
+	providerOptions?: FileProviderOptions & { elevenlabs?: FileProviderOptions[string] & { sourceUrl?: null } };
+};
+type LoadedFileStream = Omit<LoadedFile, 'maxRetries' | 'timestampGranularities'> & Pick<RawSettings, 'includeRawChunks'>;
+type Settings = (FileSettings | RawSettings | FileStreamSettings) & NoMedia | LoadedRaw | LoadedFile;
 type RawDelivery<T, S = RawSettings> = [T] extends [{ [streamMode]: true }] ? S : Omit<S, 'includeRawChunks'>;
-type NativeSettings<T> = true extends ConfigValue<T, typeof streamMode> ? RawDelivery<T>
+type NativeSettings<T> = true extends ConfigValue<T, typeof streamMode> ? RawDelivery<T> | (Exclude<ConfigValue<T, 'inputAudioFormat'>, undefined> extends never ? RawDelivery<T, FileStreamSettings> : never)
 	: Exclude<ConfigValue<T, 'inputAudioFormat'>, undefined> extends never ? FileSettings | Omit<RawSettings, 'includeRawChunks'> : Omit<RawSettings, 'includeRawChunks'>;
 type SelectedSettings<T> = ConfigValue<T, typeof sourceMode> extends 'audio-resource'
-	? true extends ConfigValue<T, typeof streamMode> ? RawDelivery<T, LoadedRaw>
+	? true extends ConfigValue<T, typeof streamMode> ? Exclude<ConfigValue<T, 'fileAudioTarget'>, undefined> extends never ? RawDelivery<T, LoadedRaw> : LoadedFileStream
 		: Exclude<ConfigValue<T, 'fileAudioTarget'>, undefined> extends never ? Omit<LoadedRaw, 'includeRawChunks'> : LoadedFile
 	: NativeSettings<T> & NoMedia;
 // Broad annotations retain the selector that makes each native settings alternative callable.
@@ -47,26 +56,23 @@ export const definition = {
 // A type alias keeps inferred application declarations portable (TS4023 with a private interface).
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type Calls<P extends PromptType, T, Format = P extends 'audio-resource' ? LoadedPcmFormat : AudioFormat> = {
-	arguments: true extends ConfigValue<T, typeof streamMode> ? SourceArguments<'Transcriber', P, T, AudioFormatArguments<T, Format>>
-		: P extends 'audio-resource' ? Exclude<ConfigValue<T, 'fileAudioTarget'>, undefined> extends never
-			? SourceArguments<'Transcriber', P, T, AudioFormatArguments<T, Format>> : SourceArguments<'Transcriber', P, T>
+	arguments: P extends 'audio-resource' ? Exclude<ConfigValue<T, 'fileAudioTarget'>, undefined> extends never
+		? SourceArguments<'Transcriber', P, T, AudioFormatArguments<T, Format>> : SourceArguments<'Transcriber', P, T>
 		: SourceArguments<'Transcriber', P, T, [inputAudioFormat?: AudioFormat | undefined]>;
 	settings: BaseRunSettings<'Transcriber', T, SourceSettings<'Transcriber', P, T>
-		& (true extends ConfigValue<T, typeof streamMode> ? import('../types/component.js').RequiredSetting<T, 'inputAudioFormat', Format>
-			: P extends 'audio-resource' ? Exclude<ConfigValue<T, 'fileAudioTarget'>, undefined> extends never ? import('../types/component.js').RequiredSetting<T, 'inputAudioFormat', Format> : unknown : unknown)>;
+		& (P extends 'audio-resource' ? Exclude<ConfigValue<T, 'fileAudioTarget'>, undefined> extends never ? import('../types/component.js').RequiredSetting<T, 'inputAudioFormat', Format> : unknown : unknown)>;
 };
 type EffectiveFormat<T, Format> = Exclude<Format, undefined> | (undefined extends Format ? ConfigValue<T, 'inputAudioFormat'> : never);
 type RequestSettings<P, T, Format> = P extends 'audio-resource'
-	? true extends ConfigValue<T, typeof streamMode> ? RawDelivery<T, LoadedRaw> : Format extends undefined ? LoadedFile : Omit<LoadedRaw, 'includeRawChunks'>
-	: true extends ConfigValue<T, typeof streamMode> ? RawDelivery<T> : Format extends undefined ? FileSettings : Omit<RawSettings, 'includeRawChunks'>;
+	? true extends ConfigValue<T, typeof streamMode> ? Format extends undefined ? LoadedFileStream : RawDelivery<T, LoadedRaw> : Format extends undefined ? LoadedFile : Omit<LoadedRaw, 'includeRawChunks'>
+	: true extends ConfigValue<T, typeof streamMode> ? Format extends undefined ? FileStreamSettings : RawDelivery<T> : Format extends undefined ? FileSettings : Omit<RawSettings, 'includeRawChunks'>;
 // Every possible input must fit the selected request; checking the union once avoids repeated identical settings checks.
 type InvalidRequest<P, T, Input, Format> = [Input] extends [never] ? never : T extends unknown ? Format extends unknown
 	? InvalidNativeRequest<Omit<T, 'audio' | 'inputAudioFormat'> & { inputAudioFormat: Format;
 		audio: P extends 'text' | 'function' | 'audio-resource' ? Input : RequestSettings<P, T, Format>['audio'] },
 		RequestSettings<P, T, Format>, UnionKeys<Settings>> : never : never;
-// A definite stream has one native operation, already enforced by its source and run settings.
-type CheckRequest<P, T, Input, Format = ConfigValue<T, 'inputAudioFormat'>> = CheckLoadedFormat<P, Format> & ([T] extends [{ [streamMode]: true }] ? CheckPcmLayout<Input, T>
-	: [InvalidRequest<P, T, Input, Format>] extends [never] ? CheckPcmLayout<Input, T>
+// Validate the selected file or live operation after resolving the source and its format.
+type CheckRequest<P, T, Input, Format = ConfigValue<T, 'inputAudioFormat'>> = CheckLoadedFormat<P, Format> & ([InvalidRequest<P, T, Input, Format>] extends [never] ? CheckPcmLayout<Input, T>
 		: 'Audio settings do not match the selected native request; raw audio requires inputAudioFormat.');
 type ToolAudio<P, T, Source = ConfigValue<T, 'audio'>> = P extends 'function'
 	? Source extends (...args: never[]) => infer Output ? Awaited<Output> : never
@@ -75,7 +81,7 @@ export interface Types<P extends PromptType, T, A extends boolean, Input = unkno
 	definition: typeof definition;
 	settings: Settings;
 	config: true extends ConfigValue<T, typeof streamMode>
-		? SourceComponentConfig<'Transcriber', P, unknown, P extends 'audio-resource' ? RawDelivery<T, LoadedRaw> : RawDelivery<T> & NoMedia>
+		? SourceComponentConfig<'Transcriber', P, unknown, P extends 'audio-resource' ? RawDelivery<T, LoadedRaw> | LoadedFileStream : (RawDelivery<T> | FileStreamSettings) & NoMedia>
 		: CompletedConfig<P>;
 	selectedSettings: SelectedSettings<T>;
 	component: CallableComponent<'Transcriber', P, T, A, { [M in P]: Calls<M, ConfigForMode<T, M, P>> }>;
@@ -96,7 +102,6 @@ function validate(config: Record<PropertyKey, unknown>) {
 
 function validateCall(settings: RuntimeComponentConfig) {
 	validateAudioSettings(settings, true, ValidationError);
-	if (settings[streamMode] && settings.inputAudioFormat === undefined) throw new ValidationError('Transcriber.asStream requires inputAudioFormat.');
 	if (settings[sourceMode] === 'audio-resource' && settings.inputAudioFormat === undefined && settings.fileAudioTarget === undefined) throw new ValidationError('Transcriber.loadsAudio requires inputAudioFormat or a configured fileAudioTarget.');
 }
 
@@ -106,7 +111,7 @@ function create(config: RuntimeComponentConfig) {
 		const prepared = await runtime.prepare(raw, tool, validateCall);
 		return withAudioInput(prepared, async (settings, close) => {
 			let result: TranscriptionResult;
-			if (settings.inputAudioFormat !== undefined) {
+			if (settings.inputAudioFormat !== undefined || config[streamMode]) {
 				const stream = streamTranscribe(settings as Parameters<typeof streamTranscribe>[0]);
 				if (config[streamMode]) return releaseOnAudioFinish(stream, close);
 				// Native result promises collect one stream and preserve native failure semantics.
@@ -116,15 +121,18 @@ function create(config: RuntimeComponentConfig) {
 				result = { text, segments, language, durationInSeconds, warnings, responses, providerMetadata };
 			} else {
 				if (isWebStream(settings.audio)) throw new ValidationError('Raw audio requires inputAudioFormat.');
+				if (tool && settings.audio instanceof URL && settings.download === undefined) {
+					settings.download = (await import('#tool-audio-download')).downloadToolAudio;
+				}
 				result = await transcribe(settings as NativeFile);
 			}
 			if (!tool) return result;
 			const { text, segments, language, durationInSeconds } = result;
 			return { text, segments, language, durationInSeconds };
-		});
+		}, recordingSdk);
 	}
 	return runtime.callable(invoke, args => {
-		const call = runtime.arguments(args, { literal: first => !isPlainObject(first) });
+		const call = runtime.arguments(args, { literal: first => isAudioArgument(first, config) || !config[toolMode] && isTranscriptionFile(first) });
 		call.take('inputAudioFormat', isPlainObject);
 		return call.done();
 	}, ({ output }) => ({ type: 'text', value: (output as TranscriptSnapshot).text }));

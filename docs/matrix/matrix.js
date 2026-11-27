@@ -136,7 +136,7 @@ const preparerTools = sources => tools({
 const experimental = 'Uses an experimental AI SDK operation.';
 
 const zeroArgumentTools = 'Work in progress: omitted tool schemas will expose zero public arguments while preserving inherited schemas and required inputs.';
-const browserAudio = 'Work in progress: browser .loadsAudio will use Mediabunny/WebCodecs and support direct HTTP(S) URLs. A playback fragment such as #t=1,2 leaves the full recording selected. Combined HTTP ranges require a consistent strong ETag. Browser conversion produces PCM WAV, with compatible compressed targets available by copying. Explicit browser track selection, native FFmpeg settings and playlists are outside the first release. Both runtimes will accept Web Audio AudioBuffer input. Browser prepared files will omit descriptive source metadata, as Node prepared files already do.';
+const browserAudio = 'Work in progress: browser .loadsAudio accepts Web Audio AudioBuffer and described PCM. It prepares raw mono PCM16 or a WAV file. Encoded recordings, compressed file copies and HTTP(S) URLs await codec qualification. Combined HTTP ranges require a consistent strong ETag. A playback fragment such as #t=1,2 selects the whole recording. Explicit track selection and FFmpeg settings apply on Node.';
 const audioInputs = 'Work in progress: selected generated files and binary Node/async-iterable audio inputs with bounded copying and single-use ownership.';
 const attachments = 'Work in progress: selected File/Blob/generated attachments through tagged inline data, normalized before hooks and retained history; native SDK MIME detection still applies.';
 const readonlyInputs = 'Work in progress: readonly lists and nested readonly reranking documents without caller copies.';

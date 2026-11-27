@@ -85,6 +85,10 @@ describe('Native media tool serialization', () => {
 				const request = JSON.parse(body) as { contents: { parts: { functionResponse?: { parts?: unknown[] } }[] }[] };
 				const response = request.contents.flatMap(content => content.parts).find(part => part.functionResponse)?.functionResponse;
 				assert.deepEqual(response?.parts, [{ inlineData: { mimeType: output.mediaType, data: 'AQIDBA==' } }]);
+			} else if (route === 'google-interactions') {
+				const request = JSON.parse(body) as { input: { type: string; call_id?: string; result?: unknown }[] };
+				const response = request.input.find(item => item.type === 'function_result' && item.call_id === 'recording');
+				assert.deepEqual(response?.result, [{ type: 'audio', mime_type: output.mediaType, data: 'AQIDBA==' }]);
 			} else if (route === 'openai-chat') {
 				const request = JSON.parse(body) as { messages: { role: string; content: unknown }[] };
 				const content = request.messages.find(message => message.role === 'tool')?.content;

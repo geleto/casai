@@ -1,6 +1,6 @@
 # Phase 4 design and implementation review
 
-The [README continuation guide](../README.md#tool-approvals-and-continuation) owns current public behavior; [README2](../README2.md#tool-approvals-and-continuation) carries it in the future guide. [Agent notes](../AGENTS.md#continuation-implementation) own implementation invariants, and [the plan](plan.md#phase-4-tool-continuations) owns status and deferred scope. This record owns implementation evidence, review findings and historical rationale.
+The [continuation guide](matrix/documentation.md#guide-tool-approvals-and-continuation) owns current public behavior. The [Phase 4 plan](plan.md#phase-4-tool-continuations) owns status, deferred scope and the [rules for preparing the next call](plan.md#preparing-the-next-call). This record preserves implementation evidence, review findings and historical rationale.
 
 The [historical design reviews](#historical-design-reviews) include superseded APIs and admission rules. They explain decisions, not current requirements or pending work. In particular, historical `value` probes predate its [removal](phase3-review.md#native-output-and-generation-only-tools-2026-10-30).
 

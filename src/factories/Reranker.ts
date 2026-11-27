@@ -13,7 +13,7 @@ import type { Fields } from '../types/utils.js';
 import { isPlainObject } from '../schema.js';
 import { ValidationError } from '../errors.js';
 
-type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof rerank<Parameters<typeof rerank>[0]['documents'][number], Runtime>>[0], '_internal'>;
+export type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof rerank<Parameters<typeof rerank>[0]['documents'][number], Runtime>>[0], '_internal'>;
 export const definition = {
 	name: 'Reranker', defaultMode: 'text', main: 'query', modifiers: textModifiers, toolModes: textModes, required: ['model'],
 } as const satisfies import('./component-factory.js').ComponentDefinition<Settings>;

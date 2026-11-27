@@ -5,17 +5,17 @@ import { create, z } from './cascada';
 import type { ModelMessage } from 'ai';
 import { MockLanguageModelV3, convertArrayToReadableStream } from 'ai/test';
 
-function mockModel(text: string): MockLanguageModelV3 {
+function mockModel(text: string, warnings: { type: 'other'; message: string }[] = []): MockLanguageModelV3 {
 	const finishReason = { unified: 'stop', raw: 'stop' } as const;
 	const usage = {
 		inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
 		outputTokens: { total: 1, text: 1, reasoning: 0 },
 	};
 	return new MockLanguageModelV3({
-		doGenerate: { content: [{ type: 'text', text }], finishReason, usage, warnings: [] },
+		doGenerate: { content: [{ type: 'text', text }], finishReason, usage, warnings },
 		doStream: async () => ({
 			stream: convertArrayToReadableStream([
-				{ type: 'stream-start', warnings: [] },
+				{ type: 'stream-start', warnings },
 				{ type: 'text-start', id: 'text' },
 				{ type: 'text-delta', id: 'text', delta: text },
 				{ type: 'text-end', id: 'text' },
@@ -26,6 +26,20 @@ function mockModel(text: string): MockLanguageModelV3 {
 }
 
 describe('LLM run overrides and repeated calls', () => {
+	it('delivers native warnings to configured and call observers in both delivery modes', async () => {
+		const warnings = [{ type: 'other' as const, message: 'provider warning' }];
+		for (const factory of [create.LLMAgent, create.LLMAgent.asStream]) {
+			const seen: { observer: string; warnings: unknown }[] = [];
+			const agent = factory({ model: mockModel('OK', warnings), onWarning: event => {
+				seen.push({ observer: 'configured', warnings: event.warnings });
+			} });
+			const result = await agent.run({ prompt: 'Listen.', onWarning: event => {
+				seen.push({ observer: 'call', warnings: event.warnings });
+			} });
+			expect(await result.text).to.equal('OK');
+			expect(seen).to.have.deep.members([{ observer: 'configured', warnings }, { observer: 'call', warnings }]);
+		}
+	});
 	for (const promptType of ['template', 'script', 'function'] as const) {
 		for (const streaming of [false, true]) {
 			it(`should validate and render call-time input in ${promptType} ${streaming ? 'streams' : 'generators'}`, async () => {

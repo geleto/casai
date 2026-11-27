@@ -9,6 +9,9 @@ import { sdkPcm as expected } from './pcm-reference.js';
 import { createPcmWorker } from '../src/audio/pcm-worker.node.js';
 import { createStreamResampler, resamplePcm16Range } from '../src/audio/pcm-resample.js';
 
+// V8 coverage instruments every worker. The two bulk probes assert scheduling progress independently of total runtime.
+const bulkFixtureTimeout = process.env.NODE_V8_COVERAGE ? 45000 : 15000;
+
 function fixture(mode: string, timeout = 15000) {
 	return promisify(execFile)(process.execPath, ['--import', 'tsx/esm', '--conditions=casai-source',
 		fileURLToPath(new URL('./fixtures/pcm-workers.mjs', import.meta.url)), mode], { timeout });
@@ -63,8 +66,8 @@ describe('Automatic PCM resampling workers', function () {
 		await fixture('single');
 	});
 	it('honors the default budget, partitions fractional rates and reuses workers without detaching borrowed Buffers', async () => {
-		await fixture('bulk');
-	});
+		await fixture('bulk', bulkFixtureTimeout);
+	}).timeout(bulkFixtureTimeout + 5000);
 	it('joins in a worker when shared memory is unavailable', async () => {
 		await fixture('unshared');
 	});
@@ -93,9 +96,9 @@ describe('Automatic PCM resampling workers', function () {
 		await fixture('stream-ratio');
 	});
 	it('keeps timers and Cascada responsive during finite and streamed processing', async () => {
-		const { stdout } = await fixture('responsive');
+		const { stdout } = await fixture('responsive', bulkFixtureTimeout);
 		assert.match(stdout, /responsiveness verified/);
-	});
+	}).timeout(bulkFixtureTimeout + 5000);
 	it('keeps Node alive during conversion and allows exit without caller cleanup', async () => {
 		const result = fixture('exit');
 		let deadline: ReturnType<typeof setTimeout> | undefined;

@@ -7,8 +7,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/01-generate-text.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/01-generate-text.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/01-generate-text.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text"
     }
   },
@@ -18,8 +18,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/02-stream-text.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/02-stream-text.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/02-stream-text.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text"
     }
   },
@@ -29,8 +29,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/05-embed.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/05-embed.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/05-embed.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/embed"
     }
   },
@@ -40,8 +40,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/06-embed-many.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/06-embed-many.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/06-embed-many.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/embed-many"
     }
   },
@@ -51,8 +51,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/06-rerank.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/06-rerank.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/06-rerank.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/rerank"
     }
   },
@@ -62,8 +62,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/10-generate-image.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/10-generate-image.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/10-generate-image.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-image"
     }
   },
@@ -73,8 +73,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/11-transcribe.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/transcribe"
     }
   },
@@ -84,8 +84,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx",
       "line": 13,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L13",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L13",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video"
     }
   },
@@ -95,8 +95,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx",
       "line": 12,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx#L12",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/11-stream-transcribe.mdx#L12",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-transcribe"
     }
   },
@@ -106,8 +106,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/12-generate-speech.mdx",
       "line": 8,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/12-generate-speech.mdx#L8",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/12-generate-speech.mdx#L8",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-speech"
     }
   },
@@ -117,8 +117,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/12-stream-speech.mdx",
       "line": 12,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/12-stream-speech.mdx#L12",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/12-stream-speech.mdx#L12",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-speech"
     }
   },
@@ -128,8 +128,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/11-stream-translate.mdx",
       "line": 12,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/11-stream-translate.mdx#L12",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/11-stream-translate.mdx#L12",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-translate"
     }
   },
@@ -139,8 +139,8 @@ export default {
       "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
       "line": 12,
       "package": "ai",
-      "version": "7.0.162",
-      "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+      "version": "7.0.183",
+      "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
       "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
     }
   }

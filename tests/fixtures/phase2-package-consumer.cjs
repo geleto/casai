@@ -35,10 +35,28 @@ try {
       engine = candidate;
     }
   }
-  const [packed] = JSON.parse(npm(['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], workspace));
+  const pack = root => JSON.parse(npm(['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], root))[0];
+  let root = workspace, packed = pack(root);
+  if (process.env.CASAI_MEDIABUNNY_ENTRY) {
+    root = path.join(temporary, 'recorder-candidate');
+    for (const { path: name } of packed.files) {
+      fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+      fs.copyFileSync(path.join(workspace, name), path.join(root, name));
+    }
+    run(process.execPath, [path.join(workspace, 'scripts/build-recording-worker.mjs'), fs.realpathSync(process.env.CASAI_MEDIABUNNY_ENTRY), root], workspace);
+    packed = pack(root);
+    for (const name of ['LICENSE', 'NOTICE', 'tsconfig.json', 'src/index.ts', 'shared/aac-misc.ts']) assert.ok(packed.files.some(file => file.path === 'vendor/mediabunny/' + name));
+    assert.ok(fs.readFileSync(path.join(root, 'dist/audio/recording-worker-source.js'), 'utf8').includes('Mozilla Public'));
+    const artifacts = path.join(workspace, '.cache/6c-qualification');
+    fs.mkdirSync(artifacts, { recursive: true });
+    fs.copyFileSync(path.join(temporary, packed.filename), path.join(artifacts, packed.filename));
+    console.log('Local qualification archive:', path.join(artifacts, packed.filename));
+    delete process.env.CASAI_MEDIABUNNY_ENTRY;
+    process.env.CASAI_PACKED_RECORDER = '1';
+  }
   const packagedPaths = new Set(packed.files.map(({ path: file }) => file));
   for (const { path: file } of packed.files.filter(({ path: file }) => file.endsWith('.map'))) {
-    const map = JSON.parse(fs.readFileSync(path.join(workspace, file), 'utf8'));
+    const map = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
     for (const source of map.sources) {
       assert.ok(packagedPaths.has(path.posix.normalize(path.posix.join(path.posix.dirname(file), map.sourceRoot || '', source))),
         `Source map ${file} points at an unpackaged source: ${source}`);
@@ -57,21 +75,25 @@ try {
   npm(['install', '--ignore-scripts', '--no-audit', '--no-fund']);
   const engineRoot = path.join(temporary, 'node_modules/cascada-engine');
   assert.equal(fs.realpathSync(engineRoot), engineRoot, 'The engine must be installed, not linked to a workspace.');
+  const lock = JSON.parse(fs.readFileSync(path.join(temporary, 'package-lock.json'), 'utf8'));
+  const entry = lock.packages['node_modules/cascada-engine'];
+  assert.deepEqual(Object.keys(lock.packages).filter(key => key.endsWith('node_modules/cascada-engine')), ['node_modules/cascada-engine'],
+    'Casai and its consumer must share one engine.');
   if (engine) {
-    const lock = JSON.parse(fs.readFileSync(path.join(temporary, 'package-lock.json'), 'utf8'));
-    const entry = lock.packages['node_modules/cascada-engine'];
-    assert.deepEqual(Object.keys(lock.packages).filter(key => key.endsWith('node_modules/cascada-engine')), ['node_modules/cascada-engine'],
-      'Casai and its consumer must share the supplied engine candidate.');
     assert.ok(!entry.link && entry.resolved.startsWith('file:') && entry.resolved.endsWith('.tgz'),
       'The engine must resolve to the supplied tarball.');
+  } else {
+    assert.ok(!entry.link && entry.integrity && /^https?:/.test(entry.resolved), 'Expected a registry engine with an integrity hash.');
+    console.log('Installed registry cascada-engine@' + entry.version + ' without an override.');
   }
   const installed = JSON.parse(fs.readFileSync(path.join(temporary, 'node_modules/casai/package.json'), 'utf8'));
   assert.equal(installed.dependencies.typescript, undefined);
   assert.equal(installed.dependencies['ts-node'], undefined);
   assert.equal(installed.dependencies.zod, undefined);
-  assert.equal(installed.peerDependencies.ai, '^7.0.162');
+  assert.equal(installed.peerDependencies.ai, '^7.0.183');
+  assert.equal(installed.dependencies['cascada-engine'], '^0.7.0');
   assert.equal(installed.peerDependencies.zod, '^4.6.5');
-  assert.equal(installed.dependencies['@ai-sdk/provider-utils'], '^5.0.74');
+  assert.equal(installed.dependencies['@ai-sdk/provider-utils'], '^5.0.85');
   console.log(npm(['ls', 'casai', 'cascada-engine', 'ai', 'zod', '@ai-sdk/provider-utils']));
   // A second physical package exercises runtime identity and independent declarations.
   fs.cpSync(path.join(temporary, 'node_modules/casai'), path.join(temporary, 'casai-copy'), { recursive: true });
@@ -251,8 +273,8 @@ create.LLMAgent({ model: 'test', prompt: 'ready' }, { config: validSelection });
     console.log(`Packed ${source ? 'source program' : 'declarations'} passed with an explicit consumer compiler (exact optional properties: ${exact}).`);
   }
   run(process.execPath, ['consumer.mjs']);
-  // A newer provider beside pinned ai legitimately installs two different detector copies.
-  npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', 'ai@7.0.162', '@ai-sdk/openai@4.0.121', '@ai-sdk/provider-utils@5.0.82']);
+  // An older provider beside pinned ai can place the detectors in separate package directories.
+  npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', 'ai@7.0.183', '@ai-sdk/openai@4.0.121', '@ai-sdk/provider-utils@5.0.82']);
   fs.copyFileSync(path.join(workspace, 'tests/fixtures/audio-mime-consumer.mjs'), path.join(temporary, 'audio-mime-consumer.mjs'));
   console.log(run(process.execPath, ['audio-mime-consumer.mjs']));
   const missingNative = path.join(temporary, 'node_modules/node-av');
@@ -283,7 +305,7 @@ for (const settings of [{ inputAudioFormat }, { fileAudioTarget: { format: 'wav'
     run(process.execPath, ['native-load-failure.mjs', expected]);
     console.log(`Installed native ${name} retains its original error for both targets.`);
   }
-  if (engine) {
+  if (engine || process.env.CASAI_RECORDER_BROWSER) {
     for (const fixture of ['phase6-browser.mjs', 'browser-media-contracts.test.mjs']) {
       console.log(run(process.execPath, [path.join(workspace, 'tests/fixtures', fixture), '--dist']));
     }

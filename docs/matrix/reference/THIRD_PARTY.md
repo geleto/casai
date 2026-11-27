@@ -8,7 +8,7 @@ Full component `description` text adapts the SDK's text-generation, decision, em
 
 Copyright 2023 Vercel, Inc.
 
-The inspected packages are `ai@7.0.162`, `@ai-sdk/provider@4.0.35` and `@ai-sdk/provider-utils@5.0.74`. Each extracted record identifies its exact package version and declaration or documentation source. The repository is [vercel/ai](https://github.com/vercel/ai); its [license notice](https://github.com/vercel/ai/blob/main/LICENSE) specifies Apache License 2.0.
+The inspected packages are `ai@7.0.183`, `@ai-sdk/provider@4.0.39` and `@ai-sdk/provider-utils@5.0.85`. Each extracted record identifies its exact package version and declaration or documentation source. The repository is [vercel/ai](https://github.com/vercel/ai); its [license notice](https://github.com/vercel/ai/blob/main/LICENSE) specifies Apache License 2.0.
 
 The full license is included in [LICENSE-Apache-2.0.txt](LICENSE-Apache-2.0.txt). Retain this attribution and the license when redistributing the data. No separate applicable NOTICE file was present in these inspected installed packages. Review notices again when refreshing dependencies. The snapshot does not import branding, website assets or provider documentation.
 

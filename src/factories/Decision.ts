@@ -9,7 +9,7 @@ import type { ToolInvocation } from '../types/execution.js';
 import type { Fields } from '../types/utils.js';
 import { ValidationError } from '../errors.js';
 
-type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof experimental_decide<Parameters<typeof experimental_decide>[0]['questions'], Runtime>>[0], '_internal'>;
+export type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof experimental_decide<Parameters<typeof experimental_decide>[0]['questions'], Runtime>>[0], '_internal'>;
 export const definition = {
 	name: 'Decision', defaultMode: 'text', main: 'state', structured: 'parts', modifiers: textModifiers, toolModes: textModes, required: ['model', 'questions'], fixedSettings: ['questions'],
 } as const satisfies import('./component-factory.js').ComponentDefinition<Settings>;

@@ -1,3 +1,5 @@
+import type { AudioBufferSource } from '../audio.js';
+
 /** A platform getter checks the object's internal brand across same-origin realms without reading the input's property. */
 function hasWebBrand<T>(value: unknown, type: { new(...args: never[]): T; prototype: T }, field: keyof T): value is T {
 	if (value instanceof type) return true;
@@ -12,3 +14,10 @@ export const isWebBlob = (value: unknown): value is Blob => hasWebBrand(value, B
 export const isWebURL = (value: unknown): value is URL => hasWebBrand(value, URL, 'href');
 export const isWebAudioBuffer = (value: unknown): value is AudioBuffer =>
 	typeof AudioBuffer !== 'undefined' && hasWebBrand(value, AudioBuffer, 'numberOfChannels');
+
+/** Only use structural recognition after the caller has selected an audio source. */
+export function isAudioBufferSource(value: unknown): value is AudioBufferSource {
+	const buffer = value as Partial<AudioBufferSource> | null | undefined;
+	return typeof buffer?.getChannelData === 'function' && typeof buffer.numberOfChannels === 'number'
+		&& typeof buffer.sampleRate === 'number' && typeof buffer.length === 'number';
+}

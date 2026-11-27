@@ -13,6 +13,8 @@
 
 # Files that will always have LF line endings on checkout
 *.sh text eol=lf
+# Unified diffs prefix even blank and tab-indented context lines with a space.
+tests/fixtures/*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab
 # The matrix embeds its canonical text resources and compares generated references byte for byte.
 docs/matrix/** text=auto eol=lf
 

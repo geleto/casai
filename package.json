@@ -49,6 +49,14 @@
 		}
 	},
 	"imports": {
+		"#tool-audio-download": {
+			"casai-source": {
+				"node": "./src/audio/tool-download.node.ts",
+				"default": "./src/audio/tool-download.web.ts"
+			},
+			"node": "./dist/audio/tool-download.node.js",
+			"default": "./dist/audio/tool-download.web.js"
+		},
 		"#pcm-worker": {
 			"casai-source": {
 				"node": "./src/audio/pcm-worker.node.ts",
@@ -57,13 +65,15 @@
 			"node": "./dist/audio/pcm-worker.node.js",
 			"default": "./dist/audio/pcm-worker.web.js"
 		},
-		"#native-audio": {
+		"#prepared-audio": {
 			"casai-source": {
 				"node": "./src/audio/native.ts",
-				"default": "./src/audio/native-unavailable.ts"
+				"browser": "./src/audio/browser.ts",
+				"default": "./src/audio/unavailable.ts"
 			},
 			"node": "./dist/audio/native.js",
-			"default": "./dist/audio/native-unavailable.js"
+			"browser": "./dist/audio/browser.js",
+			"default": "./dist/audio/unavailable.js"
 		}
 	},
 	"scripts": {
@@ -113,8 +123,10 @@
 			"src/audio/preparation.ts",
 			"src/audio/input.ts",
 			"src/audio/supplied.ts",
+			"src/audio/transcription-file.ts",
 			"src/audio/source-evidence.ts",
-			"src/audio/native-unavailable.ts",
+			"src/audio/browser.ts",
+			"src/audio/unavailable.ts",
 			"src/factories/*.ts",
 			"src/config/*.ts",
 			"src/renderers/*.ts",
@@ -134,10 +146,10 @@
 		"branches": 95
 	},
 	"devDependencies": {
-		"@ai-sdk/anthropic": "^4.0.96",
-		"@ai-sdk/elevenlabs": "3.0.79",
-		"@ai-sdk/google": "4.0.111",
-		"@ai-sdk/openai": "^4.0.108",
+		"@ai-sdk/anthropic": "^4.0.110",
+		"@ai-sdk/elevenlabs": "3.0.90",
+		"@ai-sdk/google": "4.0.128",
+		"@ai-sdk/openai": "^4.0.125",
 		"@babel/core": "^8.0.7",
 		"@babel/preset-env": "^8.0.7",
 		"@eslint/js": "^10.0.1",
@@ -148,7 +160,8 @@
 		"@typescript-eslint/eslint-plugin": "^8.71.1",
 		"@typescript-eslint/parser": "^8.71.1",
 		"@typescript/native": "npm:typescript@^7.0.2",
-		"ai": "^7.0.162",
+		"ai": "^7.0.183",
+		"audio-buffer": "^7.3.2",
 		"c8": "^12.0.0",
 		"chai": "^6.3.0",
 		"chai-as-promised": "^8.0.2",
@@ -168,11 +181,12 @@
 		"npm": ">=9.0.0"
 	},
 	"dependencies": {
-		"@ai-sdk/provider-utils": "^5.0.74",
-		"cascada-engine": "^0.6.2"
+		"@ai-sdk/provider-utils": "^5.0.85",
+		"cascada-engine": "^0.7.0",
+		"guarded-fetch": "^0.3.0"
 	},
 	"peerDependencies": {
-		"ai": "^7.0.162",
+		"ai": "^7.0.183",
 		"node-av": "^7.1.0",
 		"zod": "^4.6.5"
 	},

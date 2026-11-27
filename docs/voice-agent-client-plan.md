@@ -78,12 +78,13 @@ Precompile scripts with Cascada's build-time API and use the public `cascada-eng
 
 ## Backend pairing, transports and tools
 
-Keep the native `api` alternatives: `{ token: url }`, `{ session: url }` for WebRTC, and `{ websocket: url, protocols? }` for a server relay. Inspect the pinned SDK again at implementation; do not copy newer website options absent from that version.
+Keep all four native `api` alternatives in AI SDK 7.0.183. Use `{ token: url }` for a short-lived credential, `{ session: url }` for WebRTC, `{ websocket: url, protocols? }` for an application relay, or `{ provider: url }` when the browser model implements its own transport. Recheck the installed SDK when implementing the client.
 
 | Application case | Pairing and ownership |
 | --- | --- |
 | Browser assistant using a short-lived credential | The application token route authenticates/authorizes the user and calls `VoiceAgentBackend.run()`. Its native response is returned to the client session. |
 | Browser WebRTC conversation | The application setup route admits public preferences and passes the SDP offer to `VoiceAgentBackend.createWebRTCSession()`, returning the native answer. |
+| Provider-managed browser transport | Configure the model's server endpoint in `api.provider`. The native session supplies the endpoint, session configuration, optional capture settings and cancellation signal to that model's transport. |
 | Local UI actions and private business tools | Native `onToolCall` handles local actions or calls an authenticated application route. That route authorizes the operation and uses backend `executeTool` with the real call ID/name/arguments and trusted context. Map completed undefined values to JSON null for HTTP transport. |
 | Provider Live/server relay | Applications own the relay and native connection setup. Keep Live delegation/events distinct from turn-based `onToolCall`; use native event controls where required. |
 | Framework UI or multiple independent conversations | Subscribe to snapshots and use the same native controls. Construct separate sessions from the reusable client; UI lifecycle owns teardown. |
@@ -115,6 +116,8 @@ Use native types or a shared public schema for meaningful compile-time/runtime c
 Perform a final whole-surface review of construction, calls, native methods, callbacks, state ownership, transports, tools, packaging and downstream consumers. Follow [the repository review process](review-process.md); require a subsequent complete pass without important unresolved findings.
 
 ### Playback during a tool call
+
+Show two capture lifecycles in the client examples. Record-and-send chooses an available recorder MIME, collects through the final data event and releases application-owned microphone tracks. Live dictation passes the native session its supported input as it arrives. For an encoded stream, retain the recorder header and one session across timeslices. A voice picker can use the selected provider's catalog and filter by model and locale.
 
 Use a turn-based native session with browser audio enabled. Hold one `onToolCall` promise open and deliver a playable audio chunk on that session. Observe playback starting through the native audio path and `getSnapshot().isPlaying` while the tool is still pending. Then release the tool and assert one completed tool output. The fixture supplies the audio so the test measures the client's ability to play it as it arrives. An application can display tool progress separately from the completed tool result. [Mastra playout and tool comparison](phase6-implementation.md#api-choices-and-capabilities-beyond-6c)
 

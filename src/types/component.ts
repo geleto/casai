@@ -56,13 +56,14 @@ export type AudioFormatArguments<T, Format> = OptionalUndefined<Configured<T, 'i
 	? [inputAudioFormat?: Format] : [inputAudioFormat: Format]>;
 
 // On plain tools, an object is payload; structured native source overrides use .run().
-type PlainSource<K extends ComponentKind, T> = true extends ConfigValue<T, typeof toolMode>
-	? Exclude<NativeInput<K, T>, object> | Extract<NativeInput<K, T>, readonly unknown[] | URL | Blob | AudioBuffer | ArrayBuffer | ArrayBufferView | ReadableStream<unknown>> : NativeInput<K, T>;
+type PositionalToolSource<Input> = Input extends import('../audio.js').AudioBufferSource ? AudioBuffer
+	: Input extends readonly unknown[] | URL | Blob | ArrayBuffer | ArrayBufferView | ReadableStream<unknown> ? Input : Exclude<Input, object>;
+type PlainSource<K extends ComponentKind, T, Input = NativeInput<K, T>> = true extends ConfigValue<T, typeof toolMode> ? PositionalToolSource<Input> : Input;
 type PlainInput<K extends ComponentKind, T> = T extends unknown
 	? (true extends ConfigValue<T, typeof toolMode> ? PlainToolInput<K, T> : never)
 		| (undefined extends ConfigValue<T, typeof toolMode> ? ConfiguredOutput<K, 'text', T> : never) : never;
 
-type LiteralSource<K extends ComponentKind, P, T> = P extends 'audio-resource' ? import('../audio/preparation.js').AudioSource : PlainSource<K, T>;
+type LiteralSource<K extends ComponentKind, P, T> = P extends 'audio-resource' ? PlainSource<K, T, import('../audio/preparation.js').AudioSource> : PlainSource<K, T>;
 export type SourceArguments<K extends ComponentKind, P extends PromptType, T, Tail extends unknown[] = [],
 	HasSource extends boolean = Configured<T, Main<K>>, ConfiguredTail extends unknown[] = Tail> = P extends 'text' | 'audio-resource'
 	? [T] extends [{ [toolMode]: true }] ? PreparedSourceArguments<T, LiteralSource<K, P, T>, true, Tail>

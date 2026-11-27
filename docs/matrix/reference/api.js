@@ -3,9 +3,9 @@
 export default {
   "packages": {
     "casai": "0.6.2",
-    "ai": "7.0.162",
-    "@ai-sdk/provider-utils": "5.0.74",
-    "@ai-sdk/provider": "4.0.35",
+    "ai": "7.0.183",
+    "@ai-sdk/provider-utils": "5.0.85",
+    "@ai-sdk/provider": "4.0.39",
     "cascada-engine": "0.7.0"
   },
   "definitions": {
@@ -526,37 +526,37 @@ export default {
       "description-094750903948",
       "tools-d8cac053f1e9",
       "toolsContext-be97e33328f3",
-      "runtimeContext-5279a5b531bf",
-      "providerOptions-bdb985c437b4",
+      "runtimeContext-c62c730fa462",
+      "providerOptions-6db661b2b6a7",
       "id-7c420ba44547",
       "output-960376aadf77",
-      "maxOutputTokens-28aceb6f8de2",
-      "temperature-d5e463222c25",
-      "topP-c18ae9faa20b",
-      "topK-9dca433077cb",
-      "presencePenalty-ffb8353a33d5",
-      "frequencyPenalty-24e57c07ecf0",
-      "stopSequences-d8033627c3bb",
-      "seed-42d63366f1c9",
-      "reasoning-50148c4a1de6",
-      "maxRetries-0ed81bc73d61",
-      "headers-74f55db49467",
-      "timeout-d2d66c53fa17",
-      "instructions-b0d8abcfc99d",
-      "allowSystemInMessages-e1a407f3bbe9",
+      "maxOutputTokens-3750aae06b78",
+      "temperature-c970b1ef9f50",
+      "topP-8c117ff138cd",
+      "topK-07df4c014c42",
+      "presencePenalty-27e20b4c1aa5",
+      "frequencyPenalty-32bb1198f9f5",
+      "stopSequences-2eefa8740e8d",
+      "seed-c03ecfd73f92",
+      "reasoning-b90f40e6fd96",
+      "maxRetries-0aedd6c52d2f",
+      "headers-b4f0a59701e0",
+      "timeout-439a1a41320c",
+      "instructions-7a09e697e800",
+      "allowSystemInMessages-48822b7d4b46",
       "prompt-dbcb70464d4d",
-      "model-f5334808405d",
-      "toolChoice-ee62be34526e",
-      "telemetry-8764a08784e2",
-      "experimental_sandbox-2582909742ec",
-      "experimental_steering-82714f7fe6df",
-      "activeTools-e09d12af5e53",
-      "toolOrder-c6855d505085",
-      "toolCallConcurrency-940e6b2336b5",
-      "experimental_toolCallers-ffe6f3c3e609",
-      "experimental_toolApprovalSecret-4ff3620966c4",
-      "include-2f0b096d0254",
-      "streamRetries-2780ace7cb77",
+      "model-13928364de1c",
+      "toolChoice-f6a9fedbe1b4",
+      "telemetry-76723a22b41f",
+      "experimental_sandbox-bd7685f3dca4",
+      "experimental_steering-a70a6a3f26bf",
+      "activeTools-7a4674c83084",
+      "toolOrder-e46202be091c",
+      "toolCallConcurrency-769ff7ccf7bf",
+      "experimental_toolCallers-8a752bb63e36",
+      "experimental_toolApprovalSecret-5573519278c4",
+      "include-74de729ed750",
+      "streamRetries-ca6a5025c0f4",
       "stopWhen-fb42ba28c06a",
       "toolApproval-6a9876dda4cd",
       "experimental_download-339211b44f67",
@@ -570,6 +570,7 @@ export default {
       "onToolExecutionEnd-e56d20dd0b14",
       "onStepEnd-8b3fdb23f1d8",
       "onStepError-97a24c8aaa0f",
+      "onWarning-297284192218",
       "onEnd-3644bf4f2d1c",
       "experimental_transform-89cd4ae316b3",
       "onChunk-53740e0f058c",
@@ -579,52 +580,53 @@ export default {
       "prepareStep-b1fc7f13d5d4"
     ],
     "LLMAgent_settings": [
-      "runtimeContext-5279a5b531bf",
-      "providerOptions-bdb985c437b4",
-      "maxOutputTokens-28aceb6f8de2",
-      "temperature-d5e463222c25",
-      "topP-c18ae9faa20b",
-      "topK-9dca433077cb",
-      "presencePenalty-ffb8353a33d5",
-      "frequencyPenalty-24e57c07ecf0",
-      "stopSequences-d8033627c3bb",
-      "seed-42d63366f1c9",
-      "reasoning-50148c4a1de6",
-      "maxRetries-0ed81bc73d61",
-      "headers-74f55db49467",
-      "timeout-d2d66c53fa17",
-      "instructions-b0d8abcfc99d",
-      "allowSystemInMessages-e1a407f3bbe9",
-      "model-f5334808405d",
-      "toolChoice-ee62be34526e",
-      "stopWhen-e8250c5614a3",
-      "telemetry-8764a08784e2",
-      "experimental_sandbox-2582909742ec",
-      "experimental_steering-82714f7fe6df",
-      "activeTools-e09d12af5e53",
-      "toolOrder-c6855d505085",
-      "toolCallConcurrency-940e6b2336b5",
-      "toolApproval-f04ab75b2254",
-      "experimental_toolCallers-ffe6f3c3e609",
-      "experimental_toolApprovalSecret-4ff3620966c4",
-      "experimental_download-162e51e5ff3c",
-      "repairToolCall-1cfd20033b0a",
-      "experimental_refineToolInput-b3ee93fb0d2b",
-      "onStart-66b9a75d9d1d",
-      "onStepStart-5585ea699152",
-      "onLanguageModelCallStart-8d83021ae3c8",
-      "onLanguageModelCallEnd-94d3ab4bd2e8",
-      "onToolExecutionStart-1954e5a469ba",
-      "onToolExecutionEnd-ea85b06844b0",
-      "onStepEnd-8a03a3480e69",
-      "onStepError-64f9d90f19cc",
-      "onEnd-2e786bb451d8",
-      "include-2f0b096d0254",
-      "experimental_transform-0ec05c4143a3",
-      "onChunk-6fbcb2a9372a",
-      "onError-16e40c751f49",
-      "streamRetries-2780ace7cb77",
-      "onAbort-9e072f29fce0",
+      "runtimeContext-c62c730fa462",
+      "providerOptions-6db661b2b6a7",
+      "maxOutputTokens-3750aae06b78",
+      "temperature-c970b1ef9f50",
+      "topP-8c117ff138cd",
+      "topK-07df4c014c42",
+      "presencePenalty-27e20b4c1aa5",
+      "frequencyPenalty-32bb1198f9f5",
+      "stopSequences-2eefa8740e8d",
+      "seed-c03ecfd73f92",
+      "reasoning-b90f40e6fd96",
+      "maxRetries-0aedd6c52d2f",
+      "headers-b4f0a59701e0",
+      "timeout-439a1a41320c",
+      "instructions-7a09e697e800",
+      "allowSystemInMessages-48822b7d4b46",
+      "model-13928364de1c",
+      "toolChoice-f6a9fedbe1b4",
+      "stopWhen-a9b64708c252",
+      "telemetry-76723a22b41f",
+      "experimental_sandbox-bd7685f3dca4",
+      "experimental_steering-a70a6a3f26bf",
+      "activeTools-7a4674c83084",
+      "toolOrder-e46202be091c",
+      "toolCallConcurrency-769ff7ccf7bf",
+      "toolApproval-665a216dd014",
+      "experimental_toolCallers-8a752bb63e36",
+      "experimental_toolApprovalSecret-5573519278c4",
+      "experimental_download-393316c82a64",
+      "repairToolCall-4ef13c129648",
+      "experimental_refineToolInput-52f1527d50cb",
+      "onStart-42f1d1a13de4",
+      "onStepStart-067e2bce6aa3",
+      "onLanguageModelCallStart-dece0ed4d633",
+      "onLanguageModelCallEnd-411f0968c4d3",
+      "onToolExecutionStart-4db0a212fd81",
+      "onToolExecutionEnd-7870e85a04eb",
+      "onStepEnd-ba0cc25c5ad8",
+      "onStepError-4c8aed2d1926",
+      "onWarning-191f1b180e1d",
+      "onEnd-c8c7c2a69e22",
+      "include-74de729ed750",
+      "experimental_transform-b422736429cc",
+      "onChunk-480ac277c91c",
+      "onError-a7cf8c7fafff",
+      "streamRetries-ca6a5025c0f4",
+      "onAbort-cdaba3ea32c8",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -644,17 +646,18 @@ export default {
       "prepared-3c21b736ebb0"
     ],
     "Decision_config": [
-      "runtimeContext-0add664a522c",
-      "providerOptions-c53d3bd5265d",
-      "maxOutputTokens-16305b3096c8",
-      "reasoning-892add36e4d9",
-      "maxRetries-23097e18368b",
-      "headers-86575131d3c3",
-      "model-c591403d9d0a",
-      "telemetry-41ea114badea",
-      "onStart-5643812436ab",
-      "onEnd-a03dc449884e",
-      "questions-dd5363516405",
+      "runtimeContext-8a3992767dfe",
+      "providerOptions-29e64ad26a6f",
+      "maxOutputTokens-498165f4e1a0",
+      "reasoning-27d347c98943",
+      "maxRetries-3fefe762577b",
+      "headers-a3d764ab0c98",
+      "model-b7ad5611d42d",
+      "telemetry-4c63aa57ec78",
+      "experimental_download-f84372d2c444",
+      "onStart-6da1bb86471a",
+      "onEnd-0f1f14485409",
+      "questions-d277213afc57",
       "state-f6557702dc32",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -668,19 +671,20 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "Decision_settings": [
-      "runtimeContext-0add664a522c",
-      "providerOptions-c53d3bd5265d",
-      "maxOutputTokens-16305b3096c8",
-      "reasoning-892add36e4d9",
-      "maxRetries-23097e18368b",
-      "abortSignal-3e2de4b1ba34",
-      "headers-86575131d3c3",
-      "model-82af40007353",
-      "telemetry-41ea114badea",
-      "onStart-5643812436ab",
-      "onEnd-a03dc449884e",
-      "questions-dd5363516405",
-      "state-db13ea08a329"
+      "runtimeContext-8a3992767dfe",
+      "providerOptions-29e64ad26a6f",
+      "maxOutputTokens-498165f4e1a0",
+      "reasoning-27d347c98943",
+      "maxRetries-3fefe762577b",
+      "abortSignal-3a1691fafbe4",
+      "headers-a3d764ab0c98",
+      "model-63f39539b350",
+      "telemetry-4c63aa57ec78",
+      "experimental_download-f84372d2c444",
+      "onStart-6da1bb86471a",
+      "onEnd-0f1f14485409",
+      "questions-d277213afc57",
+      "state-39541375053d"
     ],
     "Decision_inputs": [
       "direct-80c1b590bd26",
@@ -688,19 +692,19 @@ export default {
       "prepared-37a4f0163687"
     ],
     "Embedder_config": [
-      "runtimeContext-b82193f21760",
-      "providerOptions-a94e237310ca",
-      "maxRetries-21df607005af",
-      "headers-f7116f3e57a6",
-      "model-e9e0c47ec797",
-      "telemetry-e0229feb9d3a",
-      "experimental_telemetry-031d59a19554",
-      "onStart-3eefebc5d492",
-      "experimental_onStart-3beabf892011",
-      "onEnd-5bb5b5ee92e8",
-      "dimensions-2ccabb90d619",
-      "maxParallelCalls-6694df5c0a88",
-      "experimental_onEnd-a59f437a84ba",
+      "runtimeContext-d4297944fc22",
+      "providerOptions-0bb12806283e",
+      "maxRetries-1be77b6e9667",
+      "headers-f9a6d9652a0a",
+      "model-6ce7e7fa24a7",
+      "telemetry-782f21ecc894",
+      "experimental_telemetry-6118399298d7",
+      "onStart-59e1fe0d9bb3",
+      "experimental_onStart-409901f14373",
+      "onEnd-8a2f9fb05c9a",
+      "dimensions-a7263b5ea914",
+      "maxParallelCalls-63a7ab93a66d",
+      "experimental_onEnd-6a0e5dc8aa36",
       "input-fb5baefd9ad6",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -714,20 +718,20 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "Embedder_settings": [
-      "runtimeContext-b82193f21760",
-      "providerOptions-a94e237310ca",
-      "maxRetries-21df607005af",
-      "abortSignal-2b7c59d4f74b",
-      "headers-f7116f3e57a6",
-      "model-01b0663ad509",
-      "telemetry-e0229feb9d3a",
-      "experimental_telemetry-031d59a19554",
-      "onStart-3eefebc5d492",
-      "experimental_onStart-3beabf892011",
-      "onEnd-5bb5b5ee92e8",
-      "dimensions-2ccabb90d619",
-      "maxParallelCalls-6694df5c0a88",
-      "experimental_onEnd-a59f437a84ba",
+      "runtimeContext-d4297944fc22",
+      "providerOptions-0bb12806283e",
+      "maxRetries-1be77b6e9667",
+      "abortSignal-6f1530bb4f0a",
+      "headers-f9a6d9652a0a",
+      "model-2ee72b6f6776",
+      "telemetry-782f21ecc894",
+      "experimental_telemetry-6118399298d7",
+      "onStart-59e1fe0d9bb3",
+      "experimental_onStart-409901f14373",
+      "onEnd-8a2f9fb05c9a",
+      "dimensions-a7263b5ea914",
+      "maxParallelCalls-63a7ab93a66d",
+      "experimental_onEnd-6a0e5dc8aa36",
       "input-dcc8da217a5c"
     ],
     "Embedder_inputs": [
@@ -736,19 +740,19 @@ export default {
       "prepared-2ea72cf3d6e5"
     ],
     "Reranker_config": [
-      "runtimeContext-bfeb4849a32a",
-      "providerOptions-323e9176b870",
-      "maxRetries-5a3efed0cfd5",
-      "headers-d3e2a061a8b8",
-      "model-c5e0815e9abc",
-      "telemetry-7031c717fdc7",
-      "experimental_telemetry-6ff335051f6b",
-      "onStart-28980c38987c",
-      "experimental_onStart-b12bd48010fa",
-      "onEnd-336a122ae41f",
-      "experimental_onEnd-7bae4c05bcee",
-      "documents-153e8de9ac0a",
-      "topN-2e58a6ef4988",
+      "runtimeContext-fbc34eb108be",
+      "providerOptions-bacef9bb6be2",
+      "maxRetries-1030d178c8ef",
+      "headers-5dcd71a1709f",
+      "model-c3cf2da0831a",
+      "telemetry-9d80befce824",
+      "experimental_telemetry-e56a04459ef3",
+      "onStart-8f853f83ded6",
+      "experimental_onStart-cbc7a2641424",
+      "onEnd-87a30dcfc57c",
+      "experimental_onEnd-3c1307881f56",
+      "documents-978d56ce17e3",
+      "topN-b63f89c590b9",
       "query-bf57c694fea9",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -762,21 +766,21 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "Reranker_settings": [
-      "runtimeContext-bfeb4849a32a",
-      "providerOptions-323e9176b870",
-      "maxRetries-5a3efed0cfd5",
-      "abortSignal-1be52e81fd5e",
-      "headers-d3e2a061a8b8",
-      "model-38a5e14b7041",
-      "telemetry-7031c717fdc7",
-      "experimental_telemetry-6ff335051f6b",
-      "onStart-28980c38987c",
-      "experimental_onStart-b12bd48010fa",
-      "onEnd-336a122ae41f",
-      "experimental_onEnd-7bae4c05bcee",
-      "documents-e64a9272b831",
-      "query-7008b7b4625a",
-      "topN-2e58a6ef4988"
+      "runtimeContext-fbc34eb108be",
+      "providerOptions-bacef9bb6be2",
+      "maxRetries-1030d178c8ef",
+      "abortSignal-73bfcea75c49",
+      "headers-5dcd71a1709f",
+      "model-b9a9ad1e277f",
+      "telemetry-9d80befce824",
+      "experimental_telemetry-e56a04459ef3",
+      "onStart-8f853f83ded6",
+      "experimental_onStart-cbc7a2641424",
+      "onEnd-87a30dcfc57c",
+      "experimental_onEnd-3c1307881f56",
+      "documents-a7b7ca1305a3",
+      "query-71c9c0183347",
+      "topN-b63f89c590b9"
     ],
     "Reranker_inputs": [
       "direct-c287cb6ac7c7",
@@ -784,17 +788,17 @@ export default {
       "prepared-443e2e85b058"
     ],
     "ImageGenerator_config": [
-      "providerOptions-d0dcb86a4b4b",
-      "seed-2911d722b271",
-      "maxRetries-43a557421317",
-      "headers-8a1860c91ac4",
-      "model-11f5ef204b2c",
-      "n-f9857b6df04f",
-      "maxImagesPerCall-7d962d74cbca",
-      "size-5a9c136a3a29",
-      "aspectRatio-29de3eadc285",
-      "images-a9ef46239974",
-      "mask-67715919181b",
+      "providerOptions-5fcc54204c7d",
+      "seed-f61917bfc1e4",
+      "maxRetries-c66620af033c",
+      "headers-1770c8ac0413",
+      "model-bc27ce67cf0a",
+      "n-71f8e80752c9",
+      "maxImagesPerCall-07ad01192bf4",
+      "size-a1ddd9b66299",
+      "aspectRatio-0e953591963c",
+      "images-7acfa9f82d1f",
+      "mask-fb29f1c10bf2",
       "prompt-e832a0f8b353",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -808,19 +812,19 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "ImageGenerator_settings": [
-      "providerOptions-d0dcb86a4b4b",
-      "seed-2911d722b271",
-      "maxRetries-43a557421317",
-      "abortSignal-f0f3c7bf9130",
-      "headers-8a1860c91ac4",
-      "prompt-48ad41e1e072",
-      "model-b484e382e133",
-      "n-f9857b6df04f",
-      "maxImagesPerCall-7d962d74cbca",
-      "size-5a9c136a3a29",
-      "aspectRatio-29de3eadc285",
-      "images-a9ef46239974",
-      "mask-67715919181b"
+      "providerOptions-5fcc54204c7d",
+      "seed-f61917bfc1e4",
+      "maxRetries-c66620af033c",
+      "abortSignal-af0f2d8911dc",
+      "headers-1770c8ac0413",
+      "prompt-cd1596b0bae6",
+      "model-3c08b406693e",
+      "n-71f8e80752c9",
+      "maxImagesPerCall-07ad01192bf4",
+      "size-a1ddd9b66299",
+      "aspectRatio-0e953591963c",
+      "images-7acfa9f82d1f",
+      "mask-fb29f1c10bf2"
     ],
     "ImageGenerator_inputs": [
       "direct-2d5fd362f21e",
@@ -828,15 +832,16 @@ export default {
       "prepared-02ae7791d4f4"
     ],
     "Transcriber_config": [
-      "providerOptions-6fb067a708e2",
-      "maxRetries-569af71b732f",
-      "headers-23ed9be29275",
-      "model-b8a9484641b3",
-      "telemetry-72cc4604f7aa",
+      "providerOptions-f1407026e059",
+      "maxRetries-517add5497ce",
+      "headers-7886326ddcda",
+      "model-331c2d5419c7",
+      "telemetry-e6a01e9dfd10",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "download-f08788366d4c",
-      "audio-2605fab956b9",
+      "timestampGranularities-f8ab98382618",
+      "download-7fc28372c55f",
+      "audio-c74e517980be",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -849,32 +854,33 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "Transcriber_settings": [
-      "providerOptions-6fb067a708e2",
-      "maxRetries-569af71b732f",
-      "abortSignal-1f5a193f4cfe",
-      "headers-23ed9be29275",
-      "model-d63e7d77f371",
-      "telemetry-72cc4604f7aa",
-      "download-f08788366d4c",
+      "providerOptions-f1407026e059",
+      "maxRetries-517add5497ce",
+      "abortSignal-8b753a971039",
+      "headers-7886326ddcda",
+      "model-ab2d60d092c3",
+      "telemetry-e6a01e9dfd10",
+      "timestampGranularities-f8ab98382618",
+      "download-7fc28372c55f",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "audio-77fb26eba0fb"
+      "audio-f4a50ca734b1"
     ],
     "Transcriber_inputs": [
-      "direct-fad7b13e388e",
-      "prepared-e71d276d5c69"
+      "direct-7bcd58c5299d",
+      "prepared-b09ea79bc187"
     ],
     "SpeechGenerator_config": [
-      "providerOptions-b4ea33bb4d7b",
-      "maxRetries-3203a207b457",
-      "headers-210ca6223697",
-      "instructions-589fb8cbb087",
-      "model-94567991422d",
-      "telemetry-f8a2081d9c3e",
-      "voice-524c54983482",
-      "outputFormat-6291f13adf52",
-      "speed-4d164fbb7f9d",
-      "language-61b62537a500",
+      "providerOptions-0391eeeaef21",
+      "language-80fcf25fd716",
+      "maxRetries-49b0652defa9",
+      "headers-06589cfe4fcf",
+      "instructions-3d37a40068de",
+      "model-abbda6b55254",
+      "telemetry-0bd86804edb7",
+      "voice-077d0f0f81a8",
+      "outputFormat-69479cff1acd",
+      "speed-d74265e616d8",
       "text-9952b743697d",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -888,18 +894,18 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "SpeechGenerator_settings": [
-      "text-ec806897822a",
-      "providerOptions-b4ea33bb4d7b",
-      "maxRetries-3203a207b457",
-      "abortSignal-dde81d3b7308",
-      "headers-210ca6223697",
-      "instructions-589fb8cbb087",
-      "model-8d9d31f1896c",
-      "telemetry-f8a2081d9c3e",
-      "voice-524c54983482",
-      "outputFormat-6291f13adf52",
-      "speed-4d164fbb7f9d",
-      "language-61b62537a500"
+      "text-3e3b88fecf0f",
+      "providerOptions-0391eeeaef21",
+      "language-80fcf25fd716",
+      "maxRetries-49b0652defa9",
+      "abortSignal-2a56d4719602",
+      "headers-06589cfe4fcf",
+      "instructions-3d37a40068de",
+      "model-1dce7990aa0b",
+      "telemetry-0bd86804edb7",
+      "voice-077d0f0f81a8",
+      "outputFormat-69479cff1acd",
+      "speed-d74265e616d8"
     ],
     "SpeechGenerator_inputs": [
       "direct-5306f56796f6",
@@ -907,15 +913,15 @@ export default {
       "template-7349d7682caf"
     ],
     "Translator_config": [
-      "providerOptions-629f88d39640",
-      "headers-8bb00513d5db",
-      "model-c8d77816a238",
-      "inputAudioFormat-2df44b715671",
-      "targetLanguage-94fcfd26675f",
-      "outputAudioFormat-89e588aef43c",
+      "providerOptions-90a5d6a9f1ee",
+      "headers-7d47ca76d094",
+      "model-4789518cab57",
+      "inputAudioFormat-d8322f89357f",
+      "targetLanguage-8f57c47fbc72",
+      "outputAudioFormat-d539c234392c",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "sourceLanguage-af6309dbca4a",
+      "sourceLanguage-ebb4e1b916d2",
       "audio-c563898406e8",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -929,33 +935,33 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "Translator_settings": [
-      "providerOptions-629f88d39640",
-      "abortSignal-d9dfce9e4ae0",
-      "headers-8bb00513d5db",
-      "model-2844db232f29",
+      "providerOptions-90a5d6a9f1ee",
+      "abortSignal-c0f42bc55266",
+      "headers-7d47ca76d094",
+      "model-246db9799f69",
       "audio-87d9e2ee44af",
-      "inputAudioFormat-a9437bf10d0a",
-      "targetLanguage-f5006a68aa47",
-      "outputAudioFormat-89e588aef43c",
+      "inputAudioFormat-afb9527b3706",
+      "targetLanguage-f0a3ad97c84b",
+      "outputAudioFormat-d539c234392c",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "sourceLanguage-af6309dbca4a"
+      "sourceLanguage-ebb4e1b916d2"
     ],
     "Translator_inputs": [
       "direct-1d822026b786",
       "prepared-8ec1b7b87830"
     ],
     "VoiceAgentBackend_config": [
-      "providerOptions-017504595b6e",
+      "providerOptions-207d34914c15",
       "model-c2646b18c643",
-      "inputAudioFormat-955d75ed5ca3",
-      "voice-7e42c4fa10ac",
-      "outputModalities-39bbf6b1aadb",
-      "inputAudioTranscription-bc4eeaf53b51",
-      "outputAudioTranscription-d19f1c7d2fa9",
-      "outputAudioFormat-bc737eb9a538",
-      "turnDetection-8e67b91d87d3",
-      "expiresAfterSeconds-f25ee8b0931a",
+      "inputAudioFormat-9303f715c7b4",
+      "voice-a1f8a990e4c3",
+      "outputModalities-c669f792f5d9",
+      "inputAudioTranscription-b199469fe309",
+      "outputAudioTranscription-3df77a6d2390",
+      "outputAudioFormat-40273b9f1c57",
+      "turnDetection-a9c515125296",
+      "expiresAfterSeconds-7125d4863dda",
       "instructions-cda74c669be0",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -969,16 +975,16 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "VoiceAgentBackend_settings": [
-      "providerOptions-017504595b6e",
-      "instructions-4cc81f59e6ac",
-      "inputAudioFormat-955d75ed5ca3",
-      "voice-7e42c4fa10ac",
-      "outputModalities-39bbf6b1aadb",
-      "inputAudioTranscription-bc4eeaf53b51",
-      "outputAudioTranscription-d19f1c7d2fa9",
-      "outputAudioFormat-bc737eb9a538",
-      "turnDetection-8e67b91d87d3",
-      "expiresAfterSeconds-f25ee8b0931a",
+      "providerOptions-207d34914c15",
+      "instructions-0c459c58ac82",
+      "inputAudioFormat-9303f715c7b4",
+      "voice-a1f8a990e4c3",
+      "outputModalities-c669f792f5d9",
+      "inputAudioTranscription-b199469fe309",
+      "outputAudioTranscription-3df77a6d2390",
+      "outputAudioFormat-40273b9f1c57",
+      "turnDetection-a9c515125296",
+      "expiresAfterSeconds-7125d4863dda",
       "model-c2646b18c643"
     ],
     "VoiceAgentBackend_inputs": [
@@ -989,49 +995,49 @@ export default {
     "Tool": [
       "inputSchema-47ed76ea66b3",
       "toolContextSchema-d7c206b57ff4",
-      "onInputAvailable-0ee077587da3",
-      "onInputStart-060e54bf784e",
-      "onInputDelta-ea4168ae0b75",
-      "needsApproval-e2c793a8ce88",
-      "title-6e688f9a6e86",
-      "deferLoading-ae9383ee0fa8",
-      "providerOptions-42fe4696b43b",
-      "metadata-6d9129abab07",
-      "toModelOutput-8f0e85e088c7",
-      "strict-07a151c197b1",
-      "inputExamples-ff69a7242b1e",
+      "onInputAvailable-2fcbe53a40cf",
+      "onInputStart-6db43b699e4e",
+      "onInputDelta-dc6151fa688a",
+      "needsApproval-1e0f61adeb0d",
+      "title-a1c2f6247831",
+      "deferLoading-fec45f07f745",
+      "providerOptions-618cf384fe38",
+      "metadata-c2317f76c82b",
+      "toModelOutput-2b05fcc61141",
+      "strict-4241d63003b7",
+      "inputExamples-e42b4f96dfae",
       "description-e0df7f9e2319"
     ],
     "AgentRun": [
       "debug-cdff8d93c93d",
       "description-094750903948",
-      "runtimeContext-5279a5b531bf",
-      "providerOptions-bdb985c437b4",
-      "maxOutputTokens-28aceb6f8de2",
-      "temperature-d5e463222c25",
-      "topP-c18ae9faa20b",
-      "topK-9dca433077cb",
-      "presencePenalty-ffb8353a33d5",
-      "frequencyPenalty-24e57c07ecf0",
-      "stopSequences-d8033627c3bb",
-      "seed-42d63366f1c9",
-      "reasoning-50148c4a1de6",
-      "maxRetries-0ed81bc73d61",
-      "headers-74f55db49467",
-      "timeout-1bba377e46d4",
-      "instructions-b0d8abcfc99d",
-      "allowSystemInMessages-e1a407f3bbe9",
-      "toolChoice-180fe037bbc0",
-      "telemetry-678067987faf",
-      "experimental_sandbox-2582909742ec",
-      "experimental_steering-82714f7fe6df",
-      "activeTools-97c193783099",
-      "toolOrder-e8ffff15b565",
-      "toolCallConcurrency-940e6b2336b5",
-      "experimental_toolCallers-ff9afda2223d",
-      "experimental_toolApprovalSecret-4ff3620966c4",
-      "include-2f0b096d0254",
-      "streamRetries-2780ace7cb77",
+      "runtimeContext-c62c730fa462",
+      "providerOptions-6db661b2b6a7",
+      "maxOutputTokens-3750aae06b78",
+      "temperature-c970b1ef9f50",
+      "topP-8c117ff138cd",
+      "topK-07df4c014c42",
+      "presencePenalty-27e20b4c1aa5",
+      "frequencyPenalty-32bb1198f9f5",
+      "stopSequences-2eefa8740e8d",
+      "seed-c03ecfd73f92",
+      "reasoning-b90f40e6fd96",
+      "maxRetries-0aedd6c52d2f",
+      "headers-b4f0a59701e0",
+      "timeout-0e724f13b50a",
+      "instructions-7a09e697e800",
+      "allowSystemInMessages-48822b7d4b46",
+      "toolChoice-58cffc8c1041",
+      "telemetry-5d1adc753c55",
+      "experimental_sandbox-bd7685f3dca4",
+      "experimental_steering-a70a6a3f26bf",
+      "activeTools-06cfc51a0db3",
+      "toolOrder-2a0e343c93b1",
+      "toolCallConcurrency-769ff7ccf7bf",
+      "experimental_toolCallers-fd1a321c4fd1",
+      "experimental_toolApprovalSecret-5573519278c4",
+      "include-74de729ed750",
+      "streamRetries-ca6a5025c0f4",
       "prompt-0bb201e140ef",
       "messageHistory-fb9b9d072e86",
       "stopWhen-ff0af44bb75f",
@@ -1047,6 +1053,7 @@ export default {
       "onToolExecutionEnd-0e3a45072d00",
       "onStepEnd-41a36140d3f2",
       "onStepError-bcce88d062ae",
+      "onWarning-297284192218",
       "onEnd-457c295e22f5",
       "experimental_transform-7216d3f250a7",
       "onChunk-776bfe13cff3",
@@ -1058,175 +1065,177 @@ export default {
       "model-9cc84a88e236"
     ],
     "NativeGenerate": [
-      "options-37bd75580b6d",
-      "prompt-1ffdc31f366f",
-      "messages-df6f076db158",
-      "abortSignal-52561c51f595",
-      "timeout-2b6830ecfea3",
-      "onStart-aef48ea7e7b4",
-      "experimental_onStart-bb23f034eb71",
-      "onStepStart-4eac7e85c7c3",
-      "experimental_onStepStart-97ac29c27fbe",
-      "onToolExecutionStart-e4f0d33f9232",
-      "experimental_onToolCallStart-edf35f9005ce",
-      "onToolExecutionEnd-7a5b4146deff",
-      "experimental_onToolCallFinish-3717e6bbaa7d",
-      "onStepEnd-c19ef6fba098",
-      "onStepFinish-570883b7dcbd",
-      "onEnd-f2ea97395729",
-      "onFinish-70e885571273",
-      "experimental_sandbox-7a420260cec2"
+      "options-8fa395032d9b",
+      "prompt-8d7ea27bd026",
+      "messages-ed6c2b4b81e2",
+      "abortSignal-8472d497301f",
+      "timeout-3d7a5c777cdf",
+      "onStart-8ab79d0f0fb2",
+      "experimental_onStart-bdf9f9b7d2a9",
+      "onStepStart-8051895eff4f",
+      "experimental_onStepStart-e7ff155c4cc6",
+      "onToolExecutionStart-0efd83b85d7c",
+      "experimental_onToolCallStart-f78192135695",
+      "onToolExecutionEnd-b14c42f13960",
+      "experimental_onToolCallFinish-fbaaccdc74be",
+      "onStepEnd-5ba9136cedb9",
+      "onStepFinish-108a1b0e5530",
+      "onEnd-5adcd5ed4951",
+      "onFinish-64c97cab1f90",
+      "experimental_sandbox-ca9e32143b76"
     ],
     "NativeStream": [
-      "options-37bd75580b6d",
-      "prompt-1ffdc31f366f",
-      "messages-df6f076db158",
-      "abortSignal-52561c51f595",
-      "timeout-9e14af0b9943",
-      "onStart-9ac541be5597",
-      "experimental_onStart-8b450fd7696a",
-      "onStepStart-47b571f98d6a",
-      "experimental_onStepStart-73171b13a668",
-      "onToolExecutionStart-44653cbecfb4",
-      "experimental_onToolCallStart-31c7d68b5570",
-      "onToolExecutionEnd-73d3571a0e34",
-      "experimental_onToolCallFinish-e743e6d45d56",
-      "onStepEnd-38a1e56505af",
-      "onStepFinish-749f084a3582",
-      "onEnd-5c5601675cd4",
-      "onFinish-3a20cbb9bf1e",
-      "experimental_sandbox-7a420260cec2",
-      "experimental_transform-4d7fc66a5495"
+      "options-8fa395032d9b",
+      "prompt-8d7ea27bd026",
+      "messages-ed6c2b4b81e2",
+      "abortSignal-8472d497301f",
+      "timeout-ba7665ff386c",
+      "onStart-38c32622c842",
+      "experimental_onStart-d03a46de5ea8",
+      "onStepStart-61964b5201ef",
+      "experimental_onStepStart-b6023181e588",
+      "onToolExecutionStart-b0f5666b9163",
+      "experimental_onToolCallStart-c0d4f80bf7e9",
+      "onToolExecutionEnd-d0cb63f0a4eb",
+      "experimental_onToolCallFinish-6975a1e4c99c",
+      "onStepEnd-e2a3cff813fa",
+      "onStepFinish-ea5fa4554781",
+      "onEnd-974d471b67c6",
+      "onFinish-512100d5c453",
+      "experimental_sandbox-ca9e32143b76",
+      "experimental_transform-7db3258bd060"
     ],
     "GenerateSettings": [
-      "maxOutputTokens-28aceb6f8de2",
-      "temperature-d5e463222c25",
-      "topP-c18ae9faa20b",
-      "topK-9dca433077cb",
-      "presencePenalty-ffb8353a33d5",
-      "frequencyPenalty-24e57c07ecf0",
-      "stopSequences-d8033627c3bb",
-      "seed-42d63366f1c9",
-      "reasoning-50148c4a1de6",
-      "maxRetries-0ed81bc73d61",
-      "abortSignal-fc62ed60653c",
-      "headers-74f55db49467",
-      "timeout-d2d66c53fa17",
-      "instructions-b0d8abcfc99d",
-      "system-172f838ea9ab",
-      "allowSystemInMessages-e1a407f3bbe9",
-      "prompt-da6f2a5e577b",
-      "messages-4821e5bed3b2",
-      "tools-c7e657498fc5",
-      "model-bcb922cd8d09",
-      "toolChoice-e966120430af",
-      "stopWhen-58682c71d97a",
-      "telemetry-426b4fc5106b",
-      "experimental_telemetry-a9e7af1f89df",
-      "providerOptions-84c631799d17",
-      "experimental_sandbox-99c3bd2e8aa3",
-      "experimental_steering-5a09c397514b",
-      "runtimeContext-4a749ca4bd3e",
-      "activeTools-40780df8380f",
-      "toolOrder-3e1ebf5c6c12",
-      "toolCallConcurrency-b74f772b74e0",
-      "output-e60b98f327bb",
-      "toolApproval-172adab271f3",
-      "experimental_toolCallers-1828a8c45edd",
-      "experimental_toolApprovalSecret-605bca05f581",
-      "experimental_download-a484b37b0e10",
-      "prepareStep-722de7983b61",
-      "repairToolCall-90618d4db5d0",
-      "experimental_repairToolCall-8b5571b91327",
-      "experimental_refineToolInput-47f3c0fd9da8",
-      "onStart-04bef8beb81a",
-      "experimental_onStart-e62aaae29cc6",
-      "onStepStart-f84d162aacac",
-      "experimental_onStepStart-028c613cdafb",
-      "onLanguageModelCallStart-5a20308df072",
-      "experimental_onLanguageModelCallStart-220a502fe06c",
-      "onLanguageModelCallEnd-d5815d586cf9",
-      "experimental_onLanguageModelCallEnd-09ab6ee2dbab",
-      "onToolExecutionStart-759b258f7ebb",
-      "experimental_onToolCallStart-8d8e55310f46",
-      "onToolExecutionEnd-7103c945dc4c",
-      "experimental_onToolCallFinish-bab0dfda3943",
-      "onStepEnd-7464be587786",
-      "onStepError-ff3b402b51ab",
-      "onStepFinish-08052cbd0975",
-      "onEnd-88496c796bd5",
-      "onFinish-bba008f25f73",
-      "include-08574c6232c5",
-      "experimental_include-61e712cf0599",
-      "_internal-f6a277d4bac6"
+      "maxOutputTokens-3750aae06b78",
+      "temperature-c970b1ef9f50",
+      "topP-8c117ff138cd",
+      "topK-07df4c014c42",
+      "presencePenalty-27e20b4c1aa5",
+      "frequencyPenalty-32bb1198f9f5",
+      "stopSequences-2eefa8740e8d",
+      "seed-c03ecfd73f92",
+      "reasoning-b90f40e6fd96",
+      "maxRetries-0aedd6c52d2f",
+      "abortSignal-332106eb39a3",
+      "headers-b4f0a59701e0",
+      "timeout-439a1a41320c",
+      "instructions-7a09e697e800",
+      "system-77b926aa15b3",
+      "allowSystemInMessages-48822b7d4b46",
+      "prompt-9441b69dcea1",
+      "messages-43bee1c696a9",
+      "tools-5efdda627cc8",
+      "model-09a947404281",
+      "toolChoice-427c5a9308b0",
+      "stopWhen-5eaba03d41fc",
+      "telemetry-83a18a73674f",
+      "experimental_telemetry-308f34bd840d",
+      "providerOptions-bd08c56812f2",
+      "experimental_sandbox-37021c1de022",
+      "experimental_steering-460ceb38c418",
+      "runtimeContext-afa54abaf1a9",
+      "activeTools-f03d9ff9a732",
+      "toolOrder-2d0fea3811dd",
+      "toolCallConcurrency-bc88af60dd58",
+      "output-0c868bea346c",
+      "toolApproval-d051fbd5a943",
+      "experimental_toolCallers-2a0384aa9261",
+      "experimental_toolApprovalSecret-396b6f71c894",
+      "experimental_download-598dda901e60",
+      "prepareStep-aafaa9f826d3",
+      "repairToolCall-6d6832910cc0",
+      "experimental_repairToolCall-d304098a1b19",
+      "experimental_refineToolInput-b39b71a0bddd",
+      "onStart-89fac7e39631",
+      "experimental_onStart-5921bc4f853e",
+      "onStepStart-220427497ee7",
+      "experimental_onStepStart-0a99f50815e7",
+      "onLanguageModelCallStart-81f4947eef8c",
+      "experimental_onLanguageModelCallStart-efe693c1dc1b",
+      "onLanguageModelCallEnd-fa88d24172ce",
+      "experimental_onLanguageModelCallEnd-48f9fd5c2d62",
+      "onToolExecutionStart-a060181acc9b",
+      "experimental_onToolCallStart-6fe11ac760e4",
+      "onToolExecutionEnd-478ae59f9ea8",
+      "experimental_onToolCallFinish-2ef361bbbc6c",
+      "onStepEnd-2aaf83f6abe4",
+      "onStepError-63d00bbd0ad0",
+      "onWarning-b25f03d5708f",
+      "onStepFinish-c3f5f84cadd0",
+      "onEnd-f5cf86d09704",
+      "onFinish-addf70b8ab33",
+      "include-f5921751b4c7",
+      "experimental_include-66b1c9615325",
+      "_internal-4f7a05af8f2b"
     ],
     "StreamSettings": [
-      "maxOutputTokens-28aceb6f8de2",
-      "temperature-d5e463222c25",
-      "topP-c18ae9faa20b",
-      "topK-9dca433077cb",
-      "presencePenalty-ffb8353a33d5",
-      "frequencyPenalty-24e57c07ecf0",
-      "stopSequences-d8033627c3bb",
-      "seed-42d63366f1c9",
-      "reasoning-50148c4a1de6",
-      "maxRetries-0ed81bc73d61",
-      "abortSignal-fc62ed60653c",
-      "headers-74f55db49467",
-      "timeout-d2d66c53fa17",
-      "instructions-b0d8abcfc99d",
-      "system-172f838ea9ab",
-      "allowSystemInMessages-e1a407f3bbe9",
-      "prompt-da6f2a5e577b",
-      "messages-4821e5bed3b2",
-      "tools-c7e657498fc5",
-      "model-f5334808405d",
-      "toolChoice-ee62be34526e",
-      "stopWhen-061b01707f0c",
-      "telemetry-c4d62b940351",
-      "experimental_telemetry-b6b99a209d23",
-      "providerOptions-bdb985c437b4",
-      "experimental_sandbox-2582909742ec",
-      "experimental_steering-82714f7fe6df",
-      "runtimeContext-ded6f4342986",
-      "activeTools-e09d12af5e53",
-      "toolOrder-c6855d505085",
-      "toolCallConcurrency-940e6b2336b5",
-      "output-fe44a89cb056",
-      "toolApproval-ed5d414f0f62",
-      "experimental_toolCallers-ffe6f3c3e609",
-      "experimental_toolApprovalSecret-4ff3620966c4",
-      "prepareStep-7d67e4ce16c8",
-      "repairToolCall-1cfd20033b0a",
-      "experimental_repairToolCall-e8fd40680c55",
-      "experimental_refineToolInput-b3ee93fb0d2b",
-      "experimental_transform-0ec05c4143a3",
-      "experimental_download-162e51e5ff3c",
-      "includeRawChunks-4927cd9740df",
-      "onChunk-6fbcb2a9372a",
-      "onError-16e40c751f49",
-      "streamRetries-2780ace7cb77",
-      "onEnd-ef461f83e3bb",
-      "onFinish-f20459a0ea53",
-      "onAbort-c24d17adc5f3",
-      "onStepEnd-d8e8f0f2289a",
-      "onStepError-6ac92c5732e1",
-      "onStepFinish-a6df59245cbd",
-      "onStart-57baf4db48d0",
-      "experimental_onStart-98bf0b5a2745",
-      "onStepStart-9ebb7d08a587",
-      "experimental_onStepStart-15e8aea9fae2",
-      "onLanguageModelCallStart-8d83021ae3c8",
-      "experimental_onLanguageModelCallStart-491395c8a913",
-      "onLanguageModelCallEnd-94d3ab4bd2e8",
-      "experimental_onLanguageModelCallEnd-a09d59f7a599",
-      "onToolExecutionStart-1954e5a469ba",
-      "experimental_onToolCallStart-3976f3ffdb21",
-      "onToolExecutionEnd-ea85b06844b0",
-      "experimental_onToolCallFinish-08b7141b6862",
-      "include-2f0b096d0254",
-      "experimental_include-c911c6b3941e",
-      "_internal-2797c17b47fe"
+      "maxOutputTokens-3750aae06b78",
+      "temperature-c970b1ef9f50",
+      "topP-8c117ff138cd",
+      "topK-07df4c014c42",
+      "presencePenalty-27e20b4c1aa5",
+      "frequencyPenalty-32bb1198f9f5",
+      "stopSequences-2eefa8740e8d",
+      "seed-c03ecfd73f92",
+      "reasoning-b90f40e6fd96",
+      "maxRetries-0aedd6c52d2f",
+      "abortSignal-332106eb39a3",
+      "headers-b4f0a59701e0",
+      "timeout-439a1a41320c",
+      "instructions-7a09e697e800",
+      "system-77b926aa15b3",
+      "allowSystemInMessages-48822b7d4b46",
+      "prompt-9441b69dcea1",
+      "messages-43bee1c696a9",
+      "tools-5efdda627cc8",
+      "model-13928364de1c",
+      "toolChoice-f6a9fedbe1b4",
+      "stopWhen-1269c94bf274",
+      "telemetry-7f5176f31df4",
+      "experimental_telemetry-4f7675b48d9c",
+      "providerOptions-6db661b2b6a7",
+      "experimental_sandbox-bd7685f3dca4",
+      "experimental_steering-a70a6a3f26bf",
+      "runtimeContext-6fe9258c1451",
+      "activeTools-7a4674c83084",
+      "toolOrder-e46202be091c",
+      "toolCallConcurrency-769ff7ccf7bf",
+      "output-56ac795cb09d",
+      "toolApproval-e6f9c22d9b3c",
+      "experimental_toolCallers-8a752bb63e36",
+      "experimental_toolApprovalSecret-5573519278c4",
+      "prepareStep-d9f1f942f148",
+      "repairToolCall-4ef13c129648",
+      "experimental_repairToolCall-2aa1d06c3008",
+      "experimental_refineToolInput-52f1527d50cb",
+      "experimental_transform-b422736429cc",
+      "experimental_download-393316c82a64",
+      "includeRawChunks-eb80fd3d4f31",
+      "onChunk-480ac277c91c",
+      "onError-a7cf8c7fafff",
+      "streamRetries-ca6a5025c0f4",
+      "onEnd-fe63bb2f27cd",
+      "onFinish-c4bddcf07443",
+      "onAbort-a9107997a88b",
+      "onStepEnd-195f794ee38b",
+      "onStepError-4d72b82e99ae",
+      "onWarning-191f1b180e1d",
+      "onStepFinish-58089e235735",
+      "onStart-0ec99fbf5859",
+      "experimental_onStart-0d26a8d8a29b",
+      "onStepStart-d30a78139419",
+      "experimental_onStepStart-9068893fd70f",
+      "onLanguageModelCallStart-dece0ed4d633",
+      "experimental_onLanguageModelCallStart-39509eb3527f",
+      "onLanguageModelCallEnd-411f0968c4d3",
+      "experimental_onLanguageModelCallEnd-1343c276d17a",
+      "onToolExecutionStart-4db0a212fd81",
+      "experimental_onToolCallStart-c8484c1add9d",
+      "onToolExecutionEnd-7870e85a04eb",
+      "experimental_onToolCallFinish-988da25c5643",
+      "include-74de729ed750",
+      "experimental_include-6f60b3b599e8",
+      "_internal-aaa986384177"
     ],
     "RenderOptions": [
       "replayAsyncIterables-1922b83c46d7",
@@ -1242,448 +1251,455 @@ export default {
       "tags-b567e55e7b4a"
     ],
     "ExecutionOptions": [
-      "abortSignal-2bf31b7f87fc",
-      "experimental_sandbox-0dfa76df5e3e",
-      "toolCallId-b3e91af1743a",
-      "messages-f97f28a7fbbb"
+      "abortSignal-c02e8d90cdb1",
+      "experimental_sandbox-2c067d8f8a99",
+      "toolCallId-2f21e5d47936",
+      "messages-09b7b90bc227"
     ],
     "Output": [
-      "array-a50da8c00109",
-      "choice-89fbb2824793",
-      "json-56015e6681ff",
-      "object-fb3d199946ca",
-      "text-2dba2c59564f"
+      "array-8ef7a1a38be3",
+      "choice-40a88fdac013",
+      "json-7cf712295f6b",
+      "object-297d79bfd094",
+      "text-5150d90812b9"
     ],
     "SessionConfig": [
-      "instructions-4cc81f59e6ac",
-      "voice-7e42c4fa10ac",
-      "outputModalities-39bbf6b1aadb",
-      "inputAudioFormat-955d75ed5ca3",
-      "inputAudioTranscription-bc4eeaf53b51",
-      "outputAudioTranscription-d19f1c7d2fa9",
-      "outputAudioFormat-bc737eb9a538",
-      "turnDetection-8e67b91d87d3",
-      "tools-a0a46f619d2a",
-      "providerOptions-017504595b6e"
+      "instructions-0c459c58ac82",
+      "voice-a1f8a990e4c3",
+      "outputModalities-c669f792f5d9",
+      "inputAudioFormat-9303f715c7b4",
+      "inputAudioTranscription-b199469fe309",
+      "outputAudioTranscription-3df77a6d2390",
+      "outputAudioFormat-40273b9f1c57",
+      "turnDetection-a9c515125296",
+      "tools-5b3941793a8a",
+      "providerOptions-207d34914c15"
     ],
     "VoiceSessionConfig_result": [
-      "instructions-4cc81f59e6ac",
-      "voice-7e42c4fa10ac",
-      "outputModalities-39bbf6b1aadb",
-      "inputAudioFormat-955d75ed5ca3",
-      "inputAudioTranscription-bc4eeaf53b51",
-      "outputAudioTranscription-d19f1c7d2fa9",
-      "outputAudioFormat-bc737eb9a538",
-      "turnDetection-8e67b91d87d3",
-      "tools-a0a46f619d2a",
-      "providerOptions-017504595b6e"
+      "instructions-0c459c58ac82",
+      "voice-a1f8a990e4c3",
+      "outputModalities-c669f792f5d9",
+      "inputAudioFormat-9303f715c7b4",
+      "inputAudioTranscription-b199469fe309",
+      "outputAudioTranscription-3df77a6d2390",
+      "outputAudioFormat-40273b9f1c57",
+      "turnDetection-a9c515125296",
+      "tools-5b3941793a8a",
+      "providerOptions-207d34914c15"
     ],
     "VoiceWebRTC_result": [
-      "sessionId-b384762552aa",
-      "sdp-6a765cb22ad4"
+      "sessionId-b6fc27964320",
+      "sdp-fcadac34b4d5"
     ],
     "LLMAgent_result": [
-      "content-2a8a29548036",
-      "text-925a2201a0e9",
-      "reasoning-c999ae832ad1",
-      "reasoningText-37eedd3b6264",
-      "files-0e94b2d13dfd",
-      "sources-a83f0411473e",
-      "toolCalls-b8abddbc1a19",
-      "staticToolCalls-4700a386356d",
-      "dynamicToolCalls-9598dbe74c2d",
-      "toolResults-309dd0a07bcf",
-      "staticToolResults-2edcf41036e7",
-      "dynamicToolResults-500736a6ee5f",
-      "finishReason-dfb59b85b501",
-      "rawFinishReason-31c21f78dc95",
-      "usage-24adb70fb568",
-      "totalUsage-498de2aec016",
-      "warnings-2846ee005e14",
-      "request-221385acc282",
-      "response-e5e32110ad14",
-      "responseMessages-806464dfb85b",
-      "providerMetadata-cbbb7591ae4c",
-      "steps-136a8e127e1f",
-      "finalStep-37d35df42bd8",
-      "output-a77136f8075d"
+      "content-422e8740c5ce",
+      "text-0571a906f1c8",
+      "reasoning-5c68a3f61406",
+      "reasoningText-680764399433",
+      "files-f05da7bef5bd",
+      "sources-0a2f6b60c182",
+      "toolCalls-069ebdd0ca5a",
+      "staticToolCalls-882a07a64732",
+      "dynamicToolCalls-3b90509703b5",
+      "toolResults-c5f99b80b2d0",
+      "staticToolResults-627995dc28d7",
+      "dynamicToolResults-5a02069c1994",
+      "finishReason-5565b4913800",
+      "rawFinishReason-afbf2b9573a4",
+      "stoppedBy-d38eb1c0a082",
+      "usage-082e2510cd29",
+      "totalUsage-ed2630036869",
+      "warnings-f58b24a208a7",
+      "request-c3b04b1c5cd8",
+      "response-38f289615619",
+      "responseMessages-7bccbd62b234",
+      "providerMetadata-0788c47db8e0",
+      "steps-2cb49aa694a9",
+      "finalStep-8efda235ab02",
+      "output-c06c5091c887"
     ],
     "LLMAgent_native": [
-      "maxOutputTokens-28aceb6f8de2",
-      "temperature-d5e463222c25",
-      "topP-c18ae9faa20b",
-      "topK-9dca433077cb",
-      "presencePenalty-ffb8353a33d5",
-      "frequencyPenalty-24e57c07ecf0",
-      "stopSequences-d8033627c3bb",
-      "seed-42d63366f1c9",
-      "reasoning-50148c4a1de6",
-      "maxRetries-0ed81bc73d61",
-      "abortSignal-fc62ed60653c",
-      "headers-74f55db49467",
-      "timeout-d2d66c53fa17",
-      "instructions-b0d8abcfc99d",
-      "system-172f838ea9ab",
-      "allowSystemInMessages-e1a407f3bbe9",
-      "prompt-da6f2a5e577b",
-      "messages-4821e5bed3b2",
-      "tools-c7e657498fc5",
-      "model-bcb922cd8d09",
-      "toolChoice-e966120430af",
-      "stopWhen-58682c71d97a",
-      "telemetry-426b4fc5106b",
-      "experimental_telemetry-a9e7af1f89df",
-      "providerOptions-84c631799d17",
-      "experimental_sandbox-99c3bd2e8aa3",
-      "experimental_steering-5a09c397514b",
-      "runtimeContext-4a749ca4bd3e",
-      "activeTools-40780df8380f",
-      "toolOrder-3e1ebf5c6c12",
-      "toolCallConcurrency-b74f772b74e0",
-      "output-e60b98f327bb",
-      "toolApproval-172adab271f3",
-      "experimental_toolCallers-1828a8c45edd",
-      "experimental_toolApprovalSecret-605bca05f581",
-      "experimental_download-a484b37b0e10",
-      "prepareStep-722de7983b61",
-      "repairToolCall-90618d4db5d0",
-      "experimental_repairToolCall-8b5571b91327",
-      "experimental_refineToolInput-47f3c0fd9da8",
-      "onStart-04bef8beb81a",
-      "experimental_onStart-e62aaae29cc6",
-      "onStepStart-f84d162aacac",
-      "experimental_onStepStart-028c613cdafb",
-      "onLanguageModelCallStart-5a20308df072",
-      "experimental_onLanguageModelCallStart-220a502fe06c",
-      "onLanguageModelCallEnd-d5815d586cf9",
-      "experimental_onLanguageModelCallEnd-09ab6ee2dbab",
-      "onToolExecutionStart-759b258f7ebb",
-      "experimental_onToolCallStart-8d8e55310f46",
-      "onToolExecutionEnd-7103c945dc4c",
-      "experimental_onToolCallFinish-bab0dfda3943",
-      "onStepEnd-7464be587786",
-      "onStepError-ff3b402b51ab",
-      "onStepFinish-08052cbd0975",
-      "onEnd-88496c796bd5",
-      "onFinish-bba008f25f73",
-      "include-08574c6232c5",
-      "experimental_include-61e712cf0599",
-      "_internal-f6a277d4bac6"
+      "maxOutputTokens-3750aae06b78",
+      "temperature-c970b1ef9f50",
+      "topP-8c117ff138cd",
+      "topK-07df4c014c42",
+      "presencePenalty-27e20b4c1aa5",
+      "frequencyPenalty-32bb1198f9f5",
+      "stopSequences-2eefa8740e8d",
+      "seed-c03ecfd73f92",
+      "reasoning-b90f40e6fd96",
+      "maxRetries-0aedd6c52d2f",
+      "abortSignal-332106eb39a3",
+      "headers-b4f0a59701e0",
+      "timeout-439a1a41320c",
+      "instructions-7a09e697e800",
+      "system-77b926aa15b3",
+      "allowSystemInMessages-48822b7d4b46",
+      "prompt-9441b69dcea1",
+      "messages-43bee1c696a9",
+      "tools-5efdda627cc8",
+      "model-09a947404281",
+      "toolChoice-427c5a9308b0",
+      "stopWhen-5eaba03d41fc",
+      "telemetry-83a18a73674f",
+      "experimental_telemetry-308f34bd840d",
+      "providerOptions-bd08c56812f2",
+      "experimental_sandbox-37021c1de022",
+      "experimental_steering-460ceb38c418",
+      "runtimeContext-afa54abaf1a9",
+      "activeTools-f03d9ff9a732",
+      "toolOrder-2d0fea3811dd",
+      "toolCallConcurrency-bc88af60dd58",
+      "output-0c868bea346c",
+      "toolApproval-d051fbd5a943",
+      "experimental_toolCallers-2a0384aa9261",
+      "experimental_toolApprovalSecret-396b6f71c894",
+      "experimental_download-598dda901e60",
+      "prepareStep-aafaa9f826d3",
+      "repairToolCall-6d6832910cc0",
+      "experimental_repairToolCall-d304098a1b19",
+      "experimental_refineToolInput-b39b71a0bddd",
+      "onStart-89fac7e39631",
+      "experimental_onStart-5921bc4f853e",
+      "onStepStart-220427497ee7",
+      "experimental_onStepStart-0a99f50815e7",
+      "onLanguageModelCallStart-81f4947eef8c",
+      "experimental_onLanguageModelCallStart-efe693c1dc1b",
+      "onLanguageModelCallEnd-fa88d24172ce",
+      "experimental_onLanguageModelCallEnd-48f9fd5c2d62",
+      "onToolExecutionStart-a060181acc9b",
+      "experimental_onToolCallStart-6fe11ac760e4",
+      "onToolExecutionEnd-478ae59f9ea8",
+      "experimental_onToolCallFinish-2ef361bbbc6c",
+      "onStepEnd-2aaf83f6abe4",
+      "onStepError-63d00bbd0ad0",
+      "onWarning-b25f03d5708f",
+      "onStepFinish-c3f5f84cadd0",
+      "onEnd-f5cf86d09704",
+      "onFinish-addf70b8ab33",
+      "include-f5921751b4c7",
+      "experimental_include-66b1c9615325",
+      "_internal-4f7a05af8f2b"
     ],
     "LLMAgentStream_result": [
-      "content-78185f28d35d",
-      "text-ed5e8048e5c8",
-      "reasoning-adfeb01c242e",
-      "reasoningText-8e5d43bfaac9",
-      "files-3baf3c0948a7",
-      "sources-5c24b516104e",
-      "toolCalls-00000473a97a",
-      "staticToolCalls-fe800df0b657",
-      "dynamicToolCalls-b95642b6e21a",
-      "staticToolResults-7eb944588ecf",
-      "dynamicToolResults-659935885523",
-      "toolResults-a3b17144d068",
-      "finishReason-1b0fe72a0778",
-      "rawFinishReason-c8a69858eb5c",
-      "usage-729563a623ca",
-      "totalUsage-75bf30f90be3",
-      "warnings-87d9968f8e07",
-      "steps-ac71cf637c67",
-      "finalStep-f5a197f739f2",
-      "request-f2c6f88f10d3",
-      "response-61c06f5c4845",
-      "responseMessages-419d83f78ea5",
-      "providerMetadata-7c8da1cc1063",
-      "textStream-942de4eaf2e3",
-      "stream-010421b1bb75",
-      "fullStream-fef6926e69b8",
-      "experimental_partialOutputStream-a73b4cb78c17",
-      "partialOutputStream-99c9325a20da",
-      "elementStream-b56d509c0449",
-      "output-123131f9da41",
-      "consumeStream-f9c55348e54f",
-      "toUIMessageStream-b8151304fa46",
-      "pipeUIMessageStreamToResponse-0c12508e1e68",
-      "pipeTextStreamToResponse-1d88dc69bf5b",
-      "toUIMessageStreamResponse-e50d56ba1962",
-      "toTextStreamResponse-5ec832758faa"
+      "content-3bb18539321d",
+      "text-f837ea5e2d60",
+      "reasoning-d05298f5ca7a",
+      "reasoningText-d8433e7073da",
+      "files-b82909e8d764",
+      "sources-625a7cf84149",
+      "toolCalls-36a4ce1b7f06",
+      "staticToolCalls-28c3437fab0e",
+      "dynamicToolCalls-9bb558f55dc2",
+      "staticToolResults-2b18447d33df",
+      "dynamicToolResults-6a83f67e3ee0",
+      "toolResults-d4aa36739dbf",
+      "finishReason-190b97cf2d40",
+      "rawFinishReason-9cee1c499f44",
+      "stoppedBy-620114570de0",
+      "usage-262b991a348f",
+      "totalUsage-ad85e58240c3",
+      "warnings-fb6f20b742d6",
+      "steps-d38bb78314bb",
+      "finalStep-51d42e47f875",
+      "request-1fff5b788637",
+      "response-51d80af81228",
+      "responseMessages-b2afdbcdc003",
+      "providerMetadata-facc55bb2227",
+      "textStream-de96764d739a",
+      "stream-cc0b8d1f2662",
+      "fullStream-86f6451b42a0",
+      "experimental_partialOutputStream-21f12f5a7a2a",
+      "partialOutputStream-0da8c7a6719d",
+      "elementStream-62d00c30607b",
+      "output-7d43e76672f8",
+      "consumeStream-c5445bbfbd84",
+      "toUIMessageStream-3fb623239137",
+      "pipeUIMessageStreamToResponse-927c75d19e66",
+      "pipeTextStreamToResponse-eb28c26f6dae",
+      "toUIMessageStreamResponse-b7491de6db9c",
+      "toTextStreamResponse-9609adab2f14"
     ],
     "LLMAgentStream_native": [
-      "maxOutputTokens-28aceb6f8de2",
-      "temperature-d5e463222c25",
-      "topP-c18ae9faa20b",
-      "topK-9dca433077cb",
-      "presencePenalty-ffb8353a33d5",
-      "frequencyPenalty-24e57c07ecf0",
-      "stopSequences-d8033627c3bb",
-      "seed-42d63366f1c9",
-      "reasoning-50148c4a1de6",
-      "maxRetries-0ed81bc73d61",
-      "abortSignal-fc62ed60653c",
-      "headers-74f55db49467",
-      "timeout-d2d66c53fa17",
-      "instructions-b0d8abcfc99d",
-      "system-172f838ea9ab",
-      "allowSystemInMessages-e1a407f3bbe9",
-      "prompt-da6f2a5e577b",
-      "messages-4821e5bed3b2",
-      "tools-c7e657498fc5",
-      "model-f5334808405d",
-      "toolChoice-ee62be34526e",
-      "stopWhen-061b01707f0c",
-      "telemetry-c4d62b940351",
-      "experimental_telemetry-b6b99a209d23",
-      "providerOptions-bdb985c437b4",
-      "experimental_sandbox-2582909742ec",
-      "experimental_steering-82714f7fe6df",
-      "runtimeContext-ded6f4342986",
-      "activeTools-e09d12af5e53",
-      "toolOrder-c6855d505085",
-      "toolCallConcurrency-940e6b2336b5",
-      "output-fe44a89cb056",
-      "toolApproval-ed5d414f0f62",
-      "experimental_toolCallers-ffe6f3c3e609",
-      "experimental_toolApprovalSecret-4ff3620966c4",
-      "prepareStep-7d67e4ce16c8",
-      "repairToolCall-1cfd20033b0a",
-      "experimental_repairToolCall-e8fd40680c55",
-      "experimental_refineToolInput-b3ee93fb0d2b",
-      "experimental_transform-0ec05c4143a3",
-      "experimental_download-162e51e5ff3c",
-      "includeRawChunks-4927cd9740df",
-      "onChunk-6fbcb2a9372a",
-      "onError-16e40c751f49",
-      "streamRetries-2780ace7cb77",
-      "onEnd-ef461f83e3bb",
-      "onFinish-f20459a0ea53",
-      "onAbort-c24d17adc5f3",
-      "onStepEnd-d8e8f0f2289a",
-      "onStepError-6ac92c5732e1",
-      "onStepFinish-a6df59245cbd",
-      "onStart-57baf4db48d0",
-      "experimental_onStart-98bf0b5a2745",
-      "onStepStart-9ebb7d08a587",
-      "experimental_onStepStart-15e8aea9fae2",
-      "onLanguageModelCallStart-8d83021ae3c8",
-      "experimental_onLanguageModelCallStart-491395c8a913",
-      "onLanguageModelCallEnd-94d3ab4bd2e8",
-      "experimental_onLanguageModelCallEnd-a09d59f7a599",
-      "onToolExecutionStart-1954e5a469ba",
-      "experimental_onToolCallStart-3976f3ffdb21",
-      "onToolExecutionEnd-ea85b06844b0",
-      "experimental_onToolCallFinish-08b7141b6862",
-      "include-2f0b096d0254",
-      "experimental_include-c911c6b3941e",
-      "_internal-2797c17b47fe"
+      "maxOutputTokens-3750aae06b78",
+      "temperature-c970b1ef9f50",
+      "topP-8c117ff138cd",
+      "topK-07df4c014c42",
+      "presencePenalty-27e20b4c1aa5",
+      "frequencyPenalty-32bb1198f9f5",
+      "stopSequences-2eefa8740e8d",
+      "seed-c03ecfd73f92",
+      "reasoning-b90f40e6fd96",
+      "maxRetries-0aedd6c52d2f",
+      "abortSignal-332106eb39a3",
+      "headers-b4f0a59701e0",
+      "timeout-439a1a41320c",
+      "instructions-7a09e697e800",
+      "system-77b926aa15b3",
+      "allowSystemInMessages-48822b7d4b46",
+      "prompt-9441b69dcea1",
+      "messages-43bee1c696a9",
+      "tools-5efdda627cc8",
+      "model-13928364de1c",
+      "toolChoice-f6a9fedbe1b4",
+      "stopWhen-1269c94bf274",
+      "telemetry-7f5176f31df4",
+      "experimental_telemetry-4f7675b48d9c",
+      "providerOptions-6db661b2b6a7",
+      "experimental_sandbox-bd7685f3dca4",
+      "experimental_steering-a70a6a3f26bf",
+      "runtimeContext-6fe9258c1451",
+      "activeTools-7a4674c83084",
+      "toolOrder-e46202be091c",
+      "toolCallConcurrency-769ff7ccf7bf",
+      "output-56ac795cb09d",
+      "toolApproval-e6f9c22d9b3c",
+      "experimental_toolCallers-8a752bb63e36",
+      "experimental_toolApprovalSecret-5573519278c4",
+      "prepareStep-d9f1f942f148",
+      "repairToolCall-4ef13c129648",
+      "experimental_repairToolCall-2aa1d06c3008",
+      "experimental_refineToolInput-52f1527d50cb",
+      "experimental_transform-b422736429cc",
+      "experimental_download-393316c82a64",
+      "includeRawChunks-eb80fd3d4f31",
+      "onChunk-480ac277c91c",
+      "onError-a7cf8c7fafff",
+      "streamRetries-ca6a5025c0f4",
+      "onEnd-fe63bb2f27cd",
+      "onFinish-c4bddcf07443",
+      "onAbort-a9107997a88b",
+      "onStepEnd-195f794ee38b",
+      "onStepError-4d72b82e99ae",
+      "onWarning-191f1b180e1d",
+      "onStepFinish-58089e235735",
+      "onStart-0ec99fbf5859",
+      "experimental_onStart-0d26a8d8a29b",
+      "onStepStart-d30a78139419",
+      "experimental_onStepStart-9068893fd70f",
+      "onLanguageModelCallStart-dece0ed4d633",
+      "experimental_onLanguageModelCallStart-39509eb3527f",
+      "onLanguageModelCallEnd-411f0968c4d3",
+      "experimental_onLanguageModelCallEnd-1343c276d17a",
+      "onToolExecutionStart-4db0a212fd81",
+      "experimental_onToolCallStart-c8484c1add9d",
+      "onToolExecutionEnd-7870e85a04eb",
+      "experimental_onToolCallFinish-988da25c5643",
+      "include-74de729ed750",
+      "experimental_include-6f60b3b599e8",
+      "_internal-aaa986384177"
     ],
     "Decision_result": [
-      "answers-08dc93da3be8",
-      "usage-4d2839fc326e",
-      "warnings-09983a0ccdb9",
-      "rounding-21207da9926c",
-      "providerMetadata-f0f9ffbcadb5",
-      "response-1a7dc2392bcd"
+      "answers-5d2c27d79165",
+      "usage-36fee081ac33",
+      "warnings-31275a50bb91",
+      "rounding-39b85d47b535",
+      "providerMetadata-060f40b90631",
+      "response-de27d2902b72"
     ],
     "Decision_native": [
-      "model-82af40007353",
-      "state-db13ea08a329",
-      "questions-dd5363516405",
-      "maxOutputTokens-16305b3096c8",
-      "reasoning-892add36e4d9",
-      "maxRetries-23097e18368b",
-      "abortSignal-3e2de4b1ba34",
-      "headers-86575131d3c3",
-      "providerOptions-c53d3bd5265d",
-      "telemetry-7b4f0ebaca44",
-      "runtimeContext-750515b0b35b",
-      "onStart-8b18b7c09df5",
-      "onEnd-d7aa5cddc6cf",
-      "_internal-99eba0cdff92"
+      "model-63f39539b350",
+      "state-39541375053d",
+      "questions-d277213afc57",
+      "maxOutputTokens-498165f4e1a0",
+      "reasoning-27d347c98943",
+      "maxRetries-3fefe762577b",
+      "abortSignal-3a1691fafbe4",
+      "experimental_download-f84372d2c444",
+      "headers-a3d764ab0c98",
+      "providerOptions-29e64ad26a6f",
+      "telemetry-9291651c3fe8",
+      "runtimeContext-7cc2d639bf30",
+      "onStart-cceb4f677102",
+      "onEnd-5893d60da45f",
+      "_internal-520e614a2e41"
     ],
     "Embedder_result": [
-      "value-d2798f2459dc",
-      "embedding-28465d16c7d2",
-      "usage-0f7d9f5a6a3b",
-      "warnings-47b367d54554",
-      "providerMetadata-42cd5ecbd571",
-      "response-7af554c6fae8"
+      "value-267137ec08d3",
+      "embedding-65d263a57072",
+      "usage-283ce5bbc803",
+      "warnings-9def7fc64c29",
+      "providerMetadata-af0af49d95db",
+      "response-9d0349a46e5a"
     ],
     "Embedder_native": [
-      "model-48aa9f877e2f",
-      "value-c37f5640ff7b",
-      "dimensions-2a545e83fd43",
-      "maxRetries-446dc9e70593",
-      "abortSignal-ba91bd67cbb7",
-      "headers-1ed650c3b13b",
-      "providerOptions-84b4899a0815",
-      "telemetry-39fa616edbc3",
-      "experimental_telemetry-13341df2875d",
-      "runtimeContext-5a66a39874dd",
-      "onStart-cc3c9aa8dc3f",
-      "experimental_onStart-f2f7f020a9e5",
-      "onEnd-eed8fe22bc47",
-      "experimental_onEnd-2c0ae17e5f79",
-      "_internal-de3674fe249f"
+      "model-76b4cbf21b98",
+      "value-22aa5692a8af",
+      "dimensions-e514b862730a",
+      "maxRetries-d23ecfad0a44",
+      "abortSignal-e088cfdd3cdf",
+      "headers-a20e795c7853",
+      "providerOptions-39824388b056",
+      "telemetry-10826561b3e1",
+      "experimental_telemetry-e74ee2b9fcdc",
+      "runtimeContext-61b600fdf2c8",
+      "onStart-6d612661bf33",
+      "experimental_onStart-2cbc389016a9",
+      "onEnd-38c1e8e2a05b",
+      "experimental_onEnd-543602355965",
+      "_internal-e9119d745ea6"
     ],
     "EmbedderBatch_result": [
-      "values-d66df071b78f",
-      "embeddings-6f1b362870e6",
-      "usage-ff21b5ddb575",
-      "warnings-1d3fccb3d882",
-      "providerMetadata-48bfc7037b5c",
-      "responses-ac7be9f9b8c3"
+      "values-c70ebde5be4d",
+      "embeddings-299f182a53eb",
+      "usage-5ca1bbf243a6",
+      "warnings-2c64605cff39",
+      "providerMetadata-c43f9e32e19f",
+      "responses-5610a35af93c"
     ],
     "EmbedderBatch_native": [
-      "model-01b0663ad509",
-      "values-6aa442082344",
-      "dimensions-2ccabb90d619",
-      "maxRetries-21df607005af",
-      "abortSignal-2b7c59d4f74b",
-      "headers-f7116f3e57a6",
-      "telemetry-4c89c3844737",
-      "experimental_telemetry-c7ea9dba6c92",
-      "runtimeContext-9ac3967b5bf5",
-      "providerOptions-a94e237310ca",
-      "maxParallelCalls-6694df5c0a88",
-      "onStart-d4e8d9c392c1",
-      "experimental_onStart-beec57122067",
-      "onEnd-6e04994067d5",
-      "experimental_onEnd-97a0acabe2fe",
-      "_internal-03883d0a112a"
+      "model-2ee72b6f6776",
+      "values-c00b4b75a6e0",
+      "dimensions-a7263b5ea914",
+      "maxRetries-1be77b6e9667",
+      "abortSignal-6f1530bb4f0a",
+      "headers-f9a6d9652a0a",
+      "telemetry-f87efb2ebd64",
+      "experimental_telemetry-5f7fa89c66df",
+      "runtimeContext-39ec8adb999c",
+      "providerOptions-0bb12806283e",
+      "maxParallelCalls-63a7ab93a66d",
+      "onStart-73681b15b77d",
+      "experimental_onStart-306575194bd2",
+      "onEnd-e8cf2834155b",
+      "experimental_onEnd-44bb7f891cee",
+      "_internal-eb195a17669b"
     ],
     "Reranker_result": [
-      "originalDocuments-215eb4fac765",
-      "rerankedDocuments-732cf9cfaede",
-      "ranking-dda77c1a65ca",
-      "providerMetadata-6ddff93d9315",
-      "response-cb4078ff4fd7"
+      "originalDocuments-9f043fe9ca5c",
+      "rerankedDocuments-fdbdaca0e2c3",
+      "ranking-7ea16195ac0f",
+      "providerMetadata-95aa0960db07",
+      "response-91617290e4bb"
     ],
     "Reranker_native": [
-      "model-38a5e14b7041",
-      "documents-e64a9272b831",
-      "query-7008b7b4625a",
-      "topN-2e58a6ef4988",
-      "maxRetries-5a3efed0cfd5",
-      "abortSignal-1be52e81fd5e",
-      "headers-d3e2a061a8b8",
-      "telemetry-0c47e752120d",
-      "experimental_telemetry-09dd8794b725",
-      "runtimeContext-b1f87baccfa3",
-      "providerOptions-323e9176b870",
-      "onStart-2e8ca1a184bf",
-      "experimental_onStart-abc629b14bdc",
-      "onEnd-361d10c86f16",
-      "experimental_onEnd-2567d3ca2920",
-      "_internal-29b6970b9db3"
+      "model-b9a9ad1e277f",
+      "documents-a7b7ca1305a3",
+      "query-71c9c0183347",
+      "topN-b63f89c590b9",
+      "maxRetries-1030d178c8ef",
+      "abortSignal-73bfcea75c49",
+      "headers-5dcd71a1709f",
+      "telemetry-ee49554ed0e5",
+      "experimental_telemetry-b33dd8e2e035",
+      "runtimeContext-0f19f2ea43f6",
+      "providerOptions-bacef9bb6be2",
+      "onStart-5eefc83bf86c",
+      "experimental_onStart-bd28ea61bcd4",
+      "onEnd-7c56a1017c9e",
+      "experimental_onEnd-db0ab05e7ebc",
+      "_internal-c375e9af425c"
     ],
     "ImageGenerator_result": [
-      "image-a98fbf11406a",
-      "images-48a4cc2d363e",
-      "calls-5b86ccbe82f7",
-      "warnings-0e6fb7a66231",
-      "responses-8658993a1aff",
-      "providerMetadata-fa85bd12bf6d",
-      "usage-b4dcc0622deb"
+      "image-da0e2f95650e",
+      "images-c7aed60b2aae",
+      "calls-79f7c98ae7f3",
+      "warnings-9451ed79941f",
+      "responses-77f321677647",
+      "providerMetadata-a5b6c27f2597",
+      "usage-91f93992ca10"
     ],
     "ImageGenerator_native": [
-      "model-b484e382e133",
-      "prompt-48ad41e1e072",
-      "n-f9857b6df04f",
-      "maxImagesPerCall-7d962d74cbca",
-      "size-5a9c136a3a29",
-      "aspectRatio-29de3eadc285",
-      "seed-2911d722b271",
-      "providerOptions-d0dcb86a4b4b",
-      "maxRetries-43a557421317",
-      "abortSignal-f0f3c7bf9130",
-      "headers-8a1860c91ac4"
+      "model-3c08b406693e",
+      "prompt-cd1596b0bae6",
+      "n-71f8e80752c9",
+      "maxImagesPerCall-07ad01192bf4",
+      "size-a1ddd9b66299",
+      "aspectRatio-0e953591963c",
+      "seed-f61917bfc1e4",
+      "providerOptions-5fcc54204c7d",
+      "maxRetries-c66620af033c",
+      "abortSignal-af0f2d8911dc",
+      "headers-1770c8ac0413"
     ],
     "Transcriber_result": [
-      "text-352c730b4bb8",
-      "segments-428a1f286ac8",
-      "language-2f06686a7383",
-      "durationInSeconds-19431d9e2a62",
-      "warnings-1e34a2635ebf",
-      "responses-a6bddb02ea18",
-      "providerMetadata-fb60083c3c2d"
+      "text-318f1f081df8",
+      "segments-d6de43be1331",
+      "words-b968f7b0610c",
+      "language-bd16149257f1",
+      "durationInSeconds-5a79b1d0d6c4",
+      "warnings-afea3598daa0",
+      "responses-531227d69d28",
+      "providerMetadata-84dee28b573d"
     ],
     "Transcriber_native": [
-      "model-d63e7d77f371",
-      "audio-2c7771e7c87b",
-      "providerOptions-6fb067a708e2",
-      "maxRetries-569af71b732f",
-      "abortSignal-1f5a193f4cfe",
-      "headers-23ed9be29275",
-      "telemetry-72cc4604f7aa",
-      "download-f08788366d4c",
-      "_internal-a4d65510b686"
+      "model-ab2d60d092c3",
+      "audio-fd25cf70163c",
+      "providerOptions-f1407026e059",
+      "timestampGranularities-f8ab98382618",
+      "maxRetries-517add5497ce",
+      "abortSignal-8b753a971039",
+      "headers-7886326ddcda",
+      "telemetry-e6a01e9dfd10",
+      "download-7fc28372c55f",
+      "_internal-194d66d6d32a"
     ],
     "TranscriberStream_result": [
-      "text-b4b7399b21c2",
-      "segments-33df0823f194",
-      "language-6859a8acc1d2",
-      "durationInSeconds-24de35d7d0a5",
-      "warnings-8a7a10343ff2",
-      "responses-187bc4e8cfa3",
-      "providerMetadata-2ecb679233eb",
-      "fullStream-007898973bb7"
+      "text-1bc039232e18",
+      "segments-979b8df5fb67",
+      "language-97beb2cda6dd",
+      "durationInSeconds-2f843fd46f4c",
+      "warnings-66e7596b6f06",
+      "responses-7987ad6e2cf4",
+      "providerMetadata-0b276ba673b5",
+      "fullStream-a67f32488d3c"
     ],
     "TranscriberStream_native": [
-      "model-e9ed376d43a6",
-      "audio-3b4b6bba6442",
-      "inputAudioFormat-a530ffc7dab7",
-      "providerOptions-0e700395c4b1",
-      "abortSignal-69af4f81640d",
-      "headers-1c3aaeb2734c",
-      "includeRawChunks-7d3f5f2a41a1",
-      "telemetry-237457941031",
-      "_internal-76401c9df9f4"
+      "model-bbb32b07b213",
+      "audio-1bdfa22ed156",
+      "inputAudioFormat-19cad07cd365",
+      "providerOptions-9043462897ad",
+      "abortSignal-a3d4d3abbebf",
+      "headers-1a57a9e1d4c6",
+      "includeRawChunks-13081a3282bf",
+      "telemetry-d00e1797bb15",
+      "_internal-35f66ec5d264"
     ],
     "SpeechGenerator_result": [
       "audioFormat-0fe6713e23a4",
       "usage-bf7204927792",
-      "audio-090e31c3f07e",
-      "warnings-751664670b6e",
-      "responses-d50a12d4caa1",
-      "providerMetadata-d8670c7292b8"
+      "audio-7ce2a3fad473",
+      "warnings-944bb856819d",
+      "responses-7c8eab2136aa",
+      "providerMetadata-c33d96fb37e7"
     ],
     "SpeechGenerator_native": [
-      "model-8d9d31f1896c",
-      "text-ec806897822a",
-      "voice-524c54983482",
-      "outputFormat-6291f13adf52",
-      "instructions-589fb8cbb087",
-      "speed-4d164fbb7f9d",
-      "language-61b62537a500",
-      "providerOptions-b4ea33bb4d7b",
-      "maxRetries-3203a207b457",
-      "abortSignal-dde81d3b7308",
-      "headers-210ca6223697",
-      "telemetry-f8a2081d9c3e",
-      "_internal-891f15b39ec6"
+      "model-1dce7990aa0b",
+      "text-3e3b88fecf0f",
+      "voice-077d0f0f81a8",
+      "outputFormat-69479cff1acd",
+      "instructions-3d37a40068de",
+      "speed-d74265e616d8",
+      "language-80fcf25fd716",
+      "providerOptions-0391eeeaef21",
+      "maxRetries-49b0652defa9",
+      "abortSignal-2a56d4719602",
+      "headers-06589cfe4fcf",
+      "telemetry-0bd86804edb7",
+      "_internal-3d141dbfafc1"
     ],
     "SpeechGeneratorStream_result": [
-      "usage-e862f00da64d",
-      "warnings-13637bc242f9",
-      "responses-261571bff397",
-      "providerMetadata-c8051b2e6c0b",
-      "audioStream-b358ab4f1af4",
-      "fullStream-1187b3d5412c"
+      "usage-3c3d8394afcf",
+      "warnings-d62aba44d83a",
+      "responses-a9e279aac120",
+      "providerMetadata-8f92fa4e2f43",
+      "audioStream-279e0dafa704",
+      "fullStream-901aea0f7971"
     ],
     "SpeechGeneratorStream_native": [
-      "model-f710fabe18e0",
-      "text-730665458c8e",
-      "voice-a24507351f00",
-      "outputFormat-1c52617eb72c",
-      "instructions-4b3f21b46179",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341",
-      "providerOptions-8ef11a06508b",
-      "abortSignal-ba9834cb4957",
-      "headers-a43707561005",
-      "includeRawChunks-90c2b49e91af",
-      "onError-50a850676fc2",
-      "_internal-33f27e35a0d4"
+      "model-e6d4a0cfc90e",
+      "text-8ed8613d6668",
+      "voice-f499169ed7e6",
+      "outputFormat-2ecdbf569d98",
+      "instructions-66bc5d503547",
+      "speed-e728ceb3fd45",
+      "language-522bbc56a6db",
+      "providerOptions-e3f548cd88dc",
+      "abortSignal-cb0726a306ce",
+      "headers-9e46900dfea7",
+      "includeRawChunks-b6af0ee1e0ce",
+      "onError-f4612e490bdd",
+      "_internal-316c49cdb97e"
     ],
     "Translator_result": [
       "providerMetadata-a1890558f6d7",
@@ -1696,57 +1712,57 @@ export default {
       "audio-e6a2faccc8b9"
     ],
     "Translator_native": [
-      "model-2844db232f29",
-      "audio-bc4b82bb8b5d",
-      "inputAudioFormat-a9437bf10d0a",
-      "targetLanguage-f5006a68aa47",
-      "sourceLanguage-af6309dbca4a",
-      "outputAudioFormat-89e588aef43c",
-      "providerOptions-629f88d39640",
-      "abortSignal-d9dfce9e4ae0",
-      "headers-8bb00513d5db",
-      "includeRawChunks-29430afa6810",
-      "_internal-0c473c098e24"
+      "model-246db9799f69",
+      "audio-5b5e7f868414",
+      "inputAudioFormat-afb9527b3706",
+      "targetLanguage-f0a3ad97c84b",
+      "sourceLanguage-ebb4e1b916d2",
+      "outputAudioFormat-d539c234392c",
+      "providerOptions-90a5d6a9f1ee",
+      "abortSignal-c0f42bc55266",
+      "headers-7d47ca76d094",
+      "includeRawChunks-ad5b6d5c09d6",
+      "_internal-5e396fa59f87"
     ],
     "TranslatorStream_result": [
-      "sourceText-20efa392ede3",
-      "translationText-94c108174585",
-      "durationInSeconds-517ae82d7988",
-      "usage-17ea66e7f260",
-      "warnings-279e6968f8af",
-      "response-26f85eeed335",
-      "providerMetadata-820fb99f87d6",
-      "fullStream-16693db7e0f0"
+      "sourceText-25121e0dd1ec",
+      "translationText-1bfe97fa77bb",
+      "durationInSeconds-1e32aeb17c6a",
+      "usage-aac6602e6c0b",
+      "warnings-a57e15823f1c",
+      "response-659653107089",
+      "providerMetadata-0e82bcbf8ee1",
+      "fullStream-f5a7dc341b54"
     ],
     "TranslatorStream_native": [
-      "model-2844db232f29",
-      "audio-bc4b82bb8b5d",
-      "inputAudioFormat-a9437bf10d0a",
-      "targetLanguage-f5006a68aa47",
-      "sourceLanguage-af6309dbca4a",
-      "outputAudioFormat-89e588aef43c",
-      "providerOptions-629f88d39640",
-      "abortSignal-d9dfce9e4ae0",
-      "headers-8bb00513d5db",
-      "includeRawChunks-29430afa6810",
-      "_internal-0c473c098e24"
+      "model-246db9799f69",
+      "audio-5b5e7f868414",
+      "inputAudioFormat-afb9527b3706",
+      "targetLanguage-f0a3ad97c84b",
+      "sourceLanguage-ebb4e1b916d2",
+      "outputAudioFormat-d539c234392c",
+      "providerOptions-90a5d6a9f1ee",
+      "abortSignal-c0f42bc55266",
+      "headers-7d47ca76d094",
+      "includeRawChunks-ad5b6d5c09d6",
+      "_internal-5e396fa59f87"
     ],
     "VoiceAgentBackend_result": [
-      "token-ef6388c67aaf",
-      "url-6694c49079ae",
-      "expiresAt-b4d04565231e",
+      "token-e6b1ecaa2a1c",
+      "url-458a55b0cd01",
+      "expiresAt-42284c9a4224",
       "tools-77941a98285d"
     ],
     "TranscriberStream_config": [
-      "providerOptions-0e700395c4b1",
-      "headers-1c3aaeb2734c",
-      "model-93d3f90bcfb6",
-      "telemetry-237457941031",
-      "includeRawChunks-7d3f5f2a41a1",
-      "inputAudioFormat-7e0e83a62aca",
+      "providerOptions-9043462897ad",
+      "headers-1a57a9e1d4c6",
+      "model-14cf8ce98262",
+      "telemetry-d00e1797bb15",
+      "includeRawChunks-13081a3282bf",
+      "inputAudioFormat-62bc6c075147",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "audio-c563898406e8",
+      "audio-221b71f6d125",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
       "loader-5d45bab68a1b",
@@ -1759,32 +1775,32 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "TranscriberStream_settings": [
-      "providerOptions-0e700395c4b1",
-      "abortSignal-69af4f81640d",
-      "headers-1c3aaeb2734c",
-      "model-e9ed376d43a6",
-      "telemetry-237457941031",
-      "includeRawChunks-7d3f5f2a41a1",
-      "inputAudioFormat-a530ffc7dab7",
+      "providerOptions-9043462897ad",
+      "abortSignal-a3d4d3abbebf",
+      "headers-1a57a9e1d4c6",
+      "model-bbb32b07b213",
+      "telemetry-d00e1797bb15",
+      "includeRawChunks-13081a3282bf",
+      "inputAudioFormat-6a9bbf3af99e",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "audio-68daa1e68956"
+      "audio-c5353c50d3bd"
     ],
     "TranscriberStream_inputs": [
-      "direct-1d822026b786",
-      "prepared-8ec1b7b87830"
+      "direct-967e6ed4ead5",
+      "prepared-0a9776bb5fab"
     ],
     "SpeechGeneratorStream_config": [
-      "providerOptions-8ef11a06508b",
-      "headers-a43707561005",
-      "instructions-4b3f21b46179",
-      "model-e7347b132223",
-      "includeRawChunks-90c2b49e91af",
-      "onError-50a850676fc2",
-      "voice-a24507351f00",
-      "outputFormat-1c52617eb72c",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341",
+      "providerOptions-e3f548cd88dc",
+      "language-522bbc56a6db",
+      "headers-9e46900dfea7",
+      "instructions-66bc5d503547",
+      "model-b07c96a69452",
+      "includeRawChunks-b6af0ee1e0ce",
+      "onError-f4612e490bdd",
+      "voice-f499169ed7e6",
+      "outputFormat-2ecdbf569d98",
+      "speed-e728ceb3fd45",
       "text-85a9dc177766",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -1798,18 +1814,18 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "SpeechGeneratorStream_settings": [
-      "text-730665458c8e",
-      "providerOptions-8ef11a06508b",
-      "abortSignal-ba9834cb4957",
-      "headers-a43707561005",
-      "instructions-4b3f21b46179",
-      "model-f710fabe18e0",
-      "includeRawChunks-90c2b49e91af",
-      "onError-50a850676fc2",
-      "voice-a24507351f00",
-      "outputFormat-1c52617eb72c",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341"
+      "text-8ed8613d6668",
+      "providerOptions-e3f548cd88dc",
+      "language-522bbc56a6db",
+      "abortSignal-cb0726a306ce",
+      "headers-9e46900dfea7",
+      "instructions-66bc5d503547",
+      "model-e6d4a0cfc90e",
+      "includeRawChunks-b6af0ee1e0ce",
+      "onError-f4612e490bdd",
+      "voice-f499169ed7e6",
+      "outputFormat-2ecdbf569d98",
+      "speed-e728ceb3fd45"
     ],
     "SpeechGeneratorStream_inputs": [
       "direct-5306f56796f6",
@@ -1817,16 +1833,16 @@ export default {
       "template-7349d7682caf"
     ],
     "TranslatorStream_config": [
-      "providerOptions-629f88d39640",
-      "headers-8bb00513d5db",
-      "model-c8d77816a238",
-      "includeRawChunks-29430afa6810",
-      "inputAudioFormat-2df44b715671",
-      "targetLanguage-94fcfd26675f",
-      "outputAudioFormat-89e588aef43c",
+      "providerOptions-90a5d6a9f1ee",
+      "headers-7d47ca76d094",
+      "model-4789518cab57",
+      "includeRawChunks-ad5b6d5c09d6",
+      "inputAudioFormat-d8322f89357f",
+      "targetLanguage-8f57c47fbc72",
+      "outputAudioFormat-d539c234392c",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "sourceLanguage-af6309dbca4a",
+      "sourceLanguage-ebb4e1b916d2",
       "audio-c563898406e8",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -1840,15 +1856,15 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "TranslatorStream_settings": [
-      "providerOptions-629f88d39640",
-      "abortSignal-d9dfce9e4ae0",
-      "headers-8bb00513d5db",
-      "model-2844db232f29",
-      "includeRawChunks-29430afa6810",
-      "inputAudioFormat-a9437bf10d0a",
-      "targetLanguage-f5006a68aa47",
-      "outputAudioFormat-89e588aef43c",
-      "sourceLanguage-af6309dbca4a",
+      "providerOptions-90a5d6a9f1ee",
+      "abortSignal-c0f42bc55266",
+      "headers-7d47ca76d094",
+      "model-246db9799f69",
+      "includeRawChunks-ad5b6d5c09d6",
+      "inputAudioFormat-afb9527b3706",
+      "targetLanguage-f0a3ad97c84b",
+      "outputAudioFormat-d539c234392c",
+      "sourceLanguage-ebb4e1b916d2",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
       "audio-87d9e2ee44af"
@@ -1857,35 +1873,47 @@ export default {
       "direct-1d822026b786",
       "prepared-8ec1b7b87830"
     ],
+    "TranscriberLive_native": [
+      "model-bbb32b07b213",
+      "audio-1bdfa22ed156",
+      "inputAudioFormat-19cad07cd365",
+      "providerOptions-9043462897ad",
+      "abortSignal-a3d4d3abbebf",
+      "headers-1a57a9e1d4c6",
+      "includeRawChunks-13081a3282bf",
+      "telemetry-d00e1797bb15",
+      "_internal-35f66ec5d264"
+    ],
     "TranscriberFile_settings": [
-      "providerOptions-6fb067a708e2",
-      "maxRetries-569af71b732f",
-      "abortSignal-1f5a193f4cfe",
-      "headers-23ed9be29275",
-      "model-d63e7d77f371",
-      "telemetry-72cc4604f7aa",
-      "download-f08788366d4c",
+      "providerOptions-f1407026e059",
+      "maxRetries-517add5497ce",
+      "abortSignal-8b753a971039",
+      "headers-7886326ddcda",
+      "model-ab2d60d092c3",
+      "telemetry-e6a01e9dfd10",
+      "timestampGranularities-f8ab98382618",
+      "download-7fc28372c55f",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
-      "audio-77fb26eba0fb"
+      "audio-f4a50ca734b1"
     ],
     "TranscriberRaw_settings": [
-      "providerOptions-0e700395c4b1",
-      "abortSignal-69af4f81640d",
-      "headers-1c3aaeb2734c",
-      "model-e9ed376d43a6",
-      "telemetry-237457941031",
+      "providerOptions-9043462897ad",
+      "abortSignal-a3d4d3abbebf",
+      "headers-1a57a9e1d4c6",
+      "model-bbb32b07b213",
+      "telemetry-d00e1797bb15",
       "audio-68daa1e68956",
-      "inputAudioFormat-a530ffc7dab7",
+      "inputAudioFormat-19cad07cd365",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb"
     ],
     "TranscriberRaw_config": [
-      "providerOptions-0e700395c4b1",
-      "headers-1c3aaeb2734c",
-      "model-93d3f90bcfb6",
-      "telemetry-237457941031",
-      "inputAudioFormat-a530ffc7dab7",
+      "providerOptions-9043462897ad",
+      "headers-1a57a9e1d4c6",
+      "model-14cf8ce98262",
+      "telemetry-d00e1797bb15",
+      "inputAudioFormat-19cad07cd365",
       "maxPreparedAudioBytes-595959558a15",
       "sourceFormat-160cb13602cb",
       "audio-c563898406e8",
@@ -1901,42 +1929,42 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "SpeechGeneratorComplete_settings": [
-      "text-ec806897822a",
-      "providerOptions-b4ea33bb4d7b",
-      "maxRetries-3203a207b457",
-      "abortSignal-dde81d3b7308",
-      "headers-210ca6223697",
-      "instructions-589fb8cbb087",
-      "model-8d9d31f1896c",
-      "telemetry-f8a2081d9c3e",
-      "voice-524c54983482",
-      "outputFormat-6291f13adf52",
-      "speed-4d164fbb7f9d",
-      "language-61b62537a500"
+      "text-3e3b88fecf0f",
+      "providerOptions-0391eeeaef21",
+      "language-80fcf25fd716",
+      "maxRetries-49b0652defa9",
+      "abortSignal-2a56d4719602",
+      "headers-06589cfe4fcf",
+      "instructions-3d37a40068de",
+      "model-1dce7990aa0b",
+      "telemetry-0bd86804edb7",
+      "voice-077d0f0f81a8",
+      "outputFormat-69479cff1acd",
+      "speed-d74265e616d8"
     ],
     "SpeechGeneratorCollected_settings": [
-      "text-730665458c8e",
-      "providerOptions-8ef11a06508b",
-      "abortSignal-ba9834cb4957",
-      "headers-a43707561005",
-      "instructions-4b3f21b46179",
-      "model-f710fabe18e0",
-      "onError-50a850676fc2",
-      "voice-a24507351f00",
-      "outputFormat-1c52617eb72c",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341"
+      "text-8ed8613d6668",
+      "providerOptions-e3f548cd88dc",
+      "language-522bbc56a6db",
+      "abortSignal-cb0726a306ce",
+      "headers-9e46900dfea7",
+      "instructions-66bc5d503547",
+      "model-e6d4a0cfc90e",
+      "onError-f4612e490bdd",
+      "voice-f499169ed7e6",
+      "outputFormat-2ecdbf569d98",
+      "speed-e728ceb3fd45"
     ],
     "SpeechGeneratorCollected_config": [
-      "providerOptions-8ef11a06508b",
-      "headers-a43707561005",
-      "instructions-4b3f21b46179",
-      "model-e7347b132223",
-      "onError-50a850676fc2",
-      "voice-a24507351f00",
+      "providerOptions-e3f548cd88dc",
+      "language-522bbc56a6db",
+      "headers-9e46900dfea7",
+      "instructions-66bc5d503547",
+      "model-b07c96a69452",
+      "onError-f4612e490bdd",
+      "voice-f499169ed7e6",
       "outputFormat-27a92d87c4ab",
-      "speed-38cf774e7d2f",
-      "language-17c4c3804341",
+      "speed-e728ceb3fd45",
       "text-85a9dc177766",
       "filters-e21828790709",
       "renderOptions-0b6a6f477332",
@@ -1950,7 +1978,7 @@ export default {
       "toolsContext-a026c14e3010"
     ],
     "SpeechGeneratorFormat_properties": [
-      "outputFormat-6e087775d340"
+      "outputFormat-7fda4f42871a"
     ],
     "AudioPreparation_config": [
       "inputAudioFormat-9d5855cee1c6",
@@ -1962,113 +1990,113 @@ export default {
       "mediaSettings-9a4327368f34"
     ],
     "VoiceAgentClient_config": [
-      "model-8d90286adc15",
-      "api-96e6faee24dc",
-      "sessionConfig-9d28f0dc148c",
-      "sampleRate-cde1ebf592d2",
-      "maxEvents-e8b6e2c06f40",
-      "startupTimeoutMs-d20632605c64",
-      "closeTimeoutMs-d201a4934ea3",
-      "rtcDisconnectTimeoutMs-e4b1f8b4721d",
-      "maxPlaybackBufferSeconds-58459e112b41",
-      "onToolCall-e108281592b1",
-      "onEvent-97febd9b5a0f",
-      "onError-ac702d5799f7"
+      "model-3cede7036f63",
+      "api-004ee8b5cab2",
+      "sessionConfig-804ef3dffb30",
+      "sampleRate-06aa2a8f8a8a",
+      "maxEvents-a020baa464f5",
+      "startupTimeoutMs-5cf4778f802f",
+      "closeTimeoutMs-dbae777eaefe",
+      "rtcDisconnectTimeoutMs-5b12df24e922",
+      "maxPlaybackBufferSeconds-8afa607e6747",
+      "onToolCall-d762db2d3ad5",
+      "onEvent-d3f764d51701",
+      "onError-9823c2477456"
     ],
     "VoiceAgentClient_settings": [
-      "model-8d90286adc15",
-      "api-96e6faee24dc",
-      "sessionConfig-9d28f0dc148c",
-      "sampleRate-cde1ebf592d2",
-      "maxEvents-e8b6e2c06f40",
-      "startupTimeoutMs-d20632605c64",
-      "closeTimeoutMs-d201a4934ea3",
-      "rtcDisconnectTimeoutMs-e4b1f8b4721d",
-      "maxPlaybackBufferSeconds-58459e112b41",
-      "onToolCall-e108281592b1",
-      "onEvent-97febd9b5a0f",
-      "onError-ac702d5799f7"
+      "model-3cede7036f63",
+      "api-004ee8b5cab2",
+      "sessionConfig-804ef3dffb30",
+      "sampleRate-06aa2a8f8a8a",
+      "maxEvents-a020baa464f5",
+      "startupTimeoutMs-5cf4778f802f",
+      "closeTimeoutMs-dbae777eaefe",
+      "rtcDisconnectTimeoutMs-5b12df24e922",
+      "maxPlaybackBufferSeconds-8afa607e6747",
+      "onToolCall-d762db2d3ad5",
+      "onEvent-d3f764d51701",
+      "onError-9823c2477456"
     ],
     "VoiceAgentClient_native": [
-      "model-8d90286adc15",
-      "api-96e6faee24dc",
-      "sessionConfig-9d28f0dc148c",
-      "sampleRate-cde1ebf592d2",
-      "maxEvents-e8b6e2c06f40",
-      "startupTimeoutMs-d20632605c64",
-      "closeTimeoutMs-d201a4934ea3",
-      "rtcDisconnectTimeoutMs-e4b1f8b4721d",
-      "maxPlaybackBufferSeconds-58459e112b41",
-      "onToolCall-e108281592b1",
-      "onEvent-97febd9b5a0f",
-      "onError-ac702d5799f7"
+      "model-3cede7036f63",
+      "api-004ee8b5cab2",
+      "sessionConfig-804ef3dffb30",
+      "sampleRate-06aa2a8f8a8a",
+      "maxEvents-a020baa464f5",
+      "startupTimeoutMs-5cf4778f802f",
+      "closeTimeoutMs-dbae777eaefe",
+      "rtcDisconnectTimeoutMs-5b12df24e922",
+      "maxPlaybackBufferSeconds-8afa607e6747",
+      "onToolCall-d762db2d3ad5",
+      "onEvent-d3f764d51701",
+      "onError-9823c2477456"
     ],
     "VoiceAgentClient_inputs": [],
     "VoiceAgentClient_result": [
-      "onError-ee293d8dc69d",
-      "onToolCall-1bb4e2579e8e",
-      "onEvent-2b525dd0ec4b",
-      "connect-a277f2ca8921",
-      "disconnect-a0f2793ced8a",
-      "close-e363f56e6a2b",
-      "sendEvent-1ed4115b59e1",
-      "sendTextMessage-e25a39689251",
-      "sendAudio-abb6fd8293e3",
-      "commitAudio-c1bebd5fa209",
-      "clearAudioBuffer-784cb9924553",
-      "requestResponse-8d20891a47c8",
-      "cancelResponse-ef55991b7861",
-      "addToolOutput-5a6e47b363d5",
-      "startAudioCapture-f8d969401d42",
-      "resumeAudioCapture-aad7cfb3b71b",
-      "stopAudioCapture-d3ce66e2c1a4",
-      "stopPlayback-4aaa7bc6d4eb",
-      "resumePlayback-c29f9a66cc87",
-      "dispose-ba4bc348b681",
+      "onError-83ded9ab73dc",
+      "onToolCall-59c4a4fdd7d4",
+      "onEvent-2722b9792dd9",
+      "connect-2e34b6dfb576",
+      "disconnect-8faaa298371c",
+      "close-8098641beab2",
+      "sendEvent-d7ab1dd558cb",
+      "sendTextMessage-7a502c92f929",
+      "sendAudio-484a8c1d0aea",
+      "commitAudio-c2343307b0b1",
+      "clearAudioBuffer-86dceda18774",
+      "requestResponse-c5bb6481365f",
+      "cancelResponse-30f3c048c45e",
+      "addToolOutput-0ecdc6214901",
+      "startAudioCapture-53bd14e6dc4d",
+      "resumeAudioCapture-21fe42d0a4dc",
+      "stopAudioCapture-911c0523c2a8",
+      "stopPlayback-74887f5363db",
+      "resumePlayback-9d2aac23aa6c",
+      "dispose-9930092e1c54",
       "getSnapshot-b4938edff73b",
       "subscribe-d65210706930"
     ],
     "VideoGenerator_settings": [
-      "model-05ef0967cd9a",
-      "prompt-d76e36aeb1ec",
-      "n-abd3343160cb",
-      "maxVideosPerCall-04e47517618a",
-      "aspectRatio-ab67dd850135",
-      "resolution-983d2c88254d",
-      "duration-f26848fb3fa6",
-      "fps-c32d5e0c8d00",
-      "seed-a925b39a46ff",
-      "frameImages-aeba77dd05f1",
-      "inputReferences-0bf9ee19009d",
-      "generateAudio-9ba1f0fe35f9",
-      "providerOptions-b1f6e46513fc",
-      "maxRetries-557e44be3533",
-      "abortSignal-5c1f46bf9562",
-      "headers-86cc6d2a91a0",
-      "download-66b7a049f669",
-      "poll-a413a5705658",
-      "webhook-150ee2c34792"
+      "model-1644b8d10c7b",
+      "prompt-e17accdd497c",
+      "n-0e1734c45c1b",
+      "maxVideosPerCall-37fbd8bcda34",
+      "aspectRatio-948f9ae032db",
+      "resolution-33812f50a8dc",
+      "duration-d1bf4adf1e2f",
+      "fps-13af020e6f72",
+      "seed-f298ceb2dae3",
+      "frameImages-d0dc09d1f531",
+      "inputReferences-52c60c20d4bd",
+      "generateAudio-b8009fcb76f2",
+      "providerOptions-7adf4abd4a86",
+      "maxRetries-b1d66fe01336",
+      "abortSignal-f9406684db67",
+      "headers-373272238360",
+      "download-c3f8ee06633e",
+      "poll-54be9abbdfff",
+      "webhook-e748ef3211c8"
     ],
     "VideoGenerator_native": [
-      "model-05ef0967cd9a",
-      "prompt-d76e36aeb1ec",
-      "n-abd3343160cb",
-      "maxVideosPerCall-04e47517618a",
-      "aspectRatio-ab67dd850135",
-      "resolution-983d2c88254d",
-      "duration-f26848fb3fa6",
-      "fps-c32d5e0c8d00",
-      "seed-a925b39a46ff",
-      "frameImages-aeba77dd05f1",
-      "inputReferences-0bf9ee19009d",
-      "generateAudio-9ba1f0fe35f9",
-      "providerOptions-b1f6e46513fc",
-      "maxRetries-557e44be3533",
-      "abortSignal-5c1f46bf9562",
-      "headers-86cc6d2a91a0",
-      "download-66b7a049f669",
-      "poll-a413a5705658",
-      "webhook-150ee2c34792"
+      "model-1644b8d10c7b",
+      "prompt-e17accdd497c",
+      "n-0e1734c45c1b",
+      "maxVideosPerCall-37fbd8bcda34",
+      "aspectRatio-948f9ae032db",
+      "resolution-33812f50a8dc",
+      "duration-d1bf4adf1e2f",
+      "fps-13af020e6f72",
+      "seed-f298ceb2dae3",
+      "frameImages-d0dc09d1f531",
+      "inputReferences-52c60c20d4bd",
+      "generateAudio-b8009fcb76f2",
+      "providerOptions-7adf4abd4a86",
+      "maxRetries-b1d66fe01336",
+      "abortSignal-f9406684db67",
+      "headers-373272238360",
+      "download-c3f8ee06633e",
+      "poll-54be9abbdfff",
+      "webhook-e748ef3211c8"
     ],
     "VideoGenerator_config": [
       "inputSchema-e1f157741580",
@@ -2081,24 +2109,24 @@ export default {
       "tools-f8808df35909",
       "toolsContext-a026c14e3010",
       "toolContextSchema-d7c206b57ff4",
-      "providerOptions-b1f6e46513fc",
-      "seed-a925b39a46ff",
-      "maxRetries-557e44be3533",
-      "headers-86cc6d2a91a0",
-      "prompt-b7d5559918ca",
-      "model-ce767d778a6c",
-      "n-abd3343160cb",
-      "aspectRatio-ab67dd850135",
-      "download-66b7a049f669",
-      "maxVideosPerCall-04e47517618a",
-      "resolution-983d2c88254d",
-      "duration-f26848fb3fa6",
-      "fps-c32d5e0c8d00",
-      "frameImages-aeba77dd05f1",
-      "inputReferences-0bf9ee19009d",
-      "generateAudio-9ba1f0fe35f9",
-      "poll-a413a5705658",
-      "webhook-150ee2c34792"
+      "providerOptions-7adf4abd4a86",
+      "seed-f298ceb2dae3",
+      "maxRetries-b1d66fe01336",
+      "headers-373272238360",
+      "prompt-8b4b5c5d39e6",
+      "model-305ceb93ef2e",
+      "n-0e1734c45c1b",
+      "aspectRatio-948f9ae032db",
+      "download-c3f8ee06633e",
+      "maxVideosPerCall-37fbd8bcda34",
+      "resolution-33812f50a8dc",
+      "duration-d1bf4adf1e2f",
+      "fps-13af020e6f72",
+      "frameImages-d0dc09d1f531",
+      "inputReferences-52c60c20d4bd",
+      "generateAudio-b8009fcb76f2",
+      "poll-54be9abbdfff",
+      "webhook-e748ef3211c8"
     ],
     "VideoGenerator_inputs": [
       "direct-4ea07477228e",
@@ -2106,134 +2134,133 @@ export default {
       "template-698edd69db01"
     ],
     "VideoGenerator_result": [
-      "video-84772d9bf3b3",
-      "videos-8774a365a425",
-      "warnings-87ff71219ca6",
-      "responses-ab44c3b4f994",
-      "providerMetadata-2785d8939d21"
+      "video-c15f2929aaf4",
+      "videos-47e9b9273a30",
+      "uploadedVideos-ebe75695ab76",
+      "warnings-634e28fe31f2",
+      "responses-e3f1546b4f67",
+      "providerMetadata-8dbafc46c0ef"
     ],
     "Telemetry:0": [
-      "isEnabled-461f93f561cc",
-      "recordInputs-5a9bc04cadf6",
-      "recordOutputs-eef63173ee8d",
-      "functionId-a8cb2fcd49af",
-      "includeRuntimeContext-7be8a823ab05",
-      "includeToolsContext-4e95f5357138",
-      "integrations-96ef7c9abe2e"
+      "isEnabled-4303a363fa95",
+      "recordInputs-0a82b3d21ba3",
+      "recordOutputs-5f49a76c4a9f",
+      "functionId-a4b8d24d4f63",
+      "includeRuntimeContext-5fea5b0822f3",
+      "includeToolsContext-c4636a1e46ee",
+      "integrations-d89adf68950c"
     ],
     "Timeout:0": [],
     "Timeout:1": [
-      "totalMs-594fa641341f",
-      "stepMs-4e681ef685e4",
-      "firstChunkMs-08154ea18be9",
-      "chunkMs-ea0876ccf03b",
-      "toolMs-b110bb37581e",
-      "tools-9d7732e75fb6"
+      "totalMs-c758378cc4ae",
+      "stepMs-b5087914c082",
+      "firstChunkMs-d0c3163365d4",
+      "chunkMs-444ae491f56e",
+      "toolMs-c3b651c82a34",
+      "tools-969e8dc7d0ef"
     ],
     "StreamInclude:0": [
-      "requestBody-e4b8c5083ebc",
-      "requestMessages-f417475096d1",
-      "rawChunks-84c188cf4090"
+      "requestBody-169af9ec369a",
+      "requestMessages-50596f598ef0",
+      "rawChunks-b65de217e6f5"
     ],
     "AudioFormat:0": [
-      "type-3d37b77be676",
-      "rate-9d519651bed3"
+      "type-520be97089d4",
+      "rate-48f2f297bd7c"
     ],
     "SessionTranscription:0": [
-      "model-747c04f06434",
-      "language-c8af6ab181e6",
-      "prompt-198973fe857c"
+      "model-2ef98e561f36",
+      "language-18a70eefc7b3",
+      "prompt-e49009ec511f"
     ],
     "TurnDetection:0": [],
     "TurnDetection:1": [
-      "type-4403e09d8750",
-      "threshold-d319cb183c9a",
-      "silenceDurationMs-ea7c5a2320c3",
-      "prefixPaddingMs-d9ac0b322e22"
+      "type-594fa7028e72",
+      "threshold-ad4f6014a792",
+      "silenceDurationMs-8d1a937380ac",
+      "prefixPaddingMs-4c2039317d05"
     ],
     "DecisionQuestion:0": [
-      "type-e23128cc0ea3",
-      "instructions-b8948cb7f97e",
-      "criteria-25a4abc81557"
+      "type-d9cc1b1b4cea",
+      "instructions-b85d3fcd5c41",
+      "criteria-dd60dbfe042f"
     ],
     "DecisionQuestion:1": [
-      "type-f0ed6b10b0cb",
-      "instructions-716db50b0640",
-      "criteria-f2ab0914b0a2"
+      "type-37d3b7e0b6c6",
+      "instructions-0204b262592e",
+      "criteria-9cbb40284e16"
     ],
     "DecisionQuestion:2": [
-      "type-33b2c1d6b3ea",
-      "instructions-ec4fde729210"
+      "type-7764ff728a6b",
+      "instructions-7b8cd13ccfae"
     ],
     "DecisionQuestion:3": [
-      "type-d51d159b0b95",
-      "instructions-c1fc06851b28",
-      "criteria-4a3e82e16f10"
+      "type-eab546a1fe04",
+      "instructions-c32a70cdf6d3",
+      "criteria-a8b5f9bd5ab6"
     ],
     "ModelMessage:0": [
-      "role-98fcfc9df349",
-      "content-5d96322cd173",
-      "providerOptions-c6c4e0593818"
+      "role-e8ac0434d928",
+      "content-a89592356ea7",
+      "providerOptions-35d879148cd3"
     ],
     "ModelMessage:1": [
-      "role-842fd34a266d",
-      "content-92937787a683",
-      "providerOptions-cf02dd68a7de"
+      "role-5892097e9456",
+      "content-cde6417447fa",
+      "providerOptions-a36c5ad2658a"
     ],
     "ModelMessage:2": [
-      "role-56618d0a1118",
-      "content-be1a0de1cdcc",
-      "providerOptions-1649f94a4e5e"
+      "role-cf6cb44e4f5c",
+      "content-8dd1c49edc02",
+      "providerOptions-9f578ecc5664"
     ],
     "ModelMessage:3": [
-      "role-27bc21560f98",
-      "content-489efe726dd4",
-      "providerOptions-fd446947bc10"
+      "role-89ef2f80a629",
+      "content-3a3ba09e66af",
+      "providerOptions-138a787c7cd4"
     ],
     "ImagePrompt:0": [
-      "images-5e3daa468130",
-      "text-44720aaced31",
-      "mask-67715919181b"
+      "images-52c5df12a02a",
+      "text-c84fbf89238b",
+      "mask-fb29f1c10bf2"
     ],
     "GeneratedFile:0": [
-      "base64-c3f892cd6414",
-      "uint8Array-0ab6dcaf1c56",
-      "mediaType-bd46b3644604",
-      "providerMetadata-38a36c15e990"
+      "base64-26c8c3a9f599",
+      "uint8Array-c4b76402b232",
+      "mediaType-78e64d225ca0",
+      "providerMetadata-3fe90f6dfdf1"
     ],
     "GeneratedAudioFile:0": [
-      "format-abeb330ea542",
-      "base64-c3f892cd6414",
-      "uint8Array-0ab6dcaf1c56",
-      "mediaType-bd46b3644604",
-      "providerMetadata-38a36c15e990"
+      "format-139984da674d",
+      "base64-26c8c3a9f599",
+      "uint8Array-c4b76402b232",
+      "mediaType-78e64d225ca0",
+      "providerMetadata-3fe90f6dfdf1"
     ],
     "RealtimeToolDefinition:0": [
-      "type-2c4b7c1f06e1",
-      "name-98415698ff60",
-      "description-765dad9c3ae1",
-      "parameters-a7ebd2b436da"
+      "type-344ec4cbdca5",
+      "name-89aa96fc9795",
+      "description-5bb69e58655c",
+      "parameters-b0610345bc98"
     ],
     "OutputObject:0": [
-      "schema-6c2c7e02e817",
-      "name-06a2b2b44852",
-      "description-09f4aee69855"
+      "name-35787766c1d5",
+      "description-4a79d6adae24"
     ],
     "OutputArray:0": [
-      "element-91da8658bc12",
-      "minItems-af67e565c2af",
-      "maxItems-83b91f99b871",
-      "name-0fc0260efcb7",
-      "description-4c42d2df1bbb"
+      "minItems-5beefdc5780d",
+      "maxItems-c1b7134bf00b",
+      "name-4272e3098922",
+      "description-60944453acb2"
     ],
     "OutputChoice:0": [
-      "options-6fc25659e8c1",
-      "name-71d67ed50215",
-      "description-5989d1faa9c5"
+      "options-5bffe0fac6e0",
+      "name-c03509a2880a",
+      "description-f355a51a2c75"
     ],
     "OutputJSON:0": [
-      "name-29ff40758bf7",
-      "description-43c7639c81e5"
+      "name-aa1bf6fcd790",
+      "description-2016aef5a551"
     ],
     "RenderTags:0": [
       "blockStart-2d9e8e293c8e",
@@ -2275,61 +2302,64 @@ export default {
       "sampleFormat-44a58aaa5de6"
     ],
     "SpeechAudioFormat:0": [
-      "type-3d37b77be676",
-      "rate-9d519651bed3"
+      "type-520be97089d4",
+      "rate-48f2f297bd7c"
     ],
     "SpeechTextPart:0": [
-      "type-28d9280d80c8",
-      "text-b288a513fb80",
-      "voice-3d5bccd41bce",
-      "providerOptions-c6f026e1f87f"
+      "type-17b1a9c6f9c0",
+      "text-35313fd999c0",
+      "voice-ea3881c36735",
+      "providerOptions-d997f62f10fd"
     ],
     "VoiceClientApi:0": [
-      "token-82039d33aaad"
+      "token-ff44ef0e9f93"
     ],
     "VoiceClientApi:1": [
-      "session-187c7dfc4289"
+      "session-c137b9a57c19"
     ],
     "VoiceClientApi:2": [
-      "websocket-1177dc8df0aa",
-      "protocols-603840f69b76"
+      "provider-e4bb1895a7a5"
+    ],
+    "VoiceClientApi:3": [
+      "websocket-83ad98a2fc71",
+      "protocols-f227a70717dd"
     ],
     "VoiceClientSnapshot:0": [
-      "status-c863744369b3",
-      "messages-8a7862c23a8e",
-      "events-56835ef01875",
-      "isCapturing-b161e297c8cd",
-      "isPlaying-e8ba1fbe8c0b",
-      "session-42dc226b883f"
+      "status-289bf725948e",
+      "messages-dcfe426366ef",
+      "events-ee664420eb67",
+      "isCapturing-b1ff0fcb936c",
+      "isPlaying-02b364321726",
+      "session-6b48c13d0e88"
     ],
     "VoiceClientSessionConfig:0": [
-      "instructions-4cc81f59e6ac",
-      "voice-7e42c4fa10ac",
-      "outputModalities-39bbf6b1aadb",
-      "inputAudioFormat-955d75ed5ca3",
-      "inputAudioTranscription-bc4eeaf53b51",
-      "outputAudioTranscription-d19f1c7d2fa9",
-      "outputAudioFormat-bc737eb9a538",
-      "turnDetection-8e67b91d87d3",
-      "tools-a0a46f619d2a",
-      "providerOptions-017504595b6e"
+      "instructions-0c459c58ac82",
+      "voice-a1f8a990e4c3",
+      "outputModalities-c669f792f5d9",
+      "inputAudioFormat-9303f715c7b4",
+      "inputAudioTranscription-b199469fe309",
+      "outputAudioTranscription-3df77a6d2390",
+      "outputAudioFormat-40273b9f1c57",
+      "turnDetection-a9c515125296",
+      "tools-5b3941793a8a",
+      "providerOptions-207d34914c15"
     ],
     "VideoPrompt:0": [
-      "image-2c60dbd30184",
-      "text-92f6e71d9ff1"
+      "image-2854a78b2db2",
+      "text-64465629c511"
     ],
     "VideoPoll:0": [
-      "intervalMs-8623e2efbef5",
-      "timeoutMs-0d47e970346a",
-      "delay-437aacd3bd16"
+      "intervalMs-7a1241a53a7d",
+      "timeoutMs-f98c899096c4",
+      "delay-e8a6d15cb5e2"
     ],
     "VideoFrame:0": [
-      "image-ceea09dd5218",
-      "frameType-b9140b77d8c8"
+      "image-bd169cdf0d49",
+      "frameType-cc8ada441ee4"
     ],
     "VideoReference:0": [
-      "data-847ff95deffc",
-      "mediaType-94a62a345c6a"
+      "data-e9ce5d90d43e",
+      "mediaType-75156914873a"
     ]
   },
   "properties": {
@@ -2582,32 +2612,32 @@ export default {
         "path": "src/types/agent.ts"
       }
     },
-    "runtimeContext-5279a5b531bf": {
+    "runtimeContext-c62c730fa462": {
       "name": "runtimeContext",
       "type": "Record<string, unknown> | undefined",
       "optional": true,
       "description": "Runtime context. Treat runtime context as immutable.\nIf you need to mutate runtime context, update it in `prepareStep`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3985,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4395,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3985"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4395"
       }
     },
-    "providerOptions-bdb985c437b4": {
+    "providerOptions-6db661b2b6a7": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3970,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4380,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3970"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4380"
       }
     },
     "id-7c420ba44547": {
@@ -2630,133 +2660,133 @@ export default {
         "path": "src/types/agent.ts"
       }
     },
-    "maxOutputTokens-28aceb6f8de2": {
+    "maxOutputTokens-3750aae06b78": {
       "name": "maxOutputTokens",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum number of tokens to generate.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 706,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 916,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L706"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L916"
       }
     },
-    "temperature-d5e463222c25": {
+    "temperature-c970b1ef9f50": {
       "name": "temperature",
       "type": "number | undefined",
       "optional": true,
       "description": "Temperature setting. The range depends on the provider and model.\n\nIt is recommended to set either `temperature` or `topP`, but not both.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 712,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 922,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L712"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L922"
       }
     },
-    "topP-c18ae9faa20b": {
+    "topP-8c117ff138cd": {
       "name": "topP",
       "type": "number | undefined",
       "optional": true,
       "description": "Nucleus sampling. This is a number between 0 and 1.\n\nE.g. 0.1 would mean that only tokens with the top 10% probability mass\nare considered.\n\nIt is recommended to set either `temperature` or `topP`, but not both.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 721,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 931,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L721"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L931"
       }
     },
-    "topK-9dca433077cb": {
+    "topK-07df4c014c42": {
       "name": "topK",
       "type": "number | undefined",
       "optional": true,
       "description": "Only sample from the top K options for each subsequent token.\n\nUsed to remove \"long tail\" low probability responses.\nRecommended for advanced use cases only. You usually only need to use temperature.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 728,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 938,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L728"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L938"
       }
     },
-    "presencePenalty-ffb8353a33d5": {
+    "presencePenalty-27e20b4c1aa5": {
       "name": "presencePenalty",
       "type": "number | undefined",
       "optional": true,
       "description": "Presence penalty setting. It affects the likelihood of the model to\nrepeat information that is already in the prompt.\n\nThe presence penalty is a number between -1 (increase repetition)\nand 1 (maximum penalty, decrease repetition). 0 means no penalty.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 736,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 946,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L736"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L946"
       }
     },
-    "frequencyPenalty-24e57c07ecf0": {
+    "frequencyPenalty-32bb1198f9f5": {
       "name": "frequencyPenalty",
       "type": "number | undefined",
       "optional": true,
       "description": "Frequency penalty setting. It affects the likelihood of the model\nto repeatedly use the same words or phrases.\n\nThe frequency penalty is a number between -1 (increase repetition)\nand 1 (maximum penalty, decrease repetition). 0 means no penalty.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 744,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 954,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L744"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L954"
       }
     },
-    "stopSequences-d8033627c3bb": {
+    "stopSequences-2eefa8740e8d": {
       "name": "stopSequences",
       "type": "string[] | undefined",
       "optional": true,
       "description": "Stop sequences.\nIf set, the model will stop generating text when one of the stop sequences is generated.\nProviders may have limits on the number of stop sequences.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 750,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 960,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L750"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L960"
       }
     },
-    "seed-42d63366f1c9": {
+    "seed-c03ecfd73f92": {
       "name": "seed",
       "type": "number | undefined",
       "optional": true,
       "description": "The seed (integer) to use for random sampling. If set and supported\nby the model, calls will generate deterministic results.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 755,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 965,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L755"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L965"
       }
     },
-    "reasoning-50148c4a1de6": {
+    "reasoning-b90f40e6fd96": {
       "name": "reasoning",
       "type": "\"provider-default\" | \"none\" | \"minimal\" | \"low\" | \"medium\" | \"high\" | \"xhigh\" | \"max\" | undefined",
       "optional": true,
       "description": "Reasoning effort level for the model. Controls how much reasoning\nthe model performs before generating a response.\n\nUse `'provider-default'` to use the provider's default reasoning level.\nUse `'none'` to disable reasoning (if supported by the provider).",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 763,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 973,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L763"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L973"
       }
     },
-    "maxRetries-0ed81bc73d61": {
+    "maxRetries-0aedd6c52d2f": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -2768,56 +2798,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 826,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1036,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L826"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1036"
       }
     },
-    "headers-74f55db49467": {
+    "headers-b4f0a59701e0": {
       "name": "headers",
       "type": "Record<string, string | undefined> | undefined",
       "optional": true,
       "description": "Additional HTTP headers to be sent with the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 835,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1045,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L835"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1045"
       }
     },
-    "timeout-d2d66c53fa17": {
+    "timeout-439a1a41320c": {
       "name": "timeout",
       "type": "TimeoutConfiguration<ToolSet> | undefined",
       "optional": true,
       "description": "Timeout configuration for the request.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 839,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1049,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L839"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1049"
       }
     },
-    "instructions-b0d8abcfc99d": {
+    "instructions-7a09e697e800": {
       "name": "instructions",
       "type": "Instructions | undefined",
       "optional": true,
       "description": "Instructions to include in the prompt. Can be used with `prompt` or `messages`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 862,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1072,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L862"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1072"
       }
     },
-    "allowSystemInMessages-e1a407f3bbe9": {
+    "allowSystemInMessages-48822b7d4b46": {
       "name": "allowSystemInMessages",
       "type": "boolean | undefined",
       "optional": true,
@@ -2829,11 +2859,11 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 877,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1087,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L877"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1087"
       }
     },
     "prompt-dbcb70464d4d": {
@@ -2846,161 +2876,161 @@ export default {
         "path": "src/types/agent.ts"
       }
     },
-    "model-f5334808405d": {
+    "model-13928364de1c": {
       "name": "model",
       "type": "LanguageModel",
       "optional": false,
       "description": "The language model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3943,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4353,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3943"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4353"
       }
     },
-    "toolChoice-ee62be34526e": {
+    "toolChoice-f6a9fedbe1b4": {
       "name": "toolChoice",
       "type": "ToolChoice<ToolSet> | undefined",
       "optional": true,
       "description": "The tool choice strategy. Default: 'auto'.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3947,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4357,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3947"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4357"
       }
     },
-    "telemetry-8764a08784e2": {
+    "telemetry-76723a22b41f": {
       "name": "telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3958,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4368,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3958"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4368"
       }
     },
-    "experimental_sandbox-2582909742ec": {
+    "experimental_sandbox-bd7685f3dca4": {
       "name": "experimental_sandbox",
       "type": "SandboxSession | undefined",
       "optional": true,
       "description": "The sandbox environment that is passed through to tool execution.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3974,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4384,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3974"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4384"
       }
     },
-    "experimental_steering-82714f7fe6df": {
+    "experimental_steering-a70a6a3f26bf": {
       "name": "experimental_steering",
       "type": "Steering | undefined",
       "optional": true,
       "description": "A steering object created with `experimental_createSteering()`.\nMessages sent with it are added to the generation at the next step\nboundary.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3980,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4390,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3980"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4390"
       }
     },
-    "activeTools-e09d12af5e53": {
+    "activeTools-7a4674c83084": {
       "name": "activeTools",
       "type": "ActiveTools<NoInfer<ToolSet>>",
       "optional": true,
       "description": "Limits the tools that are available for the model to call without\nchanging the tool call and result types in the result.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3990,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4400,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3990"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4400"
       }
     },
-    "toolOrder-c6855d505085": {
+    "toolOrder-e46202be091c": {
       "name": "toolOrder",
       "type": "ToolOrder<NoInfer<ToolSet>>",
       "optional": true,
       "description": "Controls the order in which tools are sent to the provider.\n\nThe list can be partial. Tools not listed in `toolOrder` are sent after\nthe listed tools, sorted alphabetically. This can improve provider-side\ncaching by keeping tool definitions in a stable order.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3998,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4408,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3998"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4408"
       }
     },
-    "toolCallConcurrency-940e6b2336b5": {
+    "toolCallConcurrency-769ff7ccf7bf": {
       "name": "toolCallConcurrency",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum number of tool calls that may execute concurrently within a step.\n\nSet to `1` to execute tool calls sequentially in the order they were\ngenerated. By default, all tool calls execute concurrently.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4005,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4415,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4005"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4415"
       }
     },
-    "experimental_toolCallers-ffe6f3c3e609": {
+    "experimental_toolCallers-8a752bb63e36": {
       "name": "experimental_toolCallers",
       "type": "Experimental_ToolCallers<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Configures which caller tools may invoke each tool.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4019,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4429,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4019"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4429"
       }
     },
-    "experimental_toolApprovalSecret-4ff3620966c4": {
+    "experimental_toolApprovalSecret-5573519278c4": {
       "name": "experimental_toolApprovalSecret",
       "type": "string | Uint8Array<ArrayBufferLike> | undefined",
       "optional": true,
-      "description": "Secret for HMAC-signing tool approval requests. When set, the server\nsigns each approval request at issuance and verifies the signature when\nthe approval is replayed, preventing client-forged approvals.",
+      "description": "Secret for HMAC-signing tool approval requests. When set, the server\nsigns approval requests at issuance and verifies the signature when\nthe approval is replayed, preventing client-forged approvals.\nApproval requests for automatically denied tool calls are not signed.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4025,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4436,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4025"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4436"
       }
     },
-    "include-2f0b096d0254": {
+    "include-74de729ed750": {
       "name": "include",
       "type": "StreamTextInclude | undefined",
       "optional": true,
       "description": "Settings for controlling what data is included in step results.\nDisabling inclusion can help reduce memory usage when processing\nlarge payloads like images.\n\nBy default, request bodies and request messages are excluded.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4214,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4634,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4214"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4634"
       }
     },
-    "streamRetries-2780ace7cb77": {
+    "streamRetries-ca6a5025c0f4": {
       "name": "streamRetries",
       "type": "number | undefined",
       "optional": true,
@@ -3012,11 +3042,11 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4108,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4522,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4108"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4522"
       }
     },
     "stopWhen-fb42ba28c06a": {
@@ -3110,6 +3140,13 @@ export default {
       "description": "",
       "tags": []
     },
+    "onWarning-297284192218": {
+      "name": "onWarning",
+      "type": "LogWarningsFunction | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
     "onEnd-3644bf4f2d1c": {
       "name": "onEnd",
       "type": "StreamTextOnEndCallback<NoInfer<ResolvedTools<{ [x: string]: ((Tool<never, never, any> | Tool<any, any, any> | Tool<any, never, any> | Tool<never, any, any>) & Pick<Tool<any, any, any>, \"execute\" | \"onInputAvailable\" | \"onInputStart\" | \"onInputDelta\" | \"needsApproval\">) | null | undefined; }>>, NoInfer<Record<string, unknown>>, NoInfer<AIOutput>> | undefined",
@@ -3165,7 +3202,7 @@ export default {
         "path": "src/types/agent.ts"
       }
     },
-    "stopWhen-e8250c5614a3": {
+    "stopWhen-a9b64708c252": {
       "name": "stopWhen",
       "type": "Arrayable<StopCondition<NoInfer<ToolSet>, Record<string, unknown>>>",
       "optional": true,
@@ -3177,249 +3214,263 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3954,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4364,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3954"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4364"
       }
     },
-    "toolApproval-f04ab75b2254": {
+    "toolApproval-665a216dd014": {
       "name": "toolApproval",
       "type": "ToolApprovalConfiguration<ToolSet, Record<string, unknown>> | undefined",
       "optional": true,
       "description": "Optional tool approval configuration.\n\nThis configuration takes precedence over tool-defined approval settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4015,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4425,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4015"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4425"
       }
     },
-    "experimental_download-162e51e5ff3c": {
+    "experimental_download-393316c82a64": {
       "name": "experimental_download",
       "type": "DownloadFunction | undefined",
       "optional": true,
-      "description": "Custom download function to use for URLs.\n\nBy default, files are downloaded if the model does not support the URL for the given media type.",
+      "description": "Custom download function to use for URLs in the prompt and for\ngenerated file URLs returned by the model.\n\nBy default, prompt files are downloaded if the model does not support\nthe URL for the given media type. Generated file URLs are always\ndownloaded; returning `null` for them is an error.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4066,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4480,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4066"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4480"
       }
     },
-    "repairToolCall-1cfd20033b0a": {
+    "repairToolCall-4ef13c129648": {
       "name": "repairToolCall",
       "type": "ToolCallRepairFunction<ToolSet> | undefined",
       "optional": true,
       "description": "A function that attempts to repair a tool call that failed to parse.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4041,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4452,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4041"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4452"
       }
     },
-    "experimental_refineToolInput-b3ee93fb0d2b": {
+    "experimental_refineToolInput-52f1527d50cb": {
       "name": "experimental_refineToolInput",
       "type": "ToolInputRefinement<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Optional mapping of tool names to functions that refine parsed tool inputs.\n\nThe refined input must have the same type shape as the tool input. Refined\ninputs are used for tool execution, stream parts, callbacks, and telemetry.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4054,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4465,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4054"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4465"
       }
     },
-    "onStart-66b9a75d9d1d": {
+    "onStart-42f1d1a13de4": {
       "name": "onStart",
       "type": "GenerateTextOnStartCallback<NoInfer<ToolSet>, NoInfer<Record<string, unknown>>, NoInfer<AIOutput>> | undefined",
       "optional": true,
       "description": "Callback that is called when the streamText operation begins,\nbefore any LLM calls are made.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4145,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4565,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4145"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4565"
       }
     },
-    "onStepStart-5585ea699152": {
+    "onStepStart-067e2bce6aa3": {
       "name": "onStepStart",
       "type": "GenerateTextOnStepStartCallback<NoInfer<ToolSet>, NoInfer<Record<string, unknown>>, NoInfer<AIOutput>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step (LLM call) begins,\nbefore the provider is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4157,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4577,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4157"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4577"
       }
     },
-    "onLanguageModelCallStart-8d83021ae3c8": {
+    "onLanguageModelCallStart-dece0ed4d633": {
       "name": "onLanguageModelCallStart",
       "type": "OnLanguageModelCallStartCallback | undefined",
       "optional": true,
       "description": "Callback that is called immediately before the provider model call begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4168,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4588,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4168"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4588"
       }
     },
-    "onLanguageModelCallEnd-94d3ab4bd2e8": {
+    "onLanguageModelCallEnd-411f0968c4d3": {
       "name": "onLanguageModelCallEnd",
       "type": "OnLanguageModelCallEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Callback that is called after the model response has been normalized and parsed,\nbut before any client-side tool execution begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4179,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4599,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4179"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4599"
       }
     },
-    "onToolExecutionStart-1954e5a469ba": {
+    "onToolExecutionStart-4db0a212fd81": {
       "name": "onToolExecutionStart",
       "type": "OnToolExecutionStartCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Callback that is called right before a tool's execute function runs.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4190,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4610,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4190"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4610"
       }
     },
-    "onToolExecutionEnd-ea85b06844b0": {
+    "onToolExecutionEnd-7870e85a04eb": {
       "name": "onToolExecutionEnd",
       "type": "OnToolExecutionEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Callback that is called right after a tool's execute function completes (or errors).",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4200,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4620,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4200"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4620"
       }
     },
-    "onStepEnd-8a03a3480e69": {
+    "onStepEnd-ba0cc25c5ad8": {
       "name": "onStepEnd",
       "type": "GenerateTextOnStepEndCallback<NoInfer<ToolSet>, NoInfer<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "Callback that is called when each step (LLM call) ends, including intermediate steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4129,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4543,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4129"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4543"
       }
     },
-    "onStepError-64f9d90f19cc": {
+    "onStepError-4c8aed2d1926": {
       "name": "onStepError",
       "type": "GenerateTextOnStepErrorCallback<NoInfer<ToolSet>, NoInfer<Record<string, unknown>>, NoInfer<AIOutput>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step that started fails before it\nproduces a step result. `onStepEnd` is not called for such a step.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4134,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4548,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4134"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4548"
       }
     },
-    "onEnd-2e786bb451d8": {
+    "onWarning-191f1b180e1d": {
+      "name": "onWarning",
+      "type": "LogWarningsFunction | undefined",
+      "optional": true,
+      "description": "Callback that receives the warnings of the call, e.g. unsupported\nsettings or deprecated prompt parts. When it is set, the warnings are\nnot sent to the global warning logger (`AI_SDK_LOG_WARNINGS`).",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4554,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4554"
+      }
+    },
+    "onEnd-c8c7c2a69e22": {
       "name": "onEnd",
       "type": "StreamTextOnEndCallback<NoInfer<ToolSet>, NoInfer<Record<string, unknown>>, NoInfer<AIOutput>> | undefined",
       "optional": true,
       "description": "Callback that is called when the LLM response and all request tool executions\n(for tools that have an `execute` function) are finished.\n\nThe usage is the combined usage of all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4115,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4529,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4115"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4529"
       }
     },
-    "experimental_transform-0ec05c4143a3": {
+    "experimental_transform-b422736429cc": {
       "name": "experimental_transform",
       "type": "Arrayable<StreamTextTransform<ToolSet>>",
       "optional": true,
       "description": "Optional stream transformations.\nThey are applied in the order they are provided.\nThe stream transformations must maintain the stream structure for streamText to work correctly.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4060,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4471,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4060"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4471"
       }
     },
-    "onChunk-6fbcb2a9372a": {
+    "onChunk-480ac277c91c": {
       "name": "onChunk",
       "type": "StreamTextOnChunkCallback<ToolSet> | undefined",
       "optional": true,
       "description": "Callback that is called for each chunk of the stream.\nThe stream processing will pause until the callback promise is resolved.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4080,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4494,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4080"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4494"
       }
     },
-    "onError-16e40c751f49": {
+    "onError-a7cf8c7fafff": {
       "name": "onError",
       "type": "StreamTextOnErrorCallback | StreamTextOnErrorRetryCallback | StreamTextOnErrorHandler | undefined",
       "optional": true,
       "description": "Callback that is invoked when an error occurs during streaming.\nYou can use it to log errors.\nReturn `{ retry: true }` to retry the current model step after a provider\nerror is received from the response stream when `streamRetries` is\nexplicitly configured.\nThe stream processing will pause until the callback promise is resolved.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4089,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4503,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4089"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4503"
       }
     },
-    "onAbort-9e072f29fce0": {
+    "onAbort-cdaba3ea32c8": {
       "name": "onAbort",
       "type": "StreamTextOnAbortCallback<NoInfer<ToolSet>, NoInfer<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4125,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4539,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4125"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4539"
       }
     },
     "direct-92236f2a65ad": {
@@ -3443,158 +3494,172 @@ export default {
       "description": "",
       "tags": []
     },
-    "runtimeContext-0add664a522c": {
+    "runtimeContext-8a3992767dfe": {
       "name": "runtimeContext",
       "type": "Record<string, unknown> | undefined",
       "optional": true,
       "description": "User-defined runtime context. Treat runtime context as immutable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8732,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9387,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8732"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9387"
       }
     },
-    "providerOptions-c53d3bd5265d": {
+    "providerOptions-29e64ad26a6f": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8728,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9383,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8728"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9383"
       }
     },
-    "maxOutputTokens-16305b3096c8": {
+    "maxOutputTokens-498165f4e1a0": {
       "name": "maxOutputTokens",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum output tokens for supported models. Must be an integer >= 1.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8721,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9371,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8721"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9371"
       }
     },
-    "reasoning-892add36e4d9": {
+    "reasoning-27d347c98943": {
       "name": "reasoning",
       "type": "\"provider-default\" | \"none\" | \"minimal\" | \"low\" | \"medium\" | \"high\" | \"xhigh\" | \"max\" | undefined",
       "optional": true,
       "description": "Reasoning effort for supported models. Language-model adapters default to none.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8723,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9373,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8723"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9373"
       }
     },
-    "maxRetries-23097e18368b": {
+    "maxRetries-3fefe762577b": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum retries for transient provider failures. Defaults to 2.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8725,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9375,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8725"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9375"
       }
     },
-    "headers-86575131d3c3": {
+    "headers-a3d764ab0c98": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8727,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9382,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8727"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9382"
       }
     },
-    "model-c591403d9d0a": {
+    "model-b7ad5611d42d": {
       "name": "model",
       "type": "(DecisionModel | undefined) & DecisionModel",
       "optional": false,
       "description": "A decision model instance or an ID resolved by the configured default provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8717,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9367,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8717"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9367"
       }
     },
-    "telemetry-41ea114badea": {
+    "telemetry-4c63aa57ec78": {
       "name": "telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8730,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9385,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8730"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9385"
       }
     },
-    "onStart-5643812436ab": {
+    "experimental_download-f84372d2c444": {
+      "name": "experimental_download",
+      "type": "DownloadFunction | undefined",
+      "optional": true,
+      "description": "Download function required for URL-backed file state. Use createDownload({ fetch })\nwith a DNS-protected transport for untrusted URLs. The model's fetch is not used.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9381,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9381"
+      }
+    },
+    "onStart-6da1bb86471a": {
       "name": "onStart",
       "type": "Callback<DecideStartEvent<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "Called when the decide operation begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8734,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9389,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8734"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9389"
       }
     },
-    "onEnd-a03dc449884e": {
+    "onEnd-0f1f14485409": {
       "name": "onEnd",
       "type": "Callback<DecideEndEvent<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "Called when the decide operation completes.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8736,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9391,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8736"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9391"
       }
     },
-    "questions-dd5363516405": {
+    "questions-d277213afc57": {
       "name": "questions",
       "type": "Record<string, DecisionModelV4Question>",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8719,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9369,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8719"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9369"
       }
     },
     "state-f6557702dc32": {
@@ -3644,46 +3709,46 @@ export default {
         "path": "src/types/component.ts"
       }
     },
-    "abortSignal-3e2de4b1ba34": {
+    "abortSignal-3a1691fafbe4": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8726,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9376,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8726"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9376"
       }
     },
-    "model-82af40007353": {
+    "model-63f39539b350": {
       "name": "model",
       "type": "DecisionModel",
       "optional": false,
       "description": "A decision model instance or an ID resolved by the configured default provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8717,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9367,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8717"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9367"
       }
     },
-    "state-db13ea08a329": {
+    "state-39541375053d": {
       "name": "state",
       "type": "DecisionState",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8718,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9368,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8718"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9368"
       }
     },
     "direct-80c1b590bd26": {
@@ -3707,35 +3772,35 @@ export default {
       "description": "",
       "tags": []
     },
-    "runtimeContext-b82193f21760": {
+    "runtimeContext-d4297944fc22": {
       "name": "runtimeContext",
       "type": "Record<string, unknown> | undefined",
       "optional": true,
       "description": "User-defined runtime context. Treat runtime context as immutable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8184,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8834,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8184"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8834"
       }
     },
-    "providerOptions-a94e237310ca": {
+    "providerOptions-0bb12806283e": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8190,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8840,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8190"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8840"
       }
     },
-    "maxRetries-21df607005af": {
+    "maxRetries-1be77b6e9667": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -3747,56 +3812,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8161,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8811,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8161"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8811"
       }
     },
-    "headers-f7116f3e57a6": {
+    "headers-f9a6d9652a0a": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8170,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8820,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8170"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8820"
       }
     },
-    "model-e9e0c47ec797": {
+    "model-6ce7e7fa24a7": {
       "name": "model",
       "type": "string | EmbeddingModelV4 | EmbeddingModelV3 | EmbeddingModelV2<string> | (string & EmbeddingModelV4) | (string & EmbeddingModelV3) | (string & EmbeddingModelV2<string>) | (EmbeddingModelV4 & string) | (EmbeddingModelV3 & string) | (EmbeddingModelV2<string> & string)",
       "optional": false,
       "description": "The embedding model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8145,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8795,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8145"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8795"
       }
     },
-    "telemetry-e0229feb9d3a": {
+    "telemetry-782f21ecc894": {
       "name": "telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8174,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8824,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8174"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8824"
       }
     },
-    "experimental_telemetry-031d59a19554": {
+    "experimental_telemetry-6118399298d7": {
       "name": "experimental_telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, ToolSet> | undefined",
       "optional": true,
@@ -3808,28 +3873,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8180,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8830,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8180"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8830"
       }
     },
-    "onStart-3eefebc5d492": {
+    "onStart-59e1fe0d9bb3": {
       "name": "onStart",
       "type": "Callback<EmbedStartEvent<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "Callback that is called when the embedMany operation begins,\nbefore the embedding model is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8202,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8852,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8202"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8852"
       }
     },
-    "experimental_onStart-3beabf892011": {
+    "experimental_onStart-409901f14373": {
       "name": "experimental_onStart",
       "type": "Callback<EmbedStartEvent<Record<string, unknown>>> | undefined",
       "optional": true,
@@ -3841,42 +3906,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8209,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8859,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8209"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8859"
       }
     },
-    "onEnd-5bb5b5ee92e8": {
+    "onEnd-8a2f9fb05c9a": {
       "name": "onEnd",
       "type": "Callback<EmbedEndEvent<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "Callback that is called when the embedMany operation completes,\nafter all embedding model calls return.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8214,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8864,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8214"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8864"
       }
     },
-    "dimensions-2ccabb90d619": {
+    "dimensions-a7263b5ea914": {
       "name": "dimensions",
       "type": "number | undefined",
       "optional": true,
       "description": "The requested number of dimensions for the output embeddings.\nMust be a positive integer. Support and allowed values depend on the model\nand provider implementation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8155,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8805,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8155"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8805"
       }
     },
-    "maxParallelCalls-6694df5c0a88": {
+    "maxParallelCalls-63a7ab93a66d": {
       "name": "maxParallelCalls",
       "type": "number | undefined",
       "optional": true,
@@ -3888,14 +3953,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8197,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8847,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8197"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8847"
       }
     },
-    "experimental_onEnd-a59f437a84ba": {
+    "experimental_onEnd-6a0e5dc8aa36": {
       "name": "experimental_onEnd",
       "type": "Callback<EmbedEndEvent<Record<string, unknown>>> | undefined",
       "optional": true,
@@ -3907,11 +3972,11 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8221,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8871,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8221"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8871"
       }
     },
     "input-fb5baefd9ad6": {
@@ -3921,32 +3986,32 @@ export default {
       "description": "",
       "tags": []
     },
-    "abortSignal-2b7c59d4f74b": {
+    "abortSignal-6f1530bb4f0a": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8165,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8815,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8165"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8815"
       }
     },
-    "model-01b0663ad509": {
+    "model-2ee72b6f6776": {
       "name": "model",
       "type": "EmbeddingModel",
       "optional": false,
       "description": "The embedding model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8145,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8795,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8145"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8795"
       }
     },
     "input-dcc8da217a5c": {
@@ -3973,35 +4038,35 @@ export default {
       "description": "",
       "tags": []
     },
-    "runtimeContext-bfeb4849a32a": {
+    "runtimeContext-fbc34eb108be": {
       "name": "runtimeContext",
       "type": "Record<string, unknown> | undefined",
       "optional": true,
       "description": "User-defined runtime context. Treat runtime context as immutable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10762,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11482,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10762"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11482"
       }
     },
-    "providerOptions-323e9176b870": {
+    "providerOptions-bacef9bb6be2": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10768,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11488,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10768"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11488"
       }
     },
-    "maxRetries-5a3efed0cfd5": {
+    "maxRetries-1030d178c8ef": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -4013,56 +4078,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10739,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11459,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10739"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11459"
       }
     },
-    "headers-d3e2a061a8b8": {
+    "headers-5dcd71a1709f": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10748,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11468,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10748"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11468"
       }
     },
-    "model-c5e0815e9abc": {
+    "model-c3cf2da0831a": {
       "name": "model",
       "type": "string | RerankingModelV4 | RerankingModelV3 | (string & RerankingModelV4) | (string & RerankingModelV3) | (RerankingModelV4 & string) | (RerankingModelV3 & string)",
       "optional": false,
       "description": "The reranking model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10721,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11441,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10721"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11441"
       }
     },
-    "telemetry-7031c717fdc7": {
+    "telemetry-9d80befce824": {
       "name": "telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10752,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11472,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10752"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11472"
       }
     },
-    "experimental_telemetry-6ff335051f6b": {
+    "experimental_telemetry-e56a04459ef3": {
       "name": "experimental_telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, ToolSet> | undefined",
       "optional": true,
@@ -4074,28 +4139,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10758,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11478,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10758"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11478"
       }
     },
-    "onStart-28980c38987c": {
+    "onStart-8f853f83ded6": {
       "name": "onStart",
       "type": "Callback<RerankStartEvent<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "Callback that is called when the rerank operation begins,\nbefore the reranking model is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10773,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11493,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10773"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11493"
       }
     },
-    "experimental_onStart-b12bd48010fa": {
+    "experimental_onStart-cbc7a2641424": {
       "name": "experimental_onStart",
       "type": "Callback<RerankStartEvent<Record<string, unknown>>> | undefined",
       "optional": true,
@@ -4107,28 +4172,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10780,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11500,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10780"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11500"
       }
     },
-    "onEnd-336a122ae41f": {
+    "onEnd-87a30dcfc57c": {
       "name": "onEnd",
       "type": "Callback<RerankEndEvent<Record<string, unknown>>> | undefined",
       "optional": true,
       "description": "Callback that is called when the rerank operation completes,\nafter the reranking model returns.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10785,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11505,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10785"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11505"
       }
     },
-    "experimental_onEnd-7bae4c05bcee": {
+    "experimental_onEnd-3c1307881f56": {
       "name": "experimental_onEnd",
       "type": "Callback<RerankEndEvent<Record<string, unknown>>> | undefined",
       "optional": true,
@@ -4140,39 +4205,39 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10792,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11512,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10792"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11512"
       }
     },
-    "documents-153e8de9ac0a": {
+    "documents-978d56ce17e3": {
       "name": "documents",
       "type": "(string | JSONObject)[] | undefined",
       "optional": true,
       "description": "The documents that should be reranked.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10725,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11445,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10725"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11445"
       }
     },
-    "topN-2e58a6ef4988": {
+    "topN-b63f89c590b9": {
       "name": "topN",
       "type": "number | undefined",
       "optional": true,
       "description": "Number of top documents to return.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10733,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11453,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10733"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11453"
       }
     },
     "query-bf57c694fea9": {
@@ -4182,60 +4247,60 @@ export default {
       "description": "",
       "tags": []
     },
-    "abortSignal-1be52e81fd5e": {
+    "abortSignal-73bfcea75c49": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10743,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11463,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10743"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11463"
       }
     },
-    "model-38a5e14b7041": {
+    "model-b9a9ad1e277f": {
       "name": "model",
       "type": "RerankingModel",
       "optional": false,
       "description": "The reranking model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10721,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11441,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10721"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11441"
       }
     },
-    "documents-e64a9272b831": {
+    "documents-a7b7ca1305a3": {
       "name": "documents",
       "type": "(string | JSONObject)[]",
       "optional": false,
       "description": "The documents that should be reranked.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10725,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11445,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10725"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11445"
       }
     },
-    "query-7008b7b4625a": {
+    "query-71c9c0183347": {
       "name": "query",
       "type": "string",
       "optional": false,
       "description": "The query to rerank the documents against.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10729,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11449,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10729"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11449"
       }
     },
     "prepared-443e2e85b058": {
@@ -4245,35 +4310,35 @@ export default {
       "description": "",
       "tags": []
     },
-    "providerOptions-d0dcb86a4b4b": {
+    "providerOptions-5fcc54204c7d": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options that are passed through to the provider\nas body parameters.\n\nThe outer record is keyed by the provider name, and the inner\nrecord is keyed by the provider-specific metadata key.\n```ts\n{\n\"openai\": {\n\"style\": \"vivid\"\n}\n}\n```",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7665,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8280,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7665"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8280"
       }
     },
-    "seed-2911d722b271": {
+    "seed-f61917bfc1e4": {
       "name": "seed",
       "type": "number | undefined",
       "optional": true,
       "description": "Seed for the image generation. If not provided, the default seed will be used.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7650,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8265,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7650"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8265"
       }
     },
-    "maxRetries-43a557421317": {
+    "maxRetries-c66620af033c": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -4285,123 +4350,123 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7673,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8288,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7673"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8288"
       }
     },
-    "headers-8a1860c91ac4": {
+    "headers-1770c8ac0413": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7682,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8297,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7682"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8297"
       }
     },
-    "model-11f5ef204b2c": {
+    "model-bc27ce67cf0a": {
       "name": "model",
       "type": "string | ImageModelV4 | ImageModelV3 | ImageModelV2 | (string & ImageModelV4) | (string & ImageModelV3) | (string & ImageModelV2) | (ImageModelV4 & string) | (ImageModelV3 & string) | (ImageModelV2 & string)",
       "optional": false,
       "description": "The image model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7626,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8241,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7626"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8241"
       }
     },
-    "n-f9857b6df04f": {
+    "n-71f8e80752c9": {
       "name": "n",
       "type": "number | undefined",
       "optional": true,
       "description": "Number of images to generate.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7634,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8249,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7634"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8249"
       }
     },
-    "maxImagesPerCall-7d962d74cbca": {
+    "maxImagesPerCall-07ad01192bf4": {
       "name": "maxImagesPerCall",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum number of images to generate in a single API call. If not provided, the model's default will be used.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7638,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8253,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7638"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8253"
       }
     },
-    "size-5a9c136a3a29": {
+    "size-a1ddd9b66299": {
       "name": "size",
       "type": "`${number}x${number}` | undefined",
       "optional": true,
       "description": "Size of the images to generate. Must have the format `{width}x{height}`. If not provided, the default size will be used.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7642,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8257,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7642"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8257"
       }
     },
-    "aspectRatio-29de3eadc285": {
+    "aspectRatio-0e953591963c": {
       "name": "aspectRatio",
       "type": "`${number}:${number}` | undefined",
       "optional": true,
       "description": "Aspect ratio of the images to generate. Must have the format `{width}:{height}`. If not provided, the default aspect ratio will be used.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7646,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8261,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7646"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8261"
       }
     },
-    "images-a9ef46239974": {
+    "images-7acfa9f82d1f": {
       "name": "images",
       "type": "DataContent[] | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7600,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8215,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7600"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8215"
       }
     },
-    "mask-67715919181b": {
+    "mask-fb29f1c10bf2": {
       "name": "mask",
       "type": "DataContent | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7602,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8217,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7602"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8217"
       }
     },
     "prompt-e832a0f8b353": {
@@ -4411,46 +4476,46 @@ export default {
       "description": "",
       "tags": []
     },
-    "abortSignal-f0f3c7bf9130": {
+    "abortSignal-af0f2d8911dc": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7677,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8292,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7677"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8292"
       }
     },
-    "prompt-48ad41e1e072": {
+    "prompt-cd1596b0bae6": {
       "name": "prompt",
       "type": "GenerateImagePrompt",
       "optional": false,
       "description": "The prompt that should be used to generate the image.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7630,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8245,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7630"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8245"
       }
     },
-    "model-b484e382e133": {
+    "model-3c08b406693e": {
       "name": "model",
       "type": "ImageModel",
       "optional": false,
       "description": "The image model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7626,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8241,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7626"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8241"
       }
     },
     "direct-2d5fd362f21e": {
@@ -4474,21 +4539,21 @@ export default {
       "description": "",
       "tags": []
     },
-    "providerOptions-6fb067a708e2": {
+    "providerOptions-f1407026e059": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options that are passed through to the provider\nas body parameters.\n\nThe outer record is keyed by the provider name, and the inner\nrecord is keyed by the provider-specific metadata key.\n```ts\n{\n  \"openai\": {\n    \"temperature\": 0\n  }\n}\n```",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10966,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11705,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10966"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11705"
       }
     },
-    "maxRetries-569af71b732f": {
+    "maxRetries-517add5497ce": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -4500,53 +4565,53 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10972,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11720,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10972"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11720"
       }
     },
-    "headers-23ed9be29275": {
+    "headers-7886326ddcda": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10981,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11729,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10981"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11729"
       }
     },
-    "model-b8a9484641b3": {
+    "model-331c2d5419c7": {
       "name": "model",
       "type": "string | TranscriptionModelV4 | TranscriptionModelV3 | TranscriptionModelV2 | (string & TranscriptionModelV4) | (string & TranscriptionModelV3) | (string & TranscriptionModelV2) | (TranscriptionModelV4 & string) | (TranscriptionModelV3 & string) | (TranscriptionModelV2 & string)",
       "optional": false,
       "description": "The transcription model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10947,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11686,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10947"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11686"
       }
     },
-    "telemetry-72cc4604f7aa": {
+    "telemetry-e6a01e9dfd10": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10985,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11733,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10985"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11733"
       }
     },
     "maxPreparedAudioBytes-595959558a15": {
@@ -4569,11 +4634,25 @@ export default {
         "path": "src/audio.ts"
       }
     },
-    "download-f08788366d4c": {
+    "timestampGranularities-f8ab98382618": {
+      "name": "timestampGranularities",
+      "type": "TranscriptionModelV4TimestampGranularity[] | undefined",
+      "optional": true,
+      "description": "Word and segment timings to request.\n\nSupported adapters map this onto the provider's native control when the\nmatching provider option is omitted. An explicit provider option wins.\nSupported adapters warn when they cannot return a requested granularity.\nAn empty array requests no shared timing granularity; provider defaults may vary.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11714,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11714"
+      }
+    },
+    "download-7fc28372c55f": {
       "name": "download",
       "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
       "optional": true,
-      "description": "Custom download function for fetching audio from URLs.\nUse `createDownload()` from `ai` to create a download function with custom size limits.",
+      "description": "Custom download function for fetching audio from URLs.\nProviding this option forces local downloading even when the provider\nsupports native URL transcription.\nUse `createDownload()` from `ai` to create a download function with custom size limits.",
       "tags": [
         {
           "name": "default",
@@ -4581,51 +4660,51 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10992,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11742,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10992"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11742"
       }
     },
-    "audio-2605fab956b9": {
+    "audio-c74e517980be": {
       "name": "audio",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | Blob | AudioBuffer | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | undefined",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | Blob | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | AudioBufferSource | TranscriptionFile | undefined",
       "optional": true,
       "description": "",
       "tags": []
     },
-    "abortSignal-1f5a193f4cfe": {
+    "abortSignal-8b753a971039": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10976,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11724,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10976"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11724"
       }
     },
-    "model-d63e7d77f371": {
+    "model-ab2d60d092c3": {
       "name": "model",
       "type": "TranscriptionModel",
       "optional": false,
       "description": "The transcription model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10947,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11686,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10947"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11686"
       }
     },
-    "audio-77fb26eba0fb": {
+    "audio-f4a50ca734b1": {
       "name": "audio",
-      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | Blob | AudioBuffer | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike>",
+      "type": "string | ArrayBuffer | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | Uint8Array<ArrayBufferLike> | Blob | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike> | AudioBufferSource | TranscriptionFile",
       "optional": false,
       "description": "",
       "tags": [],
@@ -4633,35 +4712,49 @@ export default {
         "path": "src/factories/Transcriber.ts"
       }
     },
-    "direct-fad7b13e388e": {
+    "direct-7bcd58c5299d": {
       "name": "direct",
-      "type": "string | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | RawAudio",
+      "type": "string | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | TranscriptionFile | RawAudio",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "prepared-e71d276d5c69": {
+    "prepared-b09ea79bc187": {
       "name": "prepared",
-      "type": "string | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | RawAudio",
+      "type": "string | Uint8Array<ArrayBufferLike> | Buffer<ArrayBufferLike> | URL | TranscriptionFile | RawAudio",
       "optional": false,
       "description": "",
       "tags": []
     },
-    "providerOptions-b4ea33bb4d7b": {
+    "providerOptions-0391eeeaef21": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options that are passed through to the provider\nas body parameters.\n\nThe outer record is keyed by the provider name, and the inner\nrecord is keyed by the provider-specific metadata key.\n```ts\n{\n\"openai\": {}\n}\n```",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9537,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10232,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9537"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10232"
       }
     },
-    "maxRetries-3203a207b457": {
+    "language-80fcf25fd716": {
+      "name": "language",
+      "type": "string | undefined",
+      "optional": true,
+      "description": "The language for speech generation. This should be an ISO 639-1 language code (e.g. \"en\", \"es\", \"fr\")\nor \"auto\" for automatic language detection. Provider support varies.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10219,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10219"
+      }
+    },
+    "maxRetries-49b0652defa9": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -4673,123 +4766,109 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9543,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10238,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9543"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10238"
       }
     },
-    "headers-210ca6223697": {
+    "headers-06589cfe4fcf": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9552,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10247,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9552"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10247"
       }
     },
-    "instructions-589fb8cbb087": {
+    "instructions-3d37a40068de": {
       "name": "instructions",
       "type": "string | undefined",
       "optional": true,
       "description": "Instructions for the speech generation e.g. \"Speak in a slow and steady tone\".",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9515,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10210,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9515"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10210"
       }
     },
-    "model-94567991422d": {
+    "model-abbda6b55254": {
       "name": "model",
       "type": "string | SpeechModelV4 | SpeechModelV3 | SpeechModelV2 | (string & SpeechModelV4) | (string & SpeechModelV3) | (string & SpeechModelV2) | (SpeechModelV4 & string) | (SpeechModelV3 & string) | (SpeechModelV2 & string)",
       "optional": false,
       "description": "The speech model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9499,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10194,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9499"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10194"
       }
     },
-    "telemetry-f8a2081d9c3e": {
+    "telemetry-0bd86804edb7": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9556,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10251,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9556"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10251"
       }
     },
-    "voice-524c54983482": {
+    "voice-077d0f0f81a8": {
       "name": "voice",
       "type": "string | undefined",
       "optional": true,
       "description": "The voice to use for speech generation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9507,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10202,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9507"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10202"
       }
     },
-    "outputFormat-6291f13adf52": {
+    "outputFormat-69479cff1acd": {
       "name": "outputFormat",
       "type": "(string & {}) | \"mp3\" | \"wav\" | undefined",
       "optional": true,
       "description": "The desired output format for the audio e.g. \"mp3\", \"wav\", etc.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9511,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10206,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9511"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10206"
       }
     },
-    "speed-4d164fbb7f9d": {
+    "speed-d74265e616d8": {
       "name": "speed",
       "type": "number | undefined",
       "optional": true,
       "description": "The speed of the speech generation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9519,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10214,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9519"
-      }
-    },
-    "language-61b62537a500": {
-      "name": "language",
-      "type": "string | undefined",
-      "optional": true,
-      "description": "The language for speech generation. This should be an ISO 639-1 language code (e.g. \"en\", \"es\", \"fr\")\nor \"auto\" for automatic language detection. Provider support varies.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9524,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9524"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10214"
       }
     },
     "text-9952b743697d": {
@@ -4799,46 +4878,46 @@ export default {
       "description": "",
       "tags": []
     },
-    "text-ec806897822a": {
+    "text-3e3b88fecf0f": {
       "name": "text",
       "type": "string",
       "optional": false,
       "description": "The text to convert to speech.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9503,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10198,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9503"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10198"
       }
     },
-    "abortSignal-dde81d3b7308": {
+    "abortSignal-2a56d4719602": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9547,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10242,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9547"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10242"
       }
     },
-    "model-8d9d31f1896c": {
+    "model-1dce7990aa0b": {
       "name": "model",
       "type": "SpeechModel",
       "optional": false,
       "description": "The speech model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9499,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10194,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9499"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10194"
       }
     },
     "direct-5306f56796f6": {
@@ -4855,102 +4934,102 @@ export default {
       "description": "",
       "tags": []
     },
-    "providerOptions-629f88d39640": {
+    "providerOptions-90a5d6a9f1ee": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11325,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12066,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11325"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12066"
       }
     },
-    "headers-8bb00513d5db": {
+    "headers-7d47ca76d094": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request, if supported by the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11333,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12074,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11333"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12074"
       }
     },
-    "model-c8d77816a238": {
+    "model-4789518cab57": {
       "name": "model",
       "type": "(SpeechTranslationModel | undefined) & SpeechTranslationModel",
       "optional": false,
       "description": "The speech translation model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11297,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12038,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11297"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12038"
       }
     },
-    "inputAudioFormat-2df44b715671": {
+    "inputAudioFormat-d8322f89357f": {
       "name": "inputAudioFormat",
       "type": "SharedV4AudioFormat | undefined",
       "optional": true,
       "description": "The input audio format for the raw audio chunks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11305,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12046,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11305"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12046"
       }
     },
-    "targetLanguage-94fcfd26675f": {
+    "targetLanguage-8f57c47fbc72": {
       "name": "targetLanguage",
       "type": "string | undefined",
       "optional": true,
       "description": "The language to translate the audio into, as a BCP-47-style language\ntag (e.g. `en`, `es`, `fr-CA`). Supported values are provider-specific\nand validated by the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11311,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12052,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11311"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12052"
       }
     },
-    "outputAudioFormat-89e588aef43c": {
+    "outputAudioFormat-d539c234392c": {
       "name": "outputAudioFormat",
       "type": "SharedV4AudioFormat | undefined",
       "optional": true,
       "description": "The desired audio format for translated audio chunks.\nWhen absent, the provider default output format is used.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11321,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12062,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11321"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12062"
       }
     },
-    "sourceLanguage-af6309dbca4a": {
+    "sourceLanguage-ebb4e1b916d2": {
       "name": "sourceLanguage",
       "type": "string | undefined",
       "optional": true,
       "description": "The language of the source audio, as a BCP-47-style language tag.\nWhen absent, providers auto-detect the source language.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11316,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12057,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11316"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12057"
       }
     },
     "audio-c563898406e8": {
@@ -4960,32 +5039,32 @@ export default {
       "description": "",
       "tags": []
     },
-    "abortSignal-d9dfce9e4ae0": {
+    "abortSignal-c0f42bc55266": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11329,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12070,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11329"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12070"
       }
     },
-    "model-2844db232f29": {
+    "model-246db9799f69": {
       "name": "model",
       "type": "SpeechTranslationModel",
       "optional": false,
       "description": "The speech translation model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11297,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12038,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11297"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12038"
       }
     },
     "audio-87d9e2ee44af": {
@@ -4998,32 +5077,32 @@ export default {
         "path": "src/factories/Translator.ts"
       }
     },
-    "inputAudioFormat-a9437bf10d0a": {
+    "inputAudioFormat-afb9527b3706": {
       "name": "inputAudioFormat",
       "type": "SharedV4AudioFormat",
       "optional": false,
       "description": "The input audio format for the raw audio chunks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11305,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12046,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11305"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12046"
       }
     },
-    "targetLanguage-f5006a68aa47": {
+    "targetLanguage-f0a3ad97c84b": {
       "name": "targetLanguage",
       "type": "string",
       "optional": false,
       "description": "The language to translate the audio into, as a BCP-47-style language\ntag (e.g. `en`, `es`, `fr-CA`). Supported values are provider-specific\nand validated by the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11311,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12052,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11311"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12052"
       }
     },
     "direct-1d822026b786": {
@@ -5040,7 +5119,7 @@ export default {
       "description": "",
       "tags": []
     },
-    "providerOptions-017504595b6e": {
+    "providerOptions-207d34914c15": {
       "name": "providerOptions",
       "type": "Record<string, unknown> | undefined",
       "optional": true,
@@ -5048,10 +5127,10 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7462,
+        "line": 7739,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7462"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7739"
       }
     },
     "model-c2646b18c643": {
@@ -5064,7 +5143,7 @@ export default {
         "path": "src/factories/VoiceAgentBackend.ts"
       }
     },
-    "inputAudioFormat-955d75ed5ca3": {
+    "inputAudioFormat-9303f715c7b4": {
       "name": "inputAudioFormat",
       "type": "SharedV4AudioFormat | undefined",
       "optional": true,
@@ -5072,13 +5151,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7380,
+        "line": 7657,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7380"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7657"
       }
     },
-    "voice-7e42c4fa10ac": {
+    "voice-a1f8a990e4c3": {
       "name": "voice",
       "type": "string | undefined",
       "optional": true,
@@ -5086,13 +5165,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7372,
+        "line": 7649,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7372"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7649"
       }
     },
-    "outputModalities-39bbf6b1aadb": {
+    "outputModalities-c669f792f5d9": {
       "name": "outputModalities",
       "type": "(\"text\" | \"audio\")[] | undefined",
       "optional": true,
@@ -5100,13 +5179,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7376,
+        "line": 7653,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7376"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7653"
       }
     },
-    "inputAudioTranscription-bc4eeaf53b51": {
+    "inputAudioTranscription-b199469fe309": {
       "name": "inputAudioTranscription",
       "type": "{ model?: string; language?: string; prompt?: string; } | undefined",
       "optional": true,
@@ -5114,13 +5193,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7388,
+        "line": 7665,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7388"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7665"
       }
     },
-    "outputAudioTranscription-d19f1c7d2fa9": {
+    "outputAudioTranscription-3df77a6d2390": {
       "name": "outputAudioTranscription",
       "type": "{ model?: string; language?: string; prompt?: string; } | undefined",
       "optional": true,
@@ -5128,13 +5207,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7410,
+        "line": 7687,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7410"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7687"
       }
     },
-    "outputAudioFormat-bc737eb9a538": {
+    "outputAudioFormat-40273b9f1c57": {
       "name": "outputAudioFormat",
       "type": "SharedV4AudioFormat | undefined",
       "optional": true,
@@ -5142,13 +5221,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7427,
+        "line": 7704,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7427"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7704"
       }
     },
-    "turnDetection-8e67b91d87d3": {
+    "turnDetection-a9c515125296": {
       "name": "turnDetection",
       "type": "{ type: \"server-vad\" | \"semantic-vad\" | \"disabled\"; threshold?: number; silenceDurationMs?: number; prefixPaddingMs?: number; } | null | undefined",
       "optional": true,
@@ -5156,13 +5235,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7432,
+        "line": 7709,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7432"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7709"
       }
     },
-    "expiresAfterSeconds-f25ee8b0931a": {
+    "expiresAfterSeconds-7125d4863dda": {
       "name": "expiresAfterSeconds",
       "type": "number | undefined",
       "optional": true,
@@ -5170,10 +5249,10 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7474,
+        "line": 7751,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7474"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7751"
       }
     },
     "instructions-cda74c669be0": {
@@ -5183,7 +5262,7 @@ export default {
       "description": "",
       "tags": []
     },
-    "instructions-4cc81f59e6ac": {
+    "instructions-0c459c58ac82": {
       "name": "instructions",
       "type": "string | undefined",
       "optional": true,
@@ -5191,10 +5270,10 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7368,
+        "line": 7645,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7368"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7645"
       }
     },
     "inputSchema-47ed76ea66b3": {
@@ -5207,7 +5286,7 @@ export default {
         "path": "src/types/config.ts"
       }
     },
-    "onInputAvailable-0ee077587da3": {
+    "onInputAvailable-2fcbe53a40cf": {
       "name": "onInputAvailable",
       "type": "((options: { input: Record<string, unknown>; } & ToolExecutionOptions<unknown>) => void | PromiseLike<void>) | undefined",
       "optional": true,
@@ -5215,13 +5294,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2282,
+        "line": 2398,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2282"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2398"
       }
     },
-    "onInputStart-060e54bf784e": {
+    "onInputStart-6db43b699e4e": {
       "name": "onInputStart",
       "type": "((options: ToolExecutionOptions<unknown>) => void | PromiseLike<void>) | undefined",
       "optional": true,
@@ -5229,13 +5308,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2270,
+        "line": 2386,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2270"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2386"
       }
     },
-    "onInputDelta-ea4168ae0b75": {
+    "onInputDelta-dc6151fa688a": {
       "name": "onInputDelta",
       "type": "((options: { inputTextDelta: string; } & ToolExecutionOptions<unknown>) => void | PromiseLike<void>) | undefined",
       "optional": true,
@@ -5243,13 +5322,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2275,
+        "line": 2391,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2275"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2391"
       }
     },
-    "needsApproval-e2c793a8ce88": {
+    "needsApproval-1e0f61adeb0d": {
       "name": "needsApproval",
       "type": "boolean | ToolNeedsApprovalFunction<Record<string, unknown>, unknown> | undefined",
       "optional": true,
@@ -5262,13 +5341,13 @@ export default {
       ],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2265,
+        "line": 2381,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2265"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2381"
       }
     },
-    "title-6e688f9a6e86": {
+    "title-a1c2f6247831": {
       "name": "title",
       "type": "string | undefined",
       "optional": true,
@@ -5281,13 +5360,13 @@ export default {
       ],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2229,
+        "line": 2345,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2229"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2345"
       }
     },
-    "deferLoading-ae9383ee0fa8": {
+    "deferLoading-fec45f07f745": {
       "name": "deferLoading",
       "type": "boolean | undefined",
       "optional": true,
@@ -5295,13 +5374,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2223,
+        "line": 2339,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2223"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2339"
       }
     },
-    "providerOptions-42fe4696b43b": {
+    "providerOptions-618cf384fe38": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
@@ -5309,13 +5388,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2235,
+        "line": 2351,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2235"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2351"
       }
     },
-    "metadata-6d9129abab07": {
+    "metadata-c2317f76c82b": {
       "name": "metadata",
       "type": "JSONObject | undefined",
       "optional": true,
@@ -5323,13 +5402,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2245,
+        "line": 2361,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2245"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2361"
       }
     },
-    "toModelOutput-8f0e85e088c7": {
+    "toModelOutput-2b05fcc61141": {
       "name": "toModelOutput",
       "type": "((options: { toolCallId: string; input: Record<string, unknown>; output: unknown; }) => ToolResultOutput | PromiseLike<ToolResultOutput>) | undefined",
       "optional": true,
@@ -5337,13 +5416,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2292,
+        "line": 2408,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2292"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2408"
       }
     },
-    "strict-07a151c197b1": {
+    "strict-4241d63003b7": {
       "name": "strict",
       "type": "boolean | undefined",
       "optional": true,
@@ -5351,13 +5430,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2332,
+        "line": 2448,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2332"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2448"
       }
     },
-    "inputExamples-ff69a7242b1e": {
+    "inputExamples-e42b4f96dfae": {
       "name": "inputExamples",
       "type": "{ input: NoInfer<Record<string, unknown>>; }[] | undefined",
       "optional": true,
@@ -5365,10 +5444,10 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2337,
+        "line": 2453,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2337"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2453"
       }
     },
     "description-e0df7f9e2319": {
@@ -5381,88 +5460,88 @@ export default {
         "path": "src/types/config.ts"
       }
     },
-    "timeout-1bba377e46d4": {
+    "timeout-0e724f13b50a": {
       "name": "timeout",
       "type": "TimeoutConfiguration<EmptyMap> | undefined",
       "optional": true,
       "description": "Timeout configuration for the request.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 839,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1049,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L839"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1049"
       }
     },
-    "toolChoice-180fe037bbc0": {
+    "toolChoice-58cffc8c1041": {
       "name": "toolChoice",
       "type": "ToolChoice<EmptyMap> | undefined",
       "optional": true,
       "description": "The tool choice strategy. Default: 'auto'.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3947,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4357,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3947"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4357"
       }
     },
-    "telemetry-678067987faf": {
+    "telemetry-5d1adc753c55": {
       "name": "telemetry",
       "type": "TelemetryOptions<Record<string, unknown>, NoInfer<EmptyMap>> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3958,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4368,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3958"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4368"
       }
     },
-    "activeTools-97c193783099": {
+    "activeTools-06cfc51a0db3": {
       "name": "activeTools",
       "type": "ActiveTools<NoInfer<EmptyMap>>",
       "optional": true,
       "description": "Limits the tools that are available for the model to call without\nchanging the tool call and result types in the result.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3990,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4400,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3990"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4400"
       }
     },
-    "toolOrder-e8ffff15b565": {
+    "toolOrder-2a0e343c93b1": {
       "name": "toolOrder",
       "type": "ToolOrder<NoInfer<EmptyMap>>",
       "optional": true,
       "description": "Controls the order in which tools are sent to the provider.\n\nThe list can be partial. Tools not listed in `toolOrder` are sent after\nthe listed tools, sorted alphabetically. This can improve provider-side\ncaching by keeping tool definitions in a stable order.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3998,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4408,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3998"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4408"
       }
     },
-    "experimental_toolCallers-ff9afda2223d": {
+    "experimental_toolCallers-fd1a321c4fd1": {
       "name": "experimental_toolCallers",
       "type": "Experimental_ToolCallers<NoInfer<EmptyMap>> | undefined",
       "optional": true,
       "description": "Configures which caller tools may invoke each tool.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4019,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4429,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4019"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4429"
       }
     },
     "prompt-0bb201e140ef": {
@@ -5630,91 +5709,91 @@ export default {
         "path": "src/types/agent.ts"
       }
     },
-    "options-37bd75580b6d": {
+    "options-8fa395032d9b": {
       "name": "options",
       "type": "unknown",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5352,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6034,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5352"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6034"
       }
     },
-    "prompt-1ffdc31f366f": {
+    "prompt-8d7ea27bd026": {
       "name": "prompt",
       "type": "string | ModelMessage[] | undefined",
       "optional": true,
       "description": "A prompt. It can be either a text prompt or a list of messages.\n\nYou can either use `prompt` or `messages` but not both.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5359,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6041,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5359"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6041"
       }
     },
-    "messages-df6f076db158": {
+    "messages-ed6c2b4b81e2": {
       "name": "messages",
       "type": "ModelMessage[] | undefined",
       "optional": true,
       "description": "A list of messages.\n\nYou can either use `prompt` or `messages` but not both.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5365,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6047,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5365"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6047"
       }
     },
-    "abortSignal-52561c51f595": {
+    "abortSignal-8472d497301f": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5383,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6065,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5383"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6065"
       }
     },
-    "timeout-2b6830ecfea3": {
+    "timeout-3d7a5c777cdf": {
       "name": "timeout",
       "type": "TimeoutConfiguration<{}> | undefined",
       "optional": true,
       "description": "Timeout in milliseconds. Can be specified as a number or as an object\nwith total, per-step, first-content, inter-content, and tool timeouts.\nFirst-content and inter-content timeouts are only enforced by streaming\ncalls.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5390,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6072,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5390"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6072"
       }
     },
-    "onStart-aef48ea7e7b4": {
+    "onStart-8ab79d0f0fb2": {
       "name": "onStart",
       "type": "GenerateTextOnStartCallback<{}, Context, Output<any, any, any>> | undefined",
       "optional": true,
       "description": "Callback that is called when the agent operation begins, before any LLM calls.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5394,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6076,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5394"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6076"
       }
     },
-    "experimental_onStart-bb23f034eb71": {
+    "experimental_onStart-bdf9f9b7d2a9": {
       "name": "experimental_onStart",
       "type": "GenerateTextOnStartCallback<{}, Context, Output<any, any, any>> | undefined",
       "optional": true,
@@ -5726,28 +5805,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5400,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6082,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5400"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6082"
       }
     },
-    "onStepStart-4eac7e85c7c3": {
+    "onStepStart-8051895eff4f": {
       "name": "onStepStart",
       "type": "GenerateTextOnStepStartCallback<{}, Context, Output<any, any, any>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step (LLM call) begins, before the provider is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5404,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6086,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5404"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6086"
       }
     },
-    "experimental_onStepStart-97ac29c27fbe": {
+    "experimental_onStepStart-e7ff155c4cc6": {
       "name": "experimental_onStepStart",
       "type": "GenerateTextOnStepStartCallback<{}, Context, Output<any, any, any>> | undefined",
       "optional": true,
@@ -5759,28 +5838,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5410,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6092,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5410"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6092"
       }
     },
-    "onToolExecutionStart-e4f0d33f9232": {
+    "onToolExecutionStart-0efd83b85d7c": {
       "name": "onToolExecutionStart",
       "type": "OnToolExecutionStartCallback<{}> | undefined",
       "optional": true,
       "description": "Callback that is called before each tool execution begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5414,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6096,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5414"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6096"
       }
     },
-    "experimental_onToolCallStart-edf35f9005ce": {
+    "experimental_onToolCallStart-f78192135695": {
       "name": "experimental_onToolCallStart",
       "type": "OnToolExecutionStartCallback<{}> | undefined",
       "optional": true,
@@ -5792,28 +5871,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5420,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6102,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5420"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6102"
       }
     },
-    "onToolExecutionEnd-7a5b4146deff": {
+    "onToolExecutionEnd-b14c42f13960": {
       "name": "onToolExecutionEnd",
       "type": "OnToolExecutionEndCallback<{}> | undefined",
       "optional": true,
       "description": "Callback that is called after each tool execution completes.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5424,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6106,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5424"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6106"
       }
     },
-    "experimental_onToolCallFinish-3717e6bbaa7d": {
+    "experimental_onToolCallFinish-fbaaccdc74be": {
       "name": "experimental_onToolCallFinish",
       "type": "OnToolExecutionEndCallback<{}> | undefined",
       "optional": true,
@@ -5825,28 +5904,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5430,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6112,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5430"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6112"
       }
     },
-    "onStepEnd-c19ef6fba098": {
+    "onStepEnd-5ba9136cedb9": {
       "name": "onStepEnd",
       "type": "GenerateTextOnStepEndCallback<{}, Context> | undefined",
       "optional": true,
       "description": "Callback that is called when each step (LLM call) ends, including intermediate steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5434,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6116,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5434"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6116"
       }
     },
-    "onStepFinish-570883b7dcbd": {
+    "onStepFinish-108a1b0e5530": {
       "name": "onStepFinish",
       "type": "GenerateTextOnStepFinishCallback<{}, Context> | undefined",
       "optional": true,
@@ -5858,28 +5937,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5440,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6122,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5440"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6122"
       }
     },
-    "onEnd-f2ea97395729": {
+    "onEnd-5adcd5ed4951": {
       "name": "onEnd",
       "type": "GenerateTextOnEndCallback<{}, Context> | undefined",
       "optional": true,
       "description": "Callback that is called when all steps are finished and the response is complete.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5444,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6126,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5444"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6126"
       }
     },
-    "onFinish-70e885571273": {
+    "onFinish-64c97cab1f90": {
       "name": "onFinish",
       "type": "GenerateTextOnEndCallback<{}, Context> | undefined",
       "optional": true,
@@ -5891,56 +5970,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5450,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6132,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5450"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6132"
       }
     },
-    "experimental_sandbox-7a420260cec2": {
+    "experimental_sandbox-ca9e32143b76": {
       "name": "experimental_sandbox",
       "type": "SandboxSession | undefined",
       "optional": true,
       "description": "The sandbox environment that is passed through to tool execution.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5454,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6136,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5454"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6136"
       }
     },
-    "timeout-9e14af0b9943": {
+    "timeout-ba7665ff386c": {
       "name": "timeout",
       "type": "TimeoutConfiguration<ToolSet> | undefined",
       "optional": true,
       "description": "Timeout in milliseconds. Can be specified as a number or as an object\nwith total, per-step, first-content, inter-content, and tool timeouts.\nFirst-content and inter-content timeouts are only enforced by streaming\ncalls.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5390,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6072,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5390"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6072"
       }
     },
-    "onStart-9ac541be5597": {
+    "onStart-38c32622c842": {
       "name": "onStart",
       "type": "GenerateTextOnStartCallback<ToolSet, Context, Output<any, any, any>> | undefined",
       "optional": true,
       "description": "Callback that is called when the agent operation begins, before any LLM calls.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5394,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6076,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5394"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6076"
       }
     },
-    "experimental_onStart-8b450fd7696a": {
+    "experimental_onStart-d03a46de5ea8": {
       "name": "experimental_onStart",
       "type": "GenerateTextOnStartCallback<ToolSet, Context, Output<any, any, any>> | undefined",
       "optional": true,
@@ -5952,28 +6031,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5400,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6082,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5400"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6082"
       }
     },
-    "onStepStart-47b571f98d6a": {
+    "onStepStart-61964b5201ef": {
       "name": "onStepStart",
       "type": "GenerateTextOnStepStartCallback<ToolSet, Context, Output<any, any, any>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step (LLM call) begins, before the provider is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5404,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6086,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5404"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6086"
       }
     },
-    "experimental_onStepStart-73171b13a668": {
+    "experimental_onStepStart-b6023181e588": {
       "name": "experimental_onStepStart",
       "type": "GenerateTextOnStepStartCallback<ToolSet, Context, Output<any, any, any>> | undefined",
       "optional": true,
@@ -5985,28 +6064,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5410,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6092,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5410"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6092"
       }
     },
-    "onToolExecutionStart-44653cbecfb4": {
+    "onToolExecutionStart-b0f5666b9163": {
       "name": "onToolExecutionStart",
       "type": "OnToolExecutionStartCallback<ToolSet> | undefined",
       "optional": true,
       "description": "Callback that is called before each tool execution begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5414,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6096,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5414"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6096"
       }
     },
-    "experimental_onToolCallStart-31c7d68b5570": {
+    "experimental_onToolCallStart-c0d4f80bf7e9": {
       "name": "experimental_onToolCallStart",
       "type": "OnToolExecutionStartCallback<ToolSet> | undefined",
       "optional": true,
@@ -6018,28 +6097,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5420,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6102,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5420"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6102"
       }
     },
-    "onToolExecutionEnd-73d3571a0e34": {
+    "onToolExecutionEnd-d0cb63f0a4eb": {
       "name": "onToolExecutionEnd",
       "type": "OnToolExecutionEndCallback<ToolSet> | undefined",
       "optional": true,
       "description": "Callback that is called after each tool execution completes.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5424,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6106,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5424"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6106"
       }
     },
-    "experimental_onToolCallFinish-e743e6d45d56": {
+    "experimental_onToolCallFinish-6975a1e4c99c": {
       "name": "experimental_onToolCallFinish",
       "type": "OnToolExecutionEndCallback<ToolSet> | undefined",
       "optional": true,
@@ -6051,28 +6130,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5430,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6112,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5430"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6112"
       }
     },
-    "onStepEnd-38a1e56505af": {
+    "onStepEnd-e2a3cff813fa": {
       "name": "onStepEnd",
       "type": "GenerateTextOnStepEndCallback<ToolSet, Context> | undefined",
       "optional": true,
       "description": "Callback that is called when each step (LLM call) ends, including intermediate steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5434,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6116,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5434"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6116"
       }
     },
-    "onStepFinish-749f084a3582": {
+    "onStepFinish-ea5fa4554781": {
       "name": "onStepFinish",
       "type": "GenerateTextOnStepFinishCallback<ToolSet, Context> | undefined",
       "optional": true,
@@ -6084,28 +6163,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5440,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6122,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5440"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6122"
       }
     },
-    "onEnd-5c5601675cd4": {
+    "onEnd-974d471b67c6": {
       "name": "onEnd",
       "type": "GenerateTextOnEndCallback<ToolSet, Context> | undefined",
       "optional": true,
       "description": "Callback that is called when all steps are finished and the response is complete.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5444,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6126,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5444"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6126"
       }
     },
-    "onFinish-3a20cbb9bf1e": {
+    "onFinish-512100d5c453": {
       "name": "onFinish",
       "type": "GenerateTextOnEndCallback<ToolSet, Context> | undefined",
       "optional": true,
@@ -6117,42 +6196,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5450,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6132,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5450"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6132"
       }
     },
-    "experimental_transform-4d7fc66a5495": {
+    "experimental_transform-7db3258bd060": {
       "name": "experimental_transform",
       "type": "Arrayable<StreamTextTransform<ToolSet>>",
       "optional": true,
       "description": "Optional stream transformations.\nThey are applied in the order they are provided.\nThe stream transformations must maintain the stream structure for streamText to work correctly.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5465,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6147,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5465"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6147"
       }
     },
-    "abortSignal-fc62ed60653c": {
+    "abortSignal-332106eb39a3": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 830,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1040,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L830"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1040"
       }
     },
-    "system-172f838ea9ab": {
+    "system-77b926aa15b3": {
       "name": "system",
       "type": "Instructions | undefined",
       "optional": true,
@@ -6164,84 +6243,84 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 868,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1078,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L868"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1078"
       }
     },
-    "prompt-da6f2a5e577b": {
+    "prompt-9441b69dcea1": {
       "name": "prompt",
       "type": "string | ModelMessage[] | undefined",
       "optional": true,
       "description": "A prompt. It can be either a text prompt or a list of messages.\n\nYou can either use `prompt` or `messages` but not both.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 884,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1094,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L884"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1094"
       }
     },
-    "messages-4821e5bed3b2": {
+    "messages-43bee1c696a9": {
       "name": "messages",
       "type": "ModelMessage[] | undefined",
       "optional": true,
       "description": "A list of messages.\n\nYou can either use `prompt` or `messages` but not both.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 890,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1100,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L890"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1100"
       }
     },
-    "tools-c7e657498fc5": {
+    "tools-5efdda627cc8": {
       "name": "tools",
       "type": "ToolSet | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3768,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4177,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3768"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4177"
       }
     },
-    "model-bcb922cd8d09": {
+    "model-09a947404281": {
       "name": "model",
       "type": "LanguageModel",
       "optional": false,
       "description": "The language model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5597,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6280,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5597"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6280"
       }
     },
-    "toolChoice-e966120430af": {
+    "toolChoice-427c5a9308b0": {
       "name": "toolChoice",
       "type": "ToolChoice<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "The tool choice strategy. Default: 'auto'.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5601,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6284,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5601"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6284"
       }
     },
-    "stopWhen-58682c71d97a": {
+    "stopWhen-5eaba03d41fc": {
       "name": "stopWhen",
       "type": "Arrayable<StopCondition<NoInfer<ToolSet>, Context>>",
       "optional": true,
@@ -6253,28 +6332,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5608,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6291,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5608"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6291"
       }
     },
-    "telemetry-426b4fc5106b": {
+    "telemetry-83a18a73674f": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5612,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6295,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5612"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6295"
       }
     },
-    "experimental_telemetry-a9e7af1f89df": {
+    "experimental_telemetry-308f34bd840d": {
       "name": "experimental_telemetry",
       "type": "TelemetryOptions<Context, NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -6286,210 +6365,210 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5618,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6301,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5618"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6301"
       }
     },
-    "providerOptions-84c631799d17": {
+    "providerOptions-bd08c56812f2": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5624,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6307,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5624"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6307"
       }
     },
-    "experimental_sandbox-99c3bd2e8aa3": {
+    "experimental_sandbox-37021c1de022": {
       "name": "experimental_sandbox",
       "type": "SandboxSession | undefined",
       "optional": true,
       "description": "The sandbox environment that is passed through to tool execution.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5628,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6311,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5628"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6311"
       }
     },
-    "experimental_steering-5a09c397514b": {
+    "experimental_steering-460ceb38c418": {
       "name": "experimental_steering",
       "type": "Steering | undefined",
       "optional": true,
       "description": "A steering object created with `experimental_createSteering()`.\nMessages sent with it are added to the generation at the next step\nboundary.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5634,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6317,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5634"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6317"
       }
     },
-    "runtimeContext-4a749ca4bd3e": {
+    "runtimeContext-afa54abaf1a9": {
       "name": "runtimeContext",
       "type": "Context | undefined",
       "optional": true,
       "description": "Runtime context. Treat runtime context as immutable.\nIf you need to mutate runtime context, update it in `prepareStep`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5639,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6322,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5639"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6322"
       }
     },
-    "activeTools-40780df8380f": {
+    "activeTools-f03d9ff9a732": {
       "name": "activeTools",
       "type": "ActiveTools<NoInfer<ToolSet>>",
       "optional": true,
       "description": "Limits the tools that are available for the model to call without\nchanging the tool call and result types in the result.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5644,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6327,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5644"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6327"
       }
     },
-    "toolOrder-3e1ebf5c6c12": {
+    "toolOrder-2d0fea3811dd": {
       "name": "toolOrder",
       "type": "ToolOrder<NoInfer<ToolSet>>",
       "optional": true,
       "description": "Controls the order in which tools are sent to the provider.\n\nThe list can be partial. Tools not listed in `toolOrder` are sent after\nthe listed tools, sorted alphabetically. This can improve provider-side\ncaching by keeping tool definitions in a stable order.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5652,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6335,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5652"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6335"
       }
     },
-    "toolCallConcurrency-b74f772b74e0": {
+    "toolCallConcurrency-bc88af60dd58": {
       "name": "toolCallConcurrency",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum number of tool calls that may execute concurrently within a step.\n\nSet to `1` to execute tool calls sequentially in the order they were\ngenerated. By default, all tool calls execute concurrently.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5659,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6342,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5659"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6342"
       }
     },
-    "output-e60b98f327bb": {
+    "output-0c868bea346c": {
       "name": "output",
       "type": "Output<any, any, any> | undefined",
       "optional": true,
       "description": "Optional specification for parsing structured outputs from the LLM response.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5663,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6346,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5663"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6346"
       }
     },
-    "toolApproval-172adab271f3": {
+    "toolApproval-d051fbd5a943": {
       "name": "toolApproval",
       "type": "ToolApprovalConfiguration<ToolSet, Context> | undefined",
       "optional": true,
       "description": "Optional tool approval configuration.\n\nThis configuration takes precedence over tool-defined approval settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5669,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6352,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5669"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6352"
       }
     },
-    "experimental_toolCallers-1828a8c45edd": {
+    "experimental_toolCallers-2a0384aa9261": {
       "name": "experimental_toolCallers",
       "type": "Experimental_ToolCallers<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Configures which caller tools may invoke each tool.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5673,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6356,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5673"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6356"
       }
     },
-    "experimental_toolApprovalSecret-605bca05f581": {
+    "experimental_toolApprovalSecret-396b6f71c894": {
       "name": "experimental_toolApprovalSecret",
       "type": "string | Uint8Array<ArrayBufferLike> | undefined",
       "optional": true,
-      "description": "Secret for HMAC-signing tool approval requests. When set, the server\nsigns each approval request at issuance and verifies the signature when\nthe approval is replayed, preventing client-forged approvals.",
+      "description": "Secret for HMAC-signing tool approval requests. When set, the server\nsigns approval requests at issuance and verifies the signature when\nthe approval is replayed, preventing client-forged approvals.\nApproval requests for automatically denied tool calls are not signed.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5679,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6363,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5679"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6363"
       }
     },
-    "experimental_download-a484b37b0e10": {
+    "experimental_download-598dda901e60": {
       "name": "experimental_download",
       "type": "DownloadFunction | undefined",
       "optional": true,
-      "description": "Custom download function to use for URLs.\n\nBy default, files are downloaded if the model does not support the URL for the given media type.",
+      "description": "Custom download function to use for URLs in the prompt and for\ngenerated file URLs returned by the model.\n\nBy default, prompt files are downloaded if the model does not support\nthe URL for the given media type. Generated file URLs are always\ndownloaded; returning `null` for them is an error.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5685,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6372,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5685"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6372"
       }
     },
-    "prepareStep-722de7983b61": {
+    "prepareStep-aafaa9f826d3": {
       "name": "prepareStep",
       "type": "PrepareStepFunction<NoInfer<ToolSet>, Context> | undefined",
       "optional": true,
       "description": "Optional function that you can use to provide different settings for a step.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5689,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6376,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5689"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6376"
       }
     },
-    "repairToolCall-90618d4db5d0": {
+    "repairToolCall-6d6832910cc0": {
       "name": "repairToolCall",
       "type": "ToolCallRepairFunction<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "A function that attempts to repair a tool call that failed to parse.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5693,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6380,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5693"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6380"
       }
     },
-    "experimental_repairToolCall-8b5571b91327": {
+    "experimental_repairToolCall-d304098a1b19": {
       "name": "experimental_repairToolCall",
       "type": "ToolCallRepairFunction<NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -6501,42 +6580,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5699,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6386,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5699"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6386"
       }
     },
-    "experimental_refineToolInput-47f3c0fd9da8": {
+    "experimental_refineToolInput-b39b71a0bddd": {
       "name": "experimental_refineToolInput",
       "type": "ToolInputRefinement<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Optional mapping of tool names to functions that refine parsed tool inputs.\n\nThe refined input must have the same type shape as the tool input. Refined\ninputs are used for tool execution, outputs, callbacks, and telemetry.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5706,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6393,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5706"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6393"
       }
     },
-    "onStart-04bef8beb81a": {
+    "onStart-89fac7e39631": {
       "name": "onStart",
       "type": "GenerateTextOnStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
       "description": "Callback that is called when the generateText operation begins,\nbefore any LLM calls are made.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5711,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6398,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5711"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6398"
       }
     },
-    "experimental_onStart-e62aaae29cc6": {
+    "experimental_onStart-5921bc4f853e": {
       "name": "experimental_onStart",
       "type": "GenerateTextOnStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
@@ -6548,28 +6627,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5718,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6405,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5718"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6405"
       }
     },
-    "onStepStart-f84d162aacac": {
+    "onStepStart-220427497ee7": {
       "name": "onStepStart",
       "type": "GenerateTextOnStepStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step (LLM call) begins,\nbefore the provider is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5723,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6410,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5723"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6410"
       }
     },
-    "experimental_onStepStart-028c613cdafb": {
+    "experimental_onStepStart-0a99f50815e7": {
       "name": "experimental_onStepStart",
       "type": "GenerateTextOnStepStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
@@ -6581,28 +6660,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5730,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6417,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5730"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6417"
       }
     },
-    "onLanguageModelCallStart-5a20308df072": {
+    "onLanguageModelCallStart-81f4947eef8c": {
       "name": "onLanguageModelCallStart",
       "type": "OnLanguageModelCallStartCallback | undefined",
       "optional": true,
       "description": "Callback that is called immediately before the provider model call begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5734,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6421,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5734"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6421"
       }
     },
-    "experimental_onLanguageModelCallStart-220a502fe06c": {
+    "experimental_onLanguageModelCallStart-efe693c1dc1b": {
       "name": "experimental_onLanguageModelCallStart",
       "type": "OnLanguageModelCallStartCallback | undefined",
       "optional": true,
@@ -6614,28 +6693,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5740,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6427,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5740"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6427"
       }
     },
-    "onLanguageModelCallEnd-d5815d586cf9": {
+    "onLanguageModelCallEnd-fa88d24172ce": {
       "name": "onLanguageModelCallEnd",
       "type": "OnLanguageModelCallEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Callback that is called after the model response has been normalized and parsed,\nbut before any client-side tool execution begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5745,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6432,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5745"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6432"
       }
     },
-    "experimental_onLanguageModelCallEnd-09ab6ee2dbab": {
+    "experimental_onLanguageModelCallEnd-48f9fd5c2d62": {
       "name": "experimental_onLanguageModelCallEnd",
       "type": "OnLanguageModelCallEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -6647,28 +6726,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5752,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6439,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5752"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6439"
       }
     },
-    "onToolExecutionStart-759b258f7ebb": {
+    "onToolExecutionStart-a060181acc9b": {
       "name": "onToolExecutionStart",
       "type": "OnToolExecutionStartCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Callback that is called right before a tool's execute function runs.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5756,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6443,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5756"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6443"
       }
     },
-    "experimental_onToolCallStart-8d8e55310f46": {
+    "experimental_onToolCallStart-6fe11ac760e4": {
       "name": "experimental_onToolCallStart",
       "type": "OnToolExecutionStartCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -6680,28 +6759,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5762,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6449,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5762"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6449"
       }
     },
-    "onToolExecutionEnd-7103c945dc4c": {
+    "onToolExecutionEnd-478ae59f9ea8": {
       "name": "onToolExecutionEnd",
       "type": "OnToolExecutionEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Callback that is called right after a tool's execute function completes (or errors).",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5766,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6453,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5766"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6453"
       }
     },
-    "experimental_onToolCallFinish-bab0dfda3943": {
+    "experimental_onToolCallFinish-2ef361bbbc6c": {
       "name": "experimental_onToolCallFinish",
       "type": "OnToolExecutionEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -6713,42 +6792,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5772,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6459,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5772"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6459"
       }
     },
-    "onStepEnd-7464be587786": {
+    "onStepEnd-2aaf83f6abe4": {
       "name": "onStepEnd",
       "type": "GenerateTextOnStepEndCallback<NoInfer<ToolSet>, NoInfer<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when each step (LLM call) ends, including intermediate steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5776,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6463,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5776"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6463"
       }
     },
-    "onStepError-ff3b402b51ab": {
+    "onStepError-63d00bbd0ad0": {
       "name": "onStepError",
       "type": "GenerateTextOnStepErrorCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step that started fails before it\nproduces a step result. `onStepEnd` is not called for such a step.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5781,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6468,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5781"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6468"
       }
     },
-    "onStepFinish-08052cbd0975": {
+    "onWarning-b25f03d5708f": {
+      "name": "onWarning",
+      "type": "LogWarningsFunction | undefined",
+      "optional": true,
+      "description": "Callback that receives the warnings of the call, e.g. unsupported\nsettings or deprecated prompt parts. When it is set, the warnings are\nnot sent to the global warning logger (`AI_SDK_LOG_WARNINGS`).",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6474,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6474"
+      }
+    },
+    "onStepFinish-c3f5f84cadd0": {
       "name": "onStepFinish",
       "type": "GenerateTextOnStepFinishCallback<NoInfer<ToolSet>, NoInfer<Context>> | undefined",
       "optional": true,
@@ -6760,28 +6853,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5787,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6480,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5787"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6480"
       }
     },
-    "onEnd-88496c796bd5": {
+    "onEnd-f5cf86d09704": {
       "name": "onEnd",
       "type": "GenerateTextOnEndCallback<NoInfer<ToolSet>, NoInfer<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when all steps are finished and the response is complete.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5791,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6484,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5791"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6484"
       }
     },
-    "onFinish-bba008f25f73": {
+    "onFinish-addf70b8ab33": {
       "name": "onFinish",
       "type": "GenerateTextOnEndCallback<NoInfer<ToolSet>, NoInfer<Context>> | undefined",
       "optional": true,
@@ -6793,28 +6886,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5797,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6490,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5797"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6490"
       }
     },
-    "include-08574c6232c5": {
+    "include-f5921751b4c7": {
       "name": "include",
       "type": "GenerateTextInclude | undefined",
       "optional": true,
       "description": "Settings for controlling what data is included in step results.\nDisabling inclusion can help reduce memory usage when processing\nlarge payloads like images.\n\nBy default, request bodies, request messages, and response bodies are\nexcluded.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5806,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6499,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5806"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6499"
       }
     },
-    "experimental_include-61e712cf0599": {
+    "experimental_include-66b1c9615325": {
       "name": "experimental_include",
       "type": "GenerateTextInclude | undefined",
       "optional": true,
@@ -6826,28 +6919,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5812,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6505,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5812"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6505"
       }
     },
-    "_internal-f6a277d4bac6": {
+    "_internal-4f7a05af8f2b": {
       "name": "_internal",
       "type": "{ generateId?: IdGenerator; generateCallId?: IdGenerator; now?: () => number; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5816,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6509,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5816"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6509"
       }
     },
-    "stopWhen-061b01707f0c": {
+    "stopWhen-1269c94bf274": {
       "name": "stopWhen",
       "type": "Arrayable<StopCondition<NoInfer<ToolSet>, Context>>",
       "optional": true,
@@ -6859,28 +6952,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3954,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4364,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3954"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4364"
       }
     },
-    "telemetry-c4d62b940351": {
+    "telemetry-7f5176f31df4": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, NoInfer<ToolSet>> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3958,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4368,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3958"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4368"
       }
     },
-    "experimental_telemetry-b6b99a209d23": {
+    "experimental_telemetry-4f7675b48d9c": {
       "name": "experimental_telemetry",
       "type": "TelemetryOptions<Context, NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -6892,56 +6985,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3964,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4374,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3964"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4374"
       }
     },
-    "runtimeContext-ded6f4342986": {
+    "runtimeContext-6fe9258c1451": {
       "name": "runtimeContext",
       "type": "Context | undefined",
       "optional": true,
       "description": "Runtime context. Treat runtime context as immutable.\nIf you need to mutate runtime context, update it in `prepareStep`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3985,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4395,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3985"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4395"
       }
     },
-    "output-fe44a89cb056": {
+    "output-56ac795cb09d": {
       "name": "output",
       "type": "Output<any, any, any> | undefined",
       "optional": true,
       "description": "Optional specification for parsing structured outputs from the LLM response.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4009,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4419,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4009"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4419"
       }
     },
-    "toolApproval-ed5d414f0f62": {
+    "toolApproval-e6f9c22d9b3c": {
       "name": "toolApproval",
       "type": "ToolApprovalConfiguration<ToolSet, Context> | undefined",
       "optional": true,
       "description": "Optional tool approval configuration.\n\nThis configuration takes precedence over tool-defined approval settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4015,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4425,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4015"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4425"
       }
     },
-    "prepareStep-7d67e4ce16c8": {
+    "prepareStep-d9f1f942f148": {
       "name": "prepareStep",
       "type": "PrepareStepFunction<NoInfer<ToolSet>, Context> | undefined",
       "optional": true,
@@ -6969,14 +7062,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4037,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4448,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4037"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4448"
       }
     },
-    "experimental_repairToolCall-e8fd40680c55": {
+    "experimental_repairToolCall-2aa1d06c3008": {
       "name": "experimental_repairToolCall",
       "type": "ToolCallRepairFunction<ToolSet> | undefined",
       "optional": true,
@@ -6988,14 +7081,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4047,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4458,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4047"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4458"
       }
     },
-    "includeRawChunks-4927cd9740df": {
+    "includeRawChunks-eb80fd3d4f31": {
       "name": "includeRawChunks",
       "type": "boolean | undefined",
       "optional": true,
@@ -7007,28 +7100,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4075,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4489,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4075"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4489"
       }
     },
-    "onEnd-ef461f83e3bb": {
+    "onEnd-fe63bb2f27cd": {
       "name": "onEnd",
       "type": "StreamTextOnEndCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
       "description": "Callback that is called when the LLM response and all request tool executions\n(for tools that have an `execute` function) are finished.\n\nThe usage is the combined usage of all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4115,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4529,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4115"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4529"
       }
     },
-    "onFinish-f20459a0ea53": {
+    "onFinish-c4bddcf07443": {
       "name": "onFinish",
       "type": "StreamTextOnEndCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
@@ -7040,56 +7133,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4124,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4538,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4124"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4538"
       }
     },
-    "onAbort-c24d17adc5f3": {
+    "onAbort-a9107997a88b": {
       "name": "onAbort",
       "type": "StreamTextOnAbortCallback<NoInfer<ToolSet>, NoInfer<Context>> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4125,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4539,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4125"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4539"
       }
     },
-    "onStepEnd-d8e8f0f2289a": {
+    "onStepEnd-195f794ee38b": {
       "name": "onStepEnd",
       "type": "GenerateTextOnStepEndCallback<NoInfer<ToolSet>, NoInfer<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when each step (LLM call) ends, including intermediate steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4129,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4543,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4129"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4543"
       }
     },
-    "onStepError-6ac92c5732e1": {
+    "onStepError-4d72b82e99ae": {
       "name": "onStepError",
       "type": "GenerateTextOnStepErrorCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step that started fails before it\nproduces a step result. `onStepEnd` is not called for such a step.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4134,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4548,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4134"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4548"
       }
     },
-    "onStepFinish-a6df59245cbd": {
+    "onStepFinish-58089e235735": {
       "name": "onStepFinish",
       "type": "GenerateTextOnStepFinishCallback<NoInfer<ToolSet>, NoInfer<Context>> | undefined",
       "optional": true,
@@ -7101,28 +7194,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4140,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4560,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4140"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4560"
       }
     },
-    "onStart-57baf4db48d0": {
+    "onStart-0ec99fbf5859": {
       "name": "onStart",
       "type": "GenerateTextOnStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
       "description": "Callback that is called when the streamText operation begins,\nbefore any LLM calls are made.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4145,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4565,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4145"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4565"
       }
     },
-    "experimental_onStart-98bf0b5a2745": {
+    "experimental_onStart-0d26a8d8a29b": {
       "name": "experimental_onStart",
       "type": "GenerateTextOnStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
@@ -7134,28 +7227,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4152,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4572,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4152"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4572"
       }
     },
-    "onStepStart-9ebb7d08a587": {
+    "onStepStart-d30a78139419": {
       "name": "onStepStart",
       "type": "GenerateTextOnStepStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
       "description": "Callback that is called when a step (LLM call) begins,\nbefore the provider is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4157,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4577,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4157"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4577"
       }
     },
-    "experimental_onStepStart-15e8aea9fae2": {
+    "experimental_onStepStart-9068893fd70f": {
       "name": "experimental_onStepStart",
       "type": "GenerateTextOnStepStartCallback<NoInfer<ToolSet>, NoInfer<Context>, NoInfer<Output<any, any, any>>> | undefined",
       "optional": true,
@@ -7167,14 +7260,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4164,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4584,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4164"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4584"
       }
     },
-    "experimental_onLanguageModelCallStart-491395c8a913": {
+    "experimental_onLanguageModelCallStart-39509eb3527f": {
       "name": "experimental_onLanguageModelCallStart",
       "type": "OnLanguageModelCallStartCallback | undefined",
       "optional": true,
@@ -7186,14 +7279,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4174,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4594,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4174"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4594"
       }
     },
-    "experimental_onLanguageModelCallEnd-a09d59f7a599": {
+    "experimental_onLanguageModelCallEnd-1343c276d17a": {
       "name": "experimental_onLanguageModelCallEnd",
       "type": "OnLanguageModelCallEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -7205,14 +7298,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4186,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4606,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4186"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4606"
       }
     },
-    "experimental_onToolCallStart-3976f3ffdb21": {
+    "experimental_onToolCallStart-c8484c1add9d": {
       "name": "experimental_onToolCallStart",
       "type": "OnToolExecutionStartCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -7224,14 +7317,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4196,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4616,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4196"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4616"
       }
     },
-    "experimental_onToolCallFinish-08b7141b6862": {
+    "experimental_onToolCallFinish-988da25c5643": {
       "name": "experimental_onToolCallFinish",
       "type": "OnToolExecutionEndCallback<NoInfer<ToolSet>> | undefined",
       "optional": true,
@@ -7243,14 +7336,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4206,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4626,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4206"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4626"
       }
     },
-    "experimental_include-c911c6b3941e": {
+    "experimental_include-6f60b3b599e8": {
       "name": "experimental_include",
       "type": "StreamTextInclude | undefined",
       "optional": true,
@@ -7262,25 +7355,25 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4220,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4640,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4220"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4640"
       }
     },
-    "_internal-2797c17b47fe": {
+    "_internal-aaa986384177": {
       "name": "_internal",
       "type": "{ now?: () => number; generateId?: IdGenerator; generateCallId?: IdGenerator; retention?: StreamTextRetention; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4224,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4644,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4224"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4644"
       }
     },
     "replayAsyncIterables-1922b83c46d7": {
@@ -7437,7 +7530,7 @@ export default {
         "url": "https://unpkg.com/cascada-engine@0.7.0/dist/types/index.d.ts#L126"
       }
     },
-    "abortSignal-2bf31b7f87fc": {
+    "abortSignal-c02e8d90cdb1": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
@@ -7445,13 +7538,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2132,
+        "line": 2248,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2132"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2248"
       }
     },
-    "experimental_sandbox-0dfa76df5e3e": {
+    "experimental_sandbox-2c067d8f8a99": {
       "name": "experimental_sandbox",
       "type": "SandboxSession | undefined",
       "optional": true,
@@ -7459,13 +7552,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2148,
+        "line": 2264,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2148"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2264"
       }
     },
-    "toolCallId-b3e91af1743a": {
+    "toolCallId-2f21e5d47936": {
       "name": "toolCallId",
       "type": "string | undefined",
       "optional": true,
@@ -7473,13 +7566,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2123,
+        "line": 2239,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2123"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2239"
       }
     },
-    "messages-f97f28a7fbbb": {
+    "messages-09b7b90bc227": {
       "name": "messages",
       "type": "ModelMessage[] | undefined",
       "optional": true,
@@ -7487,15 +7580,15 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 2128,
+        "line": 2244,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L2128"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L2244"
       }
     },
-    "array-a50da8c00109": {
+    "array-8ef7a1a38be3": {
       "name": "array",
-      "type": "<ELEMENT>({ element: inputElementSchema, minItems, maxItems, name, description }: { element: FlexibleSchema<ELEMENT>; minItems?: number; maxItems?: number; name?: string; description?: string; }) => Output<Array<ELEMENT>, Array<ELEMENT>, ELEMENT>",
+      "type": "{ <ELEMENT>(options: ArrayOptions<FlexibleSchema<ELEMENT>>): Output<Array<ELEMENT>, Array<ELEMENT>, ELEMENT>; <OUTPUT = never, SCHEMA = FlexibleSchema<OUTPUT>>(options: ArrayOptions<ValidatedSchema<SCHEMA>>): Output<Array<ResolveOutput<OUTPUT, SCHEMA>>, Array<ResolveOutput<OUTPUT, SCHEMA>>, ResolveOutput<OUTPUT, SCHEMA>>; }",
       "optional": false,
       "description": "Output specification for array generation.\nWhen the model generates a text response, it will return an array of elements.",
       "tags": [
@@ -7525,14 +7618,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4313,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4764,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4313"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4764"
       }
     },
-    "choice-89fbb2824793": {
+    "choice-40a88fdac013": {
       "name": "choice",
       "type": "<CHOICE extends string>({ options: choiceOptions, name, description }: { options: Array<CHOICE>; name?: string; description?: string; }) => Output<CHOICE, CHOICE, never>",
       "optional": false,
@@ -7556,14 +7649,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4344,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4776,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4344"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4776"
       }
     },
-    "json-56015e6681ff": {
+    "json-7cf712295f6b": {
       "name": "json",
       "type": "({ name, description }?: { name?: string; description?: string; }) => Output<JSONValue, JSONValue, never>",
       "optional": false,
@@ -7583,16 +7676,16 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4366,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4798,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4366"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4798"
       }
     },
-    "object-fb3d199946ca": {
+    "object-297d79bfd094": {
       "name": "object",
-      "type": "<OBJECT>({ schema: inputSchema, name, description }: { schema: FlexibleSchema<OBJECT>; name?: string; description?: string; }) => Output<OBJECT, DeepPartial<OBJECT>, never>",
+      "type": "{ <OBJECT>(options: ObjectOptions<FlexibleSchema<OBJECT>>): Output<OBJECT, DeepPartial<OBJECT>, never>; <OUTPUT = never, SCHEMA = FlexibleSchema<OUTPUT>>(options: ObjectOptions<ValidatedSchema<SCHEMA>>): Output<ResolveOutput<OUTPUT, SCHEMA>, DeepPartial<ResolveOutput<OUTPUT, SCHEMA>>, never>; }",
       "optional": false,
       "description": "Output specification for typed object generation using schemas.\nWhen the model generates a text response, it will return an object that matches the schema.",
       "tags": [
@@ -7614,14 +7707,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4288,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4726,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4288"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4726"
       }
     },
-    "text-2dba2c59564f": {
+    "text-5150d90812b9": {
       "name": "text",
       "type": "() => Output<string, string, never>",
       "optional": false,
@@ -7633,14 +7726,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4277,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4697,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4277"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4697"
       }
     },
-    "tools-a0a46f619d2a": {
+    "tools-5b3941793a8a": {
       "name": "tools",
       "type": "RealtimeModelV4ToolDefinition[] | undefined",
       "optional": true,
@@ -7648,13 +7741,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7458,
+        "line": 7735,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7458"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7735"
       }
     },
-    "sessionId-b384762552aa": {
+    "sessionId-b6fc27964320": {
       "name": "sessionId",
       "type": "string",
       "optional": false,
@@ -7662,13 +7755,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7861,
+        "line": 8268,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7861"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L8268"
       }
     },
-    "sdp-6a765cb22ad4": {
+    "sdp-fcadac34b4d5": {
       "name": "sdp",
       "type": "string",
       "optional": false,
@@ -7676,41 +7769,41 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7862,
+        "line": 8269,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7862"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L8269"
       }
     },
-    "content-2a8a29548036": {
+    "content-422e8740c5ce": {
       "name": "content",
       "type": "ContentPart<ToolSet>[]",
       "optional": false,
       "description": "The content that was generated in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5224,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5899,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5224"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5899"
       }
     },
-    "text-925a2201a0e9": {
+    "text-0571a906f1c8": {
       "name": "text",
       "type": "string",
       "optional": false,
       "description": "The concatenation of all text parts generated in the final step.\nIt is an empty string if the final step contains no text parts.\nInspect `finalStep.content` to distinguish that case.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5230,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5905,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5230"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5905"
       }
     },
-    "reasoning-c999ae832ad1": {
+    "reasoning-5c68a3f61406": {
       "name": "reasoning",
       "type": "(ReasoningOutput | ReasoningFileOutput)[]",
       "optional": false,
@@ -7722,14 +7815,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5236,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5911,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5236"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5911"
       }
     },
-    "reasoningText-37eedd3b6264": {
+    "reasoningText-680764399433": {
       "name": "reasoningText",
       "type": "string | undefined",
       "optional": false,
@@ -7741,168 +7834,182 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5243,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5918,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5243"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5918"
       }
     },
-    "files-0e94b2d13dfd": {
+    "files-f05da7bef5bd": {
       "name": "files",
       "type": "GeneratedFile[]",
       "optional": false,
       "description": "The files that were generated in all steps.\nEmpty array if no files were generated.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5248,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5923,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5248"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5923"
       }
     },
-    "sources-a83f0411473e": {
+    "sources-0a2f6b60c182": {
       "name": "sources",
       "type": "LanguageModelV4Source[]",
       "optional": false,
       "description": "Sources that have been used as references in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5252,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5927,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5252"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5927"
       }
     },
-    "toolCalls-b8abddbc1a19": {
+    "toolCalls-069ebdd0ca5a": {
       "name": "toolCalls",
       "type": "TypedToolCall<ToolSet>[]",
       "optional": false,
       "description": "The tool calls that were made in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5256,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5931,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5256"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5931"
       }
     },
-    "staticToolCalls-4700a386356d": {
+    "staticToolCalls-882a07a64732": {
       "name": "staticToolCalls",
       "type": "(BaseToolCall & { toolName: string; input: any; dynamic?: false | undefined; invalid?: false | undefined; error?: never; title?: string; })[]",
       "optional": false,
       "description": "The static tool calls that were made in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5260,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5935,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5260"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5935"
       }
     },
-    "dynamicToolCalls-9598dbe74c2d": {
+    "dynamicToolCalls-3b90509703b5": {
       "name": "dynamicToolCalls",
       "type": "DynamicToolCall[]",
       "optional": false,
       "description": "The dynamic tool calls that were made in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5264,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5939,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5264"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5939"
       }
     },
-    "toolResults-309dd0a07bcf": {
+    "toolResults-c5f99b80b2d0": {
       "name": "toolResults",
       "type": "TypedToolResult<ToolSet>[]",
       "optional": false,
       "description": "The results of the tool calls from all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5268,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5943,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5268"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5943"
       }
     },
-    "staticToolResults-2edcf41036e7": {
+    "staticToolResults-627995dc28d7": {
       "name": "staticToolResults",
       "type": "{ type: \"tool-result\"; toolCallId: string; toolName: string; input: any; output: any; providerExecuted?: boolean; providerMetadata?: ProviderMetadata; toolMetadata?: JSONObject; dynamic?: false | undefined; preliminary?: boolean; title?: string; }[]",
       "optional": false,
       "description": "The static tool results that were made in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5272,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5947,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5272"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5947"
       }
     },
-    "dynamicToolResults-500736a6ee5f": {
+    "dynamicToolResults-5a02069c1994": {
       "name": "dynamicToolResults",
       "type": "DynamicToolResult[]",
       "optional": false,
       "description": "The dynamic tool results that were made in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5276,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5951,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5276"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5951"
       }
     },
-    "finishReason-dfb59b85b501": {
+    "finishReason-5565b4913800": {
       "name": "finishReason",
       "type": "FinishReason",
       "optional": false,
       "description": "The unified reason why the generation finished.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5280,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5955,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5280"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5955"
       }
     },
-    "rawFinishReason-31c21f78dc95": {
+    "rawFinishReason-afbf2b9573a4": {
       "name": "rawFinishReason",
       "type": "string | undefined",
       "optional": false,
       "description": "The raw reason why the generation finished (from the provider).",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5284,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5959,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5284"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5959"
       }
     },
-    "usage-24adb70fb568": {
+    "stoppedBy-d38eb1c0a082": {
+      "name": "stoppedBy",
+      "type": "StoppedBy | undefined",
+      "optional": true,
+      "description": "Why the generation stopped its tool loop. Unlike `finishReason`, which\ndescribes the last model call, it tells whether the model, a stop\ncondition, a tool without an `execute` function, or a tool approval ended\nthe loop. `generateText` and `ToolLoopAgent` always set it.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5966,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5966"
+      }
+    },
+    "usage-082e2510cd29": {
       "name": "usage",
       "type": "LanguageModelUsage",
       "optional": false,
       "description": "The total token usage of all steps.\nWhen there are multiple steps, the usage is the sum of all step usages.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5289,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5971,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5289"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5971"
       }
     },
-    "totalUsage-498de2aec016": {
+    "totalUsage-ed2630036869": {
       "name": "totalUsage",
       "type": "LanguageModelUsage",
       "optional": false,
@@ -7914,28 +8021,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5296,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5978,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5296"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5978"
       }
     },
-    "warnings-2846ee005e14": {
+    "warnings-f58b24a208a7": {
       "name": "warnings",
       "type": "SharedV4Warning[] | undefined",
       "optional": false,
       "description": "Warnings from the model provider (e.g. unsupported settings) in all steps.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5300,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5982,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5300"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5982"
       }
     },
-    "request-221385acc282": {
+    "request-c3b04b1c5cd8": {
       "name": "request",
       "type": "LanguageModelRequestMetadata",
       "optional": false,
@@ -7947,14 +8054,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5306,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5988,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5306"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5988"
       }
     },
-    "response-e5e32110ad14": {
+    "response-38f289615619": {
       "name": "response",
       "type": "LanguageModelResponseMetadata",
       "optional": false,
@@ -7966,28 +8073,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5312,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5994,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5312"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5994"
       }
     },
-    "responseMessages-806464dfb85b": {
+    "responseMessages-7bccbd62b234": {
       "name": "responseMessages",
       "type": "ResponseMessage[]",
       "optional": false,
       "description": "The accumulated response messages of all steps that were generated during the call.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5316,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 5998,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5316"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L5998"
       }
     },
-    "providerMetadata-cbbb7591ae4c": {
+    "providerMetadata-0788c47db8e0": {
       "name": "providerMetadata",
       "type": "SharedV4ProviderMetadata | undefined",
       "optional": false,
@@ -7999,42 +8106,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5324,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6006,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5324"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6006"
       }
     },
-    "steps-136a8e127e1f": {
+    "steps-2cb49aa694a9": {
       "name": "steps",
       "type": "StepResult<ToolSet, Context>[]",
       "optional": false,
       "description": "Details for all steps.\nYou can use this to get information about intermediate steps,\nsuch as the tool calls or the response headers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5330,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6012,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5330"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6012"
       }
     },
-    "finalStep-37d35df42bd8": {
+    "finalStep-8efda235ab02": {
       "name": "finalStep",
       "type": "StepResult<ToolSet, Context>",
       "optional": false,
       "description": "The final step. This is a shortcut for `steps.at(-1)`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5334,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6016,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5334"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6016"
       }
     },
-    "output-a77136f8075d": {
+    "output-c06c5091c887": {
       "name": "output",
       "type": "any",
       "optional": false,
@@ -8046,42 +8153,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 5342,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 6024,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L5342"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L6024"
       }
     },
-    "content-78185f28d35d": {
+    "content-3bb18539321d": {
       "name": "content",
       "type": "PromiseLike<ContentPart<ToolSet>[]>",
       "optional": false,
       "description": "The content that was generated in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2763,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3122,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2763"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3122"
       }
     },
-    "text-ed5e8048e5c8": {
+    "text-f837ea5e2d60": {
       "name": "text",
       "type": "PromiseLike<string>",
       "optional": false,
       "description": "The full text that has been generated by the final step.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2769,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3128,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2769"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3128"
       }
     },
-    "reasoning-adfeb01c242e": {
+    "reasoning-d05298f5ca7a": {
       "name": "reasoning",
       "type": "PromiseLike<(ReasoningOutput | ReasoningFileOutput)[]>",
       "optional": false,
@@ -8093,14 +8200,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2777,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3136,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2777"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3136"
       }
     },
-    "reasoningText-8e5d43bfaac9": {
+    "reasoningText-d8433e7073da": {
       "name": "reasoningText",
       "type": "PromiseLike<string | undefined>",
       "optional": false,
@@ -8112,168 +8219,182 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2785,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3144,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2785"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3144"
       }
     },
-    "files-3baf3c0948a7": {
+    "files-b82909e8d764": {
       "name": "files",
       "type": "PromiseLike<GeneratedFile[]>",
       "optional": false,
       "description": "Files that have been generated by the model in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2791,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3150,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2791"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3150"
       }
     },
-    "sources-5c24b516104e": {
+    "sources-625a7cf84149": {
       "name": "sources",
       "type": "PromiseLike<LanguageModelV4Source[]>",
       "optional": false,
       "description": "Sources that have been used as references in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2797,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3156,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2797"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3156"
       }
     },
-    "toolCalls-00000473a97a": {
+    "toolCalls-36a4ce1b7f06": {
       "name": "toolCalls",
       "type": "PromiseLike<TypedToolCall<ToolSet>[]>",
       "optional": false,
       "description": "The tool calls that have been executed in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2803,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3162,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2803"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3162"
       }
     },
-    "staticToolCalls-fe800df0b657": {
+    "staticToolCalls-28c3437fab0e": {
       "name": "staticToolCalls",
       "type": "PromiseLike<(BaseToolCall & { toolName: string; input: any; dynamic?: false | undefined; invalid?: false | undefined; error?: never; title?: string; })[]>",
       "optional": false,
       "description": "The static tool calls that have been executed in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2809,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3168,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2809"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3168"
       }
     },
-    "dynamicToolCalls-b95642b6e21a": {
+    "dynamicToolCalls-9bb558f55dc2": {
       "name": "dynamicToolCalls",
       "type": "PromiseLike<DynamicToolCall[]>",
       "optional": false,
       "description": "The dynamic tool calls that have been executed in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2815,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3174,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2815"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3174"
       }
     },
-    "staticToolResults-7eb944588ecf": {
+    "staticToolResults-2b18447d33df": {
       "name": "staticToolResults",
       "type": "PromiseLike<{ type: \"tool-result\"; toolCallId: string; toolName: string; input: any; output: any; providerExecuted?: boolean; providerMetadata?: ProviderMetadata; toolMetadata?: JSONObject; dynamic?: false | undefined; preliminary?: boolean; title?: string; }[]>",
       "optional": false,
       "description": "The static tool results that have been generated in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2821,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3180,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2821"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3180"
       }
     },
-    "dynamicToolResults-659935885523": {
+    "dynamicToolResults-6a83f67e3ee0": {
       "name": "dynamicToolResults",
       "type": "PromiseLike<DynamicToolResult[]>",
       "optional": false,
       "description": "The dynamic tool results that have been generated in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2827,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3186,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2827"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3186"
       }
     },
-    "toolResults-a3b17144d068": {
+    "toolResults-d4aa36739dbf": {
       "name": "toolResults",
       "type": "PromiseLike<TypedToolResult<ToolSet>[]>",
       "optional": false,
       "description": "The tool results that have been generated in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2833,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3192,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2833"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3192"
       }
     },
-    "finishReason-1b0fe72a0778": {
+    "finishReason-190b97cf2d40": {
       "name": "finishReason",
       "type": "PromiseLike<FinishReason>",
       "optional": false,
       "description": "The unified finish reason why the generation finished. Taken from the last step.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2839,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3198,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2839"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3198"
       }
     },
-    "rawFinishReason-c8a69858eb5c": {
+    "rawFinishReason-9cee1c499f44": {
       "name": "rawFinishReason",
       "type": "PromiseLike<string | undefined>",
       "optional": false,
       "description": "The raw reason why the generation finished (from the provider). Taken from the last step.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2845,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3204,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2845"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3204"
       }
     },
-    "usage-729563a623ca": {
+    "stoppedBy-620114570de0": {
+      "name": "stoppedBy",
+      "type": "PromiseLike<StoppedBy | undefined> | undefined",
+      "optional": true,
+      "description": "Why the generation stopped its tool loop. Unlike `finishReason`, which\ndescribes the last model call, it tells whether the model, a stop\ncondition, a tool without an `execute` function, or a tool approval ended\nthe loop. `streamText` and `ToolLoopAgent` always set it. Like\n`finishReason`, it rejects when the stream is aborted.\n\nAutomatically consumes the stream.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3214,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3214"
+      }
+    },
+    "usage-262b991a348f": {
       "name": "usage",
       "type": "PromiseLike<LanguageModelUsage>",
       "optional": false,
       "description": "The total token usage of the generated response.\nWhen there are multiple steps, the usage is the sum of all step usages.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2852,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3221,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2852"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3221"
       }
     },
-    "totalUsage-75bf30f90be3": {
+    "totalUsage-ad85e58240c3": {
       "name": "totalUsage",
       "type": "PromiseLike<LanguageModelUsage>",
       "optional": false,
@@ -8285,56 +8406,56 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2861,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3230,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2861"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3230"
       }
     },
-    "warnings-87d9968f8e07": {
+    "warnings-fb6f20b742d6": {
       "name": "warnings",
       "type": "PromiseLike<SharedV4Warning[] | undefined>",
       "optional": false,
       "description": "Warnings from the model provider (e.g. unsupported settings) in all steps.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2867,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3236,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2867"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3236"
       }
     },
-    "steps-ac71cf637c67": {
+    "steps-d38bb78314bb": {
       "name": "steps",
       "type": "PromiseLike<StepResult<ToolSet, Context>[]>",
       "optional": false,
       "description": "Details for all steps.\nYou can use this to get information about intermediate steps,\nsuch as the tool calls or the response headers.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2875,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3244,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2875"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3244"
       }
     },
-    "finalStep-f5a197f739f2": {
+    "finalStep-51d42e47f875": {
       "name": "finalStep",
       "type": "PromiseLike<StepResult<ToolSet, Context>>",
       "optional": false,
       "description": "The final step. This is a shortcut for `steps.at(-1)`.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2881,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3250,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2881"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3250"
       }
     },
-    "request-f2c6f88f10d3": {
+    "request-1fff5b788637": {
       "name": "request",
       "type": "PromiseLike<LanguageModelRequestMetadata>",
       "optional": false,
@@ -8346,14 +8467,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2889,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3258,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2889"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3258"
       }
     },
-    "response-61c06f5c4845": {
+    "response-51d80af81228": {
       "name": "response",
       "type": "PromiseLike<LanguageModelResponseMetadata>",
       "optional": false,
@@ -8365,28 +8486,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2897,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3266,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2897"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3266"
       }
     },
-    "responseMessages-419d83f78ea5": {
+    "responseMessages-b2afdbcdc003": {
       "name": "responseMessages",
       "type": "PromiseLike<ResponseMessage[]>",
       "optional": false,
       "description": "The accumulated response messages of all steps that were generated during the call.\n\nAutomatically consumes the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2903,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3272,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2903"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3272"
       }
     },
-    "providerMetadata-7c8da1cc1063": {
+    "providerMetadata-facc55bb2227": {
       "name": "providerMetadata",
       "type": "PromiseLike<SharedV4ProviderMetadata | undefined>",
       "optional": false,
@@ -8398,42 +8519,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2911,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3280,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2911"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3280"
       }
     },
-    "textStream-942de4eaf2e3": {
+    "textStream-de96764d739a": {
       "name": "textStream",
       "type": "AsyncIterableStream<string>",
       "optional": false,
       "description": "A text stream that returns only the generated text deltas. You can use it\nas either an AsyncIterable or a ReadableStream. Error parts are not\nsurfaced in this stream. Use the `onError` callback or `stream` to observe\nthem.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2918,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3287,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2918"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3287"
       }
     },
-    "stream-010421b1bb75": {
+    "stream-cc0b8d1f2662": {
       "name": "stream",
       "type": "AsyncIterableStream<TextStreamPart<ToolSet>>",
       "optional": false,
       "description": "A stream with all events, including text deltas, tool calls, tool results, and\nerrors.\nYou can use it as either an AsyncIterable or a ReadableStream.\nOnly errors that stop the stream, such as network errors, are thrown.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2925,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3294,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2925"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3294"
       }
     },
-    "fullStream-fef6926e69b8": {
+    "fullStream-86f6451b42a0": {
       "name": "fullStream",
       "type": "AsyncIterableStream<TextStreamPart<ToolSet>>",
       "optional": false,
@@ -8445,14 +8566,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2934,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3303,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2934"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3303"
       }
     },
-    "experimental_partialOutputStream-a73b4cb78c17": {
+    "experimental_partialOutputStream-21f12f5a7a2a": {
       "name": "experimental_partialOutputStream",
       "type": "AsyncIterableStream<any>",
       "optional": false,
@@ -8464,70 +8585,70 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2940,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3309,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2940"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3309"
       }
     },
-    "partialOutputStream-99c9325a20da": {
+    "partialOutputStream-0da8c7a6719d": {
       "name": "partialOutputStream",
       "type": "AsyncIterableStream<any>",
       "optional": false,
       "description": "A stream of partial parsed outputs. It uses the `output` specification.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2944,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3313,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2944"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3313"
       }
     },
-    "elementStream-b56d509c0449": {
+    "elementStream-62d00c30607b": {
       "name": "elementStream",
       "type": "AsyncIterableStream<any>",
       "optional": false,
       "description": "A stream of individual array elements as they complete.\nOnly available when using `output: Output.array()`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2949,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3318,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2949"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3318"
       }
     },
-    "output-123131f9da41": {
+    "output-7d43e76672f8": {
       "name": "output",
       "type": "PromiseLike<any>",
       "optional": false,
       "description": "The complete parsed output. It uses the `output` specification.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2953,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3322,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2953"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3322"
       }
     },
-    "consumeStream-f9c55348e54f": {
+    "consumeStream-c5445bbfbd84": {
       "name": "consumeStream",
       "type": "(options?: ConsumeStreamOptions) => PromiseLike<void>",
       "optional": false,
       "description": "Consumes the stream without processing the parts.\nThis is useful to force the stream to finish.\nIt effectively removes the backpressure and allows the stream to finish,\ntriggering the `onEnd` callback and the promise resolution.\n\nIf an error occurs, it is passed to the optional `onError` callback.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2962,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3331,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2962"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3331"
       }
     },
-    "toUIMessageStream-b8151304fa46": {
+    "toUIMessageStream-3fb623239137": {
       "name": "toUIMessageStream",
       "type": "<UI_MESSAGE extends UIMessage>(options?: UIMessageStreamOptions<UI_MESSAGE>) => AsyncIterableStream<InferUIMessageChunk<UI_MESSAGE>>",
       "optional": false,
@@ -8543,14 +8664,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2972,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3341,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2972"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3341"
       }
     },
-    "pipeUIMessageStreamToResponse-0c12508e1e68": {
+    "pipeUIMessageStreamToResponse-927c75d19e66": {
       "name": "pipeUIMessageStreamToResponse",
       "type": "<UI_MESSAGE extends UIMessage>(response: ServerResponse, options?: UIMessageStreamResponseInit & UIMessageStreamOptions<UI_MESSAGE>) => Promise<void>",
       "optional": false,
@@ -8562,14 +8683,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2980,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3349,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2980"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3349"
       }
     },
-    "pipeTextStreamToResponse-1d88dc69bf5b": {
+    "pipeTextStreamToResponse-eb28c26f6dae": {
       "name": "pipeTextStreamToResponse",
       "type": "(response: ServerResponse, init?: ResponseInit) => Promise<void>",
       "optional": false,
@@ -8589,14 +8710,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 2993,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3362,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L2993"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3362"
       }
     },
-    "toUIMessageStreamResponse-e50d56ba1962": {
+    "toUIMessageStreamResponse-b7491de6db9c": {
       "name": "toUIMessageStreamResponse",
       "type": "<UI_MESSAGE extends UIMessage>(options?: UIMessageStreamResponseInit & UIMessageStreamOptions<UI_MESSAGE>) => Response",
       "optional": false,
@@ -8612,14 +8733,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3003,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3372,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3003"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3372"
       }
     },
-    "toTextStreamResponse-5ec832758faa": {
+    "toTextStreamResponse-9609adab2f14": {
       "name": "toTextStreamResponse",
       "type": "(init?: ResponseInit) => Response",
       "optional": false,
@@ -8635,294 +8756,294 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3014,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 3383,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3014"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L3383"
       }
     },
-    "answers-08dc93da3be8": {
+    "answers-5d2c27d79165": {
       "name": "answers",
       "type": "{ [x: string]: { type: \"score\"; score: number; probabilities?: Record<string, number>; } | { type: \"box\"; box: { top: number; bottom: number; left: number; right: number; }; } | { type: \"boolean\"; probability: number; } | { type: \"choice\"; choice: string; probabilities?: Record<string, number> | undefined; }; }",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 591,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 669,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L591"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L669"
       }
     },
-    "usage-4d2839fc326e": {
+    "usage-36fee081ac33": {
       "name": "usage",
       "type": "{ inputTokens: number | undefined; outputTokens: number | undefined; totalTokens: number | undefined; }",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 592,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 670,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L592"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L670"
       }
     },
-    "warnings-09983a0ccdb9": {
+    "warnings-31275a50bb91": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 597,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 675,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L597"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L675"
       }
     },
-    "rounding-21207da9926c": {
+    "rounding-39b85d47b535": {
       "name": "rounding",
       "type": "{ probabilityDecimals?: number; scoreDecimals?: number; } | undefined",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 598,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 676,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L598"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L676"
       }
     },
-    "providerMetadata-f0f9ffbcadb5": {
+    "providerMetadata-060f40b90631": {
       "name": "providerMetadata",
       "type": "SharedV4ProviderMetadata | undefined",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 599,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 677,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L599"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L677"
       }
     },
-    "response-1a7dc2392bcd": {
+    "response-de27d2902b72": {
       "name": "response",
       "type": "{ id?: string; timestamp?: Date; modelId?: string; headers?: SharedV4Headers; body?: unknown; } & { timestamp: Date; modelId: string; }",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 600,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 678,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L600"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L678"
       }
     },
-    "telemetry-7b4f0ebaca44": {
+    "telemetry-9291651c3fe8": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8730,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9385,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8730"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9385"
       }
     },
-    "runtimeContext-750515b0b35b": {
+    "runtimeContext-7cc2d639bf30": {
       "name": "runtimeContext",
       "type": "Context | undefined",
       "optional": true,
       "description": "User-defined runtime context. Treat runtime context as immutable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8732,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9387,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8732"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9387"
       }
     },
-    "onStart-8b18b7c09df5": {
+    "onStart-cceb4f677102": {
       "name": "onStart",
       "type": "Callback<DecideStartEvent<Context>> | undefined",
       "optional": true,
       "description": "Called when the decide operation begins.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8734,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9389,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8734"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9389"
       }
     },
-    "onEnd-d7aa5cddc6cf": {
+    "onEnd-5893d60da45f": {
       "name": "onEnd",
       "type": "Callback<DecideEndEvent<Context>> | undefined",
       "optional": true,
       "description": "Called when the decide operation completes.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8736,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9391,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8736"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9391"
       }
     },
-    "_internal-99eba0cdff92": {
+    "_internal-520e614a2e41": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8738,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 9393,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8738"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L9393"
       }
     },
-    "value-d2798f2459dc": {
+    "value-267137ec08d3": {
       "name": "value",
       "type": "string",
       "optional": false,
       "description": "The value that was embedded.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7933,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8583,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7933"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8583"
       }
     },
-    "embedding-28465d16c7d2": {
+    "embedding-65d263a57072": {
       "name": "embedding",
       "type": "EmbeddingModelV4Embedding",
       "optional": false,
       "description": "The embedding of the value.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7937,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8587,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7937"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8587"
       }
     },
-    "usage-0f7d9f5a6a3b": {
+    "usage-283ce5bbc803": {
       "name": "usage",
       "type": "EmbeddingModelUsage",
       "optional": false,
       "description": "The embedding token usage.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7941,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8591,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7941"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8591"
       }
     },
-    "warnings-47b367d54554": {
+    "warnings-9def7fc64c29": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7945,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8595,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7945"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8595"
       }
     },
-    "providerMetadata-42cd5ecbd571": {
+    "providerMetadata-af0af49d95db": {
       "name": "providerMetadata",
       "type": "SharedV4ProviderMetadata | undefined",
       "optional": true,
       "description": "Optional provider-specific metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7949,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8599,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7949"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8599"
       }
     },
-    "response-7af554c6fae8": {
+    "response-9d0349a46e5a": {
       "name": "response",
       "type": "{ headers?: Record<string, string>; body?: unknown; } | undefined",
       "optional": true,
       "description": "Optional response data.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7953,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8603,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7953"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8603"
       }
     },
-    "model-48aa9f877e2f": {
+    "model-76b4cbf21b98": {
       "name": "model",
       "type": "EmbeddingModel",
       "optional": false,
       "description": "The embedding model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7991,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8641,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7991"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8641"
       }
     },
-    "value-c37f5640ff7b": {
+    "value-22aa5692a8af": {
       "name": "value",
       "type": "string",
       "optional": false,
       "description": "The value that should be embedded.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7995,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8645,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7995"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8645"
       }
     },
-    "dimensions-2a545e83fd43": {
+    "dimensions-e514b862730a": {
       "name": "dimensions",
       "type": "number | undefined",
       "optional": true,
       "description": "The requested number of dimensions for the output embeddings.\nMust be a positive integer. Support and allowed values depend on the model\nand provider implementation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8001,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8651,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8001"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8651"
       }
     },
-    "maxRetries-446dc9e70593": {
+    "maxRetries-d23ecfad0a44": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -8934,70 +9055,70 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8007,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8657,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8007"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8657"
       }
     },
-    "abortSignal-ba91bd67cbb7": {
+    "abortSignal-e088cfdd3cdf": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8011,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8661,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8011"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8661"
       }
     },
-    "headers-1ed650c3b13b": {
+    "headers-a20e795c7853": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8016,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8666,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8016"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8666"
       }
     },
-    "providerOptions-84b4899a0815": {
+    "providerOptions-39824388b056": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options. They are passed through\nto the provider from the AI SDK and enable provider-specific\nfunctionality that can be fully encapsulated in the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8022,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8672,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8022"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8672"
       }
     },
-    "telemetry-39fa616edbc3": {
+    "telemetry-10826561b3e1": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8026,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8676,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8026"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8676"
       }
     },
-    "experimental_telemetry-13341df2875d": {
+    "experimental_telemetry-e74ee2b9fcdc": {
       "name": "experimental_telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
@@ -9009,42 +9130,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8032,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8682,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8032"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8682"
       }
     },
-    "runtimeContext-5a66a39874dd": {
+    "runtimeContext-61b600fdf2c8": {
       "name": "runtimeContext",
       "type": "Context | undefined",
       "optional": true,
       "description": "User-defined runtime context. Treat runtime context as immutable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8036,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8686,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8036"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8686"
       }
     },
-    "onStart-cc3c9aa8dc3f": {
+    "onStart-6d612661bf33": {
       "name": "onStart",
       "type": "Callback<EmbedStartEvent<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when the embed operation begins,\nbefore the embedding model is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8041,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8691,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8041"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8691"
       }
     },
-    "experimental_onStart-f2f7f020a9e5": {
+    "experimental_onStart-2cbc389016a9": {
       "name": "experimental_onStart",
       "type": "Callback<EmbedStartEvent<Context>> | undefined",
       "optional": true,
@@ -9056,28 +9177,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8048,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8698,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8048"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8698"
       }
     },
-    "onEnd-eed8fe22bc47": {
+    "onEnd-38c1e8e2a05b": {
       "name": "onEnd",
       "type": "Callback<EmbedEndEvent<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when the embed operation completes,\nafter the embedding model returns.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8053,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8703,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8053"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8703"
       }
     },
-    "experimental_onEnd-2c0ae17e5f79": {
+    "experimental_onEnd-543602355965": {
       "name": "experimental_onEnd",
       "type": "Callback<EmbedEndEvent<Context>> | undefined",
       "optional": true,
@@ -9089,140 +9210,140 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8060,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8710,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8060"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8710"
       }
     },
-    "_internal-de3674fe249f": {
+    "_internal-e9119d745ea6": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8064,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8714,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8064"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8714"
       }
     },
-    "values-d66df071b78f": {
+    "values-c70ebde5be4d": {
       "name": "values",
       "type": "string[]",
       "optional": false,
       "description": "The values that were embedded.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8078,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8728,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8078"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8728"
       }
     },
-    "embeddings-6f1b362870e6": {
+    "embeddings-299f182a53eb": {
       "name": "embeddings",
       "type": "EmbeddingModelV4Embedding[]",
       "optional": false,
       "description": "The embeddings. They are in the same order as the values.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8082,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8732,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8082"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8732"
       }
     },
-    "usage-ff21b5ddb575": {
+    "usage-5ca1bbf243a6": {
       "name": "usage",
       "type": "EmbeddingModelUsage",
       "optional": false,
       "description": "The embedding token usage.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8086,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8736,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8086"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8736"
       }
     },
-    "warnings-1d3fccb3d882": {
+    "warnings-2c64605cff39": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8090,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8740,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8090"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8740"
       }
     },
-    "providerMetadata-48bfc7037b5c": {
+    "providerMetadata-c43f9e32e19f": {
       "name": "providerMetadata",
       "type": "SharedV4ProviderMetadata | undefined",
       "optional": true,
       "description": "Optional provider-specific metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8094,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8744,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8094"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8744"
       }
     },
-    "responses-ac7be9f9b8c3": {
+    "responses-5610a35af93c": {
       "name": "responses",
       "type": "({ headers?: Record<string, string>; body?: unknown; } | undefined)[] | undefined",
       "optional": true,
       "description": "Optional raw response data.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8098,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8748,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8098"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8748"
       }
     },
-    "values-6aa442082344": {
+    "values-c00b4b75a6e0": {
       "name": "values",
       "type": "string[]",
       "optional": false,
       "description": "The values that should be embedded.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8149,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8799,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8149"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8799"
       }
     },
-    "telemetry-4c89c3844737": {
+    "telemetry-f87efb2ebd64": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8174,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8824,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8174"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8824"
       }
     },
-    "experimental_telemetry-c7ea9dba6c92": {
+    "experimental_telemetry-5f7fa89c66df": {
       "name": "experimental_telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
@@ -9234,42 +9355,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8180,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8830,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8180"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8830"
       }
     },
-    "runtimeContext-9ac3967b5bf5": {
+    "runtimeContext-39ec8adb999c": {
       "name": "runtimeContext",
       "type": "Context | undefined",
       "optional": true,
       "description": "User-defined runtime context. Treat runtime context as immutable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8184,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8834,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8184"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8834"
       }
     },
-    "onStart-d4e8d9c392c1": {
+    "onStart-73681b15b77d": {
       "name": "onStart",
       "type": "Callback<EmbedStartEvent<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when the embedMany operation begins,\nbefore the embedding model is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8202,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8852,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8202"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8852"
       }
     },
-    "experimental_onStart-beec57122067": {
+    "experimental_onStart-306575194bd2": {
       "name": "experimental_onStart",
       "type": "Callback<EmbedStartEvent<Context>> | undefined",
       "optional": true,
@@ -9281,28 +9402,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8209,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8859,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8209"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8859"
       }
     },
-    "onEnd-6e04994067d5": {
+    "onEnd-e8cf2834155b": {
       "name": "onEnd",
       "type": "Callback<EmbedEndEvent<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when the embedMany operation completes,\nafter all embedding model calls return.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8214,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8864,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8214"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8864"
       }
     },
-    "experimental_onEnd-97a0acabe2fe": {
+    "experimental_onEnd-44bb7f891cee": {
       "name": "experimental_onEnd",
       "type": "Callback<EmbedEndEvent<Context>> | undefined",
       "optional": true,
@@ -9314,112 +9435,112 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8221,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8871,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8221"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8871"
       }
     },
-    "_internal-03883d0a112a": {
+    "_internal-eb195a17669b": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 8225,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8875,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L8225"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8875"
       }
     },
-    "originalDocuments-215eb4fac765": {
+    "originalDocuments-9f043fe9ca5c": {
       "name": "originalDocuments",
       "type": "(string | JSONObject)[]",
       "optional": false,
       "description": "The original documents that were reranked.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10646,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11366,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10646"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11366"
       }
     },
-    "rerankedDocuments-732cf9cfaede": {
+    "rerankedDocuments-fdbdaca0e2c3": {
       "name": "rerankedDocuments",
       "type": "(string | JSONObject)[]",
       "optional": false,
       "description": "Reranked documents.\n\nSorted by relevance score in descending order.\n\nCan be less than the original documents if there was a topN limit.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10654,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11374,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10654"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11374"
       }
     },
-    "ranking-dda77c1a65ca": {
+    "ranking-7ea16195ac0f": {
       "name": "ranking",
       "type": "{ originalIndex: number; score: number; document: string | JSONObject; }[]",
       "optional": false,
       "description": "The ranking is a list of objects with the original index,\nrelevance score, and the reranked document.\n\nSorted by relevance score in descending order.\n\nCan be less than the original documents if there was a topN limit.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10663,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11383,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10663"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11383"
       }
     },
-    "providerMetadata-6ddff93d9315": {
+    "providerMetadata-95aa0960db07": {
       "name": "providerMetadata",
       "type": "SharedV4ProviderMetadata | undefined",
       "optional": true,
       "description": "Optional provider-specific metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10671,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11391,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10671"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11391"
       }
     },
-    "response-cb4078ff4fd7": {
+    "response-91617290e4bb": {
       "name": "response",
       "type": "{ id?: string; timestamp: Date; modelId: string; headers?: Record<string, string>; body?: unknown; }",
       "optional": false,
       "description": "Optional raw response data.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10675,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11395,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10675"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11395"
       }
     },
-    "telemetry-0c47e752120d": {
+    "telemetry-ee49554ed0e5": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10752,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11472,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10752"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11472"
       }
     },
-    "experimental_telemetry-09dd8794b725": {
+    "experimental_telemetry-b33dd8e2e035": {
       "name": "experimental_telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
@@ -9431,42 +9552,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10758,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11478,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10758"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11478"
       }
     },
-    "runtimeContext-b1f87baccfa3": {
+    "runtimeContext-0f19f2ea43f6": {
       "name": "runtimeContext",
       "type": "Context | undefined",
       "optional": true,
       "description": "User-defined runtime context. Treat runtime context as immutable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10762,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11482,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10762"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11482"
       }
     },
-    "onStart-2e8ca1a184bf": {
+    "onStart-5eefc83bf86c": {
       "name": "onStart",
       "type": "Callback<RerankStartEvent<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when the rerank operation begins,\nbefore the reranking model is called.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10773,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11493,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10773"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11493"
       }
     },
-    "experimental_onStart-abc629b14bdc": {
+    "experimental_onStart-bd28ea61bcd4": {
       "name": "experimental_onStart",
       "type": "Callback<RerankStartEvent<Context>> | undefined",
       "optional": true,
@@ -9478,28 +9599,28 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10780,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11500,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10780"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11500"
       }
     },
-    "onEnd-361d10c86f16": {
+    "onEnd-7c56a1017c9e": {
       "name": "onEnd",
       "type": "Callback<RerankEndEvent<Context>> | undefined",
       "optional": true,
       "description": "Callback that is called when the rerank operation completes,\nafter the reranking model returns.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10785,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11505,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10785"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11505"
       }
     },
-    "experimental_onEnd-2567d3ca2920": {
+    "experimental_onEnd-db0ab05e7ebc": {
       "name": "experimental_onEnd",
       "type": "Callback<RerankEndEvent<Context>> | undefined",
       "optional": true,
@@ -9511,84 +9632,84 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10792,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11512,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10792"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11512"
       }
     },
-    "_internal-29b6970b9db3": {
+    "_internal-c375e9af425c": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10796,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11516,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10796"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11516"
       }
     },
-    "image-a98fbf11406a": {
+    "image-da0e2f95650e": {
       "name": "image",
       "type": "GeneratedFile",
       "optional": false,
       "description": "The first image that was generated.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7566,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8181,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7566"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8181"
       }
     },
-    "images-48a4cc2d363e": {
+    "images-c7aed60b2aae": {
       "name": "images",
       "type": "GeneratedFile[]",
       "optional": false,
       "description": "The images that were generated.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7570,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8185,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7570"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8185"
       }
     },
-    "calls-5b86ccbe82f7": {
+    "calls-79f7c98ae7f3": {
       "name": "calls",
       "type": "GenerateImageCall[]",
       "optional": false,
       "description": "The results of the underlying image model calls.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7574,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8189,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7574"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8189"
       }
     },
-    "warnings-0e6fb7a66231": {
+    "warnings-9451ed79941f": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7578,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8193,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7578"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8193"
       }
     },
-    "responses-8658993a1aff": {
+    "responses-77f321677647": {
       "name": "responses",
       "type": "ImageModelResponseMetadata[]",
       "optional": false,
@@ -9600,14 +9721,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7584,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8199,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7584"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8199"
       }
     },
-    "providerMetadata-fa85bd12bf6d": {
+    "providerMetadata-a5b6c27f2597": {
       "name": "providerMetadata",
       "type": "ImageModelProviderMetadata",
       "optional": false,
@@ -9619,389 +9740,403 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7591,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8206,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7591"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8206"
       }
     },
-    "usage-b4dcc0622deb": {
+    "usage-91f93992ca10": {
       "name": "usage",
       "type": "ImageModelV4Usage",
       "optional": false,
       "description": "Combined token usage across all underlying provider calls for this image generation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7595,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8210,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7595"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8210"
       }
     },
-    "text-352c730b4bb8": {
+    "text-318f1f081df8": {
       "name": "text",
       "type": "string",
       "optional": false,
       "description": "The complete transcribed text from the audio.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10899,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11619,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10899"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11619"
       }
     },
-    "segments-428a1f286ac8": {
+    "segments-d6de43be1331": {
       "name": "segments",
       "type": "{ readonly text: string; readonly startSecond: number; readonly endSecond: number; }[]",
       "optional": false,
-      "description": "Array of transcript segments with timing information.\nEach segment represents a portion of the transcribed text with start and end times.",
+      "description": "Array of transcript segments with timing information.\nEach segment represents a portion of the transcribed text with start and end times.\nSegments retain the provider's behavior and may represent individual words.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10904,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11625,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10904"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11625"
       }
     },
-    "language-2f06686a7383": {
+    "words-b968f7b0610c": {
+      "name": "words",
+      "type": "{ readonly text: string; readonly startSecond: number; readonly endSecond: number; }[] | undefined",
+      "optional": true,
+      "description": "Word-level timings returned by the provider, whether explicitly requested\nor returned by default. Undefined when the provider does not return them.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11643,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11643"
+      }
+    },
+    "language-bd16149257f1": {
       "name": "language",
       "type": "string | undefined",
       "optional": false,
       "description": "The detected language of the audio content, as an ISO-639-1 code (e.g., 'en' for English).\nMay be undefined if the language couldn't be detected.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10922,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11661,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10922"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11661"
       }
     },
-    "durationInSeconds-19431d9e2a62": {
+    "durationInSeconds-5a79b1d0d6c4": {
       "name": "durationInSeconds",
       "type": "number | undefined",
       "optional": false,
       "description": "The total duration of the audio file in seconds.\nMay be undefined if the duration couldn't be determined.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10927,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11666,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10927"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11666"
       }
     },
-    "warnings-1e34a2635ebf": {
+    "warnings-afea3598daa0": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10931,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11670,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10931"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11670"
       }
     },
-    "responses-a6bddb02ea18": {
+    "responses-531227d69d28": {
       "name": "responses",
       "type": "TranscriptionModelResponseMetadata[]",
       "optional": false,
       "description": "Response metadata from the provider. There may be multiple responses if we made multiple calls to the model.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10935,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11674,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10935"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11674"
       }
     },
-    "providerMetadata-fb60083c3c2d": {
+    "providerMetadata-84dee28b573d": {
       "name": "providerMetadata",
       "type": "Record<string, JSONObject>",
       "optional": false,
       "description": "Provider metadata from the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10939,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11678,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10939"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11678"
       }
     },
-    "audio-2c7771e7c87b": {
+    "audio-fd25cf70163c": {
       "name": "audio",
       "type": "DataContent | URL",
       "optional": false,
       "description": "The audio data to transcribe.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10951,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11690,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10951"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11690"
       }
     },
-    "_internal-a4d65510b686": {
+    "_internal-194d66d6d32a": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11002,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11752,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11002"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11752"
       }
     },
-    "text-b4b7399b21c2": {
+    "text-1bc039232e18": {
       "name": "text",
       "type": "PromiseLike<string>",
       "optional": false,
       "description": "The final transcribed text.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11040,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11790,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11040"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11790"
       }
     },
-    "segments-33df0823f194": {
+    "segments-979b8df5fb67": {
       "name": "segments",
       "type": "PromiseLike<{ text: string; startSecond: number; endSecond: number; }[]>",
       "optional": false,
       "description": "Final transcript segments with timing information, if available.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11044,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11794,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11044"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11794"
       }
     },
-    "language-6859a8acc1d2": {
+    "language-97beb2cda6dd": {
       "name": "language",
       "type": "PromiseLike<string | undefined>",
       "optional": false,
       "description": "The language of the transcript, if available.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11052,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11802,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11052"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11802"
       }
     },
-    "durationInSeconds-24de35d7d0a5": {
+    "durationInSeconds-2f843fd46f4c": {
       "name": "durationInSeconds",
       "type": "PromiseLike<number | undefined>",
       "optional": false,
       "description": "The duration of the transcript in seconds, if available.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11056,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11806,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11056"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11806"
       }
     },
-    "warnings-8a7a10343ff2": {
+    "warnings-66e7596b6f06": {
       "name": "warnings",
       "type": "PromiseLike<SharedV4Warning[]>",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11060,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11810,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11060"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11810"
       }
     },
-    "responses-187bc4e8cfa3": {
+    "responses-7987ad6e2cf4": {
       "name": "responses",
       "type": "PromiseLike<TranscriptionModelResponseMetadata[]>",
       "optional": false,
       "description": "Response metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11064,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11814,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11064"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11814"
       }
     },
-    "providerMetadata-2ecb679233eb": {
+    "providerMetadata-0b276ba673b5": {
       "name": "providerMetadata",
       "type": "PromiseLike<Record<string, JSONObject>>",
       "optional": false,
       "description": "Additional provider-specific metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11068,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11818,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11068"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11818"
       }
     },
-    "fullStream-007898973bb7": {
+    "fullStream-a67f32488d3c": {
       "name": "fullStream",
       "type": "AsyncIterableStream<TranscriptionStreamPart>",
       "optional": false,
       "description": "Full stream of transcription parts.\n\nThis is a single-consumer live stream and can only be accessed once.\nAccess it before any result promise when both stream parts and final\nresults are needed; accessing a result promise first consumes the stream\ninternally and makes `fullStream` unavailable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11077,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11827,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11077"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11827"
       }
     },
-    "model-e9ed376d43a6": {
+    "model-bbb32b07b213": {
       "name": "model",
       "type": "TranscriptionModel",
       "optional": false,
       "description": "The transcription model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11098,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11848,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11098"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11848"
       }
     },
-    "audio-3b4b6bba6442": {
+    "audio-1bdfa22ed156": {
       "name": "audio",
       "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
       "optional": false,
       "description": "Raw audio chunks to transcribe.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11102,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11852,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11102"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11852"
       }
     },
-    "inputAudioFormat-a530ffc7dab7": {
+    "inputAudioFormat-19cad07cd365": {
       "name": "inputAudioFormat",
       "type": "SharedV4AudioFormat",
       "optional": false,
       "description": "The input audio format for the raw audio chunks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11106,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11856,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11106"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11856"
       }
     },
-    "providerOptions-0e700395c4b1": {
+    "providerOptions-9043462897ad": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11110,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11860,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11110"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11860"
       }
     },
-    "abortSignal-69af4f81640d": {
+    "abortSignal-a3d4d3abbebf": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11114,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11864,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11114"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11864"
       }
     },
-    "headers-1c3aaeb2734c": {
+    "headers-1a57a9e1d4c6": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request, if supported by the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11118,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11868,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11118"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11868"
       }
     },
-    "includeRawChunks-7d3f5f2a41a1": {
+    "includeRawChunks-13081a3282bf": {
       "name": "includeRawChunks",
       "type": "boolean | undefined",
       "optional": true,
       "description": "When true, providers should include raw provider chunks in the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11122,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11872,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11122"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11872"
       }
     },
-    "telemetry-237457941031": {
+    "telemetry-d00e1797bb15": {
       "name": "telemetry",
       "type": "TelemetryOptions<Context, ToolSet> | undefined",
       "optional": true,
       "description": "Optional telemetry configuration.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11126,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11876,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11126"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11876"
       }
     },
-    "_internal-76401c9df9f4": {
+    "_internal-35f66ec5d264": {
       "name": "_internal",
       "type": "{ currentDate?: () => Date; generateCallId?: () => string; } | undefined",
       "optional": true,
       "description": "Internal test hooks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11130,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11880,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11130"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11880"
       }
     },
     "audioFormat-0fe6713e23a4": {
@@ -10024,340 +10159,340 @@ export default {
         "path": "src/factories/SpeechGenerator.ts"
       }
     },
-    "audio-090e31c3f07e": {
+    "audio-7ce2a3fad473": {
       "name": "audio",
       "type": "GeneratedAudioFile",
       "optional": false,
       "description": "The generated audio file with the audio data.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9460,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10155,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9460"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10155"
       }
     },
-    "warnings-751664670b6e": {
+    "warnings-944bb856819d": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9464,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10159,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9464"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10159"
       }
     },
-    "responses-d50a12d4caa1": {
+    "responses-7c8eab2136aa": {
       "name": "responses",
       "type": "SpeechModelResponseMetadata[]",
       "optional": false,
       "description": "Response metadata from the provider. There may be multiple responses if we made multiple calls to the model.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9468,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10163,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9468"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10163"
       }
     },
-    "providerMetadata-d8670c7292b8": {
+    "providerMetadata-c33d96fb37e7": {
       "name": "providerMetadata",
       "type": "Record<string, JSONObject>",
       "optional": false,
       "description": "Provider metadata from the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9472,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10167,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9472"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10167"
       }
     },
-    "_internal-891f15b39ec6": {
+    "_internal-3d141dbfafc1": {
       "name": "_internal",
       "type": "{ generateCallId?: () => string; } | undefined",
       "optional": true,
       "description": "Internal. For test use only. May change without notice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9560,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10255,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9560"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10255"
       }
     },
-    "usage-e862f00da64d": {
+    "usage-3c3d8394afcf": {
       "name": "usage",
       "type": "PromiseLike<SpeechModelV4StreamUsage>",
       "optional": false,
       "description": "Usage information reported for the call, if available.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9607,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10302,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9607"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10302"
       }
     },
-    "warnings-13637bc242f9": {
+    "warnings-d62aba44d83a": {
       "name": "warnings",
       "type": "PromiseLike<SharedV4Warning[]>",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9611,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10306,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9611"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10306"
       }
     },
-    "responses-261571bff397": {
+    "responses-a9e279aac120": {
       "name": "responses",
       "type": "PromiseLike<SpeechModelResponseMetadata[]>",
       "optional": false,
       "description": "Response metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9615,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10310,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9615"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10310"
       }
     },
-    "providerMetadata-c8051b2e6c0b": {
+    "providerMetadata-8f92fa4e2f43": {
       "name": "providerMetadata",
       "type": "PromiseLike<Record<string, JSONObject>>",
       "optional": false,
       "description": "Additional provider-specific metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9619,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10314,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9619"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10314"
       }
     },
-    "audioStream-b358ab4f1af4": {
+    "audioStream-279e0dafa704": {
       "name": "audioStream",
       "type": "AsyncIterableStream<Uint8Array<ArrayBufferLike>>",
       "optional": false,
       "description": "Stream of audio bytes in generation order.\n\n`audioStream` and `fullStream` share one live stream: only one of them\ncan be accessed, and only once. Access it before any result promise;\naccessing a result promise first consumes the stream internally.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9627,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10322,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9627"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10322"
       }
     },
-    "fullStream-1187b3d5412c": {
+    "fullStream-901aea0f7971": {
       "name": "fullStream",
       "type": "AsyncIterableStream<SpeechStreamPart>",
       "optional": false,
       "description": "Full stream of speech parts (audio, raw, and error parts).\n\n`audioStream` and `fullStream` share one live stream: only one of them\ncan be accessed, and only once. Access it before any result promise;\naccessing a result promise first consumes the stream internally.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9635,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10330,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9635"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10330"
       }
     },
-    "model-f710fabe18e0": {
+    "model-e6d4a0cfc90e": {
       "name": "model",
       "type": "SpeechModel",
       "optional": false,
       "description": "The speech model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9663,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10358,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9663"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10358"
       }
     },
-    "text-730665458c8e": {
+    "text-8ed8613d6668": {
       "name": "text",
       "type": "string | Iterable<string | SpeechTextPart> | AsyncIterable<string | SpeechTextPart> | ReadableStream<string | SpeechTextPart>",
       "optional": false,
       "description": "The text to convert to speech: a complete string, or an array, iterable,\nor stream of text deltas and/or text parts.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9668,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10363,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9668"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10363"
       }
     },
-    "voice-a24507351f00": {
+    "voice-f499169ed7e6": {
       "name": "voice",
       "type": "string | undefined",
       "optional": true,
       "description": "The voice to use for speech generation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9672,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10367,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9672"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10367"
       }
     },
-    "outputFormat-1c52617eb72c": {
+    "outputFormat-2ecdbf569d98": {
       "name": "outputFormat",
       "type": "SharedV4AudioFormat | undefined",
       "optional": true,
       "description": "The desired format of the output audio chunks, e.g.\n`{ type: 'audio/pcm', rate: 24000 }` or `{ type: 'audio/mpeg' }`.\nSupported formats are provider-specific.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9678,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10373,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9678"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10373"
       }
     },
-    "instructions-4b3f21b46179": {
+    "instructions-66bc5d503547": {
       "name": "instructions",
       "type": "string | undefined",
       "optional": true,
       "description": "Instructions for the speech generation e.g. \"Speak in a slow and steady tone\".",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9682,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10377,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9682"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10377"
       }
     },
-    "speed-38cf774e7d2f": {
+    "speed-e728ceb3fd45": {
       "name": "speed",
       "type": "number | undefined",
       "optional": true,
       "description": "The speed of the speech generation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9686,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10381,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9686"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10381"
       }
     },
-    "language-17c4c3804341": {
+    "language-522bbc56a6db": {
       "name": "language",
       "type": "string | undefined",
       "optional": true,
       "description": "The language for speech generation. This should be an ISO 639-1 language code (e.g. \"en\", \"es\", \"fr\")\nor \"auto\" for automatic language detection. Provider support varies.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9691,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10386,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9691"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10386"
       }
     },
-    "providerOptions-8ef11a06508b": {
+    "providerOptions-e3f548cd88dc": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9695,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10390,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9695"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10390"
       }
     },
-    "abortSignal-ba9834cb4957": {
+    "abortSignal-cb0726a306ce": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9699,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10394,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9699"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10394"
       }
     },
-    "headers-a43707561005": {
+    "headers-9e46900dfea7": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request, if supported by the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9703,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10398,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9703"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10398"
       }
     },
-    "includeRawChunks-90c2b49e91af": {
+    "includeRawChunks-b6af0ee1e0ce": {
       "name": "includeRawChunks",
       "type": "boolean | undefined",
       "optional": true,
       "description": "When true, providers should include raw provider chunks in the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9707,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10402,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9707"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10402"
       }
     },
-    "onError-50a850676fc2": {
+    "onError-f4612e490bdd": {
       "name": "onError",
       "type": "((event: { error: unknown; }) => void | PromiseLike<void>) | undefined",
       "optional": true,
       "description": "Called for each error part the provider reports. Error parts are not\nfatal: `fullStream` includes them and `audioStream` skips them. The\ncallback is not awaited, and errors it throws are ignored.\nDefaults to logging the error with `console.error`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9714,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10409,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9714"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10409"
       }
     },
-    "_internal-33f27e35a0d4": {
+    "_internal-316c49cdb97e": {
       "name": "_internal",
       "type": "{ currentDate?: () => Date; } | undefined",
       "optional": true,
       "description": "Internal test hooks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9720,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10415,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9720"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10415"
       }
     },
     "providerMetadata-a1890558f6d7": {
@@ -10419,161 +10554,161 @@ export default {
         "path": "src/factories/Translator.ts"
       }
     },
-    "audio-bc4b82bb8b5d": {
+    "audio-5b5e7f868414": {
       "name": "audio",
       "type": "ReadableStream<string | Uint8Array<ArrayBufferLike>>",
       "optional": false,
       "description": "Raw audio chunks to translate.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11301,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12042,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11301"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12042"
       }
     },
-    "includeRawChunks-29430afa6810": {
+    "includeRawChunks-ad5b6d5c09d6": {
       "name": "includeRawChunks",
       "type": "boolean | undefined",
       "optional": true,
       "description": "When true, providers should include raw provider chunks in the stream.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11337,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12078,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11337"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12078"
       }
     },
-    "_internal-0c473c098e24": {
+    "_internal-5e396fa59f87": {
       "name": "_internal",
       "type": "{ currentDate?: () => Date; } | undefined",
       "optional": true,
       "description": "Internal test hooks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11341,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12082,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11341"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12082"
       }
     },
-    "sourceText-20efa392ede3": {
+    "sourceText-25121e0dd1ec": {
       "name": "sourceText",
       "type": "PromiseLike<string>",
       "optional": false,
       "description": "The final source-language transcript of the input audio.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11237,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11978,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11237"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11978"
       }
     },
-    "translationText-94c108174585": {
+    "translationText-1bfe97fa77bb": {
       "name": "translationText",
       "type": "PromiseLike<string>",
       "optional": false,
       "description": "The final translated text in the target language.\n\nMay resolve to an empty string for providers that produce only audio\noutput.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11244,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11985,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11244"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11985"
       }
     },
-    "durationInSeconds-517ae82d7988": {
+    "durationInSeconds-1e32aeb17c6a": {
       "name": "durationInSeconds",
       "type": "PromiseLike<number | undefined>",
       "optional": false,
       "description": "The duration of the source audio in seconds, if available.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11248,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11989,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11248"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11989"
       }
     },
-    "usage-17ea66e7f260": {
+    "usage-aac6602e6c0b": {
       "name": "usage",
       "type": "PromiseLike<SpeechTranslationModelV4Usage | undefined>",
       "optional": false,
       "description": "Usage information for the translation call, if reported by the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11252,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11993,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11252"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11993"
       }
     },
-    "warnings-279e6968f8af": {
+    "warnings-a57e15823f1c": {
       "name": "warnings",
       "type": "PromiseLike<SharedV4Warning[]>",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11256,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11997,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11256"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11997"
       }
     },
-    "response-26f85eeed335": {
+    "response-659653107089": {
       "name": "response",
       "type": "PromiseLike<SpeechTranslationModelResponseMetadata>",
       "optional": false,
       "description": "Response metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11260,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12001,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11260"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12001"
       }
     },
-    "providerMetadata-820fb99f87d6": {
+    "providerMetadata-0e82bcbf8ee1": {
       "name": "providerMetadata",
       "type": "PromiseLike<Record<string, JSONObject>>",
       "optional": false,
       "description": "Additional provider-specific metadata.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11264,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12005,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11264"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12005"
       }
     },
-    "fullStream-16693db7e0f0": {
+    "fullStream-f5a7dc341b54": {
       "name": "fullStream",
       "type": "AsyncIterableStream<TranslationStreamPart>",
       "optional": false,
       "description": "Full stream of translation parts.\n\nThis is a single-consumer live stream and can only be accessed once.\nAccess it before any result promise when both stream parts and final\nresults are needed; accessing a result promise first consumes the stream\ninternally and makes `fullStream` unavailable.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11273,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 12014,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11273"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12014"
       }
     },
-    "token-ef6388c67aaf": {
+    "token-e6b1ecaa2a1c": {
       "name": "token",
       "type": "string",
       "optional": false,
@@ -10581,13 +10716,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7489,
+        "line": 7766,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7489"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7766"
       }
     },
-    "url-6694c49079ae": {
+    "url-458a55b0cd01": {
       "name": "url",
       "type": "string",
       "optional": false,
@@ -10595,13 +10730,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7494,
+        "line": 7771,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7494"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7771"
       }
     },
-    "expiresAt-b4d04565231e": {
+    "expiresAt-42284c9a4224": {
       "name": "expiresAt",
       "type": "number | undefined",
       "optional": true,
@@ -10609,10 +10744,10 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7498,
+        "line": 7775,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7498"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7775"
       }
     },
     "tools-77941a98285d": {
@@ -10625,33 +10760,95 @@ export default {
         "path": "src/factories/VoiceAgentBackend.ts"
       }
     },
-    "model-93d3f90bcfb6": {
+    "model-14cf8ce98262": {
       "name": "model",
       "type": "string | TranscriptionModelV4 | TranscriptionModelV3 | TranscriptionModelV2 | (string & TranscriptionModelV4) | (string & TranscriptionModelV3) | (string & TranscriptionModelV2) | (TranscriptionModelV4 & string) | (TranscriptionModelV3 & string) | (TranscriptionModelV2 & string)",
       "optional": false,
       "description": "The transcription model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11098,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11848,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11098"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11848"
       }
     },
-    "inputAudioFormat-7e0e83a62aca": {
+    "inputAudioFormat-62bc6c075147": {
       "name": "inputAudioFormat",
       "type": "SharedV4AudioFormat | undefined",
       "optional": true,
       "description": "The input audio format for the raw audio chunks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 11106,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11856,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11106"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11856"
       }
+    },
+    "audio-221b71f6d125": {
+      "name": "audio",
+      "type": "TranscriptionFile | RawAudio | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
+    },
+    "inputAudioFormat-6a9bbf3af99e": {
+      "name": "inputAudioFormat",
+      "type": "SharedV4AudioFormat | undefined",
+      "optional": true,
+      "description": "The input audio format for the raw audio chunks.",
+      "tags": [],
+      "source": {
+        "path": "src/factories/Transcriber.ts"
+      }
+    },
+    "audio-c5353c50d3bd": {
+      "name": "audio",
+      "type": "TranscriptionFile | RawAudio",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "src/factories/Transcriber.ts"
+      }
+    },
+    "direct-967e6ed4ead5": {
+      "name": "direct",
+      "type": "TranscriptionFile | RawAudio",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "prepared-0a9776bb5fab": {
+      "name": "prepared",
+      "type": "TranscriptionFile | RawAudio",
+      "optional": false,
+      "description": "",
+      "tags": []
+    },
+    "model-b07c96a69452": {
+      "name": "model",
+      "type": "string | SpeechModelV4 | SpeechModelV3 | SpeechModelV2 | (string & SpeechModelV4) | (string & SpeechModelV3) | (string & SpeechModelV2) | (SpeechModelV4 & string) | (SpeechModelV3 & string) | (SpeechModelV2 & string)",
+      "optional": false,
+      "description": "The speech model to use.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10358,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10358"
+      }
+    },
+    "text-85a9dc177766": {
+      "name": "text",
+      "type": "string | Iterable<string | SpeechTextPart> | AsyncIterable<string | SpeechTextPart> | ReadableStream<string | SpeechTextPart> | undefined",
+      "optional": true,
+      "description": "",
+      "tags": []
     },
     "audio-68daa1e68956": {
       "name": "audio",
@@ -10663,27 +10860,6 @@ export default {
         "path": "src/factories/Transcriber.ts"
       }
     },
-    "model-e7347b132223": {
-      "name": "model",
-      "type": "string | SpeechModelV4 | SpeechModelV3 | SpeechModelV2 | (string & SpeechModelV4) | (string & SpeechModelV3) | (string & SpeechModelV2) | (SpeechModelV4 & string) | (SpeechModelV3 & string) | (SpeechModelV2 & string)",
-      "optional": false,
-      "description": "The speech model to use.",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9663,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9663"
-      }
-    },
-    "text-85a9dc177766": {
-      "name": "text",
-      "type": "string | Iterable<string | SpeechTextPart> | AsyncIterable<string | SpeechTextPart> | ReadableStream<string | SpeechTextPart> | undefined",
-      "optional": true,
-      "description": "",
-      "tags": []
-    },
     "outputFormat-27a92d87c4ab": {
       "name": "outputFormat",
       "type": "SharedV4AudioFormat",
@@ -10694,18 +10870,18 @@ export default {
         "path": "src/factories/SpeechGenerator.ts"
       }
     },
-    "outputFormat-6e087775d340": {
+    "outputFormat-7fda4f42871a": {
       "name": "outputFormat",
       "type": "(string & {}) | SharedV4AudioFormat | \"mp3\" | \"wav\" | undefined",
       "optional": true,
       "description": "The desired output format for the audio e.g. \"mp3\", \"wav\", etc.\nThe desired format of the output audio chunks, e.g.\n`{ type: 'audio/pcm', rate: 24000 }` or `{ type: 'audio/mpeg' }`.\nSupported formats are provider-specific.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9511,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10206,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9511"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10206"
       }
     },
     "inputAudioFormat-9d5855cee1c6": {
@@ -10738,452 +10914,452 @@ export default {
         "path": "src/factories/Transcriber.ts"
       }
     },
-    "model-8d90286adc15": {
+    "model-3cede7036f63": {
       "name": "model",
       "type": "RealtimeModelV4",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10349,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11048,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10349"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11048"
       }
     },
-    "api-96e6faee24dc": {
+    "api-004ee8b5cab2": {
       "name": "api",
-      "type": "{ token: string; session?: never; websocket?: never; protocols?: never; } | { session: string; token?: never; websocket?: never; protocols?: never; } | { websocket: string; protocols?: string[]; token?: never; session?: never; }",
+      "type": "{ token: string; session?: never; websocket?: never; protocols?: never; provider?: never; } | { session: string; token?: never; websocket?: never; protocols?: never; provider?: never; } | { provider: string; token?: never; session?: never; websocket?: never; protocols?: never; } | { websocket: string; protocols?: string[]; token?: never; session?: never; provider?: never; }",
       "optional": false,
-      "description": "websocket uses a raw-protocol relay; session exchanges SDP; token fetches client-secret setup.",
+      "description": "Application endpoints for token, SDP, provider-managed, or relay connections.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10351,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11050,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10351"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11050"
       }
     },
-    "sessionConfig-9d28f0dc148c": {
+    "sessionConfig-804ef3dffb30": {
       "name": "sessionConfig",
       "type": "Partial<RealtimeModelV4SessionConfig> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10367,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11075,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10367"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11075"
       }
     },
-    "sampleRate-cde1ebf592d2": {
+    "sampleRate-06aa2a8f8a8a": {
       "name": "sampleRate",
       "type": "number | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10368,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11076,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10368"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11076"
       }
     },
-    "maxEvents-e8b6e2c06f40": {
+    "maxEvents-a020baa464f5": {
       "name": "maxEvents",
       "type": "number | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10369,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11077,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10369"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11077"
       }
     },
-    "startupTimeoutMs-d20632605c64": {
+    "startupTimeoutMs-5cf4778f802f": {
       "name": "startupTimeoutMs",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum time to establish transport and receive readiness. Default: 30s.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10371,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11079,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10371"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11079"
       }
     },
-    "closeTimeoutMs-d201a4934ea3": {
+    "closeTimeoutMs-dbae777eaefe": {
       "name": "closeTimeoutMs",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum wait for final usage after close(). Default: 15s.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10373,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11081,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10373"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11081"
       }
     },
-    "rtcDisconnectTimeoutMs-e4b1f8b4721d": {
+    "rtcDisconnectTimeoutMs-5b12df24e922": {
       "name": "rtcDisconnectTimeoutMs",
       "type": "number | undefined",
       "optional": true,
       "description": "WebRTC peer disconnect recovery grace period. Default: 5s.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10375,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11083,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10375"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11083"
       }
     },
-    "maxPlaybackBufferSeconds-58459e112b41": {
+    "maxPlaybackBufferSeconds-8afa607e6747": {
       "name": "maxPlaybackBufferSeconds",
       "type": "number | undefined",
       "optional": true,
       "description": "Continuous PCM only: pause at this budget until resumePlayback(). Default: 2s.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10377,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11085,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10377"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11085"
       }
     },
-    "onToolCall-e108281592b1": {
+    "onToolCall-d762db2d3ad5": {
       "name": "onToolCall",
       "type": "((args: { toolCall: { toolCallId: string; toolName: string; args: unknown; }; }) => Promise<unknown> | unknown | undefined) | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10378,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11086,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10378"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11086"
       }
     },
-    "onEvent-97febd9b5a0f": {
+    "onEvent-d3f764d51701": {
       "name": "onEvent",
       "type": "((event: RealtimeServerEvent) => void) | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10385,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11093,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10385"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11093"
       }
     },
-    "onError-ac702d5799f7": {
+    "onError-9823c2477456": {
       "name": "onError",
       "type": "((error: Error) => void) | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10386,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11094,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10386"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11094"
       }
     },
-    "onError-ee293d8dc69d": {
+    "onError-83ded9ab73dc": {
       "name": "onError",
       "type": "((error: Error) => void) | undefined",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10394,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11102,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10394"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11102"
       }
     },
-    "onToolCall-1bb4e2579e8e": {
+    "onToolCall-59c4a4fdd7d4": {
       "name": "onToolCall",
       "type": "((args: { toolCall: { toolCallId: string; toolName: string; args: unknown; }; }) => Promise<unknown> | unknown | undefined) | undefined",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10392,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11100,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10392"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11100"
       }
     },
-    "onEvent-2b525dd0ec4b": {
+    "onEvent-2722b9792dd9": {
       "name": "onEvent",
       "type": "((event: RealtimeServerEvent) => void) | undefined",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10393,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11101,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10393"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11101"
       }
     },
-    "connect-a277f2ca8921": {
+    "connect-2e34b6dfb576": {
       "name": "connect",
       "type": "{ (): Promise<void>; (options: { stream?: MediaStream; capture?: boolean; }): Promise<void>; }",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10415,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11123,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10415"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11123"
       }
     },
-    "disconnect-a0f2793ced8a": {
+    "disconnect-8faaa298371c": {
       "name": "disconnect",
       "type": "() => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10424,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11134,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10424"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11134"
       }
     },
-    "close-e363f56e6a2b": {
+    "close-8098641beab2": {
       "name": "close",
       "type": "(options?: { eventId?: string; }) => Promise<void>",
       "optional": false,
-      "description": "Wait for final usage when the model supports a session-close acknowledgement.",
+      "description": "Wait for provider cleanup or supported session-close finalization.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10426,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11136,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10426"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11136"
       }
     },
-    "sendEvent-1ed4115b59e1": {
+    "sendEvent-d7ab1dd558cb": {
       "name": "sendEvent",
       "type": "(event: RealtimeClientEvent) => Promise<void>",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10430,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11140,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10430"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11140"
       }
     },
-    "sendTextMessage-e25a39689251": {
+    "sendTextMessage-7a502c92f929": {
       "name": "sendTextMessage",
       "type": "(text: string) => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10431,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11141,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10431"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11141"
       }
     },
-    "sendAudio-abb6fd8293e3": {
+    "sendAudio-484a8c1d0aea": {
       "name": "sendAudio",
       "type": "(audio: string) => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10432,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11142,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10432"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11142"
       }
     },
-    "commitAudio-c1bebd5fa209": {
+    "commitAudio-c2343307b0b1": {
       "name": "commitAudio",
       "type": "() => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10433,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11143,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10433"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11143"
       }
     },
-    "clearAudioBuffer-784cb9924553": {
+    "clearAudioBuffer-86dceda18774": {
       "name": "clearAudioBuffer",
       "type": "() => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10434,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11144,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10434"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11144"
       }
     },
-    "requestResponse-8d20891a47c8": {
+    "requestResponse-c5bb6481365f": {
       "name": "requestResponse",
       "type": "(options?: { modalities?: string[]; }) => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10435,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11145,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10435"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11145"
       }
     },
-    "cancelResponse-ef55991b7861": {
+    "cancelResponse-30f3c048c45e": {
       "name": "cancelResponse",
       "type": "() => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10438,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11148,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10438"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11148"
       }
     },
-    "addToolOutput-5a6e47b363d5": {
+    "addToolOutput-0ecdc6214901": {
       "name": "addToolOutput",
       "type": "(callId: string, result: unknown) => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10440,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11150,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10440"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11150"
       }
     },
-    "startAudioCapture-f8d969401d42": {
+    "startAudioCapture-53bd14e6dc4d": {
       "name": "startAudioCapture",
       "type": "(stream: MediaStream) => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10442,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11152,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10442"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11152"
       }
     },
-    "resumeAudioCapture-aad7cfb3b71b": {
+    "resumeAudioCapture-21fe42d0a4dc": {
       "name": "resumeAudioCapture",
       "type": "() => Promise<void>",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10443,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11153,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10443"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11153"
       }
     },
-    "stopAudioCapture-d3ce66e2c1a4": {
+    "stopAudioCapture-911c0523c2a8": {
       "name": "stopAudioCapture",
       "type": "() => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10444,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11154,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10444"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11154"
       }
     },
-    "stopPlayback-4aaa7bc6d4eb": {
+    "stopPlayback-74887f5363db": {
       "name": "stopPlayback",
       "type": "() => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10445,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11155,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10445"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11155"
       }
     },
-    "resumePlayback-c29f9a66cc87": {
+    "resumePlayback-9d2aac23aa6c": {
       "name": "resumePlayback",
       "type": "() => Promise<void>",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10446,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11156,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10446"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11156"
       }
     },
-    "dispose-ba4bc348b681": {
+    "dispose-9930092e1c54": {
       "name": "dispose",
       "type": "() => void",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10447,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11157,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10447"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11157"
       }
     },
     "getSnapshot-b4938edff73b": {
@@ -11200,189 +11376,189 @@ export default {
       "description": "",
       "tags": []
     },
-    "model-05ef0967cd9a": {
+    "model-1644b8d10c7b": {
       "name": "model",
       "type": "VideoModel",
       "optional": false,
       "description": "The video model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9821,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10517,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9821"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10517"
       }
     },
-    "prompt-d76e36aeb1ec": {
+    "prompt-e17accdd497c": {
       "name": "prompt",
       "type": "GenerateVideoPrompt",
       "optional": false,
       "description": "The prompt that should be used to generate the video.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9825,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10521,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9825"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10521"
       }
     },
-    "n-abd3343160cb": {
+    "n-0e1734c45c1b": {
       "name": "n",
       "type": "number | undefined",
       "optional": true,
       "description": "Number of videos to generate.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9829,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10525,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9829"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10525"
       }
     },
-    "maxVideosPerCall-04e47517618a": {
+    "maxVideosPerCall-37fbd8bcda34": {
       "name": "maxVideosPerCall",
       "type": "number | undefined",
       "optional": true,
       "description": "Maximum number of videos per API call. If not provided, the model's default will be used.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9833,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10529,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9833"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10529"
       }
     },
-    "aspectRatio-ab67dd850135": {
+    "aspectRatio-948f9ae032db": {
       "name": "aspectRatio",
       "type": "`${number}:${number}` | \"adaptive\" | undefined",
       "optional": true,
       "description": "Aspect ratio of the videos to generate. Must have the format\n`{width}:{height}`, or `'adaptive'` to inherit the ratio from the input media.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9838,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10534,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9838"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10534"
       }
     },
-    "resolution-983d2c88254d": {
+    "resolution-33812f50a8dc": {
       "name": "resolution",
       "type": "`${number}x${number}` | undefined",
       "optional": true,
       "description": "Resolution of the videos to generate. Must have the format `{width}x${height}`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9842,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10538,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9842"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10538"
       }
     },
-    "duration-f26848fb3fa6": {
+    "duration-d1bf4adf1e2f": {
       "name": "duration",
       "type": "number | undefined",
       "optional": true,
       "description": "Duration of the video in seconds.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9846,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10542,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9846"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10542"
       }
     },
-    "fps-c32d5e0c8d00": {
+    "fps-13af020e6f72": {
       "name": "fps",
       "type": "number | undefined",
       "optional": true,
       "description": "Frames per second for the video.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9850,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10546,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9850"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10546"
       }
     },
-    "seed-a925b39a46ff": {
+    "seed-f298ceb2dae3": {
       "name": "seed",
       "type": "number | undefined",
       "optional": true,
       "description": "Seed for the video generation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9854,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10550,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9854"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10550"
       }
     },
-    "frameImages-aeba77dd05f1": {
+    "frameImages-d0dc09d1f531": {
       "name": "frameImages",
       "type": "{ image: DataContent; frameType: VideoModelV4FrameType; }[] | undefined",
       "optional": true,
       "description": "Role-tagged image inputs for image-to-video and first-last-frame generation.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9858,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10554,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9858"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10554"
       }
     },
-    "inputReferences-0bf9ee19009d": {
+    "inputReferences-52c60c20d4bd": {
       "name": "inputReferences",
       "type": "(DataContent | { data: DataContent; mediaType?: string; })[] | undefined",
       "optional": true,
       "description": "Reference inputs for reference-to-video generation.\n\nEach entry may be a plain image/video ({@link DataContent}), or an object\nform that carries an explicit `mediaType`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9874,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10570,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9874"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10570"
       }
     },
-    "generateAudio-9ba1f0fe35f9": {
+    "generateAudio-b8009fcb76f2": {
       "name": "generateAudio",
       "type": "boolean | undefined",
       "optional": true,
       "description": "Whether the model should generate audio alongside the video.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9888,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10584,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9888"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10584"
       }
     },
-    "providerOptions-b1f6e46513fc": {
+    "providerOptions-7adf4abd4a86": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options that are passed through to the provider\nas body parameters.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9893,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10589,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9893"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10589"
       }
     },
-    "maxRetries-557e44be3533": {
+    "maxRetries-b1d66fe01336": {
       "name": "maxRetries",
       "type": "number | undefined",
       "optional": true,
@@ -11394,42 +11570,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9899,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10595,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9899"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10595"
       }
     },
-    "abortSignal-5c1f46bf9562": {
+    "abortSignal-f9406684db67": {
       "name": "abortSignal",
       "type": "AbortSignal | undefined",
       "optional": true,
       "description": "Abort signal.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9903,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10599,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9903"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10599"
       }
     },
-    "headers-86cc6d2a91a0": {
+    "headers-373272238360": {
       "name": "headers",
       "type": "Record<string, string> | undefined",
       "optional": true,
       "description": "Additional headers to include in the request.\nOnly applicable for HTTP-based providers.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9908,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10604,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9908"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10604"
       }
     },
-    "download-66b7a049f669": {
+    "download-c3f8ee06633e": {
       "name": "download",
       "type": "((options: { url: URL; abortSignal?: AbortSignal; }) => Promise<{ data: Uint8Array; mediaType: string | undefined; }>) | undefined",
       "optional": true,
@@ -11441,67 +11617,67 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9915,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10611,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9915"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10611"
       }
     },
-    "poll-a413a5705658": {
+    "poll-54be9abbdfff": {
       "name": "poll",
       "type": "GenerateVideoPollOptions | undefined",
       "optional": true,
       "description": "Polling configuration for models that support the asynchronous\nstart/status flow. When provided and the model implements `doStart`\nand `doStatus`, the SDK will orchestrate polling automatically.\n\nThis option can be combined with `webhook`: `timeoutMs` limits the webhook\nwait, and the polling settings apply if the model does not support\nwebhooks.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9931,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10627,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9931"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10627"
       }
     },
-    "webhook-150ee2c34792": {
+    "webhook-e748ef3211c8": {
       "name": "webhook",
       "type": "GenerateVideoWebhookFactory | undefined",
       "optional": true,
       "description": "Webhook factory for models that support the asynchronous\nstart/status flow. When provided and the model implements `doStart`\nand `doStatus`, the SDK will use webhooks instead of polling.\n\nThe factory should return a URL for the provider to send notifications to,\nand a `received` promise that resolves when the notification arrives.\n`poll` can also be provided to configure the webhook timeout and polling\nfallback.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9942,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10638,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9942"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10638"
       }
     },
-    "prompt-b7d5559918ca": {
+    "prompt-8b4b5c5d39e6": {
       "name": "prompt",
       "type": "GenerateVideoPrompt | undefined",
       "optional": true,
       "description": "The prompt that should be used to generate the video.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9825,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10521,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9825"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10521"
       }
     },
-    "model-ce767d778a6c": {
+    "model-305ceb93ef2e": {
       "name": "model",
       "type": "string | VideoModelV4 | VideoModelV3 | (string & VideoModelV4) | (string & VideoModelV3) | (VideoModelV4 & string) | (VideoModelV3 & string)",
       "optional": false,
       "description": "The video model to use.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9821,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10517,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9821"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10517"
       }
     },
     "direct-4ea07477228e": {
@@ -11525,259 +11701,278 @@ export default {
       "description": "",
       "tags": []
     },
-    "video-84772d9bf3b3": {
+    "video-c15f2929aaf4": {
       "name": "video",
       "type": "GeneratedFile",
       "optional": false,
-      "description": "The first video that was generated.",
-      "tags": [],
+      "description": "The first video available to the SDK.",
+      "tags": [
+        {
+          "name": "throws",
+          "text": "{NoVideoGeneratedError} When all videos were delivered directly\nto caller-managed storage. Use `uploadedVideos` to handle upload-only results."
+        }
+      ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9751,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10442,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9751"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10442"
       }
     },
-    "videos-8774a365a425": {
+    "videos-47e9b9273a30": {
       "name": "videos",
       "type": "GeneratedFile[]",
       "optional": false,
-      "description": "All videos that were generated.",
+      "description": "All videos available to the SDK, excluding videos uploaded by the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9755,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10446,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9755"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10446"
       }
     },
-    "warnings-87ff71219ca6": {
+    "uploadedVideos-ebe75695ab76": {
+      "name": "uploadedVideos",
+      "type": "number",
+      "optional": false,
+      "description": "Number of videos delivered directly to caller-managed storage.\nThese videos are not downloaded and are not included in `videos`.",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10451,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10451"
+      }
+    },
+    "warnings-634e28fe31f2": {
       "name": "warnings",
       "type": "SharedV4Warning[]",
       "optional": false,
       "description": "Warnings for the call, e.g. unsupported settings.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9759,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10455,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9759"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10455"
       }
     },
-    "responses-ab44c3b4f994": {
+    "responses-e3f1546b4f67": {
       "name": "responses",
       "type": "VideoModelResponseMetadata[]",
       "optional": false,
       "description": "Response metadata from the provider.\nMay contain multiple responses if multiple calls were made.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9764,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10460,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9764"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10460"
       }
     },
-    "providerMetadata-2785d8939d21": {
+    "providerMetadata-8dbafc46c0ef": {
       "name": "providerMetadata",
       "type": "SharedV4ProviderMetadata",
       "optional": false,
       "description": "Provider-specific metadata passed through from the provider.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9768,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10464,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9768"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10464"
       }
     },
-    "isEnabled-461f93f561cc": {
+    "isEnabled-4303a363fa95": {
       "name": "isEnabled",
       "type": "boolean | undefined",
       "optional": true,
       "description": "Enable or disable telemetry. Enabled by default when a telemetry\nintegration is registered. Set to `false` to opt out.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1129,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1350,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1129"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1350"
       }
     },
-    "recordInputs-5a9bc04cadf6": {
+    "recordInputs-0a82b3d21ba3": {
       "name": "recordInputs",
       "type": "boolean | undefined",
       "optional": true,
       "description": "Enable or disable input recording. Enabled by default.\n\nYou might want to disable input recording to avoid recording sensitive\ninformation, to reduce data transfers, or to increase performance.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1136,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1357,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1136"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1357"
       }
     },
-    "recordOutputs-eef63173ee8d": {
+    "recordOutputs-5f49a76c4a9f": {
       "name": "recordOutputs",
       "type": "boolean | undefined",
       "optional": true,
       "description": "Enable or disable output recording. Enabled by default.\n\nYou might want to disable output recording to avoid recording sensitive\ninformation, to reduce data transfers, or to increase performance.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1143,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1364,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1143"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1364"
       }
     },
-    "functionId-a8cb2fcd49af": {
+    "functionId-a4b8d24d4f63": {
       "name": "functionId",
       "type": "string | undefined",
       "optional": true,
       "description": "Identifier for this function. Used to group telemetry data by function.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1147,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1368,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1147"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1368"
       }
     },
-    "includeRuntimeContext-7be8a823ab05": {
+    "includeRuntimeContext-5fea5b0822f3": {
       "name": "includeRuntimeContext",
       "type": "IncludedContext<Context>",
       "optional": true,
       "description": "Top-level runtime context properties that should be included in telemetry.\nRuntime context properties are excluded unless they are explicitly set to `true`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1152,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1373,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1152"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1373"
       }
     },
-    "includeToolsContext-4e95f5357138": {
+    "includeToolsContext-c4636a1e46ee": {
       "name": "includeToolsContext",
       "type": "IncludedToolsContext<ToolSet>",
       "optional": true,
       "description": "Top-level tool context properties that should be included in telemetry,\nconfigured per tool.\n\nTool context properties are excluded unless they are explicitly set to `true`.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1159,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1380,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1159"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1380"
       }
     },
-    "integrations-96ef7c9abe2e": {
+    "integrations-d89adf68950c": {
       "name": "integrations",
       "type": "Arrayable<Telemetry>",
       "optional": true,
       "description": "Per-call telemetry integrations that receive lifecycle events during generation.\n\nWhen provided, these integrations will take precedence over the globally registered\nintegrations for this call.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1166,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1387,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1166"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1387"
       }
     },
-    "totalMs-594fa641341f": {
+    "totalMs-c758378cc4ae": {
       "name": "totalMs",
       "type": "number | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 778,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 988,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L778"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L988"
       }
     },
-    "stepMs-4e681ef685e4": {
+    "stepMs-b5087914c082": {
       "name": "stepMs",
       "type": "number | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 779,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 989,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L779"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L989"
       }
     },
-    "firstChunkMs-08154ea18be9": {
+    "firstChunkMs-d0c3163365d4": {
       "name": "firstChunkMs",
       "type": "number | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 780,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 990,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L780"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L990"
       }
     },
-    "chunkMs-ea0876ccf03b": {
+    "chunkMs-444ae491f56e": {
       "name": "chunkMs",
       "type": "number | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 781,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 991,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L781"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L991"
       }
     },
-    "toolMs-b110bb37581e": {
+    "toolMs-c3b651c82a34": {
       "name": "toolMs",
       "type": "number | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 782,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 992,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L782"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L992"
       }
     },
-    "tools-9d7732e75fb6": {
+    "tools-969e8dc7d0ef": {
       "name": "tools",
       "type": "Partial<Record<`${string}Ms`, number>> | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 783,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 993,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L783"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L993"
       }
     },
-    "requestBody-e4b8c5083ebc": {
+    "requestBody-169af9ec369a": {
       "name": "requestBody",
       "type": "boolean | undefined",
       "optional": true,
@@ -11789,14 +11984,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3786,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4195,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3786"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4195"
       }
     },
-    "requestMessages-f417475096d1": {
+    "requestMessages-50596f598ef0": {
       "name": "requestMessages",
       "type": "boolean | undefined",
       "optional": true,
@@ -11808,14 +12003,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3793,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4202,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3793"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4202"
       }
     },
-    "rawChunks-84c188cf4090": {
+    "rawChunks-b65de217e6f5": {
       "name": "rawChunks",
       "type": "boolean | undefined",
       "optional": true,
@@ -11827,14 +12022,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 3805,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4214,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L3805"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4214"
       }
     },
-    "type-3d37b77be676": {
+    "type-520be97089d4": {
       "name": "type",
       "type": "string",
       "optional": false,
@@ -11844,11 +12039,11 @@ export default {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
         "line": 10,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L10"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L10"
       }
     },
-    "rate-9d519651bed3": {
+    "rate-48f2f297bd7c": {
       "name": "rate",
       "type": "number | undefined",
       "optional": true,
@@ -11858,11 +12053,11 @@ export default {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
         "line": 14,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L14"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L14"
       }
     },
-    "model-747c04f06434": {
+    "model-2ef98e561f36": {
       "name": "model",
       "type": "string | undefined",
       "optional": true,
@@ -11870,13 +12065,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7392,
+        "line": 7669,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7392"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7669"
       }
     },
-    "language-c8af6ab181e6": {
+    "language-18a70eefc7b3": {
       "name": "language",
       "type": "string | undefined",
       "optional": true,
@@ -11884,13 +12079,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7396,
+        "line": 7673,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7396"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7673"
       }
     },
-    "prompt-198973fe857c": {
+    "prompt-e49009ec511f": {
       "name": "prompt",
       "type": "string | undefined",
       "optional": true,
@@ -11898,13 +12093,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7400,
+        "line": 7677,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7400"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7677"
       }
     },
-    "type-4403e09d8750": {
+    "type-594fa7028e72": {
       "name": "type",
       "type": "\"server-vad\" | \"semantic-vad\" | \"disabled\"",
       "optional": false,
@@ -11912,13 +12107,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7438,
+        "line": 7715,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7438"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7715"
       }
     },
-    "threshold-d319cb183c9a": {
+    "threshold-ad4f6014a792": {
       "name": "threshold",
       "type": "number | undefined",
       "optional": true,
@@ -11926,13 +12121,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7443,
+        "line": 7720,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7443"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7720"
       }
     },
-    "silenceDurationMs-ea7c5a2320c3": {
+    "silenceDurationMs-8d1a937380ac": {
       "name": "silenceDurationMs",
       "type": "number | undefined",
       "optional": true,
@@ -11940,13 +12135,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7448,
+        "line": 7725,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7448"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7725"
       }
     },
-    "prefixPaddingMs-d9ac0b322e22": {
+    "prefixPaddingMs-4c2039317d05": {
       "name": "prefixPaddingMs",
       "type": "number | undefined",
       "optional": true,
@@ -11954,13 +12149,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7453,
+        "line": 7730,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7453"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7730"
       }
     },
-    "type-e23128cc0ea3": {
+    "type-d9cc1b1b4cea": {
       "name": "type",
       "type": "\"choice\"",
       "optional": false,
@@ -11968,13 +12163,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2412,
+        "line": 2454,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2412"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2454"
       }
     },
-    "instructions-b8948cb7f97e": {
+    "instructions-b85d3fcd5c41": {
       "name": "instructions",
       "type": "DecisionModelV4Input | null | undefined",
       "optional": true,
@@ -11982,13 +12177,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2414,
+        "line": 2456,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2414"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2456"
       }
     },
-    "criteria-25a4abc81557": {
+    "criteria-dd60dbfe042f": {
       "name": "criteria",
       "type": "Readonly<Record<string, DecisionModelV4Input | null>>",
       "optional": false,
@@ -11996,13 +12191,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2416,
+        "line": 2458,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2416"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2458"
       }
     },
-    "type-f0ed6b10b0cb": {
+    "type-37d3b7e0b6c6": {
       "name": "type",
       "type": "\"score\"",
       "optional": false,
@@ -12010,13 +12205,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2418,
+        "line": 2460,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2418"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2460"
       }
     },
-    "instructions-716db50b0640": {
+    "instructions-0204b262592e": {
       "name": "instructions",
       "type": "DecisionModelV4Input | null | undefined",
       "optional": true,
@@ -12024,13 +12219,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2420,
+        "line": 2462,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2420"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2462"
       }
     },
-    "criteria-f2ab0914b0a2": {
+    "criteria-9cbb40284e16": {
       "name": "criteria",
       "type": "readonly (DecisionModelV4Input | null)[]",
       "optional": false,
@@ -12038,13 +12233,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2422,
+        "line": 2464,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2422"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2464"
       }
     },
-    "type-33b2c1d6b3ea": {
+    "type-7764ff728a6b": {
       "name": "type",
       "type": "\"box\"",
       "optional": false,
@@ -12052,27 +12247,27 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2424,
+        "line": 2466,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2424"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2466"
       }
     },
-    "instructions-ec4fde729210": {
+    "instructions-7b8cd13ccfae": {
       "name": "instructions",
-      "type": "DecisionModelV4Input",
-      "optional": false,
-      "description": "",
+      "type": "DecisionModelV4Input | null | undefined",
+      "optional": true,
+      "description": "May be omitted or null when supported by the provider.",
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2425,
+        "line": 2468,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2425"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2468"
       }
     },
-    "type-d51d159b0b95": {
+    "type-eab546a1fe04": {
       "name": "type",
       "type": "\"boolean\"",
       "optional": false,
@@ -12080,13 +12275,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2427,
+        "line": 2470,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2427"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2470"
       }
     },
-    "instructions-c1fc06851b28": {
+    "instructions-c32a70cdf6d3": {
       "name": "instructions",
       "type": "DecisionModelV4Input | null | undefined",
       "optional": true,
@@ -12094,27 +12289,27 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2429,
+        "line": 2472,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2429"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2472"
       }
     },
-    "criteria-4a3e82e16f10": {
+    "criteria-a8b5f9bd5ab6": {
       "name": "criteria",
-      "type": "{ readonly true?: DecisionModelV4Input | null; readonly false?: DecisionModelV4Input | null; } | undefined",
+      "type": "{ readonly true?: DecisionModelV4Input | null; readonly false?: DecisionModelV4Input | null; } | null | undefined",
       "optional": true,
       "description": "At least one non-null description is required when instructions are absent.",
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 2431,
+        "line": 2474,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L2431"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L2474"
       }
     },
-    "role-98fcfc9df349": {
+    "role-e8ac0434d928": {
       "name": "role",
       "type": "\"system\"",
       "optional": false,
@@ -12122,13 +12317,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1758,
+        "line": 1857,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1758"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1857"
       }
     },
-    "content-5d96322cd173": {
+    "content-a89592356ea7": {
       "name": "content",
       "type": "string",
       "optional": false,
@@ -12136,13 +12331,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1759,
+        "line": 1858,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1759"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1858"
       }
     },
-    "providerOptions-c6c4e0593818": {
+    "providerOptions-35d879148cd3": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
@@ -12150,13 +12345,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1765,
+        "line": 1864,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1765"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1864"
       }
     },
-    "role-842fd34a266d": {
+    "role-5892097e9456": {
       "name": "role",
       "type": "\"user\"",
       "optional": false,
@@ -12164,13 +12359,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1824,
+        "line": 1923,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1824"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1923"
       }
     },
-    "content-92937787a683": {
+    "content-cde6417447fa": {
       "name": "content",
       "type": "UserContent",
       "optional": false,
@@ -12178,13 +12373,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1825,
+        "line": 1924,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1825"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1924"
       }
     },
-    "providerOptions-cf02dd68a7de": {
+    "providerOptions-a36c5ad2658a": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
@@ -12192,13 +12387,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1831,
+        "line": 1930,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1831"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1930"
       }
     },
-    "role-56618d0a1118": {
+    "role-cf6cb44e4f5c": {
       "name": "role",
       "type": "\"assistant\"",
       "optional": false,
@@ -12206,13 +12401,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1734,
+        "line": 1833,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1734"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1833"
       }
     },
-    "content-be1a0de1cdcc": {
+    "content-8dd1c49edc02": {
       "name": "content",
       "type": "AssistantContent",
       "optional": false,
@@ -12220,13 +12415,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1735,
+        "line": 1834,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1735"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1834"
       }
     },
-    "providerOptions-1649f94a4e5e": {
+    "providerOptions-9f578ecc5664": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
@@ -12234,13 +12429,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1741,
+        "line": 1840,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1741"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1840"
       }
     },
-    "role-27bc21560f98": {
+    "role-89ef2f80a629": {
       "name": "role",
       "type": "\"tool\"",
       "optional": false,
@@ -12248,13 +12443,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1805,
+        "line": 1904,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1805"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1904"
       }
     },
-    "content-489efe726dd4": {
+    "content-3a3ba09e66af": {
       "name": "content",
       "type": "ToolContent",
       "optional": false,
@@ -12262,13 +12457,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1806,
+        "line": 1905,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1806"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1905"
       }
     },
-    "providerOptions-fd446947bc10": {
+    "providerOptions-138a787c7cd4": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
@@ -12276,69 +12471,69 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider-utils/dist/index.d.ts",
-        "line": 1812,
+        "line": 1911,
         "package": "@ai-sdk/provider-utils",
-        "version": "5.0.74",
-        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.74/dist/index.d.ts#L1812"
+        "version": "5.0.85",
+        "url": "https://unpkg.com/@ai-sdk/provider-utils@5.0.85/dist/index.d.ts#L1911"
       }
     },
-    "images-5e3daa468130": {
+    "images-52c5df12a02a": {
       "name": "images",
       "type": "DataContent[]",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7600,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8215,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7600"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8215"
       }
     },
-    "text-44720aaced31": {
+    "text-c84fbf89238b": {
       "name": "text",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 7601,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 8216,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L7601"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L8216"
       }
     },
-    "base64-c3f892cd6414": {
+    "base64-26c8c3a9f599": {
       "name": "base64",
       "type": "string",
       "optional": false,
       "description": "File as a base64 encoded string.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1203,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1398,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1203"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1398"
       }
     },
-    "uint8Array-0ab6dcaf1c56": {
+    "uint8Array-c4b76402b232": {
       "name": "uint8Array",
       "type": "Uint8Array<ArrayBufferLike>",
       "optional": false,
       "description": "File as a Uint8Array.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1207,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1402,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1207"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1402"
       }
     },
-    "mediaType-bd46b3644604": {
+    "mediaType-78e64d225ca0": {
       "name": "mediaType",
       "type": "string",
       "optional": false,
@@ -12350,42 +12545,42 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1213,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1408,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1213"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1408"
       }
     },
-    "providerMetadata-38a36c15e990": {
+    "providerMetadata-3fe90f6dfdf1": {
       "name": "providerMetadata",
       "type": "Record<string, JSONObject> | undefined",
       "optional": true,
       "description": "Provider-specific metadata for this file.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 1217,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 1412,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L1217"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L1412"
       }
     },
-    "format-abeb330ea542": {
+    "format-139984da674d": {
       "name": "format",
       "type": "string",
       "optional": false,
       "description": "Audio format of the file (e.g., 'mp3', 'wav', etc.)",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9448,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10143,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9448"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10143"
       }
     },
-    "type-2c4b7c1f06e1": {
+    "type-344ec4cbdca5": {
       "name": "type",
       "type": "\"function\"",
       "optional": false,
@@ -12393,13 +12588,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7343,
+        "line": 7620,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7343"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7620"
       }
     },
-    "name-98415698ff60": {
+    "name-89aa96fc9795": {
       "name": "name",
       "type": "string",
       "optional": false,
@@ -12407,13 +12602,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7347,
+        "line": 7624,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7347"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7624"
       }
     },
-    "description-765dad9c3ae1": {
+    "description-5bb69e58655c": {
       "name": "description",
       "type": "string | undefined",
       "optional": true,
@@ -12421,13 +12616,13 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7352,
+        "line": 7629,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7352"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7629"
       }
     },
-    "parameters-a7ebd2b436da": {
+    "parameters-b0610345bc98": {
       "name": "parameters",
       "type": "JSONSchema7",
       "optional": false,
@@ -12435,192 +12630,164 @@ export default {
       "tags": [],
       "source": {
         "path": "node_modules/@ai-sdk/provider/dist/index.d.ts",
-        "line": 7356,
+        "line": 7633,
         "package": "@ai-sdk/provider",
-        "version": "4.0.35",
-        "url": "https://unpkg.com/@ai-sdk/provider@4.0.35/dist/index.d.ts#L7356"
+        "version": "4.0.39",
+        "url": "https://unpkg.com/@ai-sdk/provider@4.0.39/dist/index.d.ts#L7633"
       }
     },
-    "schema-6c2c7e02e817": {
-      "name": "schema",
-      "type": "FlexibleSchema<unknown>",
-      "optional": false,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4289,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4289"
-      }
-    },
-    "name-06a2b2b44852": {
+    "name-35787766c1d5": {
       "name": "name",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4294,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4709,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4294"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4709"
       }
     },
-    "description-09f4aee69855": {
+    "description-4a79d6adae24": {
       "name": "description",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4299,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4714,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4299"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4714"
       }
     },
-    "element-91da8658bc12": {
-      "name": "element",
-      "type": "FlexibleSchema<unknown>",
-      "optional": false,
-      "description": "",
-      "tags": [],
-      "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4314,
-        "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4314"
-      }
-    },
-    "minItems-af67e565c2af": {
+    "minItems-5beefdc5780d": {
       "name": "minItems",
       "type": "number | undefined",
       "optional": true,
       "description": "Optional minimum number of elements to generate.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4318,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4736,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4318"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4736"
       }
     },
-    "maxItems-83b91f99b871": {
+    "maxItems-c1b7134bf00b": {
       "name": "maxItems",
       "type": "number | undefined",
       "optional": true,
       "description": "Optional maximum number of elements to generate.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4322,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4740,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4322"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4740"
       }
     },
-    "name-0fc0260efcb7": {
+    "name-4272e3098922": {
       "name": "name",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4327,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4745,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4327"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4745"
       }
     },
-    "description-4c42d2df1bbb": {
+    "description-60944453acb2": {
       "name": "description",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4332,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4750,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4332"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4750"
       }
     },
-    "options-6fc25659e8c1": {
+    "options-5bffe0fac6e0": {
       "name": "options",
       "type": "string[]",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4345,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4777,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4345"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4777"
       }
     },
-    "name-71d67ed50215": {
+    "name-c03509a2880a": {
       "name": "name",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4350,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4782,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4350"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4782"
       }
     },
-    "description-5989d1faa9c5": {
+    "description-f355a51a2c75": {
       "name": "description",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4355,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4787,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4355"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4787"
       }
     },
-    "name-29ff40758bf7": {
+    "name-aa1bf6fcd790": {
       "name": "name",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional name of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema name.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4371,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4803,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4371"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4803"
       }
     },
-    "description-43c7639c81e5": {
+    "description-2016aef5a551": {
       "name": "description",
       "type": "string | undefined",
       "optional": true,
       "description": "Optional description of the output that should be generated.\nUsed by some providers for additional LLM guidance, e.g. via tool or schema description.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 4376,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 4808,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4376"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4808"
       }
     },
     "blockStart-2d9e8e293c8e": {
@@ -12875,231 +13042,245 @@ export default {
         "path": "src/audio/preparation.ts"
       }
     },
-    "type-28d9280d80c8": {
+    "type-17b1a9c6f9c0": {
       "name": "type",
       "type": "\"text\"",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9571,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10266,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9571"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10266"
       }
     },
-    "text-b288a513fb80": {
+    "text-35313fd999c0": {
       "name": "text",
       "type": "string",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9572,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10267,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9572"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10267"
       }
     },
-    "voice-3d5bccd41bce": {
+    "voice-ea3881c36735": {
       "name": "voice",
       "type": "string | undefined",
       "optional": true,
       "description": "The voice that speaks this part (provider-specific, like the call's\n`voice`). Single-voice providers reject a voice that differs from the\ncall's voice.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9578,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10273,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9578"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10273"
       }
     },
-    "providerOptions-c6f026e1f87f": {
+    "providerOptions-d997f62f10fd": {
       "name": "providerOptions",
       "type": "SharedV4ProviderOptions | undefined",
       "optional": true,
       "description": "Additional provider-specific options for this part.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9582,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10277,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9582"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10277"
       }
     },
-    "token-82039d33aaad": {
+    "token-ff44ef0e9f93": {
       "name": "token",
       "type": "string",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10352,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11051,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10352"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11051"
       }
     },
-    "session-187c7dfc4289": {
+    "session-c137b9a57c19": {
       "name": "session",
       "type": "string",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10357,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11057,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10357"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11057"
       }
     },
-    "websocket-1177dc8df0aa": {
+    "provider-e4bb1895a7a5": {
+      "name": "provider",
+      "type": "string",
+      "optional": false,
+      "description": "",
+      "tags": [],
+      "source": {
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11063,
+        "package": "ai",
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11063"
+      }
+    },
+    "websocket-83ad98a2fc71": {
       "name": "websocket",
       "type": "string",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10362,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11069,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10362"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11069"
       }
     },
-    "protocols-603840f69b76": {
+    "protocols-f227a70717dd": {
       "name": "protocols",
       "type": "string[] | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10363,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11070,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10363"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11070"
       }
     },
-    "status-c863744369b3": {
+    "status-289bf725948e": {
       "name": "status",
       "type": "RealtimeStatus",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10339,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11038,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10339"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11038"
       }
     },
-    "messages-8a7862c23a8e": {
+    "messages-dcfe426366ef": {
       "name": "messages",
       "type": "UIMessage<unknown, UIDataTypes, UITools>[]",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10340,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11039,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10340"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11039"
       }
     },
-    "events-56835ef01875": {
+    "events-ee664420eb67": {
       "name": "events",
       "type": "RealtimeModelV4ServerEvent[]",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10341,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11040,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10341"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11040"
       }
     },
-    "isCapturing-b161e297c8cd": {
+    "isCapturing-b1ff0fcb936c": {
       "name": "isCapturing",
       "type": "boolean",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10342,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11041,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10342"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11041"
       }
     },
-    "isPlaying-e8ba1fbe8c0b": {
+    "isPlaying-02b364321726": {
       "name": "isPlaying",
       "type": "boolean",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10343,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11042,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10343"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11042"
       }
     },
-    "session-42dc226b883f": {
+    "session-6b48c13d0e88": {
       "name": "session",
       "type": "RealtimeSessionState | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 10344,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 11043,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L10344"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11043"
       }
     },
-    "image-2c60dbd30184": {
+    "image-2854a78b2db2": {
       "name": "image",
       "type": "DataContent",
       "optional": false,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9773,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10469,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9773"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10469"
       }
     },
-    "text-92f6e71d9ff1": {
+    "text-64465629c511": {
       "name": "text",
       "type": "string | undefined",
       "optional": true,
       "description": "",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9774,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10470,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9774"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10470"
       }
     },
-    "intervalMs-8623e2efbef5": {
+    "intervalMs-7a1241a53a7d": {
       "name": "intervalMs",
       "type": "number | undefined",
       "optional": true,
@@ -13111,14 +13292,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9790,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10486,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9790"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10486"
       }
     },
-    "timeoutMs-0d47e970346a": {
+    "timeoutMs-f98c899096c4": {
       "name": "timeoutMs",
       "type": "number | undefined",
       "optional": true,
@@ -13130,14 +13311,14 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9796,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10492,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9796"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10492"
       }
     },
-    "delay-437aacd3bd16": {
+    "delay-e8a6d15cb5e2": {
       "name": "delay",
       "type": "((delayInMs: number, options?: { abortSignal?: AbortSignal; }) => PromiseLike<void>) | undefined",
       "optional": true,
@@ -13149,67 +13330,67 @@ export default {
         }
       ],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9803,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10499,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9803"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10499"
       }
     },
-    "image-ceea09dd5218": {
+    "image-bd169cdf0d49": {
       "name": "image",
       "type": "DataContent",
       "optional": false,
       "description": "The image for this frame.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9862,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10558,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9862"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10558"
       }
     },
-    "frameType-b9140b77d8c8": {
+    "frameType-cc8ada441ee4": {
       "name": "frameType",
       "type": "VideoModelV4FrameType",
       "optional": false,
       "description": "Which frame this image represents.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9866,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10562,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9866"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10562"
       }
     },
-    "data-847ff95deffc": {
+    "data-e9ce5d90d43e": {
       "name": "data",
       "type": "DataContent",
       "optional": false,
       "description": "The reference image or video.",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9878,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10574,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9878"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10574"
       }
     },
-    "mediaType-94a62a345c6a": {
+    "mediaType-75156914873a": {
       "name": "mediaType",
       "type": "string | undefined",
       "optional": true,
       "description": "The media type of the reference (e.g. 'image/png',\n'video/mp4').",
       "tags": [],
       "source": {
-        "path": "node_modules/ai/dist/index.d.ts",
-        "line": 9883,
+        "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+        "line": 10579,
         "package": "ai",
-        "version": "7.0.162",
-        "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9883"
+        "version": "7.0.183",
+        "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10579"
       }
     }
   },
@@ -13288,11 +13469,11 @@ export default {
           "shape": "DecisionQuestion:1"
         },
         {
-          "type": "{ readonly type: \"box\"; readonly instructions: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input; }",
+          "type": "{ readonly type: \"box\"; readonly instructions?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; }",
           "shape": "DecisionQuestion:2"
         },
         {
-          "type": "{ readonly type: \"boolean\"; readonly instructions?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly criteria?: { readonly true?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly false?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; }; }",
+          "type": "{ readonly type: \"boolean\"; readonly instructions?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly criteria?: { readonly true?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; readonly false?: import(\"@ai-sdk/provider\").Experimental_DecisionModelV4Input | null; } | null; }",
           "shape": "DecisionQuestion:3"
         }
       ]
@@ -13355,19 +13536,19 @@ export default {
       ]
     },
     "OutputObject": {
-      "type": "{ schema: import(\"ai\").FlexibleSchema<unknown>; name?: string; description?: string; }",
+      "type": "{ schema: never; name?: string; description?: string; }",
       "variants": [
         {
-          "type": "{ schema: import(\"ai\").FlexibleSchema<unknown>; name?: string; description?: string; }",
+          "type": "{ schema: never; name?: string; description?: string; }",
           "shape": "OutputObject:0"
         }
       ]
     },
     "OutputArray": {
-      "type": "{ element: import(\"ai\").FlexibleSchema<unknown>; minItems?: number; maxItems?: number; name?: string; description?: string; }",
+      "type": "{ element: never; minItems?: number; maxItems?: number; name?: string; description?: string; }",
       "variants": [
         {
-          "type": "{ element: import(\"ai\").FlexibleSchema<unknown>; minItems?: number; maxItems?: number; name?: string; description?: string; }",
+          "type": "{ element: never; minItems?: number; maxItems?: number; name?: string; description?: string; }",
           "shape": "OutputArray:0"
         }
       ]
@@ -13463,19 +13644,23 @@ export default {
       ]
     },
     "VoiceClientApi": {
-      "type": "{ token: string; session?: never; websocket?: never; protocols?: never; } | { session: string; token?: never; websocket?: never; protocols?: never; } | { websocket: string; protocols?: string[]; token?: never; session?: never; }",
+      "type": "{ token: string; session?: never; websocket?: never; protocols?: never; provider?: never; } | { session: string; token?: never; websocket?: never; protocols?: never; provider?: never; } | { provider: string; token?: never; session?: never; websocket?: never; protocols?: never; } | { websocket: string; protocols?: string[]; token?: never; session?: never; provider?: never; }",
       "variants": [
         {
-          "type": "{ token: string; session?: never; websocket?: never; protocols?: never; }",
+          "type": "{ token: string; session?: never; websocket?: never; protocols?: never; provider?: never; }",
           "shape": "VoiceClientApi:0"
         },
         {
-          "type": "{ session: string; token?: never; websocket?: never; protocols?: never; }",
+          "type": "{ session: string; token?: never; websocket?: never; protocols?: never; provider?: never; }",
           "shape": "VoiceClientApi:1"
         },
         {
-          "type": "{ websocket: string; protocols?: string[]; token?: never; session?: never; }",
+          "type": "{ provider: string; token?: never; session?: never; websocket?: never; protocols?: never; }",
           "shape": "VoiceClientApi:2"
+        },
+        {
+          "type": "{ websocket: string; protocols?: string[]; token?: never; session?: never; provider?: never; }",
+          "shape": "VoiceClientApi:3"
         }
       ]
     },
@@ -13540,10 +13725,10 @@ export default {
         "description": "One typed answer per question ID, with literal Choice option inference.",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
-          "line": 66,
+          "line": 71,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
         }
       },
@@ -13551,10 +13736,10 @@ export default {
         "description": "`inputTokens`, `outputTokens`, and `totalTokens`, each possibly undefined.",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
-          "line": 67,
+          "line": 72,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
         }
       },
@@ -13562,10 +13747,10 @@ export default {
         "description": "Provider warnings, also passed to the SDK warning logger.",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
-          "line": 68,
+          "line": 73,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
         }
       },
@@ -13573,10 +13758,10 @@ export default {
         "description": "Optional provider-declared decimal precision for probabilities and scores.",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
-          "line": 69,
+          "line": 74,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
         }
       },
@@ -13584,10 +13769,10 @@ export default {
         "description": "Optional provider-specific metadata.",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
-          "line": 70,
+          "line": 75,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
         }
       },
@@ -13595,47 +13780,25 @@ export default {
         "description": "Timestamp, model ID, and optional response ID, headers, and body.",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/14-decide.mdx",
-          "line": 71,
+          "line": 76,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/14-decide.mdx#L12",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/decide"
         }
       }
     },
-    "OutputObject:0": {
-      "schema": {
-        "description": "The schema of the object to generate.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 4288,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4288"
-        }
-      }
-    },
-    "OutputArray:0": {
-      "element": {
-        "description": "The schema of the array elements to generate.",
-        "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 4313,
-          "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4313"
-        }
-      }
-    },
+    "OutputObject:0": {},
+    "OutputArray:0": {},
     "OutputChoice:0": {
       "options": {
         "description": "The available choices.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 4344,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 4776,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L4344"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L4776"
         }
       }
     },
@@ -13644,66 +13807,66 @@ export default {
       "usage": {
         "description": "Usage information reported for the call, if available.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 9607,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 10302,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9607"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10302"
         },
         "descriptionOrigin": "ai"
       },
       "warnings": {
         "description": "Warnings for the call, e.g. unsupported settings.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 9611,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 10306,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9611"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10306"
         },
         "descriptionOrigin": "ai"
       },
       "responses": {
         "description": "Response metadata.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 9615,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 10310,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9615"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10310"
         },
         "descriptionOrigin": "ai"
       },
       "providerMetadata": {
         "description": "Additional provider-specific metadata.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 9619,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 10314,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9619"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10314"
         },
         "descriptionOrigin": "ai"
       },
       "audioStream": {
         "description": "Stream of audio bytes in generation order.\n\n`audioStream` and `fullStream` share one live stream: only one of them\ncan be accessed, and only once. Access it before any result promise;\naccessing a result promise first consumes the stream internally.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 9627,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 10322,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9627"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10322"
         },
         "descriptionOrigin": "ai"
       },
       "fullStream": {
         "description": "Full stream of speech parts (audio, raw, and error parts).\n\n`audioStream` and `fullStream` share one live stream: only one of them\ncan be accessed, and only once. Access it before any result promise;\naccessing a result promise first consumes the stream internally.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 9635,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 10330,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L9635"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L10330"
         },
         "descriptionOrigin": "ai"
       }
@@ -13712,88 +13875,88 @@ export default {
       "sourceText": {
         "description": "The final source-language transcript of the input audio.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11237,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 11978,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11237"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11978"
         },
         "descriptionOrigin": "ai"
       },
       "translationText": {
         "description": "The final translated text in the target language.\n\nMay resolve to an empty string for providers that produce only audio\noutput.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11244,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 11985,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11244"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11985"
         },
         "descriptionOrigin": "ai"
       },
       "durationInSeconds": {
         "description": "The duration of the source audio in seconds, if available.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11248,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 11989,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11248"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11989"
         },
         "descriptionOrigin": "ai"
       },
       "usage": {
         "description": "Usage information for the translation call, if reported by the provider.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11252,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 11993,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11252"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11993"
         },
         "descriptionOrigin": "ai"
       },
       "warnings": {
         "description": "Warnings for the call, e.g. unsupported settings.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11256,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 11997,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11256"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L11997"
         },
         "descriptionOrigin": "ai"
       },
       "response": {
         "description": "Response metadata.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11260,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 12001,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11260"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12001"
         },
         "descriptionOrigin": "ai"
       },
       "providerMetadata": {
         "description": "Additional provider-specific metadata.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11264,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 12005,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11264"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12005"
         },
         "descriptionOrigin": "ai"
       },
       "fullStream": {
         "description": "Full stream of translation parts.\n\nThis is a single-consumer live stream and can only be accessed once.\nAccess it before any result promise when both stream parts and final\nresults are needed; accessing a result promise first consumes the stream\ninternally and makes `fullStream` unavailable.",
         "descriptionSource": {
-          "path": "node_modules/ai/dist/index.d.ts",
-          "line": 11273,
+          "path": "node_modules/ai/dist/index-D1zb0Eh5.d.ts",
+          "line": 12014,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/dist/index.d.ts#L11273"
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/dist/index-D1zb0Eh5.d.ts#L12014"
         },
         "descriptionOrigin": "ai"
       }
@@ -13804,22 +13967,22 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 243,
+          "line": 269,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L243",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L269",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
       "api": {
-        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, or a WebRTC SDP endpoint. Conversation semantics and connection capabilities are independent.",
+        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, a WebRTC SDP endpoint, or a provider-managed session endpoint. Conversation semantics and connection capabilities are independent.",
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 249,
+          "line": 275,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L249",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L275",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13828,10 +13991,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 291,
+          "line": 324,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L291",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L324",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13840,10 +14003,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 298,
+          "line": 331,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L298",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L331",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13852,10 +14015,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 305,
+          "line": 338,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L305",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L338",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13864,10 +14027,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 312,
+          "line": 345,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L312",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L345",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13876,10 +14039,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 319,
+          "line": 352,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L319",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13888,10 +14051,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 326,
+          "line": 359,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L326",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L359",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13900,10 +14063,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 333,
+          "line": 366,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L333",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L366",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13912,10 +14075,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 340,
+          "line": 373,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L373",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13924,10 +14087,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 346,
+          "line": 379,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L379",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13936,10 +14099,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 352,
+          "line": 385,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L385",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
@@ -13950,22 +14113,22 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 243,
+          "line": 269,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L243",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L269",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
       "api": {
-        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, or a WebRTC SDP endpoint. Conversation semantics and connection capabilities are independent.",
+        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, a WebRTC SDP endpoint, or a provider-managed session endpoint. Conversation semantics and connection capabilities are independent.",
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 249,
+          "line": 275,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L249",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L275",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13974,10 +14137,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 291,
+          "line": 324,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L291",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L324",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13986,10 +14149,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 298,
+          "line": 331,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L298",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L331",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -13998,10 +14161,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 305,
+          "line": 338,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L305",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L338",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14010,10 +14173,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 312,
+          "line": 345,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L312",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L345",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14022,10 +14185,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 319,
+          "line": 352,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L319",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14034,10 +14197,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 326,
+          "line": 359,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L326",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L359",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14046,10 +14209,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 333,
+          "line": 366,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L333",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L366",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14058,10 +14221,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 340,
+          "line": 373,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L373",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14070,10 +14233,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 346,
+          "line": 379,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L379",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14082,10 +14245,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 352,
+          "line": 385,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L385",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
@@ -14096,22 +14259,22 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 243,
+          "line": 269,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L243",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L269",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
       "api": {
-        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, or a WebRTC SDP endpoint. Conversation semantics and connection capabilities are independent.",
+        "description": "Choose one supported connection mechanism: token setup, a WebSocket relay, a WebRTC SDP endpoint, or a provider-managed session endpoint. Conversation semantics and connection capabilities are independent.",
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 249,
+          "line": 275,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L249",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L275",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14120,10 +14283,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 291,
+          "line": 324,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L291",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L324",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14132,10 +14295,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 298,
+          "line": 331,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L298",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L331",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14144,10 +14307,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 305,
+          "line": 338,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L305",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L338",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14156,10 +14319,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 312,
+          "line": 345,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L312",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L345",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14168,10 +14331,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 319,
+          "line": 352,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L319",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14180,10 +14343,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 326,
+          "line": 359,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L326",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L359",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14192,10 +14355,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 333,
+          "line": 366,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L333",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L366",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14204,10 +14367,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 340,
+          "line": 373,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L373",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14216,10 +14379,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 346,
+          "line": 379,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L379",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14228,10 +14391,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 352,
+          "line": 385,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L385",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
@@ -14242,10 +14405,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 352,
+          "line": 385,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L352",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L385",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14254,10 +14417,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 340,
+          "line": 373,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L340",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L373",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14266,46 +14429,46 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 346,
+          "line": 379,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L346",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L379",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
       "connect": {
-        "description": "Starts the selected connection. Continuous browser sessions acquire microphone audio by default; capture: false opts out. A supplied Live stream remains caller-owned. The zero-argument overload remains usable as an event handler.",
+        "description": "Starts the selected connection. Continuous Live and Mistral sessions acquire microphone audio by default; capture: false opts out. Supplied tracks remain caller-owned on these paths. The zero-argument overload remains usable as an event handler.",
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 399,
+          "line": 432,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L399",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L432",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
       "disconnect": {
-        "description": "Immediately releases transports and owned media. Preserves latest usage as unconfirmed unless a terminal provider event was received.",
+        "description": "Immediately releases transports and owned media. Provider-owned transports initiate server cleanup without awaiting it. Preserves latest usage as unconfirmed unless a terminal provider event was received.",
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 411,
+          "line": 444,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L411",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L444",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
       "close": {
-        "description": "Stops capture/submissions and waits for bounded graceful finalization where supported. Inspect session.finalization for confirmation; models without acknowledged close disconnect immediately.",
+        "description": "Stops capture/submissions and waits for bounded graceful finalization where supported. Provider-owned transports await session cleanup. For Live, inspect session.finalization for usage confirmation; models without acknowledged close disconnect immediately.",
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 405,
+          "line": 438,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L405",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L438",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14314,10 +14477,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 423,
+          "line": 456,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L423",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L456",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14326,10 +14489,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 429,
+          "line": 462,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L429",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L462",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14338,10 +14501,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 435,
+          "line": 468,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L435",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L468",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14350,10 +14513,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 440,
+          "line": 473,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L440",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L473",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14362,10 +14525,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 445,
+          "line": 478,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L445",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L478",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14374,10 +14537,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 450,
+          "line": 483,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L450",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L483",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14386,10 +14549,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 455,
+          "line": 488,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L455",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L488",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14398,10 +14561,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 417,
+          "line": 450,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L417",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L450",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14410,10 +14573,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 461,
+          "line": 494,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L461",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L494",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14422,10 +14585,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 473,
+          "line": 506,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L473",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L506",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14434,10 +14597,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 467,
+          "line": 500,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L467",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L500",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14446,10 +14609,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 478,
+          "line": 511,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L478",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L511",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14458,10 +14621,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 484,
+          "line": 517,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L484",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L517",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
@@ -14472,10 +14635,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 259,
+          "line": 285,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L259",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L285",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
@@ -14486,24 +14649,38 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 266,
+          "line": 292,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L266",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L292",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
     },
     "VoiceClientApi:2": {
+      "provider": {
+        "description": "Application endpoint for a provider-owned transport. Mistral uses POST to create a session and DELETE with a sessionId query parameter to close it.",
+        "descriptionOrigin": "ai",
+        "descriptionSource": {
+          "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
+          "line": 299,
+          "package": "ai",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L299",
+          "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
+        }
+      }
+    },
+    "VoiceClientApi:3": {
       "websocket": {
         "description": "Application-owned raw-protocol relay URL. Use wss in production; never put provider credentials in the URL.",
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 273,
+          "line": 306,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L273",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L306",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14512,10 +14689,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 280,
+          "line": 313,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L280",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L313",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
@@ -14526,10 +14703,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 364,
+          "line": 397,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L364",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L397",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14538,10 +14715,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 370,
+          "line": 403,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L370",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L403",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14550,10 +14727,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 376,
+          "line": 409,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L376",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L409",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14562,10 +14739,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 382,
+          "line": 415,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L382",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L415",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14574,10 +14751,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 387,
+          "line": 420,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L387",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L420",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       },
@@ -14586,10 +14763,10 @@ export default {
         "descriptionOrigin": "ai",
         "descriptionSource": {
           "path": "node_modules/ai/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx",
-          "line": 393,
+          "line": 426,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L393",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/02-ai-sdk-ui/05-use-realtime.mdx#L426",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-realtime"
         }
       }
@@ -14602,8 +14779,8 @@ export default {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx",
           "line": 64,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L64",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L64",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video"
         }
       },
@@ -14614,8 +14791,8 @@ export default {
           "path": "node_modules/ai/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx",
           "line": 69,
           "package": "ai",
-          "version": "7.0.162",
-          "url": "https://unpkg.com/ai@7.0.162/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L69",
+          "version": "7.0.183",
+          "url": "https://unpkg.com/ai@7.0.183/docs/07-reference/01-ai-sdk-core/13-generate-video.mdx#L69",
           "documentation": "https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-video"
         }
       }

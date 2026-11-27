@@ -9,7 +9,7 @@ import type { Fields } from '../types/utils.js';
 import type { RuntimeContextFromConfig } from '../types/config.js';
 import { ValidationError } from '../errors.js';
 
-type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof embedMany<Runtime>>[0], '_internal' | 'values'> & { input: string | string[] };
+export type Settings<Runtime extends Record<string, unknown> = Record<string, unknown>> = Omit<Parameters<typeof embedMany<Runtime>>[0], '_internal' | 'values'> & { input: string | string[] };
 export const definition = {
 	name: 'Embedder', defaultMode: 'text', main: 'input', modifiers: textModifiers, toolModes: textModes, required: ['model'],
 } as const satisfies import('./component-factory.js').ComponentDefinition<Settings>;

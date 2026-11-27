@@ -249,6 +249,28 @@ describe('Supplied audio through the component', () => {
 			await transcribe(header.subarray(0, 4)); assert.deepEqual(raw.at(-1), header.subarray(0, 4));
 		}
 	});
+	it('recognizes a version-one QuickTime movie header after a padding atom before sending raw audio', async () => {
+		const { model, raw } = capture();
+		const listen = Transcriber({ model, inputAudioFormat: target });
+		// moov contains an empty free atom and a 64-bit-sized mvhd with the version-one layout.
+		const movie = Buffer.alloc(144);
+		movie.writeUInt32BE(movie.length, 0); movie.write('moov', 4);
+		movie.writeUInt32BE(8, 8); movie.write('free', 12);
+		movie.writeUInt32BE(1, 16); movie.write('mvhd', 20);
+		movie.writeBigUInt64BE(128n, 24);
+		movie[32] = 1;
+		movie.writeUInt32BE(48000, 52); movie.writeBigUInt64BE(96000n, 56);
+		await assert.rejects(listen(movie), /loadsAudio/);
+		assert.equal(raw.length, 0);
+
+		// Until the reader can see a positive timescale, the prefix alone can be caller-supplied PCM.
+		const noTimescale = Buffer.from(movie);
+		noTimescale.writeUInt32BE(0, 52);
+		for (const bytes of [movie.subarray(0, 24), movie.subarray(0, 52), noTimescale]) {
+			await listen(bytes);
+			assert.deepEqual(raw.at(-1), Uint8Array.from(bytes));
+		}
+	});
 	it('requires multiple distinct transport-stream headers before rejecting PCM', async () => {
 		const { model, raw } = capture();
 		const transcribe = Transcriber({ model, inputAudioFormat: target });
@@ -415,13 +437,13 @@ describe('Supplied audio through the component', () => {
 		}
 	});
 
-	it('rejects missing streaming format before reading a supplied Blob', async () => {
+	it('rejects unsupported file transcript streaming before reading a supplied Blob', async () => {
 		let reads = 0;
 		class CountedBlob extends Blob {
 			override arrayBuffer() { reads++; return super.arrayBuffer(); }
 		}
 		const { model } = capture(), live = Transcriber.asStream({ model });
-		await assert.rejects(async () => Reflect.apply(live, undefined, [new CountedBlob()]) as Promise<unknown>, /requires inputAudioFormat/);
+		await assert.rejects(async () => Reflect.apply(live, undefined, [new CountedBlob()]) as Promise<unknown>, /native recording upload support/);
 		assert.equal(reads, 0);
 	});
 
@@ -581,6 +603,19 @@ describe('Supplied audio through the component', () => {
 			if (previous) Object.defineProperty(globalThis, 'AudioBuffer', previous);
 			else Reflect.deleteProperty(globalThis, 'AudioBuffer');
 		}
+	});
+
+	it('reads compatible channel planes in ordinary shorthand and an explicit tool audio override', async () => {
+		const { model, files } = capture();
+		const buffer = { sampleRate: 24000, numberOfChannels: 1, length: 2, getChannelData: () => Float32Array.of(0.25, -0.5) };
+		const ordinary = Transcriber({ model });
+		await ordinary(buffer);
+		const tool = Transcriber.asTool({ model, audio: new Uint8Array(2), inputSchema: z.object({}) });
+		await tool.run({ audio: buffer });
+		assert.deepEqual(files[1], files[0]);
+		const decoded = await readWav(files[0]);
+		assert.deepEqual(decoded.format, { sampleRate: 24000, channels: 1, encoding: 'pcm_f32le' });
+		assert.deepEqual(new Float32Array(decoded.audio.buffer, decoded.audio.byteOffset, 2), buffer.getChannelData());
 	});
 
 	it('rejects missing or conflicting source information and unsupported conversion targets before dispatch', async () => {
